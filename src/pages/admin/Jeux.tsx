@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Dice5, Plus, Trash2, Edit2, X, Hash, AlertCircle, Search, CheckCircle, ImageIcon, Link as LinkIcon, Tag, ExternalLink, Users, PlayCircle, Clock } from 'lucide-react'
+import { Dice5, Plus, Trash2, Edit2, X, Hash, AlertCircle, Search, CheckCircle, ImageIcon, Link as LinkIcon, Tag, ExternalLink, Users, PlayCircle, Clock, FileText } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
 
 export default function Jeux() {
@@ -12,7 +12,6 @@ export default function Jeux() {
   
   const [categoryInput, setCategoryInput] = useState('')
   const [availableCategories, setAvailableCategories] = useState([])
-  const [isCategoryListOpen, setIsCategoryListOpen] = useState(false)
 
   const initialGameState = {
     registration_number: '',
@@ -84,6 +83,7 @@ export default function Jeux() {
     setNewGame({ ...newGame, category: updatedCats })
   }
 
+  // RECHERCHE FILTRÉE (Description retirée ici)
   const filteredJeux = jeux.filter(jeu => 
     jeu.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     jeu.registration_number.toString().includes(searchTerm) ||
@@ -182,7 +182,7 @@ export default function Jeux() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
               
               <div className="space-y-6">
-                <h3 className="text-[10px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2 mb-2"><Hash size={16} /> Informations</h3>
+                <h3 className="text-[10px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2 mb-2"><Hash size={16} /> Informations principales</h3>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -193,6 +193,17 @@ export default function Jeux() {
                     <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Titre du jeu</label>
                     <input required className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none border-2 border-transparent focus:border-[#1a5f7a]/10" value={newGame.name} onChange={e => setNewGame({...newGame, name: e.target.value})} />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><FileText size={12}/> Description du jeu</label>
+                  <textarea 
+                    rows="3"
+                    placeholder="Brève explication des règles ou du thème..." 
+                    className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]/10 resize-none" 
+                    value={newGame.description || ''} 
+                    onChange={e => setNewGame({...newGame, description: e.target.value})} 
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -206,7 +217,6 @@ export default function Jeux() {
                   </div>
                 </div>
 
-                {/* CHAMP CATÉGORIE OPTIMISÉ SMARTPHONE */}
                 <div className="space-y-2 relative">
                   <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Catégories</label>
                   <div className="flex gap-2">
@@ -274,7 +284,7 @@ export default function Jeux() {
           </form>
         )}
 
-        {/* TABLEAU DESKTOP */}
+        {/* TABLEAU DESKTOP - SIMPLE */}
         <div className="hidden md:block bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-[10px] uppercase text-slate-400 font-black">
@@ -328,7 +338,7 @@ export default function Jeux() {
           </table>
         </div>
 
-        {/* CARTES MOBILE OPTIMISÉES */}
+        {/* CARTES MOBILE - SIMPLE */}
         <div className="md:hidden space-y-4">
           {filteredJeux.map((jeu) => (
             <div key={jeu.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100">
@@ -368,7 +378,7 @@ export default function Jeux() {
                 <Trash2 size={28} />
              </div>
              <h3 className="text-xl font-black uppercase text-slate-900 mb-2">Supprimer ?</h3>
-             <p className="text-xs text-slate-500 mb-8 italic italic">"{deleteModal.name}"</p>
+             <p className="text-xs text-slate-500 mb-8 italic">"{deleteModal.name}"</p>
              <div className="flex flex-col gap-3">
                <button onClick={confirmDelete} className="w-full py-5 bg-rose-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg">Supprimer</button>
                <button onClick={() => setDeleteModal({show: false})} className="w-full py-5 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase text-[10px] tracking-widest">Annuler</button>

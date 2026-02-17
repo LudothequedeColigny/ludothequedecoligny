@@ -10,7 +10,8 @@ import Home from './pages/Home'
 import Catalogue from './pages/Catalogue'
 import Evenements from './pages/Evenements'
 import Login from './pages/Login'
-import HowToBorrow from './pages/HowToBorrow.jsx' // <-- Nouvel import
+import HowToBorrow from './pages/HowToBorrow.jsx'
+import InscriptionPermanence from './pages/InscriptionPermanence' // <-- Nouvel import public
 
 // Pages Admin
 import Dashboard from './pages/admin/Dashboard'
@@ -18,6 +19,7 @@ import Adherents from './pages/admin/Adherents'
 import Jeux from './pages/admin/Jeux'
 import Prets from './pages/admin/Prets'
 import EvenementsAdmin from './pages/admin/Evenements'
+import GestionPermanences from './pages/admin/GestionPermanences' // <-- Nouvel import admin
 
 /**
  * COMPOSANT DE PROTECTION
@@ -62,8 +64,11 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/catalogue" element={<Catalogue />} />
         <Route path="/evenements" element={<Evenements />} />
-        <Route path="/comment-emprunter" element={<HowToBorrow />} /> {/* <-- Nouvelle route */}
+        <Route path="/comment-emprunter" element={<HowToBorrow />} />
         <Route path="/login" element={<Login />} />
+        
+        {/* Route d'inscription pour les bénévoles (accessible sans login) */}
+        <Route path="/inscription-permanence" element={<InscriptionPermanence />} /> 
         
         {/* --- ROUTES PRIVÉES (ADMIN) --- */}
         <Route path="/admin" element={
@@ -102,6 +107,15 @@ function App() {
           <ProtectedRoute>
             <AdminLayout>
               <EvenementsAdmin />
+            </AdminLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* Nouvelle route de gestion des permanences (protégée) */}
+        <Route path="/admin/permanences" element={
+          <ProtectedRoute>
+            <AdminLayout>
+              <GestionPermanences />
             </AdminLayout>
           </ProtectedRoute>
         } />

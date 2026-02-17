@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Dices, Users, Calendar, LogOut, 
-  X, Info, Share2, Menu, ChevronRight 
+  X, Info, Share2, Menu, ChevronRight, ClipboardCheck 
 } from 'lucide-react';
 
 export default function AdminLayout({ children }) {
@@ -95,7 +95,7 @@ export default function AdminLayout({ children }) {
           </div>
 
           {/* MENU ITEMS SECONDAIRES */}
-          <div className="space-y-2 flex-1">
+          <div className="space-y-2">
             {menuItems.map((item) => {
               const isActive = location.pathname === item.path;
               return (
@@ -118,6 +118,26 @@ export default function AdminLayout({ children }) {
                 </Link>
               );
             })}
+
+            {/* --- LIEN PERMANENCES (ISOLÉ) --- */}
+            <div className="mt-10 pt-4 border-t border-slate-50">
+              <Link
+                to="/admin/permanences"
+                onClick={closeMobileMenu}
+                className={`flex items-center gap-4 p-4 rounded-2xl transition-all group ${
+                  location.pathname === '/admin/permanences' 
+                    ? 'bg-slate-50 text-[#1a5f7a]' 
+                    : 'text-slate-400 hover:bg-slate-50 hover:text-[#1a5f7a]'
+                }`}
+              >
+                <span className={`transition-transform group-hover:scale-110 ${location.pathname === '/admin/permanences' ? 'text-[#1a5f7a]' : 'text-slate-200'}`}>
+                  <ClipboardCheck size={20} />
+                </span>
+                <span className={`text-[10px] uppercase tracking-widest ${location.pathname === '/admin/permanences' ? 'font-black text-[#1a5f7a]' : 'font-bold'}`}>
+                  Permanences
+                </span>
+              </Link>
+            </div>
           </div>
 
           {/* FOOTER SIDEBAR : DECONNEXION */}
@@ -149,7 +169,7 @@ export default function AdminLayout({ children }) {
       {/* MODALE DE SORTIE */}
       {showExitConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="relative bg-white rounded-[2.5rem] p-10 max-w-sm w-full shadow-2xl text-center animate-in zoom-in-95 duration-200">
+          <div className="relative bg-white rounded-[2.5rem] p-10 max-sm w-full shadow-2xl text-center animate-in zoom-in-95 duration-200">
             <div className="mx-auto w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mb-6">
               <LogOut size={32} />
             </div>
