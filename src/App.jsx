@@ -11,7 +11,7 @@ import Catalogue from './pages/Catalogue'
 import Evenements from './pages/Evenements'
 import Login from './pages/Login'
 import HowToBorrow from './pages/HowToBorrow.jsx'
-import InscriptionPermanence from './pages/InscriptionPermanence' // <-- Nouvel import public
+import InscriptionPermanence from './pages/InscriptionPermanence'
 
 // Pages Admin
 import Dashboard from './pages/admin/Dashboard'
@@ -19,7 +19,8 @@ import Adherents from './pages/admin/Adherents'
 import Jeux from './pages/admin/Jeux'
 import Prets from './pages/admin/Prets'
 import EvenementsAdmin from './pages/admin/Evenements'
-import GestionPermanences from './pages/admin/GestionPermanences' // <-- Nouvel import admin
+import GestionPermanences from './pages/admin/GestionPermanences'
+import InstallationApp from './pages/admin/InstallationApp' // <-- Nouvel import pour l'installation
 
 /**
  * COMPOSANT DE PROTECTION
@@ -116,6 +117,15 @@ function App() {
           <ProtectedRoute>
             <AdminLayout>
               <GestionPermanences />
+            </AdminLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* Nouvelle route pour l'aide à l'installation de l'App (protégée) */}
+        <Route path="/admin/installation" element={
+          <ProtectedRoute>
+            <AdminLayout>
+              <InstallationApp />
             </AdminLayout>
           </ProtectedRoute>
         } />

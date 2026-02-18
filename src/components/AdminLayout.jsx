@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Dices, Users, Calendar, LogOut, 
-  X, Info, Share2, Menu, ChevronRight, ClipboardCheck 
+  X, Menu, ChevronRight, ClipboardCheck, Share2 
 } from 'lucide-react';
 
 export default function AdminLayout({ children }) {
@@ -49,18 +49,18 @@ export default function AdminLayout({ children }) {
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         
-        {/* LOGO / TITRE */}
+        {/* LOGO / TITRE MODIFIÉ */}
         <div className="p-8 mb-4">
-          <h2 className="text-xl font-black text-slate-900 leading-none uppercase tracking-tighter">
-            Registre <br />
-            <span className="text-[#1a5f7a]">Coligny</span>
+          <h2 className="text-xl font-black text-slate-900 leading-[0.9] uppercase tracking-tighter">
+            <span className="text-[10px] text-slate-400 tracking-[0.1em]">Gestion de la</span> <br />
+            <span className="text-[#1a5f7a] text-2xl">Ludothèque</span>
           </h2>
           <div className="h-1 w-12 bg-[#e38154] mt-3 rounded-full"></div>
         </div>
 
         <nav className="flex-1 px-6 flex flex-col overflow-y-auto">
           
-          {/* SECTION PRÊTS (Action Principale Mise en Avant) */}
+          {/* SECTION PRÊTS */}
           <div className="mb-8">
             <Link
               to={pretPath}
@@ -119,7 +119,7 @@ export default function AdminLayout({ children }) {
               );
             })}
 
-            {/* --- LIEN PERMANENCES (ISOLÉ) --- */}
+            {/* --- LIEN PERMANENCES --- */}
             <div className="mt-10 pt-4 border-t border-slate-50">
               <Link
                 to="/admin/permanences"
@@ -140,7 +140,7 @@ export default function AdminLayout({ children }) {
             </div>
           </div>
 
-          {/* FOOTER SIDEBAR : DECONNEXION */}
+          {/* FOOTER SIDEBAR */}
           <div className="mt-auto py-8 border-t border-slate-50">
             <button
               onClick={() => { setShowExitConfirm(true); closeMobileMenu(); }}
@@ -161,7 +161,7 @@ export default function AdminLayout({ children }) {
         />
       )}
 
-      {/* CONTENU PRINCIPAL (DYNAMIQUE) */}
+      {/* CONTENU PRINCIPAL */}
       <main className="flex-1 min-w-0 md:h-screen overflow-y-auto">
         {children}
       </main>

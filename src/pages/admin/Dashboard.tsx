@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../services/supabaseClient'
-import { LayoutDashboard, Box, Users, LogOut, Loader2, ClipboardList, Calendar, Dice5 } from 'lucide-react'
+import { LayoutDashboard, Users, LogOut, Loader2, ClipboardList, Calendar, Dice5, Download, Smartphone } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 
 export default function Dashboard() {
@@ -17,12 +17,11 @@ export default function Dashboard() {
     async function fetchStats() {
       setLoading(true)
       
-      // Récupération des données en parallèle pour plus de rapidité
       const [games, available, members, events] = await Promise.all([
         supabase.from('games').select('*', { count: 'exact', head: true }),
         supabase.from('games').select('*', { count: 'exact', head: true }).eq('is_available', true),
         supabase.from('members').select('*', { count: 'exact', head: true }),
-        supabase.from('events').select('*', { count: 'exact', head: true }) // Assure-toi que la table s'appelle 'events'
+        supabase.from('events').select('*', { count: 'exact', head: true })
       ])
 
       setStats({
@@ -41,7 +40,6 @@ export default function Dashboard() {
     navigate('/')
   }
 
-  // Configuration des cartes (maintenant au nombre de 4)
   const cards = [
     { title: 'Jeux', value: stats.totalGames, icon: <Dice5 size={22} />, link: '/admin/jeux', lightColor: 'bg-[#f0f7f9]', textColor: 'text-[#1a5f7a]' },
     { title: 'Adhérents', value: stats.totalMembers, icon: <Users size={22} />, link: '/admin/adherents', lightColor: 'bg-[#fdf2ee]', textColor: 'text-[#e38154]' },
@@ -80,9 +78,9 @@ export default function Dashboard() {
             Mise à jour des compteurs...
           </div>
         ) : (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
+          <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
             
-            {/* ACTION PRIORITAIRE (CONSERVÉE) */}
+            {/* ACTION PRIORITAIRE : GESTION DES PRÊTS */}
             <div className="bg-[#1a5f7a] rounded-[2.5rem] md:rounded-[3.5rem] p-8 md:p-14 text-white flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl shadow-cyan-900/20 relative overflow-hidden group">
               <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/5 rounded-full group-hover:scale-110 transition-transform duration-700"></div>
               
@@ -104,8 +102,7 @@ export default function Dashboard() {
               </Link>
             </div>
 
-            {/* NOUVELLE GRILLE DE COMPTEURS / BOUTONS */}
-            {/* grid-cols-2 sur mobile pour ne pas avoir une liste trop longue */}
+            {/* GRILLE DE COMPTEURS */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
               {cards.map((card, index) => (
                 <Link 
@@ -116,17 +113,39 @@ export default function Dashboard() {
                   <div className={`p-4 rounded-2xl mb-4 md:mb-6 ${card.lightColor} ${card.textColor} group-hover:scale-110 transition-transform`}>
                     {card.icon}
                   </div>
-                  
-                  {/* Valeur centrée */}
                   <div className="text-3xl md:text-5xl font-black text-slate-900 tracking-tighter mb-1">
                     {card.value}
                   </div>
-                  
                   <div className="text-[9px] md:text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">
                     {card.title}
                   </div>
                 </Link>
               ))}
+            </div>
+
+            {/* BLOC INSTALLATION APPLICATION (NOUVEAU) */}
+            <div className="pt-4">
+              <Link 
+                to="/admin/installation" 
+                className="bg-emerald-500 rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 text-white flex items-center justify-between shadow-lg shadow-emerald-900/10 hover:bg-emerald-600 transition-all active:scale-[0.98] group"
+              >
+                <div className="flex items-center gap-4 md:gap-6">
+                  <div className="w-12 h-12 md:w-16 md:h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm group-hover:rotate-6 transition-transform">
+                    <Smartphone size={28} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg md:text-xl font-black uppercase tracking-tight leading-none">
+                      Installer l'application
+                    </h3>
+                    <p className="text-[10px] md:text-xs font-bold text-emerald-100 mt-2 opacity-90">
+                      Pour accéder à la ludothèque directement depuis votre écran d'accueil
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-white text-emerald-600 p-3 md:p-4 rounded-full shadow-inner hidden md:block">
+                  <Download size={20} />
+                </div>
+              </Link>
             </div>
 
           </div>

@@ -294,7 +294,7 @@ export default function Home() {
                 </div>
                 <div className="bg-white/10 backdrop-blur-sm border border-white/10 p-6 rounded-[2rem]">
                   <Clock size={24} className="text-[#e38154] mb-3" />
-                  <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200 mb-1">3e Vendredis du mois</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200 mb-1">3e Samedis du mois</p>
                   <p className="text-xl font-bold">14h00 — 16h00</p>
                 </div>
               </div>

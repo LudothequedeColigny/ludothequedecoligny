@@ -148,7 +148,7 @@ export default function HowToBorrow() {
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4 text-[10px] font-black uppercase tracking-widest">
             <div className="px-6 py-3 border border-white/20 rounded-xl bg-white/10 backdrop-blur-sm">1ers Samedis (10h-12h)</div>
-            <div className="px-6 py-3 border border-white/20 rounded-xl bg-white/10 backdrop-blur-sm">3es Vendredis (14h-16h)</div>
+            <div className="px-6 py-3 border border-white/20 rounded-xl bg-white/10 backdrop-blur-sm">3es samedis (14h-16h)</div>
           </div>
         </div>
 
