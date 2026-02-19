@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, User, Building2, Calendar, CheckCircle2, Info, Mail, Phone } from 'lucide-react'
+import { ArrowLeft, User, Building2, Calendar, CheckCircle2, Info, Mail, Phone, Landmark } from 'lucide-react'
 
 export default function HowToBorrow() {
   const navigate = useNavigate()
@@ -8,18 +8,16 @@ export default function HowToBorrow() {
   const currentMonth = now.getMonth() // 0 = Janvier
   const currentYear = now.getFullYear()
   
-  // Calcul de la cotisation dégressive
+  // Calcul de la cotisation dégressive pour la ludothèque
   const privateFee = 24 - (currentMonth * 2)
   const monthName = new Intl.DateTimeFormat('fr-FR', { month: 'long' }).format(now)
 
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans pb-10 text-slate-900">
       
-      {/* HEADER MIS À JOUR : SANS LOGO DROITE ET TEXTE RETOUR LONG */}
+      {/* HEADER */}
       <header className="bg-white border-b border-slate-100 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-20 flex items-center justify-between">
-          
-          {/* Bouton retour avec texte complet */}
           <div className="flex-1">
             <button 
               onClick={() => navigate('/')}
@@ -29,24 +27,30 @@ export default function HowToBorrow() {
               <span>Retour à la page d'accueil</span>
             </button>
           </div>
-
-          {/* Titre centré (caché sur très petits écrans pour éviter la collision avec le long texte de retour) */}
           <div className="hidden md:flex flex-1 justify-center text-center">
             <h1 className="text-xs font-black uppercase tracking-[0.2em] text-[#1a5f7a] whitespace-nowrap">
-              Adhésion
+              Modalités d'emprunt
             </h1>
           </div>
-
-          {/* Espace vide à droite pour maintenir le centrage du titre sur desktop */}
           <div className="hidden md:block flex-1"></div> 
-          
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto px-4 pt-12">
+        
+        {/* TITRE PRINCIPAL ET EXPLICATION PACTES */}
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-4">Devenir adhérent</h2>
-          <p className="text-[#e38154] font-bold uppercase tracking-widest text-xs">L'adhésion est gérée par l'association PACTES</p>
+          <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-6">Comment emprunter un jeu ?</h2>
+          <div className="max-w-3xl mx-auto bg-white border border-[#e38154]/20 rounded-[2rem] p-8 shadow-sm">
+            <div className="flex items-center justify-center gap-3 mb-4 text-[#e38154]">
+              <Landmark size={24} />
+              <span className="font-black uppercase tracking-widest text-sm">Étape préalable</span>
+            </div>
+            <p className="text-slate-600 leading-relaxed font-medium">
+              Pour profiter de la ludothèque, il faut d'abord être <span className="text-slate-900 font-bold">adhérent à l'Association PACTES</span> (contribution annuelle de <span className="text-[#e38154] font-black">10€</span>). 
+              Une fois membre de l'association, vous pouvez devenir adhérent à la ludothèque selon les modalités ci-dessous.
+            </p>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -58,7 +62,7 @@ export default function HowToBorrow() {
             </div>
             <h3 className="text-2xl font-black text-slate-900 mb-2">Particuliers</h3>
             <p className="text-slate-500 text-sm mb-8 leading-relaxed">
-              Pour les familles et habitants souhaitant profiter de notre collection de jeux.
+              Une seule adhésion par foyer suffit pour que tout le monde puisse en profiter.
             </p>
 
             <div className="bg-[#f0f7f9] rounded-2xl p-6 mb-8 border border-[#1a5f7a]/10">
@@ -78,7 +82,7 @@ export default function HowToBorrow() {
               </li>
               <li className="flex gap-3 text-slate-700 font-medium">
                 <CheckCircle2 className="text-[#1a5f7a] flex-shrink-0" size={20} />
-                Accès aux événements
+                Valable pour tout le foyer
               </li>
               <li className="flex gap-3 text-slate-700 font-medium">
                 <CheckCircle2 className="text-[#1a5f7a] flex-shrink-0" size={20} />
@@ -89,12 +93,12 @@ export default function HowToBorrow() {
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex gap-3 items-start">
               <Info size={16} className="text-[#e38154] mt-0.5" />
               <p className="text-[10px] text-slate-500 italic leading-tight">
-                La cotisation est de 24€ au 1er janvier, puis dégressive de 2€ par mois.
+                La cotisation Ludothèque est de 24€ au 1er janvier, puis dégressive de 2€ par mois.
               </p>
             </div>
           </div>
 
-          {/* CARTE ASSOCIATION */}
+          {/* CARTE COLLECTIVITÉ */}
           <div className="bg-white rounded-[2.5rem] p-10 shadow-sm border border-slate-100 flex flex-col hover:border-[#e38154] transition-all">
             <div className="w-16 h-16 bg-[#fdf2ee] text-[#e38154] rounded-2xl flex items-center justify-center mb-6">
               <Building2 size={32} />
@@ -138,13 +142,13 @@ export default function HowToBorrow() {
           </div>
         </div>
 
-        {/* SECTION COMMENT FAIRE */}
+        {/* SECTION INSCRIPTION */}
         <div className="mt-20 bg-[#1a5f7a] rounded-[3rem] p-12 text-white text-center relative overflow-hidden shadow-2xl shadow-cyan-900/20">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16"></div>
-          <h3 className="text-3xl font-black mb-6">Comment s'inscrire ?</h3>
+          <h3 className="text-3xl font-black mb-6">Prêt à jouer ?</h3>
           <p className="text-cyan-100 max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
             Passez nous voir au <span className="text-[#e38154] font-black">412 Grande Rue à Coligny</span> durant nos permanences. 
-            L'inscription se fait sur place avec un bénévole.
+            L'inscription (PACTES + Ludothèque) se fait directement sur place.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4 text-[10px] font-black uppercase tracking-widest">
             <div className="px-6 py-3 border border-white/20 rounded-xl bg-white/10 backdrop-blur-sm">1ers Samedis (10h-12h)</div>

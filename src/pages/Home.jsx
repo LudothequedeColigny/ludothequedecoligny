@@ -27,6 +27,7 @@ export default function Home() {
   const [selectedEvent, setSelectedEvent] = useState(null)
 
   const facebookUrl = "https://www.facebook.com/groups/1243242750112981?locale=fr_FR"
+  const addressQuery = "412+Grande+Rue,+01270+Coligny"
 
   useEffect(() => {
     async function fetchHomeData() {
@@ -95,7 +96,6 @@ export default function Home() {
             </div>
             
             <div className="flex items-center gap-6">
-              {/* LIEN FACEBOOK DISCRET DANS LE HEADER */}
               <a 
                 href={facebookUrl} 
                 target="_blank" 
@@ -171,7 +171,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-16">
             <span className="text-[#e38154] font-black uppercase tracking-[0.3em] text-xs">À ne pas manquer</span>
-            <h3 className="text-4xl font-black text-slate-900 mt-2 mb-4">Prochains Rendez-vous</h3>
+            <h3 className="text-4xl font-black text-slate-900 mt-2 mb-4">Nos prochains rendez-vous</h3>
             <div className="h-1.5 w-20 bg-[#1a5f7a] mx-auto rounded-full"></div>
           </div>
 
@@ -280,9 +280,9 @@ export default function Home() {
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32"></div>
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-black/5 rounded-full -ml-48 -mb-48"></div>
         <div className="max-w-6xl mx-auto px-4 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h3 className="text-4xl md:text-5xl font-black mb-10 leading-tight">
+              <h3 className="text-3xl md:text-4xl font-black mb-8 leading-tight">
                 Nous vous attendons au <br/>
                 <span className="text-[#e38154]">412 Grande Rue à Coligny</span>
               </h3>
@@ -300,10 +300,15 @@ export default function Home() {
               </div>
             </div>
             <div className="relative group">
-               <div className="absolute inset-0 bg-white rounded-[3rem] blur-2xl opacity-10"></div>
-               <div className="relative bg-white/10 backdrop-blur-md border border-white/20 p-12 rounded-[3rem] text-center">
-                  <MapPin size={48} className="text-[#e38154] mb-6 mx-auto" />
-                  <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" className="inline-block px-8 py-4 bg-white text-[#1a5f7a] rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-[#e38154] hover:text-white hover:scale-105 transition-all shadow-xl mt-4">
+               <div className="relative bg-white/10 backdrop-blur-md border border-white/20 p-8 md:p-12 rounded-[3rem] text-center max-w-sm mx-auto">
+                  <MapPin size={40} className="text-[#e38154] mb-4 mx-auto" />
+                  <p className="text-xs font-bold text-cyan-100/60 mb-6 uppercase tracking-widest">Plan & Navigation</p>
+                  <a 
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${addressQuery}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="inline-block w-full px-8 py-4 bg-white text-[#1a5f7a] rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-[#e38154] hover:text-white hover:scale-105 transition-all shadow-xl"
+                  >
                     Ouvrir l'itinéraire
                   </a>
                </div>
@@ -337,7 +342,6 @@ export default function Home() {
 
       {/* FOOTER */}
       <footer className="py-12 bg-slate-50 text-center">
-        {/* LIEN FACEBOOK DISCRET DANS LE FOOTER */}
         <div className="mb-6">
           <a 
             href={facebookUrl} 
