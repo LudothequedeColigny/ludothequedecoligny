@@ -3,7 +3,7 @@ import { supabase } from '../../services/supabaseClient'
 import { 
   Calendar, Clock, Plus, Trash2, Users, Link as LinkIcon, 
   CheckCircle, CalendarDays, UserCheck, Loader2, AlertTriangle,
-  Search, X, Edit2, Info, Share2, Send, ExternalLink
+  Search, X, Edit2, Info, Share2, Send, ExternalLink, WifiOff
 } from 'lucide-react'
 
 export default function GestionPermanences() {
@@ -30,17 +30,36 @@ export default function GestionPermanences() {
 
   async function fetchShifts() {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('shifts')
-      .select('*')
-      .order('date', { ascending: true })
-    
-    if (error) setErrorMsg("Impossible de charger les permanences")
-    else setShifts(data || [])
-    setLoading(false)
+    try {
+      if (navigator.onLine) {
+        const { data, error } = await supabase
+          .from('shifts')
+          .select('*')
+          .order('date', { ascending: true })
+        
+        if (error) throw error
+        
+        const shiftsData = data || []
+        setShifts(shiftsData)
+        // Mise en cache locale du planning
+        localStorage.setItem('cache_shifts_list', JSON.stringify(shiftsData))
+      } else {
+        // Chargement du cache si réseau absent
+        const cachedShifts = JSON.parse(localStorage.getItem('cache_shifts_list') || '[]')
+        setShifts(cachedShifts)
+      }
+    } catch (error) {
+      setErrorMsg("Impossible de charger les permanences")
+    } finally {
+      setLoading(false)
+    }
   }
 
   const openForm = (shift = null) => {
+    if (!navigator.onLine) {
+      alert("⚠️ La modification du planning nécessite une connexion internet.")
+      return
+    }
     if (shift) {
       setEditingShift(shift)
       setFormData({ 
@@ -61,6 +80,8 @@ export default function GestionPermanences() {
 
   const handleSave = async (e) => {
     e.preventDefault()
+    if (!navigator.onLine) return;
+    
     setIsSubmitting(true)
 
     if (editingShift) {
@@ -91,6 +112,7 @@ export default function GestionPermanences() {
   }
 
   const processDelete = async () => {
+    if (!navigator.onLine) return;
     await supabase.from('shifts').delete().eq('id', confirmDelete)
     setConfirmDelete(null)
     fetchShifts()
@@ -116,7 +138,7 @@ export default function GestionPermanences() {
   return (
     <div className="min-h-screen bg-[#fdfaf6] p-4 md:p-10 font-sans text-slate-900">
       
-      {/* HEADER - Typographie corrigée pour "Gestion des Permanences" */}
+      {/* HEADER */}
       <div className="max-w-7xl mx-auto mb-6 md:mb-10 flex flex-col md:flex-row justify-between items-center gap-4">
         <h1 className="text-xl md:text-4xl font-black flex items-center gap-3">
           <div className="bg-[#1a5f7a] p-2.5 rounded-xl shadow-lg text-white">
@@ -130,13 +152,21 @@ export default function GestionPermanences() {
           <button onClick={() => setShowLinkModal(true)} className="flex-1 md:flex-none px-6 py-4 bg-white border-2 border-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-sm hover:border-[#1a5f7a] transition-all">
              <LinkIcon size={16} className="inline mr-2"/> Lien Public
           </button>
-          <button onClick={() => openForm()} className="flex-1 md:flex-none px-6 py-4 bg-[#e38154] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all">
+          <button onClick={() => openForm()} className={`flex-1 md:flex-none px-6 py-4 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all ${!navigator.onLine ? 'bg-slate-300' : 'bg-[#e38154]'}`}>
             <Plus size={16} className="mr-2 inline" /> Planifier une date
           </button>
         </div>
       </div>
 
       <main className="max-w-7xl mx-auto space-y-6">
+        {/* BANNIÈRE HORS-LIGNE */}
+        {!navigator.onLine && (
+          <div className="flex items-center gap-3 bg-amber-50 border border-amber-100 p-4 rounded-2xl text-amber-800 animate-in fade-in duration-500">
+            <WifiOff className="text-amber-500 shrink-0" size={20} />
+            <p className="text-[10px] font-black uppercase">Planning en mode lecture seule (Hors-ligne)</p>
+          </div>
+        )}
+
         {/* RECHERCHE */}
         <div className="relative">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
@@ -180,7 +210,7 @@ export default function GestionPermanences() {
                     <button onClick={() => openForm(shift)} className="p-3 text-slate-300 hover:text-[#1a5f7a] hover:bg-cyan-50 rounded-xl transition-all shadow-sm">
                       <Edit2 size={18} />
                     </button>
-                    <button onClick={() => setConfirmDelete(shift.id)} className="p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
+                    <button onClick={() => navigator.onLine ? setConfirmDelete(shift.id) : alert('Action impossible hors-ligne')} className="p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
                       <Trash2 size={18} />
                     </button>
                   </td>
@@ -200,7 +230,7 @@ export default function GestionPermanences() {
                 </div>
                 <div className="flex gap-1">
                   <button onClick={() => openForm(shift)} className="p-2 text-slate-300"><Edit2 size={18}/></button>
-                  <button onClick={() => setConfirmDelete(shift.id)} className="p-2 text-slate-300"><Trash2 size={18}/></button>
+                  <button onClick={() => navigator.onLine ? setConfirmDelete(shift.id) : alert('Action impossible hors-ligne')} className="p-2 text-slate-300"><Trash2 size={18}/></button>
                 </div>
               </div>
               <div className="font-black text-slate-900 uppercase text-sm mb-1">
@@ -220,7 +250,7 @@ export default function GestionPermanences() {
         </div>
       </main>
 
-      {/* --- MODALE FORMULAIRE (STYLE PRÊTS) --- */}
+      {/* --- MODALE FORMULAIRE --- */}
       {showFormModal && (
         <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-end md:items-center justify-center p-0">
           <div className="bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in slide-in-from-bottom flex flex-col">
@@ -259,7 +289,7 @@ export default function GestionPermanences() {
         </div>
       )}
 
-      {/* --- MODALE LIEN PUBLIC (PRÉVENTION) --- */}
+      {/* --- MODALE LIEN PUBLIC --- */}
       {showLinkModal && (
         <div className="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4">
           <div className="bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] w-full max-w-sm p-10 text-center shadow-2xl animate-in slide-in-from-bottom">

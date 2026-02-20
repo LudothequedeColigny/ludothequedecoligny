@@ -112,14 +112,15 @@ function Catalogue() {
           <button onClick={() => navigate('/')} className="flex items-center gap-2 text-slate-400 hover:text-[#1a5f7a] font-bold transition-colors text-xs uppercase tracking-widest">
             <ArrowLeft size={16} /> <span>Accueil</span>
           </button>
-          <h1 className="text-xs font-black uppercase tracking-[0.2em] text-[#1a5f7a]">Catalogue LudoColigny</h1>
+          {/* Texte central supprimé pour plus de clarté */}
           <div className="w-10 md:w-20"></div>
         </div>
       </header>
 
       <main className="p-4 md:p-12 max-w-7xl mx-auto">
         <div className="text-center mb-10">
-          <h2 className="text-4xl md:text-6xl font-black text-slate-900 mb-8 tracking-tight uppercase">La Collection</h2>
+          {/* Titre modifié en "Notre Collection" */}
+          <h2 className="text-4xl md:text-6xl font-black text-slate-900 mb-8 tracking-tight uppercase">Notre Collection</h2>
           
           <div className="max-w-2xl mx-auto mb-8 relative">
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300" />
@@ -186,7 +187,6 @@ function Catalogue() {
               onClick={() => openModale(jeu)}
               className="group bg-white rounded-[2.5rem] shadow-sm overflow-hidden border border-slate-50 transition-all hover:shadow-2xl hover:-translate-y-2 cursor-pointer flex flex-col"
             >
-              {/* Fond Forcé Blanc ici */}
               <div className="h-56 w-full bg-white relative flex items-center justify-center p-6">
                 {jeu.image_url ? (
                   <img src={jeu.image_url} alt={jeu.name} className="relative z-10 max-w-full max-h-full object-contain transition-transform duration-700 group-hover:scale-110" />
@@ -226,7 +226,6 @@ function Catalogue() {
           <div className="relative bg-white w-full sm:max-w-4xl max-h-[90vh] overflow-y-auto rounded-[3rem] shadow-2xl flex flex-col md:flex-row border-b-8 border-[#e38154]">
             <button onClick={() => setSelectedJeu(null)} className="absolute top-6 right-6 p-2 bg-slate-50 text-[#1a5f7a] hover:bg-[#e38154] hover:text-white rounded-full z-30 transition-all"><X size={20} /></button>
 
-            {/* Image Modale : Fond Blanc */}
             <div className="md:w-1/2 bg-white flex items-center justify-center p-8 md:p-12 min-h-[300px]">
               {selectedJeu.image_url ? (
                 <img src={selectedJeu.image_url} alt={selectedJeu.name} className="max-w-full max-h-[40vh] object-contain drop-shadow-xl" />
@@ -255,11 +254,12 @@ function Catalogue() {
                 </div>
               </div>
 
-              {/* DESCRIPTION AVEC "VOIR PLUS" */}
+              {/* DESCRIPTION AVEC "VOIR PLUS" ET RESPECT DES SAUTS DE LIGNE */}
               <div className="mb-8 flex-grow">
                 <h4 className="text-[10px] font-black text-[#e38154] uppercase tracking-[0.2em] mb-3">Description</h4>
                 <div className="relative">
-                  <p className={`text-slate-500 leading-relaxed font-medium italic text-sm ${!isExpanded ? 'line-clamp-3' : ''}`}>
+                  {/* Ajout de whitespace-pre-wrap pour les retours à la ligne */}
+                  <p className={`text-slate-500 leading-relaxed font-medium italic text-sm whitespace-pre-wrap ${!isExpanded ? 'line-clamp-6' : ''}`}>
                     {selectedJeu.description || "Aucune description disponible."}
                   </p>
                   {selectedJeu.description && selectedJeu.description.length > 120 && (

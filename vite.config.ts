@@ -12,7 +12,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.png', 'logo192.png', 'logo512.png'],
       manifest: {
-        name: 'LudoColigny - Gestion',
+        name: 'Ludothèque de Coligny',
         short_name: 'LudoColigny',
         description: 'Application de gestion de ludothèque associative',
         theme_color: '#1a5f7a',

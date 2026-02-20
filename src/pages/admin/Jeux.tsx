@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Dice5, Plus, Trash2, Edit2, X, Hash, AlertCircle, Search, CheckCircle, ImageIcon, Link as LinkIcon, Tag, ExternalLink, Users, PlayCircle, Clock, FileText } from 'lucide-react'
+import { Dice5, Plus, Trash2, Edit2, X, Hash, AlertCircle, Search, CheckCircle, ImageIcon, Link as LinkIcon, Tag, ExternalLink, Users, PlayCircle, Clock, FileText, WifiOff } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
 
 export default function Jeux() {
@@ -33,18 +33,37 @@ export default function Jeux() {
 
   async function fetchJeux() {
     setLoading(true)
-    const { data } = await supabase.from('games').select('*').order('registration_number', { ascending: true })
-    const fetchedJeux = data || []
-    setJeux(fetchedJeux)
-    
+    try {
+      if (navigator.onLine) {
+        const { data, error } = await supabase.from('games').select('*').order('registration_number', { ascending: true })
+        if (!error) {
+          const fetchedJeux = data || []
+          setJeux(fetchedJeux)
+          // Mise en cache locale
+          localStorage.setItem('cache_games_list', JSON.stringify(fetchedJeux))
+          updateCategoriesList(fetchedJeux)
+        }
+      } else {
+        // Chargement du cache si hors-ligne
+        const cachedJeux = JSON.parse(localStorage.getItem('cache_games_list') || '[]')
+        setJeux(cachedJeux)
+        updateCategoriesList(cachedJeux)
+      }
+    } catch (err) {
+      console.error("Erreur de chargement des jeux:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const updateCategoriesList = (gamesData) => {
     const cats = new Set()
-    fetchedJeux.forEach(j => {
+    gamesData.forEach(j => {
       if (j.category) {
         j.category.split(',').forEach(c => cats.add(c.trim()))
       }
     })
     setAvailableCategories(Array.from(cats).sort())
-    setLoading(false)
   }
 
   const getNextRegistrationNumber = () => {
@@ -83,7 +102,6 @@ export default function Jeux() {
     setNewGame({ ...newGame, category: updatedCats })
   }
 
-  // RECHERCHE FILTRÉE (Description retirée ici)
   const filteredJeux = jeux.filter(jeu => 
     jeu.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     jeu.registration_number.toString().includes(searchTerm) ||
@@ -91,6 +109,10 @@ export default function Jeux() {
   )
 
   const startEdit = (jeu) => {
+    if (!navigator.onLine) {
+      alert("La modification est désactivée en mode hors-ligne.")
+      return
+    }
     setNewGame(jeu)
     setEditingId(jeu.id)
     setShowForm(true)
@@ -107,20 +129,28 @@ export default function Jeux() {
     e.preventDefault()
     if (isNumberDuplicate) return;
 
-    if (editingId) {
-      const { error } = await supabase.from('games').update(newGame).eq('id', editingId)
-      if (!error) cancelEdit()
-    } else {
-      const { error } = await supabase.from('games').insert([newGame])
-      if (!error) {
-        setShowForm(false)
-        setNewGame(initialGameState)
+    if (navigator.onLine) {
+      if (editingId) {
+        const { error } = await supabase.from('games').update(newGame).eq('id', editingId)
+        if (!error) cancelEdit()
+      } else {
+        const { error } = await supabase.from('games').insert([newGame])
+        if (!error) {
+          setShowForm(false)
+          setNewGame(initialGameState)
+        }
       }
+      fetchJeux()
+    } else {
+      alert("⚠️ Le réseau est coupé. Impossible d'ajouter ou modifier un jeu pour le moment.")
     }
-    fetchJeux()
   }
 
   const openDeleteModal = (jeu) => {
+    if (!navigator.onLine) {
+      alert("Action impossible hors-ligne.")
+      return
+    }
     setDeleteModal({ show: true, id: jeu.id, name: jeu.name })
   }
 
@@ -162,6 +192,14 @@ export default function Jeux() {
 
       <main className="max-w-7xl mx-auto">
         
+        {/* BANNIÈRE HORS-LIGNE */}
+        {!navigator.onLine && (
+          <div className="mb-6 flex items-center gap-3 bg-amber-50 border border-amber-100 p-4 rounded-2xl text-amber-800">
+            <WifiOff className="text-amber-500 shrink-0" size={20} />
+            <p className="text-[10px] font-black uppercase">Catalogue en mode lecture seule (Hors-ligne)</p>
+          </div>
+        )}
+
         {/* RECHERCHE */}
         {!showForm && (
           <div className="relative mb-8">
@@ -176,7 +214,7 @@ export default function Jeux() {
           </div>
         )}
 
-        {/* FORMULAIRE */}
+        {/* FORMULAIRE (Identique à l'original) */}
         {showForm && (
           <form onSubmit={handleSubmit} className="bg-white p-5 md:p-12 rounded-[2.5rem] shadow-xl border border-slate-50 mb-12 animate-in slide-in-from-top-4 duration-500">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
@@ -284,7 +322,7 @@ export default function Jeux() {
           </form>
         )}
 
-        {/* TABLEAU DESKTOP - SIMPLE */}
+        {/* TABLEAU DESKTOP (Identique à l'original) */}
         <div className="hidden md:block bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-[10px] uppercase text-slate-400 font-black">
@@ -338,7 +376,7 @@ export default function Jeux() {
           </table>
         </div>
 
-        {/* CARTES MOBILE - SIMPLE */}
+        {/* CARTES MOBILE (Identique à l'original) */}
         <div className="md:hidden space-y-4">
           {filteredJeux.map((jeu) => (
             <div key={jeu.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100">
@@ -369,7 +407,7 @@ export default function Jeux() {
         </div>
       </main>
 
-      {/* MODALE SUPPRESSION */}
+      {/* MODALE SUPPRESSION (Identique à l'original) */}
       {deleteModal.show && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-[#1a5f7a]/80 backdrop-blur-md" onClick={() => setDeleteModal({show: false})}></div>
