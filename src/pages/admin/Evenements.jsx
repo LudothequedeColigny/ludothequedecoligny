@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../services/supabaseClient'
 import { 
   Calendar, MapPin, Plus, Trash2, Clock, ImageIcon, 
-  Upload, X, Loader2, Type, AlignLeft, Edit2, Mail, Send 
+  Upload, X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2
 } from 'lucide-react'
 
 export default function Evenements() {
@@ -14,11 +14,13 @@ export default function Evenements() {
   
   const [deleteModal, setDeleteModal] = useState({ show: false, id: null, title: '' })
   const [mailModal, setMailModal] = useState({ show: false, event: null })
+  // Nouvel état pour la modale de succès du presse-papier
+  const [clipboardModal, setClipboardModal] = useState({ show: false, url: '' })
 
   const initialEventState = {
     title: '',
     date: '', 
-    end_time: '', // Maintenant sauvegardé en base
+    end_time: '', 
     location: '',
     description: '',
     image_url: ''
@@ -43,7 +45,7 @@ export default function Evenements() {
     setNewEvent({
         ...event,
         date: event.date ? event.date.slice(0, 16) : '', 
-        end_time: event.end_time || '' // On récupère l'heure de fin existante
+        end_time: event.end_time || '' 
     })
     setEditingId(event.id)
     setShowForm(true)
@@ -75,12 +77,10 @@ export default function Evenements() {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    
-    // CORRECTION : On ajoute end_time dans l'objet envoyé à Supabase
     const eventToSave = {
       title: newEvent.title,
       date: newEvent.date,
-      end_time: newEvent.end_time, // Ligne ajoutée pour la sauvegarde
+      end_time: newEvent.end_time,
       location: newEvent.location,
       description: newEvent.description,
       image_url: newEvent.image_url
@@ -102,34 +102,54 @@ export default function Evenements() {
     if (error) {
         alert("Erreur d'enregistrement : " + error.message)
     } else {
-        // Pour le mail, on utilise l'événement sauvegardé qui contient maintenant l'heure de fin
         if (!editingId && savedEvent) setMailModal({ show: true, event: savedEvent })
         cancelEdit()
         fetchEvents()
     }
   }
 
-  const handleSendMail = () => {
-    const { event } = mailModal
+  const handleSendMail = async (eventToNotify = null) => {
+    const event = eventToNotify || mailModal.event;
+    
     const collectivites = ["mairie@domsure.fr", "mairie@beaupont.fr", "mairie.verjon@wanadoo.fr", "contact@mairie-beny.fr", "accueil@saintamour39.fr", "mairie@lestroischateaux.fr", "mairie.valdepy@orange.fr", "villemotier@wanadoo.fr", "mairie.valsuran@valsuran.fr", "mairie@andelot-morval.fr", "mairie.veria@wanadoo.fr", "mairie.broissia@orange.fr", "mairie.balanod@aricia.fr", "mairie.montagnalereconduit@wanadoo.fr", "mairiejoudes@wanadoo.fr", "mairie.condal@wanadoo.fr", "mairie@cormoz.fr", "mairie@foissiat.com", "mairie@saintetiennedubois.fr", "genemapi@hotmail.fr", "mairie-salavre@orange.fr"]
 
-    const start = new Date(event.date);
-    const dateFormatee = start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-    const heureDebut = start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    
-    // Utilisation de l'heure de fin sauvegardée
-    const plageHoraire = event.end_time ? `de ${heureDebut} à ${event.end_time.replace(':', 'h')}` : `à partir de ${heureDebut}`;
+    try {
+      const { data: members } = await supabase.from('members').select('email');
+      const memberEmails = members 
+        ? members.map(m => m.email).filter(email => email && email.includes('@')) 
+        : [];
+      
+      const allEmails = [...new Set([...collectivites, ...memberEmails])];
+      const emailsString = allEmails.join('; ');
 
-    const subject = encodeURIComponent(`Communication Événement - Association PACTES - ${event.title}`);
-    const body = encodeURIComponent(
-      `Bonjour,\n\nL'association PACTES à Coligny souhaiterait communiquer sur un événement organisé qui va avoir lieu à la date suivante :\n\n` +
-      `Le ${dateFormatee} - ${event.title} à ${event.location}. ${plageHoraire}. ${event.description || ""}\n\n` +
-      `Pouvez-vous les intégrer dans vos communications afin de faire connaître l'existence de cet évènement à vos concitoyens ?\n\n` +
-      `Vous en souhaitant bonne réception.\n\nBonne journée.\n\nVictor Guyon\n06 71 41 56 96`
-    );
+      await navigator.clipboard.writeText(emailsString);
 
-    window.open(`https://outlook.live.com/mail/0/deeplink/compose?bcc=${collectivites.join(',')}&subject=${subject}&body=${body}`, '_blank');
-    setMailModal({ show: false, event: null });
+      const start = new Date(event.date);
+      const dateFormatee = start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+      const heureDebut = start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      const plageHoraire = event.end_time ? `de ${heureDebut} à ${event.end_time.replace(':', 'h')}` : `à partir de ${heureDebut}`;
+
+      const subject = encodeURIComponent(`Communication Événement - Association PACTES - ${event.title}`);
+      const body = encodeURIComponent(
+        `Bonjour,\n\nL'association PACTES à Coligny souhaiterait communiquer sur un événement organisé qui va avoir lieu à la date suivante :\n\n` +
+        `Le ${dateFormatee} - ${event.title} à ${event.location}. ${plageHoraire}. ${event.description || ""}\n\n` +
+        `Pouvez-vous les intégrer dans vos communications afin de faire connaître l'existence de cet évènement à vos concitoyens ?\n\n` +
+        `Vous en souhaitant bonne réception.\n\nBonne journée.\n\nVictor Guyon\n06 71 41 56 96`
+      );
+
+      await supabase.from('events').update({ mail_sent_at: new Date().toISOString() }).eq('id', event.id);
+
+      // Au lieu de alert(), on ouvre notre belle modale
+      setClipboardModal({ 
+        show: true, 
+        url: `https://outlook.live.com/mail/0/deeplink/compose?subject=${subject}&body=${body}`
+      });
+      
+      setMailModal({ show: false, event: null });
+      fetchEvents();
+    } catch (err) {
+      alert("Erreur lors de la copie des adresses.");
+    }
   }
 
   const confirmDelete = async () => {
@@ -200,13 +220,19 @@ export default function Evenements() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {events.map(event => (
-            <div key={event.id} className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden flex flex-col">
+            <div key={event.id} className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden flex flex-col group hover:shadow-xl transition-all">
               <div className="h-48 bg-slate-50 relative flex items-center justify-center p-4">
                 {event.image_url ? <img src={event.image_url} className="max-w-full max-h-full object-contain" alt="" /> : <ImageIcon size={48} className="text-slate-200" />}
-                <div className="absolute top-4 right-4 flex flex-col gap-2">
-                  <button onClick={() => startEdit(event)} className="p-2.5 bg-white text-slate-400 rounded-xl shadow-lg hover:bg-[#1a5f7a] hover:text-white"><Edit2 size={16} /></button>
-                  <button onClick={() => setDeleteModal({show: true, id: event.id, title: event.title})} className="p-2.5 bg-white text-slate-400 rounded-xl shadow-lg hover:bg-rose-500 hover:text-white"><Trash2 size={16} /></button>
+                <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => startEdit(event)} className="p-2.5 bg-white text-slate-400 rounded-xl shadow-lg hover:bg-[#1a5f7a] hover:text-white transition-all"><Edit2 size={16} /></button>
+                  <button onClick={() => handleSendMail(event)} className="p-2.5 bg-white text-amber-500 rounded-xl shadow-lg hover:bg-amber-500 hover:text-white transition-all"><Mail size={16} /></button>
+                  <button onClick={() => setDeleteModal({show: true, id: event.id, title: event.title})} className="p-2.5 bg-white text-slate-400 rounded-xl shadow-lg hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={16} /></button>
                 </div>
+                {event.mail_sent_at && (
+                  <div className="absolute bottom-4 left-4 px-3 py-1 bg-emerald-500 text-white text-[8px] font-black uppercase rounded-full shadow-sm flex items-center gap-1.5">
+                    <Send size={10} /> Diffusé le {new Date(event.mail_sent_at).toLocaleDateString()}
+                  </div>
+                )}
               </div>
               <div className="p-8">
                 <h3 className="text-lg font-black text-slate-900 uppercase mb-4">{event.title}</h3>
@@ -215,7 +241,6 @@ export default function Evenements() {
                     <Clock size={14} className="text-[#1a5f7a]" /> 
                     {new Date(event.date).toLocaleString('fr-FR', {day:'numeric', month:'short'})}
                     {" | "}
-                    {/* Affichage de la plage horaire sous la carte de gestion aussi pour vérification */}
                     {new Date(event.date).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})} 
                     {event.end_time && ` — ${event.end_time.replace(':', 'h')}`}
                   </div>
@@ -227,15 +252,40 @@ export default function Evenements() {
         </div>
       </main>
       
-      {/* ... (Reste du code des modales inchangé) */}
+      {/* MODALE INITIALE : QUESTION ENVOI MAIL */}
       {mailModal.show && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-[#1a5f7a]/80 backdrop-blur-md">
           <div className="bg-white rounded-[3rem] p-10 max-w-md w-full text-center">
              <Send className="mx-auto text-[#e38154] mb-6" size={40} />
              <h3 className="text-2xl font-black uppercase mb-2">Événement enregistré !</h3>
-             <p className="text-xs text-slate-500 mb-8">Ouvrir Outlook pour informer les mairies ?</p>
-             <button onClick={handleSendMail} className="w-full py-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest mb-3">Ouvrir Outlook Web</button>
+             <p className="text-xs text-slate-500 mb-8">Informer les mairies et les adhérents par mail ?</p>
+             <button onClick={() => handleSendMail()} className="w-full py-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest mb-3">Ouvrir Outlook Web</button>
              <button onClick={() => setMailModal({show: false})} className="w-full py-5 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase text-[10px] tracking-widest">Plus tard</button>
+          </div>
+        </div>
+      )}
+
+      {/* NOUVELLE MODALE ESTHÉTIQUE : SUCCÈS COPIE PRESSE-PAPIER */}
+      {clipboardModal.show && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-[3rem] p-10 max-w-md w-full text-center shadow-2xl">
+             <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle2 size={40} />
+             </div>
+             <h3 className="text-xl font-black uppercase mb-4 text-slate-900">Adresses copiées !</h3>
+             <p className="text-[11px] font-medium text-slate-500 mb-8 leading-relaxed">
+               Toutes les adresses ont été ajoutées à votre presse-papier.<br/>
+               Dans Outlook, faites <strong>CTRL + V</strong> dans le champ <strong>Cci</strong>.
+             </p>
+             <button 
+                onClick={() => {
+                  window.open(clipboardModal.url, '_blank');
+                  setClipboardModal({ show: false, url: '' });
+                }} 
+                className="w-full py-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg"
+             >
+               Continuer vers Outlook
+             </button>
           </div>
         </div>
       )}

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Dices, Users, Calendar, LogOut, 
-  X, Menu, ChevronRight, ClipboardCheck, Share2 
+  X, Menu, ChevronRight, ClipboardCheck, Share2,
+  Settings, LifeBuoy
 } from 'lucide-react';
 
 export default function AdminLayout({ children }) {
@@ -120,7 +121,7 @@ export default function AdminLayout({ children }) {
             })}
 
             {/* --- LIEN PERMANENCES --- */}
-            <div className="mt-10 pt-4 border-t border-slate-50">
+            <div className="mt-6 pt-4 border-t border-slate-50">
               <Link
                 to="/admin/permanences"
                 onClick={closeMobileMenu}
@@ -138,6 +139,41 @@ export default function AdminLayout({ children }) {
                 </span>
               </Link>
             </div>
+
+            {/* --- NOUVEAUX LIENS : PARAMÈTRES ET AIDE --- */}
+            <Link
+              to="/admin/parametres"
+              onClick={closeMobileMenu}
+              className={`flex items-center gap-4 p-4 rounded-2xl transition-all group ${
+                location.pathname === '/admin/parametres' 
+                  ? 'bg-slate-50 text-[#1a5f7a]' 
+                  : 'text-slate-400 hover:bg-slate-50 hover:text-[#1a5f7a]'
+              }`}
+            >
+              <span className={`transition-transform group-hover:rotate-45 ${location.pathname === '/admin/parametres' ? 'text-[#1a5f7a]' : 'text-slate-200'}`}>
+                <Settings size={20} />
+              </span>
+              <span className={`text-[10px] uppercase tracking-widest ${location.pathname === '/admin/parametres' ? 'font-black text-[#1a5f7a]' : 'font-bold'}`}>
+                Paramètres
+              </span>
+            </Link>
+
+            <Link
+              to="/admin/aide"
+              onClick={closeMobileMenu}
+              className={`flex items-center gap-4 p-4 rounded-2xl transition-all group ${
+                location.pathname === '/admin/aide' 
+                  ? 'bg-slate-50 text-[#1a5f7a]' 
+                  : 'text-slate-400 hover:bg-slate-50 hover:text-[#1a5f7a]'
+              }`}
+            >
+              <span className={`transition-transform group-hover:scale-110 ${location.pathname === '/admin/aide' ? 'text-[#1a5f7a]' : 'text-slate-200'}`}>
+                <LifeBuoy size={20} />
+              </span>
+              <span className={`text-[10px] uppercase tracking-widest ${location.pathname === '/admin/aide' ? 'font-black text-[#1a5f7a]' : 'font-bold'}`}>
+                Aide & Tutoriel
+              </span>
+            </Link>
           </div>
 
           {/* FOOTER SIDEBAR */}

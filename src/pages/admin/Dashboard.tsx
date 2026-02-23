@@ -7,7 +7,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const [stats, setStats] = useState({
     totalGames: 0,
-    totalMembers: 0,
+    totalMembers: 0, // Sera le nombre d'adhérents à jour
     activeLoans: 0,
     totalEvents: 0
   })
@@ -17,20 +17,46 @@ export default function Dashboard() {
     async function fetchStats() {
       setLoading(true)
       
-      const [games, available, members, events] = await Promise.all([
-        supabase.from('games').select('*', { count: 'exact', head: true }),
-        supabase.from('games').select('*', { count: 'exact', head: true }).eq('is_available', true),
-        supabase.from('members').select('*', { count: 'exact', head: true }),
-        supabase.from('events').select('*', { count: 'exact', head: true })
-      ])
+      try {
+        const [games, available, membersData, events] = await Promise.all([
+          supabase.from('games').select('*', { count: 'exact', head: true }),
+          supabase.from('games').select('*', { count: 'exact', head: true }).eq('is_available', true),
+          supabase.from('members').select('type, membership_date, has_paid'), // On récupère les infos pour calculer le statut
+          supabase.from('events').select('*', { count: 'exact', head: true })
+        ])
 
-      setStats({
-        totalGames: games.count || 0,
-        totalMembers: members.count || 0,
-        activeLoans: (games.count || 0) - (available.count || 0),
-        totalEvents: events.count || 0
-      })
-      setLoading(false)
+        // --- LOGIQUE DE CALCUL IDENTIQUE À LA PAGE ADHÉRENTS ---
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        
+        const activeMembersCount = (membersData.data || []).filter(member => {
+          if (!member.has_paid) return false;
+          
+          const dateAdhesion = new Date(member.membership_date);
+          
+          if (member.type === 'Particulier') {
+            // Un particulier est à jour si son adhésion est de l'année civile en cours
+            return dateAdhesion.getFullYear() >= currentYear;
+          } else {
+            // Une association est à jour pendant 1 an (365 jours)
+            const expiryDate = new Date(dateAdhesion);
+            expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+            return now <= expiryDate;
+          }
+        }).length;
+        // -------------------------------------------------------
+
+        setStats({
+          totalGames: games.count || 0,
+          totalMembers: activeMembersCount,
+          activeLoans: (games.count || 0) - (available.count || 0),
+          totalEvents: events.count || 0
+        })
+      } catch (error) {
+        console.error("Erreur stats:", error);
+      } finally {
+        setLoading(false)
+      }
     }
     fetchStats()
   }, [])
@@ -42,7 +68,7 @@ export default function Dashboard() {
 
   const cards = [
     { title: 'Jeux', value: stats.totalGames, icon: <Dice5 size={22} />, link: '/admin/jeux', lightColor: 'bg-[#f0f7f9]', textColor: 'text-[#1a5f7a]' },
-    { title: 'Adhérents', value: stats.totalMembers, icon: <Users size={22} />, link: '/admin/adherents', lightColor: 'bg-[#fdf2ee]', textColor: 'text-[#e38154]' },
+    { title: 'Adhérents à jour', value: stats.totalMembers, icon: <Users size={22} />, link: '/admin/adherents', lightColor: 'bg-[#fdf2ee]', textColor: 'text-[#e38154]' },
     { title: 'Prêts', value: stats.activeLoans, icon: <ClipboardList size={22} />, link: '/admin/prets', lightColor: 'bg-slate-100', textColor: 'text-slate-600' },
     { title: 'Événements', value: stats.totalEvents, icon: <Calendar size={22} />, link: '/admin/evenements', lightColor: 'bg-emerald-50', textColor: 'text-emerald-600' },
   ]
@@ -123,7 +149,7 @@ export default function Dashboard() {
               ))}
             </div>
 
-            {/* BLOC INSTALLATION APPLICATION (NOUVEAU) */}
+            {/* BLOC INSTALLATION APPLICATION */}
             <div className="pt-4">
               <Link 
                 to="/admin/installation" 

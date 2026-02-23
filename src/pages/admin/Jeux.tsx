@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Dice5, Plus, Trash2, Edit2, X, Hash, AlertCircle, Search, CheckCircle, ImageIcon, Link as LinkIcon, Tag, ExternalLink, Users, PlayCircle, Clock, FileText, WifiOff } from 'lucide-react'
+import { Dice5, Plus, Trash2, Edit2, X, Hash, AlertCircle, Search, CheckCircle, ImageIcon, Link as LinkIcon, Tag, ExternalLink, Users, PlayCircle, Clock, FileText, WifiOff, Eye } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
 
 export default function Jeux() {
@@ -17,6 +17,7 @@ export default function Jeux() {
     registration_number: '',
     name: '',
     description: '',
+    observations: '', 
     min_players: 1,
     max_players: 4,
     min_age: 3,
@@ -39,12 +40,10 @@ export default function Jeux() {
         if (!error) {
           const fetchedJeux = data || []
           setJeux(fetchedJeux)
-          // Mise en cache locale
           localStorage.setItem('cache_games_list', JSON.stringify(fetchedJeux))
           updateCategoriesList(fetchedJeux)
         }
       } else {
-        // Chargement du cache si hors-ligne
         const cachedJeux = JSON.parse(localStorage.getItem('cache_games_list') || '[]')
         setJeux(cachedJeux)
         updateCategoriesList(cachedJeux)
@@ -130,17 +129,37 @@ export default function Jeux() {
     if (isNumberDuplicate) return;
 
     if (navigator.onLine) {
-      if (editingId) {
-        const { error } = await supabase.from('games').update(newGame).eq('id', editingId)
-        if (!error) cancelEdit()
-      } else {
-        const { error } = await supabase.from('games').insert([newGame])
-        if (!error) {
-          setShowForm(false)
-          setNewGame(initialGameState)
-        }
+      // Nettoyage de l'objet avant envoi pour éviter les erreurs de type
+      const gameData = {
+        registration_number: newGame.registration_number,
+        name: newGame.name,
+        description: newGame.description || '',
+        observations: newGame.observations || '',
+        min_players: parseInt(newGame.min_players) || 1,
+        max_players: parseInt(newGame.max_players) || 1,
+        min_age: parseInt(newGame.min_age) || 0,
+        duration: parseInt(newGame.duration) || 0,
+        category: newGame.category || '',
+        image_url: newGame.image_url || '',
+        youtube_url: newGame.youtube_url || '',
+        is_available: newGame.is_available ?? true
       }
-      fetchJeux()
+
+      let error;
+      if (editingId) {
+        const { error: updateError } = await supabase.from('games').update(gameData).eq('id', editingId)
+        error = updateError;
+      } else {
+        const { error: insertError } = await supabase.from('games').insert([gameData])
+        error = insertError;
+      }
+
+      if (!error) {
+        cancelEdit()
+        fetchJeux()
+      } else {
+        alert("Erreur lors de l'enregistrement : " + error.message)
+      }
     } else {
       alert("⚠️ Le réseau est coupé. Impossible d'ajouter ou modifier un jeu pour le moment.")
     }
@@ -155,9 +174,13 @@ export default function Jeux() {
   }
 
   const confirmDelete = async () => {
-    await supabase.from('games').delete().eq('id', deleteModal.id)
-    setDeleteModal({ show: false, id: null, name: '' })
-    fetchJeux()
+    const { error } = await supabase.from('games').delete().eq('id', deleteModal.id)
+    if (!error) {
+      setDeleteModal({ show: false, id: null, name: '' })
+      fetchJeux()
+    } else {
+      alert("Erreur lors de la suppression")
+    }
   }
 
   if (loading) return (
@@ -192,7 +215,6 @@ export default function Jeux() {
 
       <main className="max-w-7xl mx-auto">
         
-        {/* BANNIÈRE HORS-LIGNE */}
         {!navigator.onLine && (
           <div className="mb-6 flex items-center gap-3 bg-amber-50 border border-amber-100 p-4 rounded-2xl text-amber-800">
             <WifiOff className="text-amber-500 shrink-0" size={20} />
@@ -200,7 +222,6 @@ export default function Jeux() {
           </div>
         )}
 
-        {/* RECHERCHE */}
         {!showForm && (
           <div className="relative mb-8">
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
@@ -214,7 +235,6 @@ export default function Jeux() {
           </div>
         )}
 
-        {/* FORMULAIRE (Identique à l'original) */}
         {showForm && (
           <form onSubmit={handleSubmit} className="bg-white p-5 md:p-12 rounded-[2.5rem] shadow-xl border border-slate-50 mb-12 animate-in slide-in-from-top-4 duration-500">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
@@ -241,6 +261,17 @@ export default function Jeux() {
                     className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]/10 resize-none" 
                     value={newGame.description || ''} 
                     onChange={e => setNewGame({...newGame, description: e.target.value})} 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-[#e38154] uppercase ml-2 flex items-center gap-1"><Eye size={12}/> Observations (État, pièces manquantes...)</label>
+                  <textarea 
+                    rows="3"
+                    placeholder="Ex: État d'usure, manque une pièce, etc..." 
+                    className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#e38154]/20 resize-none" 
+                    value={newGame.observations || ''} 
+                    onChange={e => setNewGame({...newGame, observations: e.target.value})} 
                   />
                 </div>
 
@@ -322,7 +353,6 @@ export default function Jeux() {
           </form>
         )}
 
-        {/* TABLEAU DESKTOP (Identique à l'original) */}
         <div className="hidden md:block bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-[10px] uppercase text-slate-400 font-black">
@@ -376,7 +406,6 @@ export default function Jeux() {
           </table>
         </div>
 
-        {/* CARTES MOBILE (Identique à l'original) */}
         <div className="md:hidden space-y-4">
           {filteredJeux.map((jeu) => (
             <div key={jeu.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100">
@@ -407,7 +436,6 @@ export default function Jeux() {
         </div>
       </main>
 
-      {/* MODALE SUPPRESSION (Identique à l'original) */}
       {deleteModal.show && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-[#1a5f7a]/80 backdrop-blur-md" onClick={() => setDeleteModal({show: false})}></div>

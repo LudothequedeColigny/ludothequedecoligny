@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, memo } from 'react'
 import { supabase } from '../services/supabaseClient'
 import { 
   Dice5, 
@@ -18,6 +18,71 @@ import {
   Facebook
 } from 'lucide-react'
 
+// Composant pour tes icônes avec mouvement fluide et aléatoire
+const FloatingIcons = memo(() => {
+  const myIcons = ['01.svg', '02.svg', '03.svg', '04.svg', '05.svg', '06.svg', '07.svg'];
+  const colors = ['#1a5f7a', '#e38154'];
+  
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const count = isMobile ? 35 : 65;
+  
+  const [particles] = useState(() => 
+    Array.from({ length: count }).map((_, i) => ({
+      id: i,
+      fileName: myIcons[Math.floor(Math.random() * myIcons.length)],
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: Math.floor(Math.random() * (isMobile ? 25 : 35) + 15), 
+      left: `${Math.random() * 100}%`,
+      top: `${Math.random() * 100}%`,
+      duration: Math.random() * (40 - 25) + 25,
+      delay: Math.random() * -40,
+      rotation: Math.floor(Math.random() * 360),
+    }))
+  );
+
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {particles.map((p) => (
+        <div
+          key={p.id}
+          className="absolute animate-random-float"
+          style={{
+            left: p.left,
+            top: p.top,
+            animation: `randomFloat ${p.duration}s infinite ease-in-out ${p.delay}s`,
+            opacity: isMobile ? 0.25 : 0.35 
+          }}
+        >
+          <div 
+            style={{ 
+              width: `${p.size}px`, 
+              height: `${p.size}px`,
+              backgroundColor: p.color,
+              maskImage: `url(/icons/${p.fileName})`,
+              WebkitMaskImage: `url(/icons/${p.fileName})`,
+              maskRepeat: 'no-repeat',
+              WebkitMaskRepeat: 'no-repeat',
+              maskSize: 'contain',
+              WebkitMaskSize: 'contain',
+              transform: `rotate(${p.rotation}deg)`
+            }}
+          />
+        </div>
+      ))}
+      <style>{`
+        @keyframes randomFloat {
+          0% { transform: translate(0, 0) rotate(0deg) scale(1); }
+          25% { transform: translate(60px, -40px) rotate(90deg) scale(1.1); }
+          50% { transform: translate(20px, -100px) rotate(180deg) scale(1); }
+          75% { transform: translate(-50px, -50px) rotate(270deg) scale(0.9); }
+          100% { transform: translate(0, 0) rotate(360deg) scale(1); }
+        }
+        .animate-random-float { will-change: transform; }
+      `}</style>
+    </div>
+  );
+});
+
 export default function Home() {
   const navigate = useNavigate()
   const [events, setEvents] = useState([])
@@ -26,8 +91,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [selectedEvent, setSelectedEvent] = useState(null)
 
-  const facebookUrl = "https://www.facebook.com/groups/1243242750112981?locale=fr_FR"
-  const addressQuery = "412+Grande+Rue,+01270+Coligny"
+  const facebookUrl = "https://www.facebook.com/groups/2677832192298067"
+  const addressQuery = "419+Grande+Rue,+01270+Coligny"
 
   useEffect(() => {
     async function fetchHomeData() {
@@ -81,12 +146,11 @@ export default function Home() {
   return (
     <div className={`min-h-screen bg-white text-slate-900 font-sans ${selectedEvent ? 'overflow-hidden' : ''}`}>
       
-      {/* HEADER */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-100">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-[#1a5f7a] flex items-center justify-center shadow-lg shadow-cyan-100">
+              <div className="w-12 h-12 rounded-2xl bg-[#1a5f7a] flex items-center justify-center shadow-lg shadow-cyan-100 shrink-0">
                 <Dice5 className="w-7 h-7 text-white" />
               </div>
               <div>
@@ -96,38 +160,27 @@ export default function Home() {
             </div>
             
             <div className="flex items-center gap-6">
-              <a 
-                href={facebookUrl} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="hidden sm:flex items-center gap-2 text-slate-400 hover:text-[#1a5f7a] transition-colors text-[10px] font-black uppercase tracking-widest"
-              >
+              <a href={facebookUrl} target="_blank" rel="noopener noreferrer" className="hidden lg:flex items-center gap-2 text-slate-400 hover:text-[#1a5f7a] transition-colors text-[10px] font-black uppercase tracking-widest">
                 <Facebook size={18} />
                 <span>Nous suivre</span>
               </a>
-
-              <button 
-                onClick={() => navigate('/login')}
-                className="px-5 py-2 rounded-xl border-2 border-slate-100 hover:border-[#1a5f7a] hover:text-[#1a5f7a] font-bold transition-all text-xs uppercase tracking-widest"
-              >
-                Espace Bénévole
+              <button onClick={() => navigate('/login')} className="px-5 py-2 rounded-xl border-2 border-slate-100 hover:border-[#1a5f7a] hover:text-[#1a5f7a] font-bold transition-all text-xs uppercase tracking-widest">
+                <span className="hidden sm:inline">Espace Bénévole</span>
+                <span className="sm:hidden text-[10px]">Accès</span>
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* HERO SECTION */}
       <section className="relative pt-16 pb-12 md:pt-24 md:pb-16 text-center overflow-hidden bg-[#fdfaf6]">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full opacity-5 pointer-events-none">
-          <div className="absolute top-[-10%] left-[-10%] w-[120%] h-[120%] bg-[radial-gradient(circle_at_center,_#1a5f7a_1px,_transparent_1px)] [background-size:40px_40px]"></div>
-        </div>
+        <FloatingIcons />
 
-        <div className="relative max-w-6xl mx-auto px-4">
-          <h2 className="text-5xl md:text-7xl font-black text-slate-900 leading-[1.1] mb-8">
+        <div className="relative max-w-6xl mx-auto px-4 z-10">
+          <h2 className="text-4xl md:text-7xl font-black text-slate-900 leading-[1.1] mb-8">
             Le jeu pour tous, <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1a5f7a] to-[#2d8ba1]">
-              au cœur de Coligny
+              à partager à Coligny ... et autour
             </span>
           </h2>
           <p className="mt-4 text-xl text-slate-500 max-w-2xl mx-auto leading-relaxed font-medium mb-10">
@@ -135,38 +188,40 @@ export default function Home() {
           </p>
           
           <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-16">
-            <button 
-              onClick={() => navigate('/catalogue')} 
-              className="w-full sm:w-auto px-10 py-5 rounded-2xl bg-[#e38154] text-white font-black flex items-center justify-center gap-3 hover:bg-[#d06b42] transition-all hover:scale-105 shadow-xl shadow-orange-100 uppercase tracking-widest text-sm"
-            >
+            <button onClick={() => navigate('/catalogue')} className="w-full sm:w-auto px-10 py-5 rounded-2xl bg-[#e38154] text-white font-black flex items-center justify-center gap-3 hover:bg-[#d06b42] transition-all hover:scale-105 shadow-xl shadow-orange-100 uppercase tracking-widest text-sm">
               Explorer notre collection
               <ArrowRight size={20} />
             </button>
-            <button 
-              onClick={() => navigate('/comment-emprunter')} 
-              className="w-full sm:w-auto px-10 py-5 rounded-2xl bg-white text-[#1a5f7a] border-2 border-slate-100 font-black flex items-center justify-center gap-3 hover:border-[#1a5f7a] transition-all hover:scale-105 uppercase tracking-widest text-sm shadow-sm"
-            >
+            <button onClick={() => navigate('/comment-emprunter')} className="w-full sm:w-auto px-10 py-5 rounded-2xl bg-white text-[#1a5f7a] border-2 border-slate-100 font-black flex items-center justify-center gap-3 hover:border-[#1a5f7a] transition-all hover:scale-105 uppercase tracking-widest text-sm shadow-sm">
               <HelpCircle size={20} />
               Comment emprunter ?
             </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            <div className="p-10 rounded-[2.5rem] bg-white border border-slate-100 shadow-sm group hover:border-[#1a5f7a] transition-colors">
-                <Dice5 className="w-10 h-10 text-[#1a5f7a] mb-4 mx-auto" />
+            {/* CARTE JEUX -> CATALOGUE */}
+            <button 
+              onClick={() => navigate('/catalogue')}
+              className="p-10 rounded-[2.5rem] bg-white border border-slate-100 shadow-sm group hover:border-[#1a5f7a] hover:shadow-xl hover:-translate-y-1 transition-all relative z-10 w-full text-center cursor-pointer"
+            >
+                <Dice5 className="w-10 h-10 text-[#1a5f7a] mb-4 mx-auto group-hover:rotate-12 transition-transform" />
                 <p className="text-5xl font-black text-slate-900 mb-1">{loading ? "..." : gameCount}</p>
                 <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Jeux à emprunter</p>
-            </div>
-            <div className="p-10 rounded-[2.5rem] bg-white border border-slate-100 shadow-sm group hover:border-[#e38154] transition-colors">
-                <User className="w-10 h-10 text-[#e38154] mb-4 mx-auto" />
+            </button>
+
+            {/* CARTE JOUEURS -> COMMENT EMPRUNTER */}
+            <button 
+              onClick={() => navigate('/comment-emprunter')}
+              className="p-10 rounded-[2.5rem] bg-white border border-slate-100 shadow-sm group hover:border-[#e38154] hover:shadow-xl hover:-translate-y-1 transition-all relative z-10 w-full text-center cursor-pointer"
+            >
+                <User className="w-10 h-10 text-[#e38154] mb-4 mx-auto group-hover:scale-110 transition-transform" />
                 <p className="text-5xl font-black text-slate-900 mb-1">{loading ? "..." : playerCount}</p>
                 <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Joueurs Passionnés</p>
-            </div>
+            </button>
           </div>
         </div>
       </section>
 
-      {/* SECTION ÉVÉNEMENTS */}
       <section className="py-24 bg-white">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-16">
@@ -180,11 +235,7 @@ export default function Home() {
           ) : events.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {events.map((event) => (
-                <div 
-                  key={event.id} 
-                  onClick={() => setSelectedEvent(event)}
-                  className="group bg-[#fcfcfc] rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all flex flex-col sm:flex-row h-full cursor-pointer"
-                >
+                <div key={event.id} onClick={() => setSelectedEvent(event)} className="group bg-[#fcfcfc] rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all flex flex-col sm:flex-row h-full cursor-pointer">
                   <div className="sm:w-48 h-48 sm:h-auto bg-slate-100 flex-shrink-0">
                     {event.image_url ? (
                       <img src={event.image_url} alt={event.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
@@ -194,8 +245,7 @@ export default function Home() {
                   </div>
                   <div className="p-8 flex flex-col justify-center">
                     <p className="text-[#e38154] font-bold text-xs uppercase tracking-widest mb-2 flex items-center gap-2">
-                       <Calendar size={14} /> 
-                       {new Date(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
+                       <Calendar size={14} /> {new Date(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
                        <span className="text-slate-300 mx-1">|</span>
                        <Clock size={12} /> {formatEventDuration(event.date, event.end_time)}
                     </p>
@@ -216,15 +266,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* POP-UP / MODALE */}
       {selectedEvent && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-6 animate-in fade-in duration-300">
           <div className="absolute inset-0 bg-[#1a5f7a]/90 backdrop-blur-sm" onClick={() => setSelectedEvent(null)}></div>
           <div className="relative bg-white w-full max-w-4xl max-h-[95vh] rounded-[2rem] md:rounded-[3rem] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-300 border-b-8 border-[#e38154]">
-            <button 
-              onClick={() => setSelectedEvent(null)}
-              className="absolute top-4 right-4 z-20 p-2 bg-white rounded-full text-[#1a5f7a] shadow-lg hover:bg-[#e38154] hover:text-white transition-colors"
-            >
+            <button onClick={() => setSelectedEvent(null)} className="absolute top-4 right-4 z-20 p-2 bg-white rounded-full text-[#1a5f7a] shadow-lg hover:bg-[#e38154] hover:text-white transition-colors">
               <X size={24} />
             </button>
             <div className="flex flex-col md:flex-row h-full">
@@ -251,9 +297,7 @@ export default function Home() {
                       <div>
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Horaires</p>
                         <p className="font-bold text-slate-800 text-sm">
-                            {selectedEvent.end_time 
-                                ? `De ${formatEventDuration(selectedEvent.date, selectedEvent.end_time)}` 
-                                : `Début à ${formatEventDuration(selectedEvent.date)}`}
+                            {selectedEvent.end_time ? `De ${formatEventDuration(selectedEvent.date, selectedEvent.end_time)}` : `Début à ${formatEventDuration(selectedEvent.date)}`}
                         </p>
                       </div>
                     </div>
@@ -275,17 +319,13 @@ export default function Home() {
         </div>
       )}
 
-      {/* SECTION INFOS PRATIQUES */}
       <section className="py-24 bg-[#1a5f7a] text-white relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32"></div>
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-black/5 rounded-full -ml-48 -mb-48"></div>
         <div className="max-w-6xl mx-auto px-4 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h3 className="text-3xl md:text-4xl font-black mb-8 leading-tight">
-                Nous vous attendons au <br/>
-                <span className="text-[#e38154]">412 Grande Rue à Coligny</span>
-              </h3>
+              <h3 className="text-3xl md:text-4xl font-black mb-8 leading-tight">Nous vous attendons au <br/><span className="text-[#e38154]">419 Grande Rue à Coligny</span></h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="bg-white/10 backdrop-blur-sm border border-white/10 p-6 rounded-[2rem]">
                   <Clock size={24} className="text-[#e38154] mb-3" />
@@ -303,21 +343,13 @@ export default function Home() {
                <div className="relative bg-white/10 backdrop-blur-md border border-white/20 p-8 md:p-12 rounded-[3rem] text-center max-w-sm mx-auto">
                   <MapPin size={40} className="text-[#e38154] mb-4 mx-auto" />
                   <p className="text-xs font-bold text-cyan-100/60 mb-6 uppercase tracking-widest">Plan & Navigation</p>
-                  <a 
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${addressQuery}`} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="inline-block w-full px-8 py-4 bg-white text-[#1a5f7a] rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-[#e38154] hover:text-white hover:scale-105 transition-all shadow-xl"
-                  >
-                    Ouvrir l'itinéraire
-                  </a>
+                  <a href={`https://www.google.com/maps/dir/?api=1&destination=${addressQuery}`} target="_blank" rel="noopener noreferrer" className="inline-block w-full px-8 py-4 bg-white text-[#1a5f7a] rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-[#e38154] hover:text-white hover:scale-105 transition-all shadow-xl">Ouvrir l'itinéraire</a>
                </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* SECTION CONTACT */}
       <section className="py-20 bg-white border-t border-slate-100">
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex flex-col items-center">
@@ -340,23 +372,15 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FOOTER */}
       <footer className="py-12 bg-slate-50 text-center">
         <div className="mb-6">
-          <a 
-            href={facebookUrl} 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            className="inline-flex items-center gap-2 text-slate-400 hover:text-[#1a5f7a] transition-all text-[9px] font-black uppercase tracking-[0.2em] border border-slate-200 px-4 py-2 rounded-full hover:bg-white"
-          >
-            <Facebook size={14} />
-            Rejoignez-nous sur Facebook
+          <a href={facebookUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-slate-400 hover:text-[#1a5f7a] transition-all text-[9px] font-black uppercase tracking-[0.2em] border border-slate-200 px-4 py-2 rounded-full hover:bg-white">
+            <Facebook size={14} /> Rejoignez-nous sur Facebook
           </a>
         </div>
-
-        <div className="flex items-center justify-center gap-2 mb-4 text-[#e38154]">
-          <Heart size={20} fill="currentColor" />
-          <span className="font-black uppercase tracking-widest text-xs text-slate-600">Association PACTES</span>
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <Heart size={20} fill="#e38154" className="text-[#e38154]" />
+          <a href={facebookUrl} target="_blank" rel="noopener noreferrer" className="font-black uppercase tracking-widest text-xs text-slate-600 hover:text-[#1a5f7a] transition-colors">Association PACTES</a>
         </div>
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em]">Ludothèque de Coligny — Le plaisir du jeu ensemble</p>
       </footer>

@@ -21,6 +21,7 @@ import Prets from './pages/admin/Prets'
 import EvenementsAdmin from './pages/admin/Evenements'
 import GestionPermanences from './pages/admin/GestionPermanences'
 import InstallationApp from './pages/admin/InstallationApp'
+import Parametres from './pages/admin/Parametres' // <-- AJOUTÉ
 
 /**
  * COMPOSANT DE PROTECTION
@@ -59,7 +60,7 @@ const ProtectedRoute = ({ children }) => {
 
 function App() {
   
-  // --- SYSTRÈME DE SYNCHRONISATION HORS-LIGNE ---
+  // --- SYSTÈME DE SYNCHRONISATION HORS-LIGNE ---
   useEffect(() => {
     const syncOfflineData = async () => {
       const queue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]');
@@ -70,12 +71,9 @@ function App() {
 
       for (const item of queue) {
         try {
-          // 1. Insertion de la donnée principale (Adhérent ou Prêt)
           const { error } = await supabase.from(item.table).insert([item.data]);
           
           if (!error) {
-            // 2. LOGIQUE SPÉCIFIQUE POUR LES PRÊTS : 
-            // Si on vient d'insérer un prêt, il faut aussi mettre à jour la disponibilité du jeu
             if (item.table === 'loans') {
               await supabase.from('games')
                 .update({ is_available: false })
@@ -121,6 +119,7 @@ function App() {
         <Route path="/admin/evenements" element={<ProtectedRoute><AdminLayout><EvenementsAdmin /></AdminLayout></ProtectedRoute>} />
         <Route path="/admin/permanences" element={<ProtectedRoute><AdminLayout><GestionPermanences /></AdminLayout></ProtectedRoute>} />
         <Route path="/admin/installation" element={<ProtectedRoute><AdminLayout><InstallationApp /></AdminLayout></ProtectedRoute>} />
+        <Route path="/admin/parametres" element={<ProtectedRoute><AdminLayout><Parametres /></AdminLayout></ProtectedRoute>} /> {/* <-- AJOUTÉ */}
         
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
