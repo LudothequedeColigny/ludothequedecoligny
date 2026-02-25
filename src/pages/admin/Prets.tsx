@@ -23,13 +23,13 @@ import {
   Clock, 
   CheckCircle,
   Loader2,
-  ScanLine // Ajouté pour l'icône de scan
+  ScanLine
 } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
-import { Html5QrcodeScanner } from 'html5-qrcode' // Ajouté pour le scanner
+import { Html5QrcodeScanner } from 'html5-qrcode'
 
 export default function Prets() {
-  // --- ÉTATS D'ORIGINE ---
+  // --- ÉTATS ---
   const [loans, setLoans] = useState([])
   const [members, setMembers] = useState([])
   const [games, setGames] = useState([])
@@ -39,6 +39,7 @@ export default function Prets() {
   const [confirmAction, setConfirmAction] = useState(null)
   const [renewalAction, setRenewalAction] = useState(null)
   const [showCodeStep, setShowCodeStep] = useState(false)
+  const [showScanner, setShowScanner] = useState(false)
 
   // --- ÉTATS POUR LES QUOTAS DYNAMIQUES ---
   const [quotas, setQuotas] = useState({
@@ -55,28 +56,63 @@ export default function Prets() {
   const [gameListVisible, setGameListVisible] = useState(false)
   const [loanDate, setLoanDate] = useState(new Date().toISOString().split('T')[0])
 
-  // --- NOUVEAUX ÉTATS POUR LE SCAN ---
-  const [showScanner, setShowScanner] = useState(false)
-  const [scannedGamesForLoan, setScannedGamesForLoan] = useState([])
-  const [scanReturnConfirm, setScanReturnConfirm] = useState(null)
-
   useEffect(() => {
     fetchInitialData()
     fetchQuotas()
   }, [])
 
-  // --- LOGIQUE DU SCANNER ---
+  // --- GESTION DU SCANNER (CORRECTIF SÉCURISÉ) ---
   useEffect(() => {
+    let scanner: any = null;
+
     if (showScanner) {
-      const scanner = new Html5QrcodeScanner("quick-reader", { fps: 10, qrbox: 250 }, false);
-      scanner.render(async (decodedText) => {
-        await handleSmartScan(decodedText);
-      }, (error) => {});
-      return () => { scanner.clear().catch(() => {}); }
+      scanner = new Html5QrcodeScanner(
+        "quick-reader", 
+        { 
+          fps: 20, 
+          qrbox: { width: 250, height: 150 },
+          experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+          aspectRatio: 1.777778
+        }, 
+        false
+      );
+
+      scanner.render(async (decodedText: string) => {
+        // On stoppe le scanner proprement AVANT de changer l'état React
+        if (scanner) {
+          await scanner.clear().catch((err: any) => console.warn("Erreur clear scan:", err));
+        }
+        setShowScanner(false);
+        handleSmartScan(decodedText);
+      }, (error: any) => {
+        // Silencieux
+      });
     }
+
+    return () => {
+      if (scanner) {
+        scanner.clear().catch((error: any) => {
+          console.log("Cleanup scanner : élément déjà supprimé.");
+        });
+      }
+    };
   }, [showScanner]);
 
-  // --- FONCTIONS DE DONNÉES D'ORIGINE ---
+  // Fonction de traitement du scan
+  const handleSmartScan = async (barcode: string) => {
+    const game = games.find(g => g.barcode === barcode || g.registration_number === barcode);
+    if (game) {
+      if (!game.is_available) {
+        alert(`Le jeu "${game.name}" est déjà marqué comme prêté.`);
+        return;
+      }
+      if (selectedGames.find(sg => sg.id === game.id)) return;
+      setSelectedGames(prev => [...prev, game]);
+    } else {
+      alert("Jeu non trouvé pour ce code.");
+    }
+  };
+
   async function fetchQuotas() {
     try {
       const { data } = await supabase.from('settings').select('*')
@@ -128,48 +164,6 @@ export default function Prets() {
       console.error("Erreur de chargement:", err)
     } finally {
       setLoading(false)
-    }
-  }
-
-  // --- LOGIQUE DE SCAN INTELLIGENT ---
-  async function handleSmartScan(barcode) {
-    const { data: game } = await supabase.from('games').select('*').eq('barcode', barcode).single();
-    if (!game) return;
-
-    if (game.is_available) {
-      // MODE PRÊT : Ajout à la liste temporaire
-      setScannedGamesForLoan(prev => {
-        if (prev.find(g => g.id === game.id)) return prev;
-        return [...prev, game];
-      });
-    } else {
-      // MODE RETOUR : Recherche du prêt actif
-      const { data: activeLoan } = await supabase.from('loans')
-        .select('*, members(*), games(*)')
-        .eq('game_id', game.id)
-        .single();
-      
-      if (activeLoan) {
-        setScanReturnConfirm(activeLoan);
-        setShowScanner(false); // On ferme pour confirmer le retour
-      }
-    }
-  }
-
-  async function confirmScanReturn() {
-    if (!scanReturnConfirm) return;
-    const historyEntry = {
-      member_id: scanReturnConfirm.member_id,
-      game_id: scanReturnConfirm.game_id,
-      loan_date: scanReturnConfirm.loan_date,
-      return_date: new Date().toISOString().split('T')[0]
-    }
-    const { error } = await supabase.from('loan_history').insert([historyEntry]);
-    if (!error) {
-      await supabase.from('loans').delete().eq('id', scanReturnConfirm.id);
-      await supabase.from('games').update({ is_available: true }).eq('id', scanReturnConfirm.game_id);
-      setScanReturnConfirm(null);
-      fetchInitialData();
     }
   }
 
@@ -288,7 +282,7 @@ export default function Prets() {
   return (
     <div className="p-4 md:p-10 bg-[#fdfaf6] min-h-screen font-sans text-slate-900">
       
-      {/* HEADER AVEC BOUTON SCAN RAPIDE */}
+      {/* HEADER */}
       <div className="max-w-7xl mx-auto mb-6 md:mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-xl md:text-4xl font-black text-slate-900 flex items-center gap-3">
           <div className="p-2.5 bg-[#1a5f7a] rounded-xl shadow-lg text-white">
@@ -297,20 +291,12 @@ export default function Prets() {
           <span>Gestion des <span className="text-[#1a5f7a]">Prêts</span></span>
         </h1>
         
-        <div className="flex gap-2">
-          <button 
-            onClick={() => { setScannedGamesForLoan([]); setShowScanner(true); }}
-            className="px-6 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl flex items-center gap-2"
-          >
-            <ScanLine size={16} /> Scan Rapide
-          </button>
-          <button 
-            onClick={openNewLoan} 
-            className="px-6 py-4 bg-[#e38154] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl"
-          >
-            Nouveau Prêt
-          </button>
-        </div>
+        <button 
+          onClick={openNewLoan} 
+          className="px-6 py-4 bg-[#e38154] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl"
+        >
+          Nouveau Prêt
+        </button>
       </div>
 
       <main className="max-w-7xl mx-auto space-y-6">
@@ -324,6 +310,7 @@ export default function Prets() {
           </div>
         )}
 
+        {/* RECHERCHE */}
         <div className="relative group">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
           <input 
@@ -447,6 +434,7 @@ export default function Prets() {
           </table>
         </div>
 
+        {/* BOUTON HISTORIQUE EN BAS */}
         <div className="flex justify-center md:justify-end pt-6">
           <button 
             onClick={() => window.location.href = '/historique-prets'} 
@@ -458,49 +446,7 @@ export default function Prets() {
 
       </main>
 
-      {/* --- NOUVELLE MODALE SCANNER --- */}
-      {showScanner && (
-        <div className="fixed inset-0 z-[250] flex flex-col items-center justify-center p-6 bg-slate-900/95 backdrop-blur-md">
-          <div className="w-full max-w-md bg-white rounded-[2.5rem] p-8 shadow-2xl relative">
-            <button onClick={() => setShowScanner(false)} className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full"><X size={16}/></button>
-            <h3 className="text-center font-black uppercase text-xs tracking-widest mb-6">Scan Rapide (Prêt/Retour)</h3>
-            <div id="quick-reader" className="w-full rounded-2xl overflow-hidden shadow-inner mb-6"></div>
-            
-            {scannedGamesForLoan.length > 0 && (
-              <div className="space-y-3 mb-6">
-                <p className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Jeux scannés ({scannedGamesForLoan.length})</p>
-                <div className="max-h-32 overflow-y-auto space-y-2">
-                  {scannedGamesForLoan.map(g => (
-                    <div key={g.id} className="flex justify-between p-3 bg-slate-50 rounded-xl text-[10px] font-bold">
-                      <span className="truncate">{g.name}</span>
-                      <X size={14} className="text-rose-400 cursor-pointer" onClick={() => setScannedGamesForLoan(scannedGamesForLoan.filter(sg => sg.id !== g.id))}/>
-                    </div>
-                  ))}
-                </div>
-                <button onClick={() => { setSelectedGames(scannedGamesForLoan); setShowScanner(false); setShowFormModal(true); }} className="w-full py-4 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest">Valider pour un adhérent</button>
-              </div>
-            )}
-            <p className="text-center text-[10px] text-slate-400 italic">Scannez un jeu libre pour le prêter, ou un jeu déjà prêté pour le rendre.</p>
-          </div>
-        </div>
-      )}
-
-      {/* --- NOUVELLE MODALE CONFIRMATION RETOUR SCAN --- */}
-      {scanReturnConfirm && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-md">
-          <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl">
-            <CheckCircle className="mx-auto text-emerald-500 mb-6" size={40} />
-            <h3 className="text-lg font-black uppercase mb-2">Confirmer le retour ?</h3>
-            <p className="text-xs text-slate-500 mb-8 italic">"{scanReturnConfirm.games?.name}" ramené par {scanReturnConfirm.members?.first_name} {scanReturnConfirm.members?.last_name}</p>
-            <div className="flex flex-col gap-3">
-              <button onClick={confirmScanReturn} className="w-full py-5 bg-emerald-500 text-white rounded-2xl font-black uppercase text-[10px]">Valider le retour</button>
-              <button onClick={() => setScanReturnConfirm(null)} className="w-full py-5 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase text-[10px]">Annuler</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODALE DE RELANCE (ORIGINALE) */}
+      {/* MODALE DE RELANCE */}
       {renewalAction && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-[#1a5f7a]/80 backdrop-blur-md" onClick={() => setRenewalAction(null)}></div>
@@ -606,7 +552,7 @@ export default function Prets() {
         </div>
       )}
 
-      {/* MODALES CONFIRMATION (ORIGINALE) */}
+      {/* MODALES CONFIRMATION */}
       {confirmAction && (
         <div className="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-sm p-10 text-center shadow-2xl animate-in zoom-in-95">
@@ -635,7 +581,7 @@ export default function Prets() {
         </div>
       )}
 
-      {/* MODALE FORMULAIRE NOUVEAU PRÊT (ORIGINALE) */}
+      {/* MODALE FORMULAIRE NOUVEAU PRÊT */}
       {showFormModal && (
         <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
@@ -648,7 +594,9 @@ export default function Prets() {
             <div className="p-8 space-y-8 overflow-y-auto">
               {/* ÉTAPE 1 */}
               <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase tracking-tighter text-[#1a5f7a]">1. Sélection de l'adhérent</label>
+                <div className="flex justify-between items-center">
+                   <label className="text-[10px] font-black uppercase tracking-tighter text-[#1a5f7a]">1. Sélection de l'adhérent</label>
+                </div>
                 {!selectedMember ? (
                   <div className="relative">
                     <input 
@@ -683,7 +631,18 @@ export default function Prets() {
 
               {/* ÉTAPE 2 */}
               <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase tracking-tighter text-[#1a5f7a]">2. Jeux à ajouter</label>
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] font-black uppercase tracking-tighter text-[#1a5f7a]">2. Jeux à ajouter</label>
+                  {selectedMember && (
+                    <button 
+                      onClick={() => setShowScanner(true)}
+                      className="flex items-center gap-2 px-3 py-2 bg-slate-800 text-white rounded-xl text-[9px] font-black uppercase shadow-lg active:scale-95 transition-all"
+                    >
+                      <ScanLine size={14}/> Scanner un jeu
+                    </button>
+                  )}
+                </div>
+                
                 {selectedMember ? (
                   <>
                     {totalCount < getLoanLimit(selectedMember) ? (
@@ -743,6 +702,22 @@ export default function Prets() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE SCANNER (PRÊTS) */}
+      {showScanner && (
+        <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center p-6 bg-slate-900/95 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-white rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
+             <h3 className="text-center font-black uppercase text-xs tracking-widest mb-6">Scanner pour ajouter un jeu</h3>
+             <div id="quick-reader" className="w-full rounded-2xl overflow-hidden shadow-inner"></div>
+             <button 
+               onClick={() => setShowScanner(false)} 
+               className="mt-8 w-full py-5 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-rose-50 hover:text-rose-500 transition-colors"
+             >
+               Annuler
+             </button>
           </div>
         </div>
       )}
