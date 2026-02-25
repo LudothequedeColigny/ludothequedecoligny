@@ -1,20 +1,24 @@
 import { useState, useEffect } from 'react'
-import { Dice5, Plus, Trash2, Edit2, X, Hash, AlertCircle, Search, CheckCircle, ImageIcon, Link as LinkIcon, Tag, ExternalLink, Users, PlayCircle, Clock, FileText, WifiOff, Eye } from 'lucide-react'
+import { Dice5, Plus, Trash2, Edit2, X, Hash, AlertCircle, Search, CheckCircle, ImageIcon, Link as LinkIcon, Tag, ExternalLink, Users, PlayCircle, Clock, FileText, WifiOff, Eye, Loader2, Camera, ScanLine } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
+import { Html5QrcodeScanner } from 'html5-qrcode'
 
 export default function Jeux() {
   const [jeux, setJeux] = useState([])
   const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [deleteModal, setDeleteModal] = useState({ show: false, id: null, name: '' })
+  const [showScanner, setShowScanner] = useState(false)
   
   const [categoryInput, setCategoryInput] = useState('')
   const [availableCategories, setAvailableCategories] = useState([])
 
   const initialGameState = {
     registration_number: '',
+    barcode: '', // Nouvelle colonne
     name: '',
     description: '',
     observations: '', 
@@ -31,6 +35,29 @@ export default function Jeux() {
   const [newGame, setNewGame] = useState(initialGameState)
 
   useEffect(() => { fetchJeux() }, [])
+
+  // Logique du scanner
+  useEffect(() => {
+    if (showScanner) {
+      const scanner = new Html5QrcodeScanner(
+        "reader", 
+        { fps: 10, qrbox: { width: 250, height: 150 } }, 
+        /* verbose= */ false
+      );
+      
+      scanner.render((decodedText) => {
+        setNewGame(prev => ({ ...prev, barcode: decodedText }));
+        setShowScanner(false);
+        scanner.clear();
+      }, (error) => {
+        // Erreur de lecture silencieuse
+      });
+
+      return () => {
+        scanner.clear().catch(error => console.error("Erreur arrêt scanner", error));
+      }
+    }
+  }, [showScanner]);
 
   async function fetchJeux() {
     setLoading(true)
@@ -104,6 +131,7 @@ export default function Jeux() {
   const filteredJeux = jeux.filter(jeu => 
     jeu.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     jeu.registration_number.toString().includes(searchTerm) ||
+    jeu.barcode?.toString().includes(searchTerm) ||
     jeu.category?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
@@ -124,21 +152,70 @@ export default function Jeux() {
     setShowForm(false)
   }
 
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (!navigator.onLine) { alert("Impossible d'uploader en mode hors-ligne."); return; }
+    
+    setUploading(true)
+    try {
+      const isPng = file.type === 'image/png';
+      const fileExtension = isPng ? 'png' : 'jpg';
+      const mimeType = isPng ? 'image/png' : 'image/jpeg';
+
+      const compressedFile = await new Promise((resolve) => {
+        const reader = new FileReader()
+        reader.readAsDataURL(file)
+        reader.onload = (event) => {
+          const img = new Image()
+          img.src = event.target.result as string
+          img.onload = () => {
+            const canvas = document.createElement('canvas')
+            const MAX_WIDTH = 800
+            const scaleSize = MAX_WIDTH / img.width
+            canvas.width = MAX_WIDTH
+            canvas.height = img.height * scaleSize
+            const ctx = canvas.getContext('2d')
+            ctx?.drawImage(img, 0, 0, canvas.width, canvas.height)
+            
+            canvas.toBlob((blob) => {
+              if (blob) {
+                const finalFile = new File([blob], file.name, { type: mimeType });
+                resolve(finalFile);
+              }
+            }, mimeType, isPng ? 1.0 : 0.7)
+          }
+        }
+      })
+
+      const fileName = `${Math.random()}-${Date.now()}.${fileExtension}`
+      const { error: uploadError } = await supabase.storage.from('game-images').upload(fileName, compressedFile as File)
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage.from('game-images').getPublicUrl(fileName)
+      setNewGame({ ...newGame, image_url: publicUrl })
+    } catch (error: any) {
+      alert("Erreur lors de l'envoi : " + error.message)
+    } finally {
+      setUploading(false)
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     if (isNumberDuplicate) return;
 
     if (navigator.onLine) {
-      // Nettoyage de l'objet avant envoi pour éviter les erreurs de type
       const gameData = {
         registration_number: newGame.registration_number,
+        barcode: newGame.barcode || '',
         name: newGame.name,
         description: newGame.description || '',
         observations: newGame.observations || '',
-        min_players: parseInt(newGame.min_players) || 1,
-        max_players: parseInt(newGame.max_players) || 1,
-        min_age: parseInt(newGame.min_age) || 0,
-        duration: parseInt(newGame.duration) || 0,
+        min_players: parseInt(newGame.min_players as any) || 1,
+        max_players: parseInt(newGame.max_players as any) || 1,
+        min_age: parseInt(newGame.min_age as any) || 0,
+        duration: parseInt(newGame.duration as any) || 0,
         category: newGame.category || '',
         image_url: newGame.image_url || '',
         youtube_url: newGame.youtube_url || '',
@@ -227,7 +304,7 @@ export default function Jeux() {
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
             <input 
               type="text" 
-              placeholder="Rechercher par titre, numéro, catégorie..." 
+              placeholder="Rechercher par titre, numéro, code-barres..." 
               className="w-full bg-white border border-slate-100 p-5 pl-16 rounded-[1.5rem] font-bold outline-none focus:ring-4 focus:ring-[#1a5f7a]/5 shadow-sm text-sm" 
               value={searchTerm} 
               onChange={(e) => setSearchTerm(e.target.value)} 
@@ -248,31 +325,22 @@ export default function Jeux() {
                     <input required className={`w-full p-4 rounded-2xl bg-slate-50 font-black outline-none border-2 ${isNumberDuplicate ? 'border-rose-500 bg-rose-50 text-rose-600' : 'border-transparent'}`} value={newGame.registration_number} onChange={e => setNewGame({...newGame, registration_number: e.target.value})} />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Titre du jeu</label>
-                    <input required className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none border-2 border-transparent focus:border-[#1a5f7a]/10" value={newGame.name} onChange={e => setNewGame({...newGame, name: e.target.value})} />
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Code-Barres (Scan)</label>
+                    <div className="flex gap-2">
+                      <input className="flex-1 p-4 rounded-2xl bg-slate-50 font-black outline-none border-2 border-transparent focus:border-[#1a5f7a]/10" value={newGame.barcode} placeholder="Scannez ou saisissez..." onChange={e => setNewGame({...newGame, barcode: e.target.value})} />
+                      <button type="button" onClick={() => setShowScanner(true)} className="p-4 bg-slate-800 text-white rounded-2xl active:scale-95 shadow-md"><ScanLine size={20} /></button>
+                    </div>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><FileText size={12}/> Description du jeu</label>
-                  <textarea 
-                    rows="3"
-                    placeholder="Brève explication des règles ou du thème..." 
-                    className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]/10 resize-none" 
-                    value={newGame.description || ''} 
-                    onChange={e => setNewGame({...newGame, description: e.target.value})} 
-                  />
+                  <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Titre du jeu</label>
+                  <input required className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none border-2 border-transparent focus:border-[#1a5f7a]/10" value={newGame.name} onChange={e => setNewGame({...newGame, name: e.target.value})} />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-[#e38154] uppercase ml-2 flex items-center gap-1"><Eye size={12}/> Observations (État, pièces manquantes...)</label>
-                  <textarea 
-                    rows="3"
-                    placeholder="Ex: État d'usure, manque une pièce, etc..." 
-                    className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#e38154]/20 resize-none" 
-                    value={newGame.observations || ''} 
-                    onChange={e => setNewGame({...newGame, observations: e.target.value})} 
-                  />
+                  <label className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><FileText size={12}/> Description du jeu</label>
+                  <textarea rows={3} placeholder="Règles ou thème..." className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]/10 resize-none" value={newGame.description || ''} onChange={e => setNewGame({...newGame, description: e.target.value})} />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -289,24 +357,12 @@ export default function Jeux() {
                 <div className="space-y-2 relative">
                   <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Catégories</label>
                   <div className="flex gap-2">
-                    <input 
-                      placeholder="Ajouter une catégorie..." 
-                      className="flex-1 p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none" 
-                      value={categoryInput} 
-                      onChange={e => setCategoryInput(e.target.value)} 
-                      onKeyDown={(e) => { if(e.key === 'Enter') { e.preventDefault(); addCategory(categoryInput); }}}
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => addCategory(categoryInput)}
-                      className="p-4 bg-[#1a5f7a] text-white rounded-2xl hover:bg-[#e38154] transition-colors shadow-lg active:scale-90"
-                    >
-                      <Plus size={20} strokeWidth={3} />
-                    </button>
+                    <input placeholder="Ajouter..." className="flex-1 p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none" value={categoryInput} onChange={e => setCategoryInput(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter') { e.preventDefault(); addCategory(categoryInput); }}} />
+                    <button type="button" onClick={() => addCategory(categoryInput)} className="p-4 bg-[#1a5f7a] text-white rounded-2xl shadow-lg"><Plus size={20} strokeWidth={3} /></button>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-3">
                     {newGame.category?.split(',').map(c => c.trim()).filter(Boolean).map((cat, i) => (
-                      <span key={i} className="px-3 py-2 bg-[#1a5f7a] text-white text-[9px] font-black uppercase rounded-xl flex items-center gap-2 shadow-sm">
+                      <span key={i} className="px-3 py-2 bg-[#1a5f7a] text-white text-[9px] font-black uppercase rounded-xl flex items-center gap-2">
                         {cat} <X size={14} className="cursor-pointer" onClick={() => removeCategory(cat)} />
                       </span>
                     ))}
@@ -320,7 +376,13 @@ export default function Jeux() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><ExternalLink size={12}/> URL Image</label>
-                    <input placeholder="Lien HTTP..." className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-xs outline-none" value={newGame.image_url} onChange={e => setNewGame({...newGame, image_url: e.target.value})} />
+                    <div className="flex gap-2">
+                      <input placeholder="Lien HTTP..." className="flex-1 p-4 rounded-2xl bg-slate-50 font-bold text-xs outline-none" value={newGame.image_url} onChange={e => setNewGame({...newGame, image_url: e.target.value})} />
+                      <label className="cursor-pointer p-4 bg-[#e38154] text-white rounded-2xl flex items-center justify-center active:scale-95 shadow-md shrink-0 z-10">
+                        {uploading ? <Loader2 size={20} className="animate-spin" /> : <Camera size={20} />}
+                        <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} disabled={uploading || !navigator.onLine} />
+                      </label>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><PlayCircle size={12}/> URL Vidéo</label>
@@ -341,33 +403,38 @@ export default function Jeux() {
 
                 {newGame.image_url && (
                   <div className="p-4 bg-slate-50 rounded-2xl flex items-center justify-center border-2 border-dashed border-slate-200">
-                    <img src={newGame.image_url} className="h-20 object-contain rounded-lg" alt="Aperçu" onError={(e) => e.target.src='https://via.placeholder.com/150?text=Lien+mort'} />
+                    <img src={newGame.image_url} className="h-20 object-contain rounded-lg" alt="Aperçu" />
                   </div>
                 )}
 
                 <button type="submit" disabled={isNumberDuplicate} className={`w-full py-5 md:py-6 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl transition-all ${isNumberDuplicate ? 'bg-slate-200 text-slate-400' : 'bg-[#1a5f7a] text-white active:scale-95'}`}>
-                  {editingId ? "Enregistrer les modifications" : "Valider l'ajout"}
+                  {editingId ? "Enregistrer" : "Valider l'ajout"}
                 </button>
               </div>
             </div>
           </form>
         )}
 
+        {/* LISTE DES JEUX */}
         <div className="hidden md:block bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-[10px] uppercase text-slate-400 font-black">
               <tr>
-                <th className="p-8">N°</th>
+                <th className="p-8">N° / Barcode</th>
                 <th className="p-8">Jeu</th>
                 <th className="p-8">Config.</th>
-                <th className="p-8">Médias</th>
                 <th className="p-8 text-right pr-12">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {filteredJeux.map((jeu) => (
                 <tr key={jeu.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="p-8"><span className="font-black text-[#1a5f7a] bg-cyan-50 px-3 py-2 rounded-xl border border-cyan-100">{jeu.registration_number}</span></td>
+                  <td className="p-8">
+                    <div className="flex flex-col gap-1">
+                      <span className="font-black text-[#1a5f7a] bg-cyan-50 px-3 py-1 rounded-lg border border-cyan-100 w-fit">#{jeu.registration_number}</span>
+                      {jeu.barcode && <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1"><ScanLine size={10}/> {jeu.barcode}</span>}
+                    </div>
+                  </td>
                   <td className="p-8">
                     <div className="flex items-center gap-4">
                       <div className="w-16 h-16 shrink-0 bg-white rounded-xl border border-slate-100 p-1 flex items-center justify-center overflow-hidden">
@@ -386,13 +453,8 @@ export default function Jeux() {
                   <td className="p-8">
                     <div className="space-y-1">
                       <div className="text-[10px] font-black text-slate-700 flex items-center gap-2"><Users size={12} className="text-[#1a5f7a]"/> {jeu.min_players}-{jeu.max_players} j.</div>
-                      <div className="text-[10px] font-black text-slate-400 flex items-center gap-2"><Clock size={12}/> {jeu.duration} min • {jeu.min_age} ans+</div>
+                      <div className="text-[10px] font-black text-slate-400 flex items-center gap-2"><Clock size={12}/> {jeu.duration} min</div>
                     </div>
-                  </td>
-                  <td className="p-8">
-                    {jeu.youtube_url && (
-                      <a href={jeu.youtube_url} target="_blank" rel="noreferrer" className="p-2.5 inline-block bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all"><PlayCircle size={18}/></a>
-                    )}
                   </td>
                   <td className="p-8 pr-12 text-right">
                     <div className="flex justify-end gap-3">
@@ -406,6 +468,7 @@ export default function Jeux() {
           </table>
         </div>
 
+        {/* MOBILE */}
         <div className="md:hidden space-y-4">
           {filteredJeux.map((jeu) => (
             <div key={jeu.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100">
@@ -416,26 +479,29 @@ export default function Jeux() {
                 <div className="flex-1 min-w-0">
                   <span className="text-[9px] font-black text-[#1a5f7a] bg-cyan-50 px-2 py-1 rounded-lg">#{jeu.registration_number}</span>
                   <h3 className="font-black text-slate-900 uppercase text-xs mt-1 truncate">{jeu.name}</h3>
-                  <div className="flex gap-3 mt-2 font-bold text-slate-400 text-[9px]">
-                    <span className="flex items-center gap-1"><Users size={10}/> {jeu.min_players}-{jeu.max_players}</span>
-                    <span className="flex items-center gap-1"><Clock size={10}/> {jeu.duration} min</span>
-                  </div>
                 </div>
               </div>
               <div className="flex gap-2 pt-4 border-t border-slate-100">
-                <button onClick={() => startEdit(jeu)} className="flex-1 py-4 bg-slate-50 text-[#1a5f7a] rounded-2xl font-black uppercase text-[9px] flex items-center justify-center gap-2 active:bg-cyan-100">
-                  <Edit2 size={14}/> Modifier
-                </button>
-                {jeu.youtube_url && (
-                  <a href={jeu.youtube_url} target="_blank" className="p-4 bg-rose-50 text-rose-500 rounded-2xl"><PlayCircle size={18}/></a>
-                )}
-                <button onClick={() => openDeleteModal(jeu)} className="p-4 bg-rose-50 text-rose-500 rounded-2xl active:bg-rose-100"><Trash2 size={18}/></button>
+                <button onClick={() => startEdit(jeu)} className="flex-1 py-4 bg-slate-50 text-[#1a5f7a] rounded-2xl font-black uppercase text-[9px] flex items-center justify-center gap-2"><Edit2 size={14}/> Modifier</button>
+                <button onClick={() => openDeleteModal(jeu)} className="p-4 bg-rose-50 text-rose-500 rounded-2xl"><Trash2 size={18}/></button>
               </div>
             </div>
           ))}
         </div>
       </main>
 
+      {/* MODALE SCANNER */}
+      {showScanner && (
+        <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center p-6 bg-slate-900/95 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-white rounded-[2.5rem] p-8 shadow-2xl overflow-hidden relative">
+            <h3 className="text-center font-black uppercase text-xs tracking-widest mb-6">Scannez le code-barres</h3>
+            <div id="reader" className="w-full rounded-2xl overflow-hidden shadow-inner"></div>
+            <button onClick={() => setShowScanner(false)} className="mt-8 w-full py-5 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-rose-50 hover:text-rose-500 transition-colors">Annuler le scan</button>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE SUPPRESSION */}
       {deleteModal.show && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-[#1a5f7a]/80 backdrop-blur-md" onClick={() => setDeleteModal({show: false})}></div>

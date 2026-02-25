@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Share2, Search, ArrowLeft, Calendar, User, Hash, Clock } from 'lucide-react'
+import { 
+  Search, 
+  ArrowLeft, 
+  Clock // <-- L'IMPORT MANQUANT ÉTAIT ICI
+} from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
 
 export default function HistoriquePrets() {
@@ -14,7 +18,6 @@ export default function HistoriquePrets() {
   async function fetchHistory() {
     setLoading(true)
     try {
-      // On récupère les données de la nouvelle table avec les jointures
       const { data, error } = await supabase
         .from('loan_history') 
         .select(`
@@ -33,7 +36,6 @@ export default function HistoriquePrets() {
     }
   }
 
-  // Filtrage sécurisé (on vérifie si members/games existent pour éviter les erreurs de .toLowerCase)
   const filteredHistory = history.filter(h => {
     const memberName = `${h.members?.first_name || ''} ${h.members?.last_name || ''}`.toLowerCase()
     const gameName = (h.games?.name || '').toLowerCase()
@@ -50,7 +52,6 @@ export default function HistoriquePrets() {
   return (
     <div className="p-4 md:p-10 bg-[#fdfaf6] min-h-screen font-sans text-slate-900">
       
-      {/* --- HEADER --- */}
       <div className="max-w-7xl mx-auto mb-6 md:mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <button 
@@ -70,7 +71,6 @@ export default function HistoriquePrets() {
 
       <main className="max-w-7xl mx-auto space-y-6">
         
-        {/* --- BARRE DE RECHERCHE --- */}
         <div className="relative group">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
           <input 
@@ -88,7 +88,7 @@ export default function HistoriquePrets() {
           </div>
         ) : (
           <>
-            {/* --- VERSION MOBILE (CARTES) --- */}
+            {/* MOBILE */}
             <div className="md:hidden space-y-4">
               {filteredHistory.map((h) => (
                 <div key={h.id} className="bg-white p-5 rounded-[2rem] border border-slate-50 shadow-sm">
@@ -106,14 +106,11 @@ export default function HistoriquePrets() {
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
                     Par : {h.members?.first_name} {h.members?.last_name}
                   </p>
-                  <div className="mt-3 pt-3 border-t border-slate-50 text-[9px] text-slate-400 font-bold uppercase">
-                    Emprunté le : {new Date(h.loan_date).toLocaleDateString()}
-                  </div>
                 </div>
               ))}
             </div>
 
-            {/* --- VERSION DESKTOP (TABLEAU) --- */}
+            {/* DESKTOP */}
             <div className="hidden md:block bg-white rounded-[2.5rem] shadow-sm border border-slate-50 overflow-hidden">
               <table className="w-full text-left">
                 <thead className="bg-slate-50 text-[10px] uppercase text-slate-400 font-black">

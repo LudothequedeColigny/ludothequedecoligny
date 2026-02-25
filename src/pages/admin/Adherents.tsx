@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { 
-  Users, Trash2, Edit2, X, Plus, Hash, CreditCard, 
+  Users, Trash2, Edit2, X, Plus, CreditCard, 
   Phone, Mail, Search, MapPin, Eye, User, Send, AlertTriangle, 
-  Building2, Home, ChevronRight, ExternalLink, Calendar, ShieldCheck, ShieldOff
+  Building2, ExternalLink, Calendar, ShieldCheck, ShieldOff, CheckCircle2, ChevronRight
 } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
 
@@ -17,16 +17,19 @@ export default function Adherents() {
   const [viewMember, setViewMember] = useState(null)
   const [renewalAction, setRenewalAction] = useState(null)
 
-  // --- RÉGLAGES DYNAMIQUES (Intégration Caution) ---
   const [appSettings, setAppSettings] = useState({
-    prix_particulier: 24,
-    prix_association: 50,
-    degressivite_mensuelle: 2,
-    prix_minimum: 10,
+    prix_particulier: 0,
+    degressivite_mensuelle: 0,
+    prix_minimum: 0,
+    mode_adhesion_particulier: "degressif",
+    prix_association: 0,
+    degressivite_association: 0,
+    prix_minimum_asso: 0,
+    mode_adhesion_association: "glissant",
     active_caution_particulier: "false",
-    montant_caution_particulier: 50,
+    montant_caution_particulier: 0,
     active_caution_association: "false",
-    montant_caution_association: 100
+    montant_caution_association: 0
   })
 
   const now = new Date();
@@ -45,12 +48,27 @@ export default function Adherents() {
     caution_received: false,
     family_members: [], 
     membership_date: todayStr,
-    fee_amount: 24,
+    fee_amount: 0,
     last_reminder_date: null
   }
 
   const [newMember, setNewMember] = useState(initialFormState)
   const [tempFamilyMember, setTempFamilyMember] = useState('')
+
+  const calculateFee = (type, date, settings) => {
+    const isAsso = type === 'Association';
+    const base = Number(isAsso ? settings.prix_association : settings.prix_particulier) || 0;
+    const deg = Number(isAsso ? settings.degressivite_association : settings.degressivite_mensuelle) || 0;
+    const min = Number(isAsso ? settings.prix_minimum_asso : settings.prix_minimum) || 0;
+    const mode = isAsso ? settings.mode_adhesion_association : settings.mode_adhesion_particulier;
+
+    if (mode === 'degressif') {
+      const monthIndex = new Date(date).getMonth();
+      const calculated = base - (monthIndex * deg);
+      return Math.max(calculated, min);
+    }
+    return base;
+  }
 
   useEffect(() => { 
     fetchMembers() 
@@ -58,69 +76,37 @@ export default function Adherents() {
   }, [])
 
   async function loadSettings() {
-    try {
-      const { data, error } = await supabase.from('settings').select('*')
-      if (!error && data) {
-        const settingsObj = {}
-        data.forEach(s => {
-          settingsObj[s.id] = (s.value === "true" || s.value === "false") ? s.value : parseFloat(s.value)
-        })
-        setAppSettings(prev => ({ ...prev, ...settingsObj }))
-      }
-    } catch (e) { console.error("Erreur chargement paramètres :", e) }
+    const { data } = await supabase.from('settings').select('*')
+    if (data) {
+      const obj = {}
+      data.forEach(s => obj[s.id] = s.value)
+      setAppSettings(prev => ({ ...prev, ...obj }))
+    }
   }
 
   useEffect(() => {
-    if (newMember.type === 'Particulier') {
-      const month = new Date(newMember.membership_date).getMonth();
-      const calculatedFee = Math.max(
-        appSettings.prix_particulier - (month * appSettings.degressivite_mensuelle), 
-        appSettings.prix_minimum
-      );
-      setNewMember(prev => ({ ...prev, fee_amount: calculatedFee }));
-    } else {
-      setNewMember(prev => ({ ...prev, fee_amount: appSettings.prix_association }));
-    }
-  }, [newMember.membership_date, newMember.type, appSettings]);
+    setNewMember(prev => ({
+      ...prev,
+      fee_amount: calculateFee(prev.type, prev.membership_date, appSettings)
+    }));
+  }, [appSettings, newMember.type, newMember.membership_date]);
 
-  async function fetchMembers() {
-    setLoading(true)
-    try {
-      const { data, error } = await supabase.from('members').select('*').order('last_name')
-      if (error) throw error
-      setMembers(data || [])
-    } catch (err) { console.error(err) }
-    finally { setLoading(false) }
-  }
-
-  const triggerOutlook = (member) => {
-    const subject = encodeURIComponent(`Relance : Renouvellement de votre adhésion - Ludothèque`);
-    const body = encodeURIComponent(
-      `Bonjour ${member.first_name !== 'Association' ? member.first_name : member.last_name},\n\n` +
-      `Sauf erreur de notre part, votre adhésion à la Ludothèque de Coligny est arrivée à son terme.\n\n` +
-      `Pour continuer à profiter du prêt de jeux, nous vous invitons à venir renouveler votre cotisation lors de notre prochaine permanence.\n\n` +
-      `À bientôt !\n\nL'équipe de la Ludothèque`
-    );
-    const outlookUrl = `https://outlook.live.com/mail/0/deeplink/compose?to=${member.email}&subject=${subject}&body=${body}`;
-    window.open(outlookUrl, '_blank');
+  const handleOpenForm = () => {
+    setEditingId(null);
+    setNewMember({
+      ...initialFormState,
+      fee_amount: calculateFee('Particulier', todayStr, appSettings)
+    });
+    setShowForm(true);
   };
-
-  const addFamilyMember = () => {
-    if (tempFamilyMember.trim()) {
-      setNewMember({
-        ...newMember,
-        family_members: [...newMember.family_members, tempFamilyMember.trim()]
-      });
-      setTempFamilyMember('');
-    }
-  }
-
-  const formatMemberNumber = (num) => num?.toString().padStart(3, '0') || '---';
 
   const getExpirationStatus = (member) => {
     if (!member.has_paid) return { expired: true, message: "Non réglé" };
     const dateAdhesion = new Date(member.membership_date);
-    if (member.type === 'Particulier') {
+    const isAsso = member.type === 'Association';
+    const mode = isAsso ? appSettings.mode_adhesion_association : appSettings.mode_adhesion_particulier;
+
+    if (mode === 'degressif') {
       if (dateAdhesion.getFullYear() < currentYear) return { expired: true, message: "Année expirée" };
     } else {
       const expiryDate = new Date(dateAdhesion);
@@ -130,51 +116,61 @@ export default function Adherents() {
     return { expired: false, message: "À jour" };
   }
 
+  async function fetchMembers() {
+    setLoading(true)
+    const { data } = await supabase.from('members').select('*').order('last_name')
+    setMembers(data || [])
+    setLoading(false)
+  }
+
+  const triggerOutlook = (member) => {
+    const name = member.type === 'Association' ? member.last_name : member.first_name;
+    const subject = encodeURIComponent(`Renouvellement de votre adhésion - Ludothèque`);
+    const body = encodeURIComponent(`Bonjour ${name},\n\nSauf erreur de notre part, votre adhésion à la ludothèque est arrivée à son terme.\n\nNous serions ravis de vous compter à nouveau parmi nos adhérents ! Nous vous invitons à venir renouveler votre adhésion lors de notre prochaine permanence.\n\nCe sera l'occasion de découvrir les nouveautés et de partager un moment convivial.\n\nÀ très bientôt !`);
+    window.open(`https://outlook.live.com/mail/0/deeplink/compose?to=${member.email}&subject=${subject}&body=${body}`, '_blank');
+  };
+
   async function handleSubmit(e) {
     e.preventDefault();
     const { error } = editingId 
       ? await supabase.from('members').update(newMember).eq('id', editingId) 
       : await supabase.from('members').insert([newMember]);
     if (!error) { setShowForm(false); setNewMember(initialFormState); fetchMembers(); setEditingId(null); }
-    else { alert(error.message); }
   }
 
-  const filteredMembers = members.filter(m => `${m.first_name} ${m.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) || m.member_number?.toString().includes(searchTerm));
-  const expiredCount = members.filter(m => getExpirationStatus(m).expired).length;
+  const filteredMembers = members.filter(m => 
+    `${m.first_name} ${m.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    m.member_number?.toString().includes(searchTerm)
+  );
 
-  if (loading) return <div className="flex items-center justify-center h-screen bg-[#fdfaf6] text-[#1a5f7a] font-black uppercase text-xs tracking-widest animate-pulse">Chargement des adhérents...</div>
+  if (loading) return <div className="flex items-center justify-center h-screen bg-[#fdfaf6] text-[#1a5f7a] font-black uppercase text-xs tracking-widest animate-pulse">Chargement...</div>
 
   return (
     <div className="p-4 md:p-10 bg-[#fdfaf6] min-h-screen font-sans text-slate-900">
       
-      <div className="max-w-7xl mx-auto mb-6 md:mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* HEADER */}
+      <div className="max-w-7xl mx-auto mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-xl md:text-4xl font-black text-slate-900 flex items-center gap-3">
           <div className="p-2.5 bg-[#1a5f7a] rounded-xl shadow-lg text-white"><Users size={24} /></div>
           <span>Gestion des <span className="text-[#1a5f7a]">Adhérents</span></span>
         </h1>
-        <button onClick={() => { if(showForm) setShowForm(false); else { setEditingId(null); setNewMember(initialFormState); setShowForm(true); }}} className={`w-full md:w-auto px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl ${showForm ? 'bg-slate-800 text-white' : 'bg-[#e38154] text-white'}`}>
+        <button onClick={() => showForm ? setShowForm(false) : handleOpenForm()} className={`w-full md:w-auto px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl ${showForm ? 'bg-slate-800 text-white' : 'bg-[#e38154] text-white'}`}>
           {showForm ? "Fermer" : "Nouvel Adhérent"}
         </button>
       </div>
 
       <main className="max-w-7xl mx-auto space-y-6">
-        {!showForm && expiredCount > 0 && (
-          <div className="flex items-center gap-3 bg-rose-50 border border-rose-100 p-4 rounded-2xl text-rose-800 animate-in fade-in slide-in-from-top-2">
-            <AlertTriangle className="text-rose-500 shrink-0 animate-bounce" size={20} />
-            <p className="text-[10px] md:text-xs font-black uppercase tracking-wider">Attention : {expiredCount} adhésion(s) doivent être renouvelées !</p>
-          </div>
-        )}
-
         {!showForm && (
           <div className="relative group">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-            <input type="text" placeholder="Rechercher par nom ou numéro..." className="w-full bg-white border border-slate-100 p-4 pl-14 rounded-2xl font-bold text-slate-700 outline-none shadow-sm focus:ring-2 focus:ring-[#1a5f7a]/10 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            <input type="text" placeholder="Rechercher..." className="w-full bg-white border border-slate-100 p-4 pl-14 rounded-2xl font-bold text-slate-700 outline-none shadow-sm focus:ring-2 focus:ring-[#1a5f7a]/10 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
         )}
 
         {showForm && (
           <form onSubmit={handleSubmit} className="bg-white p-6 md:p-12 rounded-[2.5rem] shadow-xl border border-slate-50 mb-8 animate-in zoom-in-95">
              <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                {/* IDENTITÉ */}
                 <div className="space-y-4">
                   <h3 className="text-[10px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2"><User size={14}/> Type & Identité</h3>
                   <div className="grid grid-cols-2 gap-2">
@@ -182,33 +178,30 @@ export default function Adherents() {
                       <button key={t} type="button" onClick={() => setNewMember({...newMember, type: t, first_name: t === 'Association' ? 'Association' : ''})} className={`py-3 rounded-xl font-bold text-[10px] border transition-all ${newMember.type === t ? 'bg-[#1a5f7a] text-white border-[#1a5f7a] shadow-md' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>{t}</button>
                     ))}
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Numéro d'adhérent</label>
-                    <input required type="text" className="w-full p-4 rounded-xl bg-slate-50 font-bold text-sm border-2 border-transparent focus:border-[#1a5f7a] outline-none" value={newMember.member_number} onChange={e => setNewMember({...newMember, member_number: e.target.value})} />
-                  </div>
+                  <input required placeholder="N° Adhérent" className="w-full p-4 rounded-xl bg-slate-50 font-bold text-sm border-2 border-transparent focus:border-[#1a5f7a] outline-none" value={newMember.member_number} onChange={e => setNewMember({...newMember, member_number: e.target.value})} />
                   <div className="grid grid-cols-1 gap-2">
                     {newMember.type !== 'Association' && (
                        <input required placeholder="Prénom" className="w-full p-4 rounded-xl bg-slate-50 font-bold text-sm border-2 border-transparent focus:border-[#1a5f7a] outline-none" value={newMember.first_name} onChange={e => setNewMember({...newMember, first_name: e.target.value})} />
                     )}
-                    <input required placeholder={newMember.type === 'Association' ? "Nom de l'Association" : "Nom"} className="w-full p-4 rounded-xl bg-slate-50 font-bold text-sm border-2 border-transparent focus:border-[#1a5f7a] outline-none" value={newMember.last_name} onChange={e => setNewMember({...newMember, last_name: e.target.value})} />
+                    <input required placeholder={newMember.type === 'Association' ? "Nom de l'Asso" : "Nom"} className="w-full p-4 rounded-xl bg-slate-50 font-bold text-sm border-2 border-transparent focus:border-[#1a5f7a] outline-none" value={newMember.last_name} onChange={e => setNewMember({...newMember, last_name: e.target.value})} />
                   </div>
                   <input type="date" required className="w-full p-4 rounded-xl bg-slate-50 font-bold text-sm outline-none" value={newMember.membership_date} onChange={e => setNewMember({...newMember, membership_date: e.target.value})} />
                 </div>
 
+                {/* CONTACT */}
                 <div className="space-y-4">
-                  <h3 className="text-[10px] font-black text-[#e38154] uppercase tracking-widest flex items-center gap-2"><Plus size={14}/> Coordonnées & Foyer</h3>
+                  <h3 className="text-[10px] font-black text-[#e38154] uppercase tracking-widest flex items-center gap-2"><Mail size={14}/> Coordonnées</h3>
                   <input type="email" placeholder="Email" className="w-full p-4 rounded-xl bg-slate-50 font-bold text-sm" value={newMember.email} onChange={e => setNewMember({...newMember, email: e.target.value})} />
                   <input type="tel" placeholder="Téléphone" className="w-full p-4 rounded-xl bg-slate-50 font-bold text-sm" value={newMember.phone} onChange={e => setNewMember({...newMember, phone: e.target.value})} />
-                  <textarea placeholder="Adresse complète" rows="2" className="w-full p-4 rounded-xl bg-slate-50 font-bold text-sm outline-none border-2 border-transparent focus:border-[#e38154] transition-all resize-none" value={newMember.address} onChange={e => setNewMember({...newMember, address: e.target.value})} />
+                  <textarea placeholder="Adresse complète" rows="2" className="w-full p-4 rounded-xl bg-slate-50 font-bold text-sm outline-none resize-none" value={newMember.address} onChange={e => setNewMember({...newMember, address: e.target.value})} />
                   
                   {newMember.type === 'Particulier' && (
                     <div className="pt-2">
-                      <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-2 block">Membres du foyer</label>
-                      <div className="flex gap-2 mb-3">
-                        <input placeholder="Prénom..." className="flex-1 p-4 rounded-xl bg-slate-50 font-bold text-sm outline-none" value={tempFamilyMember} onChange={e => setTempFamilyMember(e.target.value)} />
-                        <button type="button" onClick={addFamilyMember} className="bg-[#1a5f7a] text-white p-4 rounded-xl shadow-md"><Plus size={20}/></button>
+                      <div className="flex gap-2 mb-2">
+                        <input placeholder="Membre foyer..." className="flex-1 p-4 rounded-xl bg-slate-50 font-bold text-sm outline-none" value={tempFamilyMember} onChange={e => setTempFamilyMember(e.target.value)} />
+                        <button type="button" onClick={() => { if(tempFamilyMember.trim()){ setNewMember({...newMember, family_members: [...newMember.family_members, tempFamilyMember.trim()]}); setTempFamilyMember(''); }}} className="bg-[#1a5f7a] text-white p-4 rounded-xl shadow-md"><Plus size={20}/></button>
                       </div>
-                      <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                      <div className="flex flex-wrap gap-2">
                         {newMember.family_members.map((name, i) => (
                           <span key={i} className="flex items-center gap-2 bg-[#fdfaf6] px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border border-slate-100">
                             {name} <X size={12} className="text-rose-500 cursor-pointer" onClick={() => setNewMember({...newMember, family_members: newMember.family_members.filter((_, idx) => idx !== i)})} />
@@ -219,13 +212,14 @@ export default function Adherents() {
                   )}
                 </div>
 
+                {/* PAIEMENT */}
                 <div className="space-y-4">
-                  <h3 className="text-[10px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2"><CreditCard size={14}/> Cotisation & Caution</h3>
+                  <h3 className="text-[10px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2"><CreditCard size={14}/> Cotisation</h3>
                   <div className={`p-6 rounded-[2rem] border-2 text-center transition-all ${newMember.has_paid ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
                     <span className="text-3xl font-black text-slate-900 block mb-3">{newMember.fee_amount}€</span>
                     <label className="flex items-center justify-center gap-3 cursor-pointer">
                       <input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={newMember.has_paid} onChange={(e) => setNewMember({...newMember, has_paid: e.target.checked})} />
-                      <span className="text-[10px] font-black uppercase text-slate-600">Cotisation Réglée</span>
+                      <span className="text-[10px] font-black uppercase text-slate-600 tracking-widest">Réglée</span>
                     </label>
                   </div>
 
@@ -237,7 +231,7 @@ export default function Adherents() {
                       </span>
                       <label className="flex items-center justify-center gap-3 cursor-pointer">
                         <input type="checkbox" className="w-5 h-5 accent-orange-500" checked={newMember.caution_received} onChange={(e) => setNewMember({...newMember, caution_received: e.target.checked})} />
-                        <span className="text-[10px] font-black uppercase text-slate-600 tracking-tighter">Caution Reçue</span>
+                        <span className="text-[10px] font-black uppercase text-slate-600 tracking-widest">Caution reçue</span>
                       </label>
                     </div>
                   )}
@@ -250,177 +244,149 @@ export default function Adherents() {
           </form>
         )}
 
-        {/* TABLEAU */}
-        <div className="hidden md:block bg-white rounded-[2.5rem] shadow-sm border border-slate-50 overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 text-[10px] uppercase text-slate-400 font-black">
-              <tr>
-                <th className="p-8">N°</th>
-                <th className="p-8">Adhérent / Association</th>
-                <th className="p-8">Status Adhésion</th>
-                <th className="p-8">Caution</th>
-                <th className="p-8 text-right pr-12">Gestion</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
+        {/* LISTE - TABLEAU (DESKTOP) & CARDS (MOBILE) */}
+        {!showForm && (
+          <div className="space-y-4">
+            {/* VUE TABLEAU (VISIBLE UNIQUEMENT SUR DESKTOP) */}
+            <div className="hidden md:block bg-white rounded-[2.5rem] shadow-sm border border-slate-50 overflow-hidden">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 text-[10px] uppercase text-slate-400 font-black">
+                  <tr>
+                    <th className="p-8">N°</th>
+                    <th className="p-8">Adhérent</th>
+                    <th className="p-8">Status</th>
+                    <th className="p-8">Caution</th>
+                    <th className="p-8 text-right pr-12">Gestion</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {filteredMembers.map((m) => {
+                    const status = getExpirationStatus(m);
+                    const isCautionActive = (m.type === 'Particulier' && appSettings.active_caution_particulier === "true") || (m.type === 'Association' && appSettings.active_caution_association === "true");
+                    return (
+                      <tr key={m.id} className={`transition-colors ${status.expired ? 'bg-rose-50/40 hover:bg-rose-50/60' : 'hover:bg-slate-50/50'}`}>
+                        <td className="p-8 font-black text-[#1a5f7a]">{m.member_number}</td>
+                        <td className="p-8 font-black uppercase text-sm">
+                          {m.type === 'Association' && <Building2 size={14} className="inline mr-2 text-slate-400"/>}
+                          {m.last_name} {m.type !== 'Association' ? m.first_name : ''}
+                        </td>
+                        <td className="p-8">
+                          <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border flex items-center gap-2 w-fit ${status.expired ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                            {status.message} ({m.fee_amount}€)
+                          </span>
+                        </td>
+                        <td className="p-8 text-[10px] font-black uppercase">
+                          {!isCautionActive ? <span className="text-slate-300 italic">N/A</span> : m.caution_received ? <span className="text-orange-600 flex items-center gap-2"><ShieldCheck size={16}/> OK</span> : <span className="text-rose-400 flex items-center gap-2"><ShieldOff size={16}/> Manquante</span>}
+                        </td>
+                        <td className="p-8 text-right pr-12 space-x-2">
+                          {status.expired && <button onClick={() => setRenewalAction(m)} className="p-3 bg-amber-50 text-amber-600 rounded-xl"><Send size={18} /></button>}
+                          <button onClick={() => setViewMember(m)} className="p-3 text-slate-400 hover:text-[#1a5f7a]"><Eye size={18} /></button>
+                          <button onClick={() => { setNewMember({...m, family_members: m.family_members || []}); setEditingId(m.id); setShowForm(true); }} className="p-3 text-slate-400 hover:text-amber-500"><Edit2 size={18} /></button>
+                          <button onClick={() => setDeleteConfirm(m)} className="p-3 text-slate-400 hover:text-rose-500"><Trash2 size={18} /></button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* VUE CARDS (VISIBLE UNIQUEMENT SUR MOBILE) */}
+            <div className="md:hidden grid grid-cols-1 gap-4">
               {filteredMembers.map((m) => {
                 const status = getExpirationStatus(m);
-                const isCautionActive = (m.type === 'Particulier' && appSettings.active_caution_particulier === "true") || 
-                                       (m.type === 'Association' && appSettings.active_caution_association === "true");
                 return (
-                  <tr key={m.id} className={`transition-colors ${status.expired ? 'bg-rose-50/40 hover:bg-rose-50/60' : 'hover:bg-slate-50/50'}`}>
-                    <td className={`p-8 font-black ${status.expired ? 'text-rose-600' : 'text-[#1a5f7a]'}`}>{formatMemberNumber(m.member_number)}</td>
-                    <td className="p-8">
-                      <div className={`font-black uppercase text-sm flex items-center gap-2 ${status.expired ? 'text-rose-900' : 'text-slate-900'}`}>
-                        {m.type === 'Association' && <Building2 size={14} className="text-slate-400"/>}
-                        {m.last_name} {m.type !== 'Association' ? m.first_name : ''}
+                  <div key={m.id} className={`bg-white p-6 rounded-[2rem] shadow-sm border border-slate-50 space-y-4 ${status.expired ? 'bg-rose-50/30' : ''}`}>
+                    <div className="flex justify-between items-start">
+                      <div className="flex gap-3 items-center">
+                        <div className="w-10 h-10 bg-[#1a5f7a]/10 rounded-xl flex items-center justify-center text-[#1a5f7a] font-black text-xs">{m.member_number}</div>
+                        <div>
+                          <p className="font-black uppercase text-sm leading-tight">{m.last_name} {m.type !== 'Association' ? m.first_name : ''}</p>
+                          <p className="text-[10px] text-slate-400 font-bold flex items-center gap-1 uppercase tracking-wider">
+                            {m.type === 'Association' ? <><Building2 size={10}/> Association</> : <><User size={10}/> Particulier</>}
+                          </p>
+                        </div>
                       </div>
-                    </td>
-                    <td className="p-8">
-                      <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border flex items-center gap-2 w-fit ${status.expired ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
-                        {status.message} ({m.fee_amount}€)
+                      <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase border ${status.expired ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                        {status.message}
                       </span>
-                    </td>
-                    <td className="p-8 text-[10px] font-black uppercase">
-                       {!isCautionActive ? (
-                         <span className="text-slate-300 italic">Pas nécessaire</span>
-                       ) : m.caution_received ? (
-                         <span className="text-orange-600 flex items-center gap-2"><ShieldCheck size={16}/> Reçue</span>
-                       ) : (
-                         <span className="text-rose-400 flex items-center gap-2"><ShieldOff size={16}/> À réclamer</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-50">
+                       <div className="flex gap-2">
+                        <button onClick={() => setViewMember(m)} className="p-3 bg-slate-50 text-slate-400 rounded-xl"><Eye size={18}/></button>
+                        <button onClick={() => { setNewMember({...m, family_members: m.family_members || []}); setEditingId(m.id); setShowForm(true); }} className="p-3 bg-slate-50 text-slate-400 rounded-xl"><Edit2 size={18}/></button>
+                        <button onClick={() => setDeleteConfirm(m)} className="p-3 bg-rose-50 text-rose-400 rounded-xl"><Trash2 size={18}/></button>
+                       </div>
+                       {status.expired && (
+                         <button onClick={() => setRenewalAction(m)} className="px-5 py-3 bg-amber-50 text-amber-600 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2">Relancer <Send size={14}/></button>
                        )}
-                    </td>
-                    <td className="p-8 text-right pr-12 space-x-2">
-                      {status.expired && (
-                        <button onClick={() => setRenewalAction(m)} className="p-3 bg-amber-50 text-amber-600 rounded-xl border border-amber-100 hover:bg-amber-100 transition-all shadow-sm">
-                          <Send size={18} />
-                        </button>
-                      )}
-                      <button onClick={() => setViewMember(m)} className="p-3 text-slate-400 bg-white rounded-xl shadow-sm hover:text-[#1a5f7a] transition-all"><Eye size={18} /></button>
-                      <button onClick={() => { setNewMember({...m, family_members: m.family_members || []}); setEditingId(m.id); setShowForm(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="p-3 text-slate-400 bg-white rounded-xl shadow-sm hover:text-amber-500 transition-all"><Edit2 size={18} /></button>
-                      <button onClick={() => setDeleteConfirm(m)} className="p-3 text-slate-400 bg-white rounded-xl shadow-sm hover:text-rose-500 transition-all"><Trash2 size={18} /></button>
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 )
               })}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          </div>
+        )}
       </main>
 
-      {/* --- MODALE DE RELANCE COTISATION (VERSION ORIGINALE) --- */}
+      {/* MODALE DE RELANCE */}
       {renewalAction && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-[#1a5f7a]/80 backdrop-blur-md" onClick={() => setRenewalAction(null)}></div>
-          <div className="relative bg-white rounded-[3rem] p-8 md:p-12 max-w-lg w-full shadow-2xl border-b-8 border-amber-500 animate-in zoom-in-95 overflow-y-auto max-h-[90vh]">
-            <div className="flex justify-between items-start mb-8">
-              <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center">
-                <CreditCard size={28} />
-              </div>
-              <button onClick={() => setRenewalAction(null)} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
-                <X size={24} />
-              </button>
-            </div>
-
-            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight mb-2">Renouvellement Cotisation</h2>
-            <p className="text-sm text-slate-500 mb-6">Coordonnées de l'adhérent <strong>{renewalAction.first_name} {renewalAction.last_name}</strong> :</p>
-
-            <div className="space-y-3 mb-8">
-              <div className="flex items-center gap-4 text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <Mail size={18} className="text-[#1a5f7a] shrink-0"/>
-                <span className="text-sm font-bold truncate">{renewalAction.email || 'Email non renseigné'}</span>
-              </div>
-              <div className="flex items-center gap-4 text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <Phone size={18} className="text-[#1a5f7a] shrink-0"/>
-                <span className="text-sm font-bold">{renewalAction.phone || 'Téléphone non renseigné'}</span>
-              </div>
-              <div className="flex items-start gap-4 text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <MapPin size={18} className="text-[#1a5f7a] mt-1 shrink-0"/>
-                <span className="text-sm font-bold leading-relaxed">{renewalAction.address || 'Adresse non renseignée'}</span>
-              </div>
-            </div>
-
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-[#1a5f7a]/80 backdrop-blur-md">
+          <div className="bg-white rounded-[3rem] p-10 max-w-lg w-full shadow-2xl border-b-8 border-amber-500 animate-in zoom-in-95">
+            <h2 className="text-2xl font-black text-slate-900 uppercase mb-6">Relancer l'adhérent</h2>
             <div className="space-y-4 mb-8">
-              <button 
-                onClick={() => triggerOutlook(renewalAction)}
-                className="w-full p-5 bg-[#1a5f7a] text-white rounded-[1.5rem] flex items-center justify-center gap-4 hover:bg-[#154d63] transition-all shadow-xl shadow-cyan-900/10 font-black uppercase text-[10px] tracking-widest"
-              >
-                Envoyer le mail de rappel
-                <ExternalLink size={18} />
-              </button>
+                <div className="bg-slate-50 p-4 rounded-xl flex gap-3 text-sm font-bold text-slate-600 truncate"><Mail size={18} className="text-[#1a5f7a] shrink-0"/> {renewalAction.email || 'N/A'}</div>
+                <div className="bg-slate-50 p-4 rounded-xl flex gap-3 text-sm font-bold text-slate-600"><Phone size={18} className="text-[#1a5f7a] shrink-0"/> {renewalAction.phone || 'N/A'}</div>
+                <div className="bg-slate-50 p-4 rounded-xl flex gap-3 text-sm font-bold text-slate-600"><MapPin size={18} className="text-[#1a5f7a] shrink-0"/> {renewalAction.address || 'N/A'}</div>
             </div>
-
-            <div className="bg-amber-50/50 rounded-[2rem] p-6 border border-amber-100">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-[10px] font-black uppercase text-amber-600 flex items-center gap-2">
-                  <Calendar size={14} /> Suivi des relances
-                </span>
-                {renewalAction.last_reminder_date ? (
-                  <span className="px-3 py-1 bg-amber-100 text-amber-700 text-[9px] font-black rounded-full uppercase">
-                    Relancé le {new Date(renewalAction.last_reminder_date).toLocaleDateString()}
-                  </span>
-                ) : (
-                  <span className="text-[9px] font-bold text-amber-400 italic">Aucun rappel noté</span>
-                )}
-              </div>
-              
-              <button
-                onClick={async () => {
-                  const today = new Date().toISOString().split('T')[0];
-                  const { error } = await supabase.from('members').update({ last_reminder_date: today }).eq('id', renewalAction.id);
-                  if (!error) {
-                    setMembers(members.map(m => m.id === renewalAction.id ? {...m, last_reminder_date: today} : m));
-                    setRenewalAction({...renewalAction, last_reminder_date: today});
-                  }
-                }}
-                className="w-full py-3 bg-white border border-amber-200 text-amber-600 rounded-xl font-black uppercase text-[9px] tracking-widest hover:bg-amber-500 hover:text-white transition-all shadow-sm flex items-center justify-center gap-2"
-              >
-                Valider une relance aujourd'hui
-              </button>
-            </div>
+            <button onClick={() => triggerOutlook(renewalAction)} className="w-full p-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95">Ouvrir Outlook <ExternalLink size={18} /></button>
+            <button onClick={async () => {
+                const today = new Date().toISOString().split('T')[0];
+                await supabase.from('members').update({ last_reminder_date: today }).eq('id', renewalAction.id);
+                fetchMembers(); setRenewalAction(null);
+            }} className="w-full mt-4 py-3 bg-amber-50 text-amber-600 rounded-xl font-black uppercase text-[9px] tracking-widest">Marquer comme relancé aujourd'hui</button>
+            <button onClick={() => setRenewalAction(null)} className="w-full mt-2 py-3 text-slate-400 font-bold text-[10px] uppercase">Annuler</button>
           </div>
         </div>
       )}
 
-      {/* --- MODALE CONSULTATION (VERSION ORIGINALE) --- */}
+      {/* MODALE VUE DÉTAILLÉE (AVEC FOYER) */}
       {viewMember && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setViewMember(null)}></div>
-          <div className="relative bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in-95">
-            <div className="flex items-center gap-4 mb-6 pb-6 border-b border-slate-100">
-              <div className="w-14 h-14 bg-[#1a5f7a] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-cyan-900/20">
-                <User size={24} />
-              </div>
-              <div>
-                <h3 className="font-black text-slate-900 uppercase text-lg leading-tight">{viewMember.last_name} {viewMember.type !== 'Association' ? viewMember.first_name : ''}</h3>
-                <span className="text-[10px] font-black text-[#1a5f7a] uppercase tracking-widest">Adhérent N° {formatMemberNumber(viewMember.member_number)}</span>
-              </div>
-            </div>
-            <div className="space-y-4 mb-8">
-              <div className="flex items-center gap-4 text-slate-600 bg-slate-50 p-4 rounded-2xl"><Mail size={18} className="text-[#1a5f7a]"/><span className="text-sm font-bold truncate">{viewMember.email || 'Non renseigné'}</span></div>
-              <div className="flex items-center gap-4 text-slate-600 bg-slate-50 p-4 rounded-2xl"><Phone size={18} className="text-[#1a5f7a]"/><span className="text-sm font-bold">{viewMember.phone || 'Non renseigné'}</span></div>
-              <div className="flex items-start gap-4 text-slate-600 bg-slate-50 p-4 rounded-2xl"><MapPin size={18} className="text-[#1a5f7a] mt-1"/><span className="text-sm font-bold leading-relaxed">{viewMember.address || 'Aucune adresse enregistrée'}</span></div>
-              {viewMember.family_members?.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-slate-100">
-                   <div className="text-[10px] font-black text-slate-400 uppercase mb-3 tracking-widest">Membres rattachés</div>
-                   <div className="flex flex-wrap gap-2">
-                     {viewMember.family_members.map((name, i) => (
-                       <span key={i} className="px-3 py-1.5 bg-cyan-50 text-[#1a5f7a] text-[10px] font-black uppercase rounded-lg border border-cyan-100">{name}</span>
-                     ))}
-                   </div>
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
+          <div className="relative bg-white rounded-[2.5rem] p-8 md:p-12 max-w-lg w-full shadow-2xl animate-in fade-in zoom-in-95 overflow-y-auto max-h-[90vh]">
+            <h3 className="font-black text-slate-900 uppercase text-2xl mb-8 flex items-center gap-4">
+              <div className="p-3 bg-[#1a5f7a]/10 rounded-2xl text-[#1a5f7a]"><User size={24}/></div>
+              <span>{viewMember.first_name !== 'Association' ? viewMember.first_name : ''} {viewMember.last_name}</span>
+            </h3>
+            
+            <div className="space-y-4 mb-8 text-sm font-bold text-slate-600">
+              <div className="bg-slate-50 p-5 rounded-2xl flex items-center gap-4 border border-slate-100"><Mail size={20} className="text-[#1a5f7a] shrink-0"/> <span className="truncate">{viewMember.email || 'N/A'}</span></div>
+              <div className="bg-slate-50 p-5 rounded-2xl flex items-center gap-4 border border-slate-100"><Phone size={20} className="text-[#1a5f7a] shrink-0"/> <span>{viewMember.phone || 'N/A'}</span></div>
+              <div className="bg-slate-50 p-5 rounded-2xl flex items-start gap-4 border border-slate-100"><MapPin size={20} className="text-[#1a5f7a] shrink-0 mt-0.5"/> <span className="leading-relaxed">{viewMember.address || 'N/A'}</span></div>
+
+              {viewMember.type === 'Particulier' && (
+                <div className="mt-8 pt-6 border-t border-slate-100">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2"><Users size={14}/> Membres du foyer</h4>
+                  {viewMember.family_members?.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {viewMember.family_members.map((name, i) => (
+                        <div key={i} className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-[11px] font-black uppercase border border-emerald-100 shadow-sm">{name}</div>
+                      ))}
+                    </div>
+                  ) : <p className="text-[11px] text-slate-300 italic">Seul membre</p>}
                 </div>
               )}
             </div>
-            <button onClick={() => setViewMember(null)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">Fermer la fiche</button>
+            <button onClick={() => setViewMember(null)} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg">Fermer</button>
           </div>
         </div>
       )}
 
       {/* MODALE SUPPRESSION */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-[#1a5f7a]/80 backdrop-blur-md" onClick={() => setDeleteConfirm(null)}></div>
-          <div className="relative bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl border-b-8 border-rose-500 animate-in slide-in-from-bottom-4">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-[#1a5f7a]/80 backdrop-blur-md">
+          <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl border-b-8 border-rose-500 animate-in slide-in-from-bottom-4">
              <div className="mx-auto w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mb-6"><Trash2 size={28} /></div>
              <h3 className="text-xl font-black uppercase text-slate-900 mb-2">Supprimer ?</h3>
              <p className="text-xs text-slate-500 mb-8 italic">"{deleteConfirm.last_name} {deleteConfirm.first_name}"</p>

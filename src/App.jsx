@@ -18,6 +18,7 @@ import Dashboard from './pages/admin/Dashboard'
 import Adherents from './pages/admin/Adherents'
 import Jeux from './pages/admin/Jeux'
 import Prets from './pages/admin/Prets'
+import HistoriquePrets from './pages/admin/HistoriquePrets' // <-- AJOUTÉ
 import EvenementsAdmin from './pages/admin/Evenements'
 import GestionPermanences from './pages/admin/GestionPermanences'
 import InstallationApp from './pages/admin/InstallationApp'
@@ -116,6 +117,7 @@ function App() {
         <Route path="/admin/jeux" element={<ProtectedRoute><AdminLayout><Jeux /></AdminLayout></ProtectedRoute>} />
         <Route path="/admin/adherents" element={<ProtectedRoute><AdminLayout><Adherents /></AdminLayout></ProtectedRoute>} />
         <Route path="/admin/prets" element={<ProtectedRoute><AdminLayout><Prets /></AdminLayout></ProtectedRoute>} />
+        <Route path="/historique-prets" element={<ProtectedRoute><AdminLayout><HistoriquePrets /></AdminLayout></ProtectedRoute>} /> {/* <-- AJOUTÉ */}
         <Route path="/admin/evenements" element={<ProtectedRoute><AdminLayout><EvenementsAdmin /></AdminLayout></ProtectedRoute>} />
         <Route path="/admin/permanences" element={<ProtectedRoute><AdminLayout><GestionPermanences /></AdminLayout></ProtectedRoute>} />
         <Route path="/admin/installation" element={<ProtectedRoute><AdminLayout><InstallationApp /></AdminLayout></ProtectedRoute>} />

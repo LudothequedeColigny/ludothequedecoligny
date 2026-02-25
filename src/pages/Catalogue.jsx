@@ -110,7 +110,7 @@ function Catalogue() {
       <header className="bg-white border-b border-slate-100 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-20 flex items-center justify-between">
           <button onClick={() => navigate('/')} className="flex items-center gap-2 text-slate-400 hover:text-[#1a5f7a] font-bold transition-colors text-xs uppercase tracking-widest">
-            <ArrowLeft size={16} /> <span>Accueil</span>
+            <ArrowLeft size={16} /> <span>Retour à la page d'accueil</span>
           </button>
           {/* Texte central supprimé pour plus de clarté */}
           <div className="w-10 md:w-20"></div>

@@ -90,6 +90,13 @@ export default function Home() {
   const [playerCount, setPlayerCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [selectedEvent, setSelectedEvent] = useState(null)
+  
+  // AJOUT : État pour le contact dynamique
+  const [contact, setContact] = useState({
+    nom: 'Victor Guyon',
+    tel: '06 71 41 56 96',
+    email: 'victor.guyon@hotmail.fr'
+  })
 
   const facebookUrl = "https://www.facebook.com/groups/2677832192298067"
   const addressQuery = "419+Grande+Rue,+01270+Coligny"
@@ -98,6 +105,19 @@ export default function Home() {
     async function fetchHomeData() {
       try {
         setLoading(true)
+        
+        // 1. Fetch Contact Settings (Nouveau)
+        const { data: settingsData } = await supabase.from('settings').select('*')
+        if (settingsData) {
+          const c = { ...contact }
+          settingsData.forEach(s => {
+            if (s.id === 'contact_nom') c.nom = s.value
+            if (s.id === 'contact_tel') c.tel = s.value
+            if (s.id === 'contact_email') c.email = s.value
+          })
+          setContact(c)
+        }
+
         const { count: gCount } = await supabase
           .from('games')
           .select('*', { count: 'exact', head: true })
@@ -165,8 +185,7 @@ export default function Home() {
                 <span>Nous suivre</span>
               </a>
               <button onClick={() => navigate('/login')} className="px-5 py-2 rounded-xl border-2 border-slate-100 hover:border-[#1a5f7a] hover:text-[#1a5f7a] font-bold transition-all text-xs uppercase tracking-widest">
-                <span className="hidden sm:inline">Espace Bénévole</span>
-                <span className="sm:hidden text-[10px]">Accès</span>
+                Espace Bénévole
               </button>
             </div>
           </div>
@@ -199,7 +218,6 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {/* CARTE JEUX -> CATALOGUE */}
             <button 
               onClick={() => navigate('/catalogue')}
               className="p-10 rounded-[2.5rem] bg-white border border-slate-100 shadow-sm group hover:border-[#1a5f7a] hover:shadow-xl hover:-translate-y-1 transition-all relative z-10 w-full text-center cursor-pointer"
@@ -209,7 +227,6 @@ export default function Home() {
                 <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Jeux à emprunter</p>
             </button>
 
-            {/* CARTE JOUEURS -> COMMENT EMPRUNTER */}
             <button 
               onClick={() => navigate('/comment-emprunter')}
               className="p-10 rounded-[2.5rem] bg-white border border-slate-100 shadow-sm group hover:border-[#e38154] hover:shadow-xl hover:-translate-y-1 transition-all relative z-10 w-full text-center cursor-pointer"
@@ -357,15 +374,15 @@ export default function Home() {
             <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16">
               <div className="flex items-center gap-4 group">
                 <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-[#1a5f7a] transition-colors"><User size={16} /></div>
-                <span className="text-sm font-bold text-slate-600">Victor Guyon</span>
+                <span className="text-sm font-bold text-slate-600">{contact.nom}</span>
               </div>
               <div className="flex items-center gap-4 group">
                 <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-[#e38154] transition-colors"><Phone size={16} /></div>
-                <span className="text-sm font-medium text-slate-400">06 71 41 56 96</span>
+                <span className="text-sm font-medium text-slate-400">{contact.tel}</span>
               </div>
               <div className="flex items-center gap-4 group">
                 <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-[#1a5f7a] transition-colors"><Mail size={16} /></div>
-                <span className="text-sm font-medium text-slate-400">victor.guyon@hotmail.fr</span>
+                <span className="text-sm font-medium text-slate-400">{contact.email}</span>
               </div>
             </div>
           </div>
@@ -379,7 +396,7 @@ export default function Home() {
           </a>
         </div>
         <div className="flex items-center justify-center gap-2 mb-4">
-          <Heart size={20} fill="#e38154" className="text-[#e38154]" />
+          <Facebook size={20} fill="#e38154" className="text-[#e38154]" />
           <a href={facebookUrl} target="_blank" rel="noopener noreferrer" className="font-black uppercase tracking-widest text-xs text-slate-600 hover:text-[#1a5f7a] transition-colors">Association PACTES</a>
         </div>
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em]">Ludothèque de Coligny — Le plaisir du jeu ensemble</p>
