@@ -18,7 +18,7 @@ export default function Jeux() {
 
   const initialGameState = {
     registration_number: '',
-    barcode: '', // Nouvelle colonne
+    barcode: '', 
     name: '',
     description: '',
     observations: '', 
@@ -36,32 +36,63 @@ export default function Jeux() {
 
   useEffect(() => { fetchJeux() }, [])
 
-  // Logique du scanner
+  // --- LOGIQUE DU SCANNER OPTIMISÉE (STYLE + STABILITÉ) ---
   useEffect(() => {
+    let scanner = null;
     if (showScanner) {
-      const scanner = new Html5QrcodeScanner(
+      scanner = new Html5QrcodeScanner(
         "reader", 
         { 
           fps: 20, 
           qrbox: { width: 250, height: 150 },
-          experimentalFeatures: {
-            useBarCodeDetectorIfSupported: true
-          },
+          experimentalFeatures: { useBarCodeDetectorIfSupported: true },
           aspectRatio: 1.777778
         }, 
-        /* verbose= */ false
+        false
       );
       
       scanner.render((decodedText) => {
         setNewGame(prev => ({ ...prev, barcode: decodedText }));
         setShowScanner(false);
-        scanner.clear();
       }, (error) => {
         // Erreur de lecture silencieuse
       });
 
+      // Injection du style pour les boutons du scanner
+      const style = document.createElement('style');
+      style.innerHTML = `
+        #reader button {
+          padding: 10px 20px !important;
+          border-radius: 12px !important;
+          border: none !important;
+          background-color: #1a5f7a !important;
+          color: white !important;
+          font-weight: 800 !important;
+          text-transform: uppercase !important;
+          font-size: 10px !important;
+          letter-spacing: 0.05em !important;
+          cursor: pointer !important;
+          margin: 5px !important;
+        }
+        #reader select {
+          padding: 8px !important;
+          border-radius: 10px !important;
+          border: 1px solid #e2e8f0 !important;
+          font-size: 11px !important;
+        }
+        #reader__dashboard_section_csr button:nth-child(2) {
+          background-color: #e38154 !important;
+        }
+      `;
+      document.head.appendChild(style);
+
       return () => {
-        scanner.clear().catch(error => console.error("Erreur arrêt scanner", error));
+        if (scanner) {
+          scanner.clear().catch(error => console.warn("Nettoyage scanner", error));
+        }
+        if (document.head.contains(style)) {
+          document.head.removeChild(style);
+        }
       }
     }
   }, [showScanner]);
@@ -422,7 +453,7 @@ export default function Jeux() {
           </form>
         )}
 
-        {/* LISTE DES JEUX */}
+        {/* LISTE DES JEUX (TABLEAU ORIGINAL) */}
         <div className="hidden md:block bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-[10px] uppercase text-slate-400 font-black">
@@ -475,7 +506,7 @@ export default function Jeux() {
           </table>
         </div>
 
-        {/* MOBILE */}
+        {/* MOBILE (LISTE ORIGINALE) */}
         <div className="md:hidden space-y-4">
           {filteredJeux.map((jeu) => (
             <div key={jeu.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100">
@@ -497,7 +528,7 @@ export default function Jeux() {
         </div>
       </main>
 
-      {/* MODALE SCANNER */}
+      {/* MODALE SCANNER AMÉLIORÉE */}
       {showScanner && (
         <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center p-6 bg-slate-900/95 backdrop-blur-sm">
           <div className="w-full max-w-md bg-white rounded-[2.5rem] p-8 shadow-2xl overflow-hidden relative">
@@ -508,7 +539,7 @@ export default function Jeux() {
         </div>
       )}
 
-      {/* MODALE SUPPRESSION */}
+      {/* MODALE SUPPRESSION ORIGINALE */}
       {deleteModal.show && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-[#1a5f7a]/80 backdrop-blur-md" onClick={() => setDeleteModal({show: false})}></div>
