@@ -41,7 +41,14 @@ export default function Jeux() {
     if (showScanner) {
       const scanner = new Html5QrcodeScanner(
         "reader", 
-        { fps: 10, qrbox: { width: 250, height: 150 } }, 
+        { 
+          fps: 20, 
+          qrbox: { width: 250, height: 150 },
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true
+          },
+          aspectRatio: 1.777778
+        }, 
         /* verbose= */ false
       );
       
@@ -326,9 +333,9 @@ export default function Jeux() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Code-Barres (Scan)</label>
-                    <div className="flex gap-2">
-                      <input className="flex-1 p-4 rounded-2xl bg-slate-50 font-black outline-none border-2 border-transparent focus:border-[#1a5f7a]/10" value={newGame.barcode} placeholder="Scannez ou saisissez..." onChange={e => setNewGame({...newGame, barcode: e.target.value})} />
-                      <button type="button" onClick={() => setShowScanner(true)} className="p-4 bg-slate-800 text-white rounded-2xl active:scale-95 shadow-md"><ScanLine size={20} /></button>
+                    <div className="flex gap-2 items-center">
+                      <input className="flex-1 min-w-0 p-4 rounded-2xl bg-slate-50 font-black outline-none border-2 border-transparent focus:border-[#1a5f7a]/10" value={newGame.barcode} placeholder="Scannez..." onChange={e => setNewGame({...newGame, barcode: e.target.value})} />
+                      <button type="button" onClick={() => setShowScanner(true)} className="shrink-0 p-4 bg-slate-800 text-white rounded-2xl active:scale-95 shadow-md flex items-center justify-center"><ScanLine size={20} /></button>
                     </div>
                   </div>
                 </div>
@@ -356,9 +363,9 @@ export default function Jeux() {
 
                 <div className="space-y-2 relative">
                   <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Catégories</label>
-                  <div className="flex gap-2">
-                    <input placeholder="Ajouter..." className="flex-1 p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none" value={categoryInput} onChange={e => setCategoryInput(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter') { e.preventDefault(); addCategory(categoryInput); }}} />
-                    <button type="button" onClick={() => addCategory(categoryInput)} className="p-4 bg-[#1a5f7a] text-white rounded-2xl shadow-lg"><Plus size={20} strokeWidth={3} /></button>
+                  <div className="flex gap-2 items-center">
+                    <input placeholder="Ajouter..." className="flex-1 min-w-0 p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none" value={categoryInput} onChange={e => setCategoryInput(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter') { e.preventDefault(); addCategory(categoryInput); }}} />
+                    <button type="button" onClick={() => addCategory(categoryInput)} className="shrink-0 p-4 bg-[#1a5f7a] text-white rounded-2xl shadow-lg flex items-center justify-center"><Plus size={20} strokeWidth={3} /></button>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-3">
                     {newGame.category?.split(',').map(c => c.trim()).filter(Boolean).map((cat, i) => (
@@ -376,9 +383,9 @@ export default function Jeux() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><ExternalLink size={12}/> URL Image</label>
-                    <div className="flex gap-2">
-                      <input placeholder="Lien HTTP..." className="flex-1 p-4 rounded-2xl bg-slate-50 font-bold text-xs outline-none" value={newGame.image_url} onChange={e => setNewGame({...newGame, image_url: e.target.value})} />
-                      <label className="cursor-pointer p-4 bg-[#e38154] text-white rounded-2xl flex items-center justify-center active:scale-95 shadow-md shrink-0 z-10">
+                    <div className="flex gap-2 items-center">
+                      <input placeholder="Lien..." className="flex-1 min-w-0 p-4 rounded-2xl bg-slate-50 font-bold text-xs outline-none" value={newGame.image_url} onChange={e => setNewGame({...newGame, image_url: e.target.value})} />
+                      <label className="shrink-0 cursor-pointer p-4 bg-[#e38154] text-white rounded-2xl flex items-center justify-center active:scale-95 shadow-md">
                         {uploading ? <Loader2 size={20} className="animate-spin" /> : <Camera size={20} />}
                         <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} disabled={uploading || !navigator.onLine} />
                       </label>
@@ -386,7 +393,7 @@ export default function Jeux() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><PlayCircle size={12}/> URL Vidéo</label>
-                    <input placeholder="Lien YouTube..." className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-xs outline-none" value={newGame.youtube_url} onChange={e => setNewGame({...newGame, youtube_url: e.target.value})} />
+                    <input placeholder="YouTube..." className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-xs outline-none" value={newGame.youtube_url} onChange={e => setNewGame({...newGame, youtube_url: e.target.value})} />
                   </div>
                 </div>
 
@@ -402,8 +409,8 @@ export default function Jeux() {
                 </div>
 
                 {newGame.image_url && (
-                  <div className="p-4 bg-slate-50 rounded-2xl flex items-center justify-center border-2 border-dashed border-slate-200">
-                    <img src={newGame.image_url} className="h-20 object-contain rounded-lg" alt="Aperçu" />
+                  <div className="p-4 bg-slate-50 rounded-2xl flex items-center justify-center border-2 border-dashed border-slate-200 overflow-hidden">
+                    <img src={newGame.image_url} className="h-20 max-w-full object-contain rounded-lg" alt="Aperçu" />
                   </div>
                 )}
 
