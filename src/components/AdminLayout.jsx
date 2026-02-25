@@ -140,7 +140,7 @@ export default function AdminLayout({ children }) {
               </Link>
             </div>
 
-            {/* --- NOUVEAUX LIENS : PARAMÈTRES ET AIDE --- */}
+            {/* --- LIEN PARAMÈTRES --- */}
             <Link
               to="/admin/parametres"
               onClick={closeMobileMenu}
@@ -158,6 +158,7 @@ export default function AdminLayout({ children }) {
               </span>
             </Link>
 
+            {/* --- LIEN AIDE & TUTORIEL --- */}
             <Link
               to="/admin/aide"
               onClick={closeMobileMenu}
