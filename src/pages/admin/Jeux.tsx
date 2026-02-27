@@ -36,7 +36,7 @@ export default function Jeux() {
 
   useEffect(() => { fetchJeux() }, [])
 
-  // --- LOGIQUE DU SCANNER OPTIMISÉE (STYLE + STABILITÉ) ---
+  // --- LOGIQUE DU SCANNER OPTIMISÉE ---
   useEffect(() => {
     let scanner = null;
     if (showScanner) {
@@ -58,7 +58,6 @@ export default function Jeux() {
         // Erreur de lecture silencieuse
       });
 
-      // Injection du style pour les boutons du scanner
       const style = document.createElement('style');
       style.innerHTML = `
         #reader button {
@@ -381,6 +380,12 @@ export default function Jeux() {
                   <textarea rows={3} placeholder="Règles ou thème..." className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]/10 resize-none" value={newGame.description || ''} onChange={e => setNewGame({...newGame, description: e.target.value})} />
                 </div>
 
+                {/* CHAMP OBSERVATIONS AJOUTÉ ICI */}
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-[#e38154] uppercase ml-2 flex items-center gap-1"><AlertCircle size={12}/> Observations (État, pièces...)</label>
+                  <textarea rows={3} placeholder="Vrac d'infos : usure, pièces manquantes..." className="w-full p-4 rounded-2xl bg-orange-50/30 font-medium text-sm outline-none border-2 border-transparent focus:border-orange-200 resize-none" value={newGame.observations || ''} onChange={e => setNewGame({...newGame, observations: e.target.value})} />
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Joueurs Min</label>
@@ -453,7 +458,7 @@ export default function Jeux() {
           </form>
         )}
 
-        {/* LISTE DES JEUX (TABLEAU ORIGINAL) */}
+        {/* LISTE DES JEUX (TABLEAU) */}
         <div className="hidden md:block bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-[10px] uppercase text-slate-400 font-black">
@@ -506,7 +511,7 @@ export default function Jeux() {
           </table>
         </div>
 
-        {/* MOBILE (LISTE ORIGINALE) */}
+        {/* MOBILE */}
         <div className="md:hidden space-y-4">
           {filteredJeux.map((jeu) => (
             <div key={jeu.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100">
@@ -528,7 +533,7 @@ export default function Jeux() {
         </div>
       </main>
 
-      {/* MODALE SCANNER AMÉLIORÉE */}
+      {/* MODALE SCANNER */}
       {showScanner && (
         <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center p-6 bg-slate-900/95 backdrop-blur-sm">
           <div className="w-full max-w-md bg-white rounded-[2.5rem] p-8 shadow-2xl overflow-hidden relative">
@@ -539,7 +544,7 @@ export default function Jeux() {
         </div>
       )}
 
-      {/* MODALE SUPPRESSION ORIGINALE */}
+      {/* MODALE SUPPRESSION */}
       {deleteModal.show && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-[#1a5f7a]/80 backdrop-blur-md" onClick={() => setDeleteModal({show: false})}></div>

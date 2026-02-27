@@ -65,18 +65,28 @@ export default function Prets() {
     fetchQuotas()
   }, [])
 
-  // --- LOGIQUE DU SCANNER ET STYLE DES BOUTONS ---
+  // --- LOGIQUE DU SCANNER OPTIMISÉE (CORRECTION CRASH & PERFORMANCE) ---
   useEffect(() => {
+    let scanner = null;
     if (showScanner) {
-      const scanner = new Html5QrcodeScanner("quick-reader", { fps: 10, qrbox: 250 }, false);
+      // Paramètres synchronisés sur Jeux.tsx pour la performance
+      scanner = new Html5QrcodeScanner(
+        "quick-reader", 
+        { 
+          fps: 20, 
+          qrbox: { width: 250, height: 150 }, 
+          experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+          aspectRatio: 1.777778
+        }, 
+        false
+      );
       
       scanner.render(async (decodedText) => {
+        // On conserve l'appel à votre fonction intelligente
         await handleSmartScan(decodedText);
       }, (error) => {
         // Erreurs de scan silencieuses
       });
-
-      // Injection de style pour améliorer les boutons natifs du scanner
       const style = document.createElement('style');
       style.innerHTML = `
         #quick-reader button {
@@ -106,12 +116,14 @@ export default function Prets() {
         }
       `;
       document.head.appendChild(style);
-
       return () => {
-        scanner.clear().catch((err) => {
-          console.warn("Nettoyage du scanner :", err);
-        });
-        document.head.removeChild(style);
+        if (scanner) {
+          scanner.clear().catch((err) => console.warn("Nettoyage du scanner :", err));
+        }
+        // PROTECTION CONTRE LE CRASH : On vérifie si le style existe avant de le supprimer
+        if (document.head.contains(style)) {
+          document.head.removeChild(style);
+        }
       }
     }
   }, [showScanner]);
