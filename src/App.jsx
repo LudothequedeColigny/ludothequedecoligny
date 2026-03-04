@@ -34,7 +34,7 @@ function SplashScreen() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsVisible(false);
-    }, 3000); // 3 secondes pour l'animation
+    }, 3000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -44,7 +44,7 @@ function SplashScreen() {
     <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#315b61] transition-opacity duration-700 ease-in-out">
       <div className="relative flex flex-col items-center">
         
-        {/* Logo avec animation de clignotement (opacité) sans rognage */}
+        {/* Animation de clignotement avec l'image icon-512 (Logo + Texte) */}
         <div className="w-40 h-40 md:w-60 md:h-60 mb-8 animate-blink">
            <img 
              src="/icon-512.png" 
@@ -58,7 +58,7 @@ function SplashScreen() {
           Ludothèque de Coligny
         </h1>
         
-        {/* Barre de chargement assortie */}
+        {/* Barre de chargement */}
         <div className="mt-8 w-48 h-1 bg-white/10 rounded-full overflow-hidden">
           <div className="h-full bg-white animate-progress origin-left"></div>
         </div>
@@ -113,7 +113,6 @@ const ProtectedRoute = ({ children }) => {
 function App() {
   return (
     <div className="min-h-screen bg-[#fdfaf6]">
-      {/* AFFICHAGE DU SPLASHSCREEN */}
       <SplashScreen />
 
       <Routes>
