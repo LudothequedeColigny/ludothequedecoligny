@@ -18,15 +18,15 @@ import Dashboard from './pages/admin/Dashboard'
 import Adherents from './pages/admin/Adherents'
 import Jeux from './pages/admin/Jeux'
 import Prets from './pages/admin/Prets'
-import HistoriquePrets from './pages/admin/HistoriquePrets' // <-- AJOUTÉ
+import HistoriquePrets from './pages/admin/HistoriquePrets'
 import EvenementsAdmin from './pages/admin/Evenements'
 import GestionPermanences from './pages/admin/GestionPermanences'
 import InstallationApp from './pages/admin/InstallationApp'
-import Parametres from './pages/admin/Parametres' // <-- AJOUTÉ
-import Aide from './pages/admin/Aide' // <-- NOUVEL IMPORT
+import Parametres from './pages/admin/Parametres'
+import Aide from './pages/admin/Aide'
 
 /**
- * COMPOSANT SPLASHSCREEN (ANIMATION D'OUVERTURE)
+ * COMPOSANT SPLASHSCREEN (ANIMATION DE CLIGNOTEMENT)
  */
 function SplashScreen() {
   const [isVisible, setIsVisible] = useState(true);
@@ -34,36 +34,50 @@ function SplashScreen() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsVisible(false);
-    }, 2500);
+    }, 3000); // 3 secondes pour l'animation
     return () => clearTimeout(timer);
   }, []);
 
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#1a5f7a] transition-opacity duration-700 ease-in-out">
-      <div className="relative flex flex-col items-center animate-in zoom-in duration-1000">
-        <div className="w-32 h-32 md:w-48 md:h-48 mb-6 animate-pulse">
+    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#315b61] transition-opacity duration-700 ease-in-out">
+      <div className="relative flex flex-col items-center">
+        
+        {/* Logo avec animation de clignotement (opacité) sans rognage */}
+        <div className="w-40 h-40 md:w-60 md:h-60 mb-8 animate-blink">
            <img 
              src="/icon-512.png" 
              alt="Logo Ludothèque" 
-             className="w-full h-full object-contain shadow-2xl rounded-full"
+             className="w-full h-full object-contain"
            />
         </div>
+        
+        {/* Texte fixe */}
         <h1 className="text-white font-black uppercase tracking-[0.2em] text-sm md:text-xl">
           Ludothèque de Coligny
         </h1>
-        <div className="mt-8 w-48 h-1 bg-white/20 rounded-full overflow-hidden">
+        
+        {/* Barre de chargement assortie */}
+        <div className="mt-8 w-48 h-1 bg-white/10 rounded-full overflow-hidden">
           <div className="h-full bg-white animate-progress origin-left"></div>
         </div>
       </div>
+
       <style>{`
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
         @keyframes progress {
           0% { transform: scaleX(0); }
           100% { transform: scaleX(1); }
         }
+        .animate-blink {
+          animation: blink 1.5s ease-in-out infinite;
+        }
         .animate-progress {
-          animation: progress 2.2s ease-in-out forwards;
+          animation: progress 2.8s ease-in-out forwards;
         }
       `}</style>
     </div>
@@ -99,7 +113,7 @@ const ProtectedRoute = ({ children }) => {
 function App() {
   return (
     <div className="min-h-screen bg-[#fdfaf6]">
-      {/* AJOUT DU SPLASHSCREEN AU DÉMARRAGE */}
+      {/* AFFICHAGE DU SPLASHSCREEN */}
       <SplashScreen />
 
       <Routes>
@@ -116,12 +130,12 @@ function App() {
         <Route path="/admin/jeux" element={<ProtectedRoute><AdminLayout><Jeux /></AdminLayout></ProtectedRoute>} />
         <Route path="/admin/adherents" element={<ProtectedRoute><AdminLayout><Adherents /></AdminLayout></ProtectedRoute>} />
         <Route path="/admin/prets" element={<ProtectedRoute><AdminLayout><Prets /></AdminLayout></ProtectedRoute>} />
-        <Route path="/historique-prets" element={<ProtectedRoute><AdminLayout><HistoriquePrets /></AdminLayout></ProtectedRoute>} /> {/* <-- AJOUTÉ */}
+        <Route path="/historique-prets" element={<ProtectedRoute><AdminLayout><HistoriquePrets /></AdminLayout></ProtectedRoute>} />
         <Route path="/admin/evenements" element={<ProtectedRoute><AdminLayout><EvenementsAdmin /></AdminLayout></ProtectedRoute>} />
         <Route path="/admin/permanences" element={<ProtectedRoute><AdminLayout><GestionPermanences /></AdminLayout></ProtectedRoute>} />
         <Route path="/admin/installation" element={<ProtectedRoute><AdminLayout><InstallationApp /></AdminLayout></ProtectedRoute>} />
-        <Route path="/admin/parametres" element={<ProtectedRoute><AdminLayout><Parametres /></AdminLayout></ProtectedRoute>} /> {/* <-- AJOUTÉ */}
-        <Route path="/admin/aide" element={<ProtectedRoute><AdminLayout><Aide /></AdminLayout></ProtectedRoute>} /> {/* <-- NOUVELLE ROUTE */}
+        <Route path="/admin/parametres" element={<ProtectedRoute><AdminLayout><Parametres /></AdminLayout></ProtectedRoute>} />
+        <Route path="/admin/aide" element={<ProtectedRoute><AdminLayout><Aide /></AdminLayout></ProtectedRoute>} />
         
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
