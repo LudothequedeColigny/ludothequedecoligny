@@ -98,7 +98,8 @@ export default function Home() {
     email: 'victor.guyon@hotmail.fr'
   })
 
-  const facebookUrl = "https://www.facebook.com/groups/2677832192298067"
+  const facebookUrl1 = "https://www.facebook.com/groups/2677832192298067"
+  const facebookUrl = "https://www.facebook.com/groups/ludothequedecoligny?locale=fr_FR"
   const addressQuery = "419+Grande+Rue,+01270+Coligny"
 
   useEffect(() => {
@@ -397,7 +398,7 @@ export default function Home() {
         </div>
         <div className="flex items-center justify-center gap-2 mb-4">
           <Facebook size={20} fill="#e38154" className="text-[#e38154]" />
-          <a href={facebookUrl} target="_blank" rel="noopener noreferrer" className="font-black uppercase tracking-widest text-xs text-slate-600 hover:text-[#1a5f7a] transition-colors">Association PACTES</a>
+          <a href={facebookUrl1} target="_blank" rel="noopener noreferrer" className="font-black uppercase tracking-widest text-xs text-slate-600 hover:text-[#1a5f7a] transition-colors">Association PACTES</a>
         </div>
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em]">Ludothèque de Coligny — Le plaisir du jeu ensemble</p>
       </footer>
