@@ -69,7 +69,6 @@ export default function Prets() {
   useEffect(() => {
     let scanner = null;
     if (showScanner) {
-      // Paramètres synchronisés sur Jeux.tsx pour la performance
       scanner = new Html5QrcodeScanner(
         "quick-reader", 
         { 
@@ -82,7 +81,6 @@ export default function Prets() {
       );
       
       scanner.render(async (decodedText) => {
-        // On conserve l'appel à votre fonction intelligente
         await handleSmartScan(decodedText);
       }, (error) => {
         // Erreurs de scan silencieuses
@@ -120,7 +118,6 @@ export default function Prets() {
         if (scanner) {
           scanner.clear().catch((err) => console.warn("Nettoyage du scanner :", err));
         }
-        // PROTECTION CONTRE LE CRASH : On vérifie si le style existe avant de le supprimer
         if (document.head.contains(style)) {
           document.head.removeChild(style);
         }
@@ -181,6 +178,14 @@ export default function Prets() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // --- LOGIQUE DE VÉRIFICATION COTISATION ---
+  const isSubscriptionUpToDate = (member) => {
+    if (!member?.membership_end_date) return false;
+    const today = new Date();
+    const endDate = new Date(member.membership_end_date);
+    return endDate >= today;
   }
 
   // --- LOGIQUE DE SCAN INTELLIGENT ---
@@ -721,13 +726,25 @@ export default function Prets() {
                     )}
                   </div>
                 ) : (
-                  <div className="bg-cyan-50 p-5 rounded-2xl flex justify-between items-center border border-cyan-100">
-                    <div>
-                      <p className="font-black text-[#1a5f7a] text-sm uppercase">{selectedMember.last_name} {selectedMember.first_name}</p>
-                      <p className="text-[10px] font-bold text-cyan-600 uppercase">Emprunts autorisés : {totalCount} / {getLoanLimit(selectedMember)}</p>
+                  <>
+                    <div className="bg-cyan-50 p-5 rounded-2xl flex justify-between items-center border border-cyan-100">
+                      <div>
+                        <p className="font-black text-[#1a5f7a] text-sm uppercase">{selectedMember.last_name} {selectedMember.first_name}</p>
+                        <p className="text-[10px] font-bold text-cyan-600 uppercase">Emprunts autorisés : {totalCount} / {getLoanLimit(selectedMember)}</p>
+                      </div>
+                      <button onClick={() => {setSelectedMember(null); setSelectedGames([]);}} className="text-[9px] font-black uppercase text-slate-400 underline">Changer</button>
                     </div>
-                    <button onClick={() => {setSelectedMember(null); setSelectedGames([]);}} className="text-[9px] font-black uppercase text-slate-400 underline">Changer</button>
-                  </div>
+
+                    {/* ALERTE COTISATION NON À JOUR */}
+                    {!isSubscriptionUpToDate(selectedMember) && (
+                      <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-center gap-3 text-amber-700 animate-in fade-in zoom-in-95">
+                        <AlertTriangle size={18} className="shrink-0 text-amber-500 animate-pulse" />
+                        <p className="text-[9px] font-black uppercase tracking-wider leading-tight">
+                          Attention : La cotisation de cet adhérent n'est plus à jour !
+                        </p>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
