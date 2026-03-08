@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { 
   Users, Trash2, Edit2, X, Plus, CreditCard, 
   Phone, Mail, Search, MapPin, Eye, User, Send, AlertTriangle, 
-  Building2, ExternalLink, Calendar, ShieldCheck, ShieldOff, CheckCircle2, ChevronRight
+  Building2, ExternalLink, Calendar, ShieldCheck, ShieldOff, CheckCircle2, ChevronRight, Info
 } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
 
@@ -16,6 +16,7 @@ export default function Adherents() {
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [viewMember, setViewMember] = useState(null)
   const [renewalAction, setRenewalAction] = useState(null)
+  const [showPaymentInfoModal, setShowPaymentInfoModal] = useState(false) // MODALE INFO PAIEMENT
 
   const [appSettings, setAppSettings] = useState({
     prix_particulier: 0,
@@ -29,7 +30,15 @@ export default function Adherents() {
     active_caution_particulier: "false",
     montant_caution_particulier: 0,
     active_caution_association: "false",
-    montant_caution_association: 0
+    montant_caution_association: 0,
+    // Nouveaux réglages paiements
+    pay_cb: "false",
+    pay_especes: "false",
+    pay_cheque: "false",
+    pay_virement: "false",
+    iban: '',
+    bic: '',
+    nom_compte: ''
   })
 
   const now = new Date();
@@ -91,10 +100,21 @@ export default function Adherents() {
     }));
   }, [appSettings, newMember.type, newMember.membership_date]);
 
+  // FONCTION POUR TROUVER LE PROCHAIN NUMÉRO DISPONIBLE
+  const getNextAvailableNumber = (currentMembers) => {
+    if (!currentMembers || currentMembers.length === 0) return '001';
+    const numbers = currentMembers
+      .map(m => parseInt(m.member_number))
+      .filter(n => !isNaN(n));
+    const max = numbers.length > 0 ? Math.max(...numbers) : 0;
+    return (max + 1).toString().padStart(3, '0');
+  }
+
   const handleOpenForm = () => {
     setEditingId(null);
     setNewMember({
       ...initialFormState,
+      member_number: getNextAvailableNumber(members), // Numérotation auto
       fee_amount: calculateFee('Particulier', todayStr, appSettings)
     });
     setShowForm(true);
@@ -118,7 +138,8 @@ export default function Adherents() {
 
   async function fetchMembers() {
     setLoading(true)
-    const { data } = await supabase.from('members').select('*').order('last_name')
+    // TRIÉ PAR NUMÉRO D'ADHÉRENT
+    const { data } = await supabase.from('members').select('*').order('member_number', { ascending: true })
     setMembers(data || [])
     setLoading(false)
   }
@@ -217,6 +238,12 @@ export default function Adherents() {
                   <h3 className="text-[10px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2"><CreditCard size={14}/> Cotisation</h3>
                   <div className={`p-6 rounded-[2rem] border-2 text-center transition-all ${newMember.has_paid ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
                     <span className="text-3xl font-black text-slate-900 block mb-3">{newMember.fee_amount}€</span>
+                    
+                    {/* BOUTON MODALITÉS DE PAIEMENT */}
+                    <button type="button" onClick={() => setShowPaymentInfoModal(true)} className="mb-4 flex items-center gap-2 mx-auto px-4 py-2 bg-white rounded-xl border border-slate-100 text-[9px] font-black uppercase text-[#1a5f7a] hover:bg-slate-50 transition-all">
+                      <Info size={14} /> Modalités de paiement
+                    </button>
+
                     <label className="flex items-center justify-center gap-3 cursor-pointer">
                       <input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={newMember.has_paid} onChange={(e) => setNewMember({...newMember, has_paid: e.target.checked})} />
                       <span className="text-[10px] font-black uppercase text-slate-600 tracking-widest">Réglée</span>
@@ -329,6 +356,54 @@ export default function Adherents() {
           </div>
         )}
       </main>
+
+      {/* MODALE MODALITÉS DE PAIEMENT */}
+      {showPaymentInfoModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-[2.5rem] p-10 max-w-lg w-full shadow-2xl animate-in zoom-in-95">
+             <h3 className="font-black text-slate-900 uppercase text-xl mb-6 flex items-center gap-3">
+               <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><CreditCard size={20}/></div>
+               Moyens de paiement acceptés
+             </h3>
+             <div className="space-y-4 mb-8">
+                {appSettings.pay_cb === "true" && (
+                  <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl font-bold text-sm text-slate-700 border border-slate-100">
+                    <CheckCircle2 size={18} className="text-emerald-500" /> Carte Bancaire (CB)
+                  </div>
+                )}
+                {appSettings.pay_especes === "true" && (
+                  <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl font-bold text-sm text-slate-700 border border-slate-100">
+                    <CheckCircle2 size={18} className="text-emerald-500" /> Espèces
+                  </div>
+                )}
+                {appSettings.pay_cheque === "true" && (
+                  <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl font-bold text-sm text-slate-700 border border-slate-100">
+                    <CheckCircle2 size={18} className="text-emerald-500" /> Chèque
+                  </div>
+                )}
+                {appSettings.pay_virement === "true" && (
+                  <div className="p-6 bg-blue-50/50 rounded-3xl border border-blue-100 space-y-4">
+                    <div className="flex items-center gap-3 font-black text-[10px] uppercase text-blue-600 tracking-widest">
+                      <Send size={16} /> Virement Bancaire
+                    </div>
+                    <div className="space-y-2">
+                       <p className="text-[9px] font-black text-slate-400 uppercase">Titulaire</p>
+                       <p className="text-sm font-bold text-slate-700 bg-white p-3 rounded-xl border border-blue-50">{appSettings.nom_compte || 'Non renseigné'}</p>
+                       <p className="text-[9px] font-black text-slate-400 uppercase mt-2">IBAN</p>
+                       <p className="text-sm font-mono font-bold text-slate-700 bg-white p-3 rounded-xl border border-blue-50 break-all">{appSettings.iban || 'Non renseigné'}</p>
+                       <p className="text-[9px] font-black text-slate-400 uppercase mt-2">Code BIC</p>
+                       <p className="text-sm font-mono font-bold text-slate-700 bg-white p-3 rounded-xl border border-blue-50">{appSettings.bic || 'Non renseigné'}</p>
+                    </div>
+                  </div>
+                )}
+                {appSettings.pay_cb !== "true" && appSettings.pay_especes !== "true" && appSettings.pay_cheque !== "true" && appSettings.pay_virement !== "true" && (
+                  <p className="text-center italic text-slate-400 text-sm py-4">Aucun moyen de paiement configuré dans les paramètres.</p>
+                )}
+             </div>
+             <button onClick={() => setShowPaymentInfoModal(false)} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">Fermer</button>
+          </div>
+        </div>
+      )}
 
       {/* MODALE DE RELANCE */}
       {renewalAction && (

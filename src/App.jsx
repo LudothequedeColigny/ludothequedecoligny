@@ -26,66 +26,8 @@ import Parametres from './pages/admin/Parametres'
 import Aide from './pages/admin/Aide'
 
 /**
- * COMPOSANT SPLASHSCREEN (ANIMATION DE CLIGNOTEMENT)
- */
-function SplashScreen() {
-  const [isVisible, setIsVisible] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsVisible(false);
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (!isVisible) return null;
-
-  return (
-    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#315b61] transition-opacity duration-700 ease-in-out">
-      <div className="relative flex flex-col items-center">
-        
-        {/* Animation de clignotement avec l'image icon-512 (Logo + Texte) */}
-        <div className="w-40 h-40 md:w-60 md:h-60 mb-8 animate-blink">
-           <img 
-             src="/icon-512.png" 
-             alt="Logo Ludothèque" 
-             className="w-full h-full object-contain"
-           />
-        </div>
-        
-        {/* Texte fixe */}
-        <h1 className="text-white font-black uppercase tracking-[0.2em] text-sm md:text-xl">
-          Ludothèque de Coligny
-        </h1>
-        
-        {/* Barre de chargement */}
-        <div className="mt-8 w-48 h-1 bg-white/10 rounded-full overflow-hidden">
-          <div className="h-full bg-white animate-progress origin-left"></div>
-        </div>
-      </div>
-
-      <style>{`
-        @keyframes blink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.3; }
-        }
-        @keyframes progress {
-          0% { transform: scaleX(0); }
-          100% { transform: scaleX(1); }
-        }
-        .animate-blink {
-          animation: blink 1.5s ease-in-out infinite;
-        }
-        .animate-progress {
-          animation: progress 2.8s ease-in-out forwards;
-        }
-      `}</style>
-    </div>
-  );
-}
-
-/**
  * COMPOSANT DE PROTECTION
+ * Vérifie si l'utilisateur est connecté avant d'autoriser l'accès aux pages admin
  */
 const ProtectedRoute = ({ children }) => {
   const [session, setSession] = useState(null)
@@ -113,8 +55,8 @@ const ProtectedRoute = ({ children }) => {
 function App() {
   return (
     <div className="min-h-screen bg-[#fdfaf6]">
-      <SplashScreen />
-
+      {/* L'écran de chargement SplashScreen a été supprimé pour un accès instantané */}
+      
       <Routes>
         {/* --- ROUTES PUBLIQUES --- */}
         <Route path="/" element={<Home />} />
@@ -136,6 +78,7 @@ function App() {
         <Route path="/admin/parametres" element={<ProtectedRoute><AdminLayout><Parametres /></AdminLayout></ProtectedRoute>} />
         <Route path="/admin/aide" element={<ProtectedRoute><AdminLayout><Aide /></AdminLayout></ProtectedRoute>} />
         
+        {/* Redirection automatique vers l'accueil si la route n'existe pas */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../services/supabaseClient'
 import { 
   Settings, UserPlus, Save, Loader2, UserCheck, Ban, Euro, 
-  ShieldCheck, X, ChevronRight, Users, CreditCard, Info, Mail, Lock, ShieldAlert, CheckCircle2, User, Hash, Trash2, Phone
+  ShieldCheck, X, ChevronRight, Users, CreditCard, Info, Mail, Lock, ShieldAlert, CheckCircle2, User, Hash, Trash2, Phone, Wallet
 } from 'lucide-react'
 
 export default function Parametres() {
@@ -19,6 +19,7 @@ export default function Parametres() {
   const [showVolunteerModal, setShowVolunteerModal] = useState(false)
   const [showQuotaModal, setShowQuotaModal] = useState(false)
   const [showContactModal, setShowContactModal] = useState(false)
+  const [showPaymentModal, setShowPaymentModal] = useState(false) // MODALE PAIEMENTS
 
   const [confirmModal, setConfirmModal] = useState({ show: false, title: '', message: '' })
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, id: null })
@@ -40,7 +41,15 @@ export default function Parametres() {
     quota_association: 5,
     contact_nom: 'Victor Guyon',
     contact_tel: '06 71 41 56 96',
-    contact_email: 'victor.guyon@hotmail.fr'
+    contact_email: 'victor.guyon@hotmail.fr',
+    // NOUVELLES VALEURS PAIEMENT
+    pay_cb: "false",
+    pay_especes: "false",
+    pay_cheque: "false",
+    pay_virement: "false",
+    iban: '',
+    bic: '',
+    nom_compte: ''
   })
 
   useEffect(() => {
@@ -65,7 +74,7 @@ export default function Parametres() {
   const handleUpdatePrice = async (e) => {
     if (e) e.preventDefault()
     setSaveLoading(true)
-    const updates = Object.entries(prices).map(([id, value]) => ({ id, value: value.toString() }))
+    const updates = Object.entries(prices).map(([id, value]) => ({ id, value: (value || '').toString() }))
     const { error } = await supabase.from('settings').upsert(updates)
     if (!error) {
       setConfirmModal({
@@ -76,6 +85,7 @@ export default function Parametres() {
       setShowFinanceModal(false)
       setShowQuotaModal(false)
       setShowContactModal(false)
+      setShowPaymentModal(false)
     }
     setSaveLoading(false)
   }
@@ -122,12 +132,20 @@ export default function Parametres() {
       </div>
 
       {/* GRILLE PRINCIPALE */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         <button onClick={() => setShowFinanceModal(true)} className="group relative p-6 md:p-8 bg-white border border-slate-50 rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/40 hover:translate-y-[-4px] transition-all text-left overflow-hidden">
           <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-[#e38154] mb-6 group-hover:bg-[#e38154] group-hover:text-white transition-all"><CreditCard size={24} /></div>
           <h3 className="font-black text-lg text-slate-900 mb-1 uppercase tracking-tighter">Finances</h3>
           <p className="text-slate-400 font-bold text-[11px] mb-6 uppercase tracking-tight">Tarifs & Cautions</p>
           <div className="flex items-center gap-2 text-[#e38154] font-black text-[10px] uppercase tracking-widest">Configurer <ChevronRight size={14} /></div>
+        </button>
+
+        {/* NOUVEAU BOUTON MOYENS DE PAIEMENT */}
+        <button onClick={() => setShowPaymentModal(true)} className="group relative p-6 md:p-8 bg-white border border-slate-50 rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/40 hover:translate-y-[-4px] transition-all text-left overflow-hidden">
+          <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 mb-6 group-hover:bg-emerald-600 group-hover:text-white transition-all"><Wallet size={24} /></div>
+          <h3 className="font-black text-lg text-slate-900 mb-1 uppercase tracking-tighter">Paiements</h3>
+          <p className="text-slate-400 font-bold text-[11px] mb-6 uppercase tracking-tight">Modes acceptés & RIB</p>
+          <div className="flex items-center gap-2 text-emerald-600 font-black text-[10px] uppercase tracking-widest">Paramétrer <ChevronRight size={14} /></div>
         </button>
 
         <button onClick={() => setShowQuotaModal(true)} className="group relative p-6 md:p-8 bg-white border border-slate-50 rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/40 hover:translate-y-[-4px] transition-all text-left overflow-hidden">
@@ -151,6 +169,65 @@ export default function Parametres() {
           <div className="flex items-center gap-2 text-[#1a5f7a] font-black text-[10px] uppercase tracking-widest">Gérer <ChevronRight size={14} /></div>
         </button>
       </div>
+
+      {/* MODALE MOYENS DE PAIEMENT */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-20 md:pt-4 md:items-center bg-[#1a5f7a]/60 backdrop-blur-md">
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 max-h-[85vh]">
+            <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-emerald-50/30 sticky top-0 bg-white z-10">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-emerald-600 text-white rounded-2xl"><Wallet size={20}/></div>
+                <h3 className="font-black text-xl text-slate-900 uppercase tracking-tighter">Modes de paiement</h3>
+              </div>
+              <button onClick={() => setShowPaymentModal(false)} className="p-3 hover:bg-white rounded-2xl transition-all text-slate-400"><X size={24} /></button>
+            </div>
+            <form onSubmit={handleUpdatePrice} className="p-8 space-y-6 overflow-y-auto">
+              <HelpBox text="Sélectionnez les moyens de paiement que vous acceptez à la Ludothèque." color="blue" />
+              
+              <div className="space-y-3">
+                {[
+                  { id: 'pay_cb', label: 'Carte Bancaire (CB)' },
+                  { id: 'pay_especes', label: 'Espèces' },
+                  { id: 'pay_cheque', label: 'Chèque' },
+                  { id: 'pay_virement', label: 'Virement Bancaire' }
+                ].map((mode) => (
+                  <label key={mode.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100 transition-all">
+                    <span className="font-bold text-slate-700 text-sm">{mode.label}</span>
+                    <input 
+                      type="checkbox" 
+                      className="w-6 h-6 accent-emerald-600 rounded-lg"
+                      checked={prices[mode.id] === "true"}
+                      onChange={e => setPrices({...prices, [mode.id]: e.target.checked ? "true" : "false"})}
+                    />
+                  </label>
+                ))}
+              </div>
+
+              {prices.pay_virement === "true" && (
+                <div className="pt-4 border-t border-slate-100 space-y-4 animate-in slide-in-from-top-4">
+                  <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Informations de virement (RIB)</p>
+                  <div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-1 block">Titulaire du compte</label>
+                    <input type="text" className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none" value={prices.nom_compte} onChange={e => setPrices({...prices, nom_compte: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-1 block">IBAN</label>
+                    <input type="text" className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none" value={prices.iban} onChange={e => setPrices({...prices, iban: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-1 block">Code BIC</label>
+                    <input type="text" className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none" value={prices.bic} onChange={e => setPrices({...prices, bic: e.target.value})} />
+                  </div>
+                </div>
+              )}
+
+              <button type="submit" disabled={saveLoading} className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3">
+                {saveLoading ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />} Enregistrer les modes
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MODALE CONTACT */}
       {showContactModal && (
@@ -305,11 +382,11 @@ export default function Parametres() {
             <div className="p-8 overflow-y-auto space-y-10">
               <form onSubmit={handleAddVolunteer} className="space-y-6 bg-slate-50 p-8 rounded-[2.5rem]">
                 <div className="grid grid-cols-2 gap-4">
-                  <input type="text" placeholder="Prénom" className="w-full p-4 rounded-2xl bg-white font-bold outline-none" value={firstName} onChange={e => setFirstName(e.target.value)} required />
-                  <input type="text" placeholder="Nom" className="w-full p-4 rounded-2xl bg-white font-bold outline-none" value={lastName} onChange={e => setLastName(e.target.value)} required />
+                  <input type="text" placeholder="Prénom" className="w-full p-4 rounded-2xl bg-white font-bold outline-none" value={firstName} onChange={setFirstName} required />
+                  <input type="text" placeholder="Nom" className="w-full p-4 rounded-2xl bg-white font-bold outline-none" value={lastName} onChange={setLastName} required />
                 </div>
-                <input type="email" placeholder="Email" className="w-full p-4 rounded-2xl bg-white font-bold outline-none" value={newEmail} onChange={e => setNewEmail(e.target.value)} required />
-                <input type="password" placeholder="Mot de passe" className="w-full p-4 rounded-2xl bg-white font-bold outline-none" value={newPassword} onChange={e => setNewPassword(e.target.value)} required />
+                <input type="email" placeholder="Email" className="w-full p-4 rounded-2xl bg-white font-bold outline-none" value={newEmail} onChange={setNewEmail} required />
+                <input type="password" placeholder="Mot de passe" className="w-full p-4 rounded-2xl bg-white font-bold outline-none" value={newPassword} onChange={setNewPassword} required />
                 <button type="submit" disabled={loading} className="w-full py-4 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
                    {loading ? <Loader2 className="animate-spin" size={16} /> : <UserPlus size={16} />} Ajouter au système
                 </button>
