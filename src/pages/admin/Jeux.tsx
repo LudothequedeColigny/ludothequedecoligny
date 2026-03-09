@@ -36,7 +36,7 @@ export default function Jeux() {
 
   useEffect(() => { fetchJeux() }, [])
 
-  // --- LOGIQUE DU SCANNER OPTIMISÉE ---
+  // --- LOGIQUE DU SCANNER ---
   useEffect(() => {
     let scanner = null;
     if (showScanner) {
@@ -180,7 +180,6 @@ export default function Jeux() {
     setNewGame(jeu)
     setEditingId(jeu.id)
     setShowForm(true)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const cancelEdit = () => {
@@ -307,7 +306,7 @@ export default function Jeux() {
   return (
     <div className="p-4 md:p-10 bg-[#fdfaf6] min-h-screen font-sans text-slate-900">
       
-      {/* HEADER */}
+      {/* HEADER AVEC BOUTON D'ORIGINE */}
       <div className="max-w-7xl mx-auto mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-4">
           <div className="p-3 bg-[#1a5f7a] rounded-[1.2rem] shadow-lg text-white">
@@ -336,126 +335,133 @@ export default function Jeux() {
           </div>
         )}
 
-        {!showForm && (
-          <div className="relative mb-8">
-            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
-            <input 
-              type="text" 
-              placeholder="Rechercher par titre, numéro, code-barres..." 
-              className="w-full bg-white border border-slate-100 p-5 pl-16 rounded-[1.5rem] font-bold outline-none focus:ring-4 focus:ring-[#1a5f7a]/5 shadow-sm text-sm" 
-              value={searchTerm} 
-              onChange={(e) => setSearchTerm(e.target.value)} 
-            />
-          </div>
-        )}
+        <div className="relative mb-8">
+          <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+          <input 
+            type="text" 
+            placeholder="Rechercher par titre, numéro, code-barres..." 
+            className="w-full bg-white border border-slate-100 p-5 pl-16 rounded-[1.5rem] font-bold outline-none focus:ring-4 focus:ring-[#1a5f7a]/5 shadow-sm text-sm" 
+            value={searchTerm} 
+            onChange={(e) => setSearchTerm(e.target.value)} 
+          />
+        </div>
 
+        {/* MODALE DU FORMULAIRE */}
         {showForm && (
-          <form onSubmit={handleSubmit} className="bg-white p-5 md:p-12 rounded-[2.5rem] shadow-xl border border-slate-50 mb-12 animate-in slide-in-from-top-4 duration-500">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
-              
-              <div className="space-y-6">
-                <h3 className="text-[10px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2 mb-2"><Hash size={16} /> Informations principales</h3>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">N° d'enregistrement</label>
-                    <input required className={`w-full p-4 rounded-2xl bg-slate-50 font-black outline-none border-2 ${isNumberDuplicate ? 'border-rose-500 bg-rose-50 text-rose-600' : 'border-transparent'}`} value={newGame.registration_number} onChange={e => setNewGame({...newGame, registration_number: e.target.value})} />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Code-Barres (Scan)</label>
-                    <div className="flex gap-2 items-center">
-                      <input className="flex-1 min-w-0 p-4 rounded-2xl bg-slate-50 font-black outline-none border-2 border-transparent focus:border-[#1a5f7a]/10" value={newGame.barcode} placeholder="Scannez..." onChange={e => setNewGame({...newGame, barcode: e.target.value})} />
-                      <button type="button" onClick={() => setShowScanner(true)} className="shrink-0 p-4 bg-slate-800 text-white rounded-2xl active:scale-95 shadow-md flex items-center justify-center"><ScanLine size={20} /></button>
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 md:p-10">
+            <div className="absolute inset-0 bg-[#1a5f7a]/40 backdrop-blur-sm" onClick={cancelEdit}></div>
+            <div className="relative w-full max-w-5xl bg-white rounded-[2.5rem] shadow-2xl overflow-y-auto max-h-[90vh] animate-in zoom-in-95 duration-300">
+              <form onSubmit={handleSubmit} className="p-6 md:p-12">
+                <div className="flex justify-between items-center mb-8">
+                  <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">{editingId ? 'Modifier le jeu' : 'Ajouter un jeu'}</h2>
+                  <button type="button" onClick={cancelEdit} className="p-3 bg-slate-100 text-slate-500 rounded-2xl hover:bg-rose-50 hover:text-rose-500 transition-colors"><X size={24}/></button>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
+                  <div className="space-y-6">
+                    <h3 className="text-[10px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2 mb-2"><Hash size={16} /> Informations principales</h3>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">N° d'enregistrement</label>
+                        <input required className={`w-full p-4 rounded-2xl bg-slate-50 font-black outline-none border-2 ${isNumberDuplicate ? 'border-rose-500 bg-rose-50 text-rose-600' : 'border-transparent'}`} value={newGame.registration_number} onChange={e => setNewGame({...newGame, registration_number: e.target.value})} />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Code-Barres (Scan)</label>
+                        <div className="flex gap-2 items-center">
+                          <input className="flex-1 min-w-0 p-4 rounded-2xl bg-slate-50 font-black outline-none border-2 border-transparent focus:border-[#1a5f7a]/10" value={newGame.barcode} placeholder="Scannez..." onChange={e => setNewGame({...newGame, barcode: e.target.value})} />
+                          <button type="button" onClick={() => setShowScanner(true)} className="shrink-0 p-4 bg-slate-800 text-white rounded-2xl active:scale-95 shadow-md flex items-center justify-center"><ScanLine size={20} /></button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Titre du jeu</label>
+                      <input required className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none border-2 border-transparent focus:border-[#1a5f7a]/10" value={newGame.name} onChange={e => setNewGame({...newGame, name: e.target.value})} />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><FileText size={12}/> Description du jeu</label>
+                      <textarea rows={3} placeholder="Règles ou thème..." className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]/10 resize-none" value={newGame.description || ''} onChange={e => setNewGame({...newGame, description: e.target.value})} />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-[#e38154] uppercase ml-2 flex items-center gap-1"><AlertCircle size={12}/> Observations (État, pièces...)</label>
+                      <textarea rows={3} placeholder="Vrac d'infos : usure, pièces manquantes..." className="w-full p-4 rounded-2xl bg-orange-50/30 font-medium text-sm outline-none border-2 border-transparent focus:border-orange-200 resize-none" value={newGame.observations || ''} onChange={e => setNewGame({...newGame, observations: e.target.value})} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Joueurs Min</label>
+                        <input type="number" className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none" value={newGame.min_players} onChange={e => setNewGame({...newGame, min_players: parseInt(e.target.value)})} />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Joueurs Max</label>
+                        <input type="number" className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none" value={newGame.max_players} onChange={e => setNewGame({...newGame, max_players: parseInt(e.target.value)})} />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 relative">
+                      <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Catégories</label>
+                      <div className="flex gap-2 items-center">
+                        <input placeholder="Ajouter..." className="flex-1 min-w-0 p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none" value={categoryInput} onChange={e => setCategoryInput(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter') { e.preventDefault(); addCategory(categoryInput); }}} />
+                        <button type="button" onClick={() => addCategory(categoryInput)} className="shrink-0 p-4 bg-[#1a5f7a] text-white rounded-2xl shadow-lg flex items-center justify-center"><Plus size={20} strokeWidth={3} /></button>
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        {newGame.category?.split(',').map(c => c.trim()).filter(Boolean).map((cat, i) => (
+                          <span key={i} className="px-3 py-2 bg-[#1a5f7a] text-white text-[9px] font-black uppercase rounded-xl flex items-center gap-2">
+                            {cat} <X size={14} className="cursor-pointer" onClick={() => removeCategory(cat)} />
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Titre du jeu</label>
-                  <input required className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none border-2 border-transparent focus:border-[#1a5f7a]/10" value={newGame.name} onChange={e => setNewGame({...newGame, name: e.target.value})} />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><FileText size={12}/> Description du jeu</label>
-                  <textarea rows={3} placeholder="Règles ou thème..." className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]/10 resize-none" value={newGame.description || ''} onChange={e => setNewGame({...newGame, description: e.target.value})} />
-                </div>
-
-                {/* CHAMP OBSERVATIONS AJOUTÉ ICI */}
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-[#e38154] uppercase ml-2 flex items-center gap-1"><AlertCircle size={12}/> Observations (État, pièces...)</label>
-                  <textarea rows={3} placeholder="Vrac d'infos : usure, pièces manquantes..." className="w-full p-4 rounded-2xl bg-orange-50/30 font-medium text-sm outline-none border-2 border-transparent focus:border-orange-200 resize-none" value={newGame.observations || ''} onChange={e => setNewGame({...newGame, observations: e.target.value})} />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Joueurs Min</label>
-                    <input type="number" className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none" value={newGame.min_players} onChange={e => setNewGame({...newGame, min_players: parseInt(e.target.value)})} />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Joueurs Max</label>
-                    <input type="number" className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none" value={newGame.max_players} onChange={e => setNewGame({...newGame, max_players: parseInt(e.target.value)})} />
-                  </div>
-                </div>
-
-                <div className="space-y-2 relative">
-                  <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Catégories</label>
-                  <div className="flex gap-2 items-center">
-                    <input placeholder="Ajouter..." className="flex-1 min-w-0 p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none" value={categoryInput} onChange={e => setCategoryInput(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter') { e.preventDefault(); addCategory(categoryInput); }}} />
-                    <button type="button" onClick={() => addCategory(categoryInput)} className="shrink-0 p-4 bg-[#1a5f7a] text-white rounded-2xl shadow-lg flex items-center justify-center"><Plus size={20} strokeWidth={3} /></button>
-                  </div>
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    {newGame.category?.split(',').map(c => c.trim()).filter(Boolean).map((cat, i) => (
-                      <span key={i} className="px-3 py-2 bg-[#1a5f7a] text-white text-[9px] font-black uppercase rounded-xl flex items-center gap-2">
-                        {cat} <X size={14} className="cursor-pointer" onClick={() => removeCategory(cat)} />
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <h3 className="text-[10px] font-black text-[#e38154] uppercase tracking-widest flex items-center gap-2 mb-2"><ImageIcon size={16} /> Médias & Âge</h3>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><ExternalLink size={12}/> URL Image</label>
-                    <div className="flex gap-2 items-center">
-                      <input placeholder="Lien..." className="flex-1 min-w-0 p-4 rounded-2xl bg-slate-50 font-bold text-xs outline-none" value={newGame.image_url} onChange={e => setNewGame({...newGame, image_url: e.target.value})} />
-                      <label className="shrink-0 cursor-pointer p-4 bg-[#e38154] text-white rounded-2xl flex items-center justify-center active:scale-95 shadow-md">
-                        {uploading ? <Loader2 size={20} className="animate-spin" /> : <Camera size={20} />}
-                        <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} disabled={uploading || !navigator.onLine} />
-                      </label>
+                  <div className="space-y-6">
+                    <h3 className="text-[10px] font-black text-[#e38154] uppercase tracking-widest flex items-center gap-2 mb-2"><ImageIcon size={16} /> Médias & Âge</h3>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><ExternalLink size={12}/> URL Image</label>
+                        <div className="flex gap-2 items-center">
+                          <input placeholder="Lien..." className="flex-1 min-w-0 p-4 rounded-2xl bg-slate-50 font-bold text-xs outline-none" value={newGame.image_url} onChange={e => setNewGame({...newGame, image_url: e.target.value})} />
+                          <label className="shrink-0 cursor-pointer p-4 bg-[#e38154] text-white rounded-2xl flex items-center justify-center active:scale-95 shadow-md">
+                            {uploading ? <Loader2 size={20} className="animate-spin" /> : <Camera size={20} />}
+                            <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} disabled={uploading || !navigator.onLine} />
+                          </label>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><PlayCircle size={12}/> URL Vidéo</label>
+                        <input placeholder="YouTube..." className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-xs outline-none" value={newGame.youtube_url} onChange={e => setNewGame({...newGame, youtube_url: e.target.value})} />
+                      </div>
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><PlayCircle size={12}/> URL Vidéo</label>
-                    <input placeholder="YouTube..." className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-xs outline-none" value={newGame.youtube_url} onChange={e => setNewGame({...newGame, youtube_url: e.target.value})} />
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Âge Min</label>
+                        <input type="number" className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none" value={newGame.min_age} onChange={e => setNewGame({...newGame, min_age: parseInt(e.target.value)})} />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Durée (min)</label>
+                        <input type="number" className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none" value={newGame.duration} onChange={e => setNewGame({...newGame, duration: parseInt(e.target.value)})} />
+                      </div>
+                    </div>
+
+                    {newGame.image_url && (
+                      <div className="p-4 bg-slate-50 rounded-2xl flex items-center justify-center border-2 border-dashed border-slate-200 overflow-hidden">
+                        <img src={newGame.image_url} className="h-20 max-w-full object-contain rounded-lg" alt="Aperçu" />
+                      </div>
+                    )}
+
+                    <button type="submit" disabled={isNumberDuplicate} className={`w-full py-5 md:py-6 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl transition-all ${isNumberDuplicate ? 'bg-slate-200 text-slate-400' : 'bg-[#1a5f7a] text-white active:scale-95'}`}>
+                      {editingId ? "Enregistrer les modifications" : "Valider l'ajout du jeu"}
+                    </button>
                   </div>
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Âge Min</label>
-                    <input type="number" className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none" value={newGame.min_age} onChange={e => setNewGame({...newGame, min_age: parseInt(e.target.value)})} />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Durée (min)</label>
-                    <input type="number" className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none" value={newGame.duration} onChange={e => setNewGame({...newGame, duration: parseInt(e.target.value)})} />
-                  </div>
-                </div>
-
-                {newGame.image_url && (
-                  <div className="p-4 bg-slate-50 rounded-2xl flex items-center justify-center border-2 border-dashed border-slate-200 overflow-hidden">
-                    <img src={newGame.image_url} className="h-20 max-w-full object-contain rounded-lg" alt="Aperçu" />
-                  </div>
-                )}
-
-                <button type="submit" disabled={isNumberDuplicate} className={`w-full py-5 md:py-6 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl transition-all ${isNumberDuplicate ? 'bg-slate-200 text-slate-400' : 'bg-[#1a5f7a] text-white active:scale-95'}`}>
-                  {editingId ? "Enregistrer" : "Valider l'ajout"}
-                </button>
-              </div>
+              </form>
             </div>
-          </form>
+          </div>
         )}
 
         {/* LISTE DES JEUX (TABLEAU) */}
@@ -474,7 +480,10 @@ export default function Jeux() {
                 <tr key={jeu.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="p-8">
                     <div className="flex flex-col gap-1">
-                      <span className="font-black text-[#1a5f7a] bg-cyan-50 px-3 py-1 rounded-lg border border-cyan-100 w-fit">#{jeu.registration_number}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-[#1a5f7a] bg-cyan-50 px-3 py-1 rounded-lg border border-cyan-100 w-fit">#{jeu.registration_number}</span>
+                        {jeu.barcode && <CheckCircle size={14} className="text-emerald-500" />}
+                      </div>
                       {jeu.barcode && <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1"><ScanLine size={10}/> {jeu.barcode}</span>}
                     </div>
                   </td>
@@ -520,7 +529,10 @@ export default function Jeux() {
                   <img src={jeu.image_url || 'https://via.placeholder.com/150'} className="max-w-full max-h-full object-contain" alt="" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <span className="text-[9px] font-black text-[#1a5f7a] bg-cyan-50 px-2 py-1 rounded-lg">#{jeu.registration_number}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-black text-[#1a5f7a] bg-cyan-50 px-2 py-1 rounded-lg">#{jeu.registration_number}</span>
+                    {jeu.barcode && <CheckCircle size={12} className="text-emerald-500" />}
+                  </div>
                   <h3 className="font-black text-slate-900 uppercase text-xs mt-1 truncate">{jeu.name}</h3>
                 </div>
               </div>
