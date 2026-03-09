@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabaseClient' 
-import { ArrowLeft, User, Building2, Calendar, CheckCircle2, Info, Mail, Phone, Landmark, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, User, Building2, Calendar, CheckCircle2, Info, Mail, Phone, Landmark, ShieldCheck, FileText, Download } from 'lucide-react'
 
 export default function HowToBorrow() {
   const navigate = useNavigate()
@@ -123,7 +123,7 @@ export default function HowToBorrow() {
             <ul className="space-y-4 mb-10 flex-grow">
               <li className="flex gap-3 text-slate-700 font-medium">
                 <CheckCircle2 className="text-[#1a5f7a] flex-shrink-0" size={20} />
-                Emprunt de {appSettings.quota_particulier} jeux par mois
+                Emprunt de {appSettings.quota_particulier} jeux pour 1 mois maximum
               </li>
               <li className="flex gap-3 text-slate-700 font-medium">
                 <CheckCircle2 className="text-[#1a5f7a] flex-shrink-0" size={20} />
@@ -174,7 +174,7 @@ export default function HowToBorrow() {
             <ul className="space-y-4 mb-10 flex-grow">
               <li className="flex gap-3 text-slate-700 font-medium">
                 <CheckCircle2 className="text-[#e38154] flex-shrink-0" size={20} />
-                Emprunt de {appSettings.quota_association} jeux par mois
+                Emprunt de {appSettings.quota_association} jeux pour 1 mois maximum
               </li>
               <li className="flex gap-3 text-slate-700 font-medium">
                 <CheckCircle2 className="text-[#e38154] flex-shrink-0" size={20} />
@@ -198,6 +198,29 @@ export default function HowToBorrow() {
                   ? "Tarif fixe : l'adhésion expire à la date anniversaire l'année suivante."
                   : `Tarif dégressif sur base de ${appSettings.prix_association}€ (minimum ${appSettings.prix_minimum_asso}€).`}
               </p>
+            </div>
+          </div>
+        </div>
+
+        {/* AJOUT : SECTION TÉLÉCHARGEMENT CHARTE */}
+        <div className="mt-16 flex flex-col items-center">
+          <div className="bg-white border-2 border-dashed border-slate-200 rounded-[2.5rem] p-8 md:p-12 w-full max-w-2xl flex flex-col md:flex-row items-center gap-8 shadow-sm">
+            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-[#1a5f7a]">
+              <FileText size={40} />
+            </div>
+            <div className="flex-1 text-center md:text-left">
+              <h4 className="text-xl font-black text-slate-900 mb-2 uppercase">Charte de la ludothèque</h4>
+              <p className="text-slate-500 text-xs font-medium leading-relaxed mb-6">
+                Consultez les règles d'usage, de soin des jeux et de respect des permanences en téléchargeant notre charte officielle.
+              </p>
+              <a 
+                href="/charte-ludotheque.pdf" 
+                download="Charte_Ludotheque_Coligny.pdf"
+                className="inline-flex items-center gap-3 px-8 py-4 bg-white border-2 border-[#1a5f7a] text-[#1a5f7a] hover:bg-[#1a5f7a] hover:text-white transition-all rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-md active:scale-95"
+              >
+                <Download size={16} />
+                Télécharger la charte de la ludothèque
+              </a>
             </div>
           </div>
         </div>
