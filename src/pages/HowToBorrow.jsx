@@ -214,8 +214,8 @@ export default function HowToBorrow() {
                 Consultez les règles d'usage, de soin des jeux et de respect des permanences en téléchargeant notre charte officielle.
               </p>
               <a 
-                href="/charte-ludotheque.pdf" 
-                download="Charte_Ludotheque_Coligny.pdf"
+                href="/charte-de-pret-ludotheque.pdf" 
+                download="charte-de-pret-ludotheque.pdf"
                 className="inline-flex items-center gap-3 px-8 py-4 bg-white border-2 border-[#1a5f7a] text-[#1a5f7a] hover:bg-[#1a5f7a] hover:text-white transition-all rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-md active:scale-95"
               >
                 <Download size={16} />
