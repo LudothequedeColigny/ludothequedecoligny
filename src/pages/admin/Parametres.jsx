@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../services/supabaseClient'
 import { 
   Settings, UserPlus, Save, Loader2, UserCheck, Ban, Euro, 
-  ShieldCheck, X, ChevronRight, Users, CreditCard, Info, Mail, Lock, ShieldAlert, CheckCircle2, User, Hash, Trash2, Phone, Wallet
+  ShieldCheck, X, ChevronRight, Users, CreditCard, Info, Mail, Lock, ShieldAlert, CheckCircle2, User, Hash, Trash2, Phone, Wallet, Clock, MapPin
 } from 'lucide-react'
 
 export default function Parametres() {
@@ -20,6 +20,8 @@ export default function Parametres() {
   const [showQuotaModal, setShowQuotaModal] = useState(false)
   const [showContactModal, setShowContactModal] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false) // MODALE PAIEMENTS
+  const [showHorairesModal, setShowHorairesModal] = useState(false) // MODALE HORAIRES
+  const [showAdresseModal, setShowAdresseModal] = useState(false) // MODALE ADRESSE
 
   const [confirmModal, setConfirmModal] = useState({ show: false, title: '', message: '' })
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, id: null })
@@ -49,7 +51,21 @@ export default function Parametres() {
     pay_virement: "false",
     iban: '',
     bic: '',
-    nom_compte: ''
+    nom_compte: '',
+    // HORAIRES
+    horaire_1_jour: 'Samedi',
+    horaire_1_rang: '1',
+    horaire_1_debut: '10:00',
+    horaire_1_fin: '12:00',
+    horaire_2_actif: 'true',
+    horaire_2_jour: 'Samedi',
+    horaire_2_rang: '3',
+    horaire_2_debut: '14:00',
+    horaire_2_fin: '16:00',
+    // ADRESSE
+    adresse_rue: '419 Grande Rue',
+    adresse_ville: 'Coligny',
+    adresse_code_postal: '01270'
   })
 
   useEffect(() => {
@@ -74,9 +90,29 @@ export default function Parametres() {
   const handleUpdatePrice = async (e) => {
     if (e) e.preventDefault()
     setSaveLoading(true)
-    const updates = Object.entries(prices).map(([id, value]) => ({ id, value: (value || '').toString() }))
-    const { error } = await supabase.from('settings').upsert(updates)
-    if (!error) {
+    try {
+      // Récupère les clés déjà existantes en base
+      const { data: existingRows, error: fetchError } = await supabase.from('settings').select('id')
+      if (fetchError) throw fetchError
+
+      const existingIds = new Set((existingRows || []).map(r => r.id))
+      const allEntries = Object.entries(prices).map(([id, value]) => ({ id, value: String(value ?? '') }))
+
+      const toUpdate = allEntries.filter(e => existingIds.has(e.id))
+      const toInsert = allEntries.filter(e => !existingIds.has(e.id))
+
+      // UPDATE des clés existantes
+      if (toUpdate.length > 0) {
+        const { error: updateError } = await supabase.from('settings').upsert(toUpdate, { onConflict: 'id' })
+        if (updateError) throw updateError
+      }
+
+      // INSERT des nouvelles clés
+      if (toInsert.length > 0) {
+        const { error: insertError } = await supabase.from('settings').insert(toInsert)
+        if (insertError) throw insertError
+      }
+
       setConfirmModal({
         show: true,
         title: "Configuration enregistrée",
@@ -86,6 +122,11 @@ export default function Parametres() {
       setShowQuotaModal(false)
       setShowContactModal(false)
       setShowPaymentModal(false)
+      setShowHorairesModal(false)
+      setShowAdresseModal(false)
+    } catch (err) {
+      console.error('Erreur sauvegarde settings:', err)
+      alert('Erreur lors de la sauvegarde : ' + err.message)
     }
     setSaveLoading(false)
   }
@@ -167,6 +208,20 @@ export default function Parametres() {
           <h3 className="font-black text-lg text-slate-900 mb-1 uppercase tracking-tighter">Équipe</h3>
           <p className="text-slate-400 font-bold text-[11px] mb-6 uppercase tracking-tight">Gestion des accès</p>
           <div className="flex items-center gap-2 text-[#1a5f7a] font-black text-[10px] uppercase tracking-widest">Gérer <ChevronRight size={14} /></div>
+        </button>
+
+        <button onClick={() => setShowHorairesModal(true)} className="group relative p-6 md:p-8 bg-white border border-slate-50 rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/40 hover:translate-y-[-4px] transition-all text-left overflow-hidden">
+          <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500 mb-6 group-hover:bg-amber-500 group-hover:text-white transition-all"><Clock size={24} /></div>
+          <h3 className="font-black text-lg text-slate-900 mb-1 uppercase tracking-tighter">Horaires</h3>
+          <p className="text-slate-400 font-bold text-[11px] mb-6 uppercase tracking-tight">Jours & Heures d'ouverture</p>
+          <div className="flex items-center gap-2 text-amber-500 font-black text-[10px] uppercase tracking-widest">Modifier <ChevronRight size={14} /></div>
+        </button>
+
+        <button onClick={() => setShowAdresseModal(true)} className="group relative p-6 md:p-8 bg-white border border-slate-50 rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/40 hover:translate-y-[-4px] transition-all text-left overflow-hidden">
+          <div className="w-12 h-12 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 mb-6 group-hover:bg-rose-500 group-hover:text-white transition-all"><MapPin size={24} /></div>
+          <h3 className="font-black text-lg text-slate-900 mb-1 uppercase tracking-tighter">Adresse</h3>
+          <p className="text-slate-400 font-bold text-[11px] mb-6 uppercase tracking-tight">Localisation de la ludothèque</p>
+          <div className="flex items-center gap-2 text-rose-500 font-black text-[10px] uppercase tracking-widest">Modifier <ChevronRight size={14} /></div>
         </button>
       </div>
 
@@ -382,11 +437,11 @@ export default function Parametres() {
             <div className="p-8 overflow-y-auto space-y-10">
               <form onSubmit={handleAddVolunteer} className="space-y-6 bg-slate-50 p-8 rounded-[2.5rem]">
                 <div className="grid grid-cols-2 gap-4">
-                  <input type="text" placeholder="Prénom" className="w-full p-4 rounded-2xl bg-white font-bold outline-none" value={firstName} onChange={setFirstName} required />
-                  <input type="text" placeholder="Nom" className="w-full p-4 rounded-2xl bg-white font-bold outline-none" value={lastName} onChange={setLastName} required />
+                  <input type="text" placeholder="Prénom" className="w-full p-4 rounded-2xl bg-white font-bold outline-none" value={firstName} onChange={e => setFirstName(e.target.value)} required />
+                  <input type="text" placeholder="Nom" className="w-full p-4 rounded-2xl bg-white font-bold outline-none" value={lastName} onChange={e => setLastName(e.target.value)} required />
                 </div>
-                <input type="email" placeholder="Email" className="w-full p-4 rounded-2xl bg-white font-bold outline-none" value={newEmail} onChange={setNewEmail} required />
-                <input type="password" placeholder="Mot de passe" className="w-full p-4 rounded-2xl bg-white font-bold outline-none" value={newPassword} onChange={setNewPassword} required />
+                <input type="email" placeholder="Email" className="w-full p-4 rounded-2xl bg-white font-bold outline-none" value={newEmail} onChange={e => setNewEmail(e.target.value)} required />
+                <input type="password" placeholder="Mot de passe" className="w-full p-4 rounded-2xl bg-white font-bold outline-none" value={newPassword} onChange={e => setNewPassword(e.target.value)} required />
                 <button type="submit" disabled={loading} className="w-full py-4 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
                    {loading ? <Loader2 className="animate-spin" size={16} /> : <UserPlus size={16} />} Ajouter au système
                 </button>
@@ -410,6 +465,165 @@ export default function Parametres() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE HORAIRES */}
+      {showHorairesModal && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-20 md:pt-4 md:items-center bg-[#1a5f7a]/60 backdrop-blur-md">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 max-h-[85vh]">
+            <div className="p-8 border-b border-slate-50 flex justify-between items-center sticky top-0 bg-white z-10">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-amber-500 text-white rounded-2xl"><Clock size={20}/></div>
+                <h3 className="font-black text-xl text-slate-900 uppercase tracking-tighter">Horaires d'ouverture</h3>
+              </div>
+              <button onClick={() => setShowHorairesModal(false)} className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400"><X size={24} /></button>
+            </div>
+            <form onSubmit={handleUpdatePrice} className="p-8 space-y-8 overflow-y-auto">
+              <HelpBox text="Ces horaires sont affichés sur la page d'accueil. La 2e plage horaire est optionnelle." color="blue" />
+
+              {/* Plage 1 */}
+              <div className="space-y-4">
+                <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-2"><Clock size={14}/> 1re plage horaire</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-2 block">Jour de la semaine</label>
+                    <select
+                      className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-amber-100 cursor-pointer"
+                      value={prices.horaire_1_jour}
+                      onChange={e => setPrices({...prices, horaire_1_jour: e.target.value})}
+                    >
+                      {['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'].map(j => (
+                        <option key={j} value={j}>{j}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-2 block">Quel {prices.horaire_1_jour || 'jour'} du mois ?</label>
+                    <select
+                      className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-amber-100 cursor-pointer"
+                      value={prices.horaire_1_rang}
+                      onChange={e => setPrices({...prices, horaire_1_rang: e.target.value})}
+                    >
+                      <option value="1">1er</option>
+                      <option value="2">2e</option>
+                      <option value="3">3e</option>
+                      <option value="4">4e</option>
+                      <option value="5">Dernier</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-2 block">Heure d'ouverture</label>
+                    <input type="time" className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-amber-100" value={prices.horaire_1_debut} onChange={e => setPrices({...prices, horaire_1_debut: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-2 block">Heure de fermeture</label>
+                    <input type="time" className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-amber-100" value={prices.horaire_1_fin} onChange={e => setPrices({...prices, horaire_1_fin: e.target.value})} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Plage 2 */}
+              <div className={`space-y-4 p-6 rounded-[2rem] border-2 transition-all ${prices.horaire_2_actif === 'true' ? 'border-amber-100 bg-amber-50/40' : 'border-transparent bg-slate-50'}`}>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-2"><Clock size={14}/> 2e plage horaire</p>
+                  <input
+                    type="checkbox"
+                    className="w-6 h-6 accent-amber-500 rounded-lg cursor-pointer"
+                    checked={prices.horaire_2_actif === 'true'}
+                    onChange={e => setPrices({...prices, horaire_2_actif: e.target.checked ? 'true' : 'false'})}
+                  />
+                </div>
+                {prices.horaire_2_actif === 'true' && (
+                  <div className="space-y-4 animate-in slide-in-from-top-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-2 block">Jour de la semaine</label>
+                        <select
+                          className="w-full p-4 bg-white rounded-2xl font-bold outline-none focus:ring-2 ring-amber-100 cursor-pointer"
+                          value={prices.horaire_2_jour}
+                          onChange={e => setPrices({...prices, horaire_2_jour: e.target.value})}
+                        >
+                          {['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'].map(j => (
+                            <option key={j} value={j}>{j}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-2 block">Quel {prices.horaire_2_jour || 'jour'} du mois ?</label>
+                        <select
+                          className="w-full p-4 bg-white rounded-2xl font-bold outline-none focus:ring-2 ring-amber-100 cursor-pointer"
+                          value={prices.horaire_2_rang}
+                          onChange={e => setPrices({...prices, horaire_2_rang: e.target.value})}
+                        >
+                          <option value="1">1er</option>
+                          <option value="2">2e</option>
+                          <option value="3">3e</option>
+                          <option value="4">4e</option>
+                          <option value="5">Dernier</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-2 block">Heure d'ouverture</label>
+                        <input type="time" className="w-full p-4 bg-white rounded-2xl font-bold outline-none focus:ring-2 ring-amber-100" value={prices.horaire_2_debut} onChange={e => setPrices({...prices, horaire_2_debut: e.target.value})} />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-2 block">Heure de fermeture</label>
+                        <input type="time" className="w-full p-4 bg-white rounded-2xl font-bold outline-none focus:ring-2 ring-amber-100" value={prices.horaire_2_fin} onChange={e => setPrices({...prices, horaire_2_fin: e.target.value})} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button type="submit" disabled={saveLoading} className="w-full py-5 bg-amber-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3">
+                {saveLoading ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />} Enregistrer les horaires
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE ADRESSE */}
+      {showAdresseModal && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-20 md:pt-4 md:items-center bg-[#1a5f7a]/60 backdrop-blur-md">
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 max-h-[85vh]">
+            <div className="p-8 border-b border-slate-50 flex justify-between items-center sticky top-0 bg-white z-10">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-rose-500 text-white rounded-2xl"><MapPin size={20}/></div>
+                <h3 className="font-black text-xl text-slate-900 uppercase tracking-tighter">Adresse</h3>
+              </div>
+              <button onClick={() => setShowAdresseModal(false)} className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400"><X size={24} /></button>
+            </div>
+            <form onSubmit={handleUpdatePrice} className="p-8 space-y-6 overflow-y-auto">
+              <HelpBox text="Cette adresse est affichée sur la page d'accueil et utilisée pour le lien Google Maps." color="blue" />
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-2 mb-2 block">Rue / Numéro</label>
+                <input type="text" placeholder="ex: 419 Grande Rue" className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-rose-100" value={prices.adresse_rue} onChange={e => setPrices({...prices, adresse_rue: e.target.value})} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-2 block">Code postal</label>
+                  <input type="text" placeholder="01270" className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-rose-100" value={prices.adresse_code_postal} onChange={e => setPrices({...prices, adresse_code_postal: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-2 block">Ville</label>
+                  <input type="text" placeholder="Coligny" className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-rose-100" value={prices.adresse_ville} onChange={e => setPrices({...prices, adresse_ville: e.target.value})} />
+                </div>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-2xl text-[10px] font-bold text-slate-500 flex items-center gap-2">
+                <MapPin size={14} className="text-rose-400 shrink-0" />
+                Aperçu lien Maps : <span className="text-[#1a5f7a] ml-1">{prices.adresse_rue}, {prices.adresse_code_postal} {prices.adresse_ville}</span>
+              </div>
+              <button type="submit" disabled={saveLoading} className="w-full py-5 bg-rose-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3">
+                {saveLoading ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />} Enregistrer l'adresse
+              </button>
+            </form>
           </div>
         </div>
       )}

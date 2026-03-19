@@ -15,6 +15,7 @@ export default function GestionPermanences() {
   const [showFormModal, setShowFormModal] = useState(false)
   const [showLinkModal, setShowLinkModal] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [confirmDeleteVolunteer, setConfirmDeleteVolunteer] = useState(null) // { shiftId, volunteerIndex, volunteerName }
   const [editingShift, setEditingShift] = useState(null)
   const [copied, setCopied] = useState(false)
   const [errorMsg, setErrorMsg] = useState(null)
@@ -128,6 +129,25 @@ export default function GestionPermanences() {
     }, 2000)
   }
 
+  // Formate "HH:MM:SS" ou "HH:MM" → "HH:MM"
+  const fmt = (time) => time ? time.slice(0, 5) : ''
+
+  const removeVolunteer = async () => {
+    if (!confirmDeleteVolunteer || !navigator.onLine) return
+    const { shiftId, volunteerIndex } = confirmDeleteVolunteer
+    const shift = shifts.find(s => s.id === shiftId)
+    if (!shift) return
+    const updatedVolunteers = shift.volunteers.filter((_, i) => i !== volunteerIndex)
+    const { error } = await supabase
+      .from('shifts')
+      .update({ volunteers: updatedVolunteers })
+      .eq('id', shiftId)
+    if (!error) {
+      setConfirmDeleteVolunteer(null)
+      fetchShifts()
+    }
+  }
+
   const filteredShifts = shifts.filter(s => 
     new Date(s.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
     .toLowerCase().includes(searchTerm.toLowerCase())
@@ -191,14 +211,21 @@ export default function GestionPermanences() {
                     {new Date(shift.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
                   </td>
                   <td className="p-8 text-sm font-bold text-slate-400 uppercase tracking-widest">
-                    <span className="flex items-center gap-2"><Clock size={14} className="text-[#1a5f7a]"/> {shift.start_time} - {shift.end_time}</span>
+                    <span className="flex items-center gap-2"><Clock size={14} className="text-[#1a5f7a]"/> {fmt(shift.start_time)} - {fmt(shift.end_time)}</span>
                   </td>
                   <td className="p-8">
                     <div className="flex flex-wrap gap-2">
                       {shift.volunteers?.length > 0 ? (
                         shift.volunteers.map((v, i) => (
-                          <span key={i} className="px-3 py-1 bg-cyan-50 border border-cyan-100 rounded-full text-[9px] font-black uppercase text-[#1a5f7a] flex items-center gap-1">
+                          <span key={i} className="px-3 py-1 bg-cyan-50 border border-cyan-100 rounded-full text-[9px] font-black uppercase text-[#1a5f7a] flex items-center gap-1.5">
                             <UserCheck size={10} /> {v.name}
+                            <button
+                              onClick={e => { e.stopPropagation(); setConfirmDeleteVolunteer({ shiftId: shift.id, volunteerIndex: i, volunteerName: v.name }) }}
+                              className="ml-0.5 text-[#1a5f7a]/40 hover:text-rose-500 transition-colors"
+                              title="Retirer ce bénévole"
+                            >
+                              <X size={11} strokeWidth={3} />
+                            </button>
                           </span>
                         ))
                       ) : (
@@ -237,11 +264,21 @@ export default function GestionPermanences() {
                 {new Date(shift.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' })}
               </div>
               <div className="text-xs font-bold text-slate-400 uppercase mb-4 flex items-center gap-2">
-                 <Clock size={14}/> {shift.start_time} — {shift.end_time}
+                 <Clock size={14}/> {fmt(shift.start_time)} — {fmt(shift.end_time)}
               </div>
               <div className="pt-4 border-t border-slate-100 flex flex-wrap gap-2">
                   {shift.volunteers?.length > 0 ? 
-                    shift.volunteers.map((v, i) => <span key={i} className="px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-[9px] font-black uppercase text-[#1a5f7a]">{v.name}</span>)
+                    shift.volunteers.map((v, i) => (
+                      <span key={i} className="px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-[9px] font-black uppercase text-[#1a5f7a] flex items-center gap-1.5">
+                        {v.name}
+                        <button
+                          onClick={e => { e.stopPropagation(); setConfirmDeleteVolunteer({ shiftId: shift.id, volunteerIndex: i, volunteerName: v.name }) }}
+                          className="text-[#1a5f7a]/40 hover:text-rose-500 transition-colors"
+                        >
+                          <X size={11} strokeWidth={3} />
+                        </button>
+                      </span>
+                    ))
                     : <span className="text-[9px] font-black text-slate-200 uppercase italic">Aucun inscrit</span>
                   }
               </div>
@@ -308,6 +345,26 @@ export default function GestionPermanences() {
                 {copied ? "Lien copié !" : "Copier maintenant"}
               </button>
               <button onClick={() => setShowLinkModal(false)} className="w-full py-4 bg-slate-50 text-slate-400 rounded-2xl font-black uppercase text-[10px]">Fermer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODALE SUPPRESSION BÉNÉVOLE --- */}
+      {confirmDeleteVolunteer && (
+        <div className="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4">
+          <div className="bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] w-full max-w-sm p-10 text-center shadow-2xl animate-in slide-in-from-bottom">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 bg-rose-50 text-rose-500">
+              <AlertTriangle size={32}/>
+            </div>
+            <h3 className="text-xl font-black mb-2 text-slate-900">Retirer ce bénévole ?</h3>
+            <p className="text-[10px] font-black uppercase text-slate-500 mb-1 leading-relaxed">
+              <span className="text-[#1a5f7a]">{confirmDeleteVolunteer.volunteerName}</span> sera retiré de cette permanence.
+            </p>
+            <p className="text-[9px] text-slate-300 font-bold uppercase mb-8">Cette action est irréversible.</p>
+            <div className="flex flex-col gap-3">
+              <button onClick={removeVolunteer} className="w-full py-5 bg-rose-500 text-white rounded-2xl font-black uppercase text-xs shadow-lg active:scale-95 transition-all">Confirmer la suppression</button>
+              <button onClick={() => setConfirmDeleteVolunteer(null)} className="w-full py-4 text-slate-400 font-black uppercase text-[10px]">Annuler</button>
             </div>
           </div>
         </div>

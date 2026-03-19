@@ -504,7 +504,7 @@ export default function Prets() {
 
         <div className="flex justify-center md:justify-end pt-6">
           <button 
-            onClick={() => window.location.href = '/historique-prets'} 
+            onClick={() => window.location.href = '/admin/historique-prets'} 
             className="flex items-center gap-2 px-8 py-4 bg-slate-800 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-lg hover:bg-slate-700 active:scale-95"
           >
             <Clock size={16} /> Consulter l'historique complet

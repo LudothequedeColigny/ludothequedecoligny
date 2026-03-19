@@ -98,9 +98,41 @@ export default function Home() {
     email: 'victor.guyon@hotmail.fr'
   })
 
+  // État pour les horaires dynamiques
+  const [horaires, setHoraires] = useState({
+    horaire_1_jour: 'Samedi',
+    horaire_1_rang: '1',
+    horaire_1_debut: '10:00',
+    horaire_1_fin: '12:00',
+    horaire_2_actif: 'true',
+    horaire_2_jour: 'Samedi',
+    horaire_2_rang: '3',
+    horaire_2_debut: '14:00',
+    horaire_2_fin: '16:00',
+  })
+
+  // État pour l'adresse dynamique
+  const [adresse, setAdresse] = useState({
+    rue: '419 Grande Rue',
+    ville: 'Coligny',
+    code_postal: '01270'
+  })
+
   const facebookUrl1 = "https://www.facebook.com/groups/2677832192298067"
   const facebookUrl = "https://www.facebook.com/groups/ludothequedecoligny?locale=fr_FR"
-  const addressQuery = "419+Grande+Rue,+01270+Coligny"
+
+  // Adresse dynamique pour Google Maps
+  const addressQuery = `${adresse.rue}, ${adresse.code_postal} ${adresse.ville}`.replace(/ /g, '+')
+  const adresseComplete = `${adresse.rue}, ${adresse.code_postal} ${adresse.ville}`
+
+  // Libellé du rang + jour
+  const rangLabel = (rang, jour) => {
+    const labels = { '1': '1ers', '2': '2es', '3': '3es', '4': '4es', '5': 'Derniers' }
+    return `${labels[rang] || `${rang}es`} ${jour || 'Samedis'} du mois`
+  }
+
+  // Formatage heure "10:00" → "10h00"
+  const formatHeure = (h) => h ? h.replace(':', 'h') : ''
 
   useEffect(() => {
     async function fetchHomeData() {
@@ -111,12 +143,28 @@ export default function Home() {
         const { data: settingsData } = await supabase.from('settings').select('*')
         if (settingsData) {
           const c = { ...contact }
+          const h = { ...horaires }
+          const a = { ...adresse }
           settingsData.forEach(s => {
             if (s.id === 'contact_nom') c.nom = s.value
             if (s.id === 'contact_tel') c.tel = s.value
             if (s.id === 'contact_email') c.email = s.value
+            if (s.id === 'horaire_1_jour') h.horaire_1_jour = s.value
+            if (s.id === 'horaire_1_rang') h.horaire_1_rang = s.value
+            if (s.id === 'horaire_1_debut') h.horaire_1_debut = s.value
+            if (s.id === 'horaire_1_fin') h.horaire_1_fin = s.value
+            if (s.id === 'horaire_2_actif') h.horaire_2_actif = s.value
+            if (s.id === 'horaire_2_jour') h.horaire_2_jour = s.value
+            if (s.id === 'horaire_2_rang') h.horaire_2_rang = s.value
+            if (s.id === 'horaire_2_debut') h.horaire_2_debut = s.value
+            if (s.id === 'horaire_2_fin') h.horaire_2_fin = s.value
+            if (s.id === 'adresse_rue') a.rue = s.value
+            if (s.id === 'adresse_ville') a.ville = s.value
+            if (s.id === 'adresse_code_postal') a.code_postal = s.value
           })
           setContact(c)
+          setHoraires(h)
+          setAdresse(a)
         }
 
         const { count: gCount } = await supabase
@@ -343,18 +391,20 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-4 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h3 className="text-3xl md:text-4xl font-black mb-8 leading-tight">Nous vous attendons au <br/><span className="text-[#e38154]">419 Grande Rue à Coligny</span></h3>
+              <h3 className="text-3xl md:text-4xl font-black mb-8 leading-tight">Nous vous attendons au <br/><span className="text-[#e38154]">{adresseComplete}</span></h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="bg-white/10 backdrop-blur-sm border border-white/10 p-6 rounded-[2rem]">
                   <Clock size={24} className="text-[#e38154] mb-3" />
-                  <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200 mb-1">1ers Samedis du mois</p>
-                  <p className="text-xl font-bold">10h00 — 12h00</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200 mb-1">{rangLabel(horaires.horaire_1_rang, horaires.horaire_1_jour)}</p>
+                  <p className="text-xl font-bold">{formatHeure(horaires.horaire_1_debut)} — {formatHeure(horaires.horaire_1_fin)}</p>
                 </div>
-                <div className="bg-white/10 backdrop-blur-sm border border-white/10 p-6 rounded-[2rem]">
-                  <Clock size={24} className="text-[#e38154] mb-3" />
-                  <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200 mb-1">3e Samedis du mois</p>
-                  <p className="text-xl font-bold">14h00 — 16h00</p>
-                </div>
+                {horaires.horaire_2_actif === 'true' && (
+                  <div className="bg-white/10 backdrop-blur-sm border border-white/10 p-6 rounded-[2rem]">
+                    <Clock size={24} className="text-[#e38154] mb-3" />
+                    <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200 mb-1">{rangLabel(horaires.horaire_2_rang, horaires.horaire_2_jour)}</p>
+                    <p className="text-xl font-bold">{formatHeure(horaires.horaire_2_debut)} — {formatHeure(horaires.horaire_2_fin)}</p>
+                  </div>
+                )}
               </div>
             </div>
             <div className="relative group">

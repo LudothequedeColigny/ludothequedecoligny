@@ -36,6 +36,9 @@ export default function InscriptionPermanence() {
     fetchActiveShifts()
   }, [])
 
+  // Formate "HH:MM:SS" ou "HH:MM" → "HH:MM"
+  const fmt = (time) => time ? time.slice(0, 5) : ''
+
   const toggleShift = (id, isFull) => {
     if (isFull) return;
     if (selectedShifts.includes(id)) {
@@ -161,7 +164,7 @@ export default function InscriptionPermanence() {
                                 {new Date(shift.date).toLocaleDateString('fr-FR', { weekday: 'long' })}
                               </span>
                               <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#1a5f7a] bg-cyan-50 px-2 py-0.5 rounded-md mt-1 w-fit">
-                                <Clock size={12}/> {shift.start_time} — {shift.end_time}
+                                <Clock size={12}/> {fmt(shift.start_time)} — {fmt(shift.end_time)}
                               </div>
                             </div>
                           </div>
