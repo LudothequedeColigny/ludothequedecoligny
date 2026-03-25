@@ -24,6 +24,7 @@ import GestionPermanences from './pages/admin/GestionPermanences'
 import InstallationApp from './pages/admin/InstallationApp'
 import Parametres from './pages/admin/Parametres'
 import Aide from './pages/admin/Aide'
+import SuiviFinancier from './pages/admin/SuiviFinancier'
 
 /**
  * COMPOSANT DE PROTECTION
@@ -77,6 +78,7 @@ function App() {
         <Route path="/admin/installation" element={<ProtectedRoute><AdminLayout><InstallationApp /></AdminLayout></ProtectedRoute>} />
         <Route path="/admin/parametres" element={<ProtectedRoute><AdminLayout><Parametres /></AdminLayout></ProtectedRoute>} />
         <Route path="/admin/aide" element={<ProtectedRoute><AdminLayout><Aide /></AdminLayout></ProtectedRoute>} />
+        <Route path="/admin/suivi-financier" element={<ProtectedRoute><AdminLayout><SuiviFinancier /></AdminLayout></ProtectedRoute>} />
         
         {/* Redirection automatique vers l'accueil si la route n'existe pas */}
         <Route path="*" element={<Navigate to="/" replace />} />

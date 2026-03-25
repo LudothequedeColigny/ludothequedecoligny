@@ -153,10 +153,62 @@ export default function Adherents() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const { error } = editingId 
-      ? await supabase.from('members').update(newMember).eq('id', editingId) 
-      : await supabase.from('members').insert([newMember]);
-    if (!error) { setShowForm(false); setNewMember(initialFormState); fetchMembers(); setEditingId(null); }
+
+    // Snapshot uniquement pour les adhésions d'aujourd'hui ou futures
+    const today = new Date().toISOString().split('T')[0]
+    const isNewAdhesion = newMember.membership_date >= today
+
+    if (editingId) {
+      // ── MODIFICATION ──────────────────────────────────────────────────────
+      const { data: before } = await supabase
+        .from('members')
+        .select('has_paid, fee_amount, membership_date')
+        .eq('id', editingId)
+        .single()
+
+      const { error } = await supabase.from('members').update(newMember).eq('id', editingId)
+
+      if (!error) {
+        const wasNotPaid = before && !before.has_paid
+        const dateChanged = before && before.membership_date !== newMember.membership_date
+        const nowPaid = newMember.has_paid
+
+        if (nowPaid && isNewAdhesion && (wasNotPaid || dateChanged)) {
+          const memberName = newMember.type === 'Association'
+            ? newMember.last_name
+            : `${newMember.first_name} ${newMember.last_name}`
+          await supabase.from('financial_transactions').insert({
+            label: `Cotisation – ${memberName} (N°${newMember.member_number})`,
+            amount: Number(newMember.fee_amount) || 0,
+            type: 'entree',
+            category: 'Cotisation',
+            date: newMember.membership_date,
+          })
+        }
+
+        setShowForm(false); setNewMember(initialFormState); fetchMembers(); setEditingId(null)
+      }
+    } else {
+      // ── CRÉATION ──────────────────────────────────────────────────────────
+      const { error } = await supabase.from('members').insert([newMember])
+
+      if (!error) {
+        if (newMember.has_paid && isNewAdhesion) {
+          const memberName = newMember.type === 'Association'
+            ? newMember.last_name
+            : `${newMember.first_name} ${newMember.last_name}`
+          await supabase.from('financial_transactions').insert({
+            label: `Cotisation – ${memberName} (N°${newMember.member_number})`,
+            amount: Number(newMember.fee_amount) || 0,
+            type: 'entree',
+            category: 'Cotisation',
+            date: newMember.membership_date,
+          })
+        }
+
+        setShowForm(false); setNewMember(initialFormState); fetchMembers(); setEditingId(null)
+      }
+    }
   }
 
   const filteredMembers = members.filter(m => 

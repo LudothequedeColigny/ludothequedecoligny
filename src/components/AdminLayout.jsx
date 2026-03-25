@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Dices, Users, Calendar, LogOut, 
   X, Menu, ChevronRight, ClipboardCheck, Share2,
-  Settings, LifeBuoy
+  Settings, LifeBuoy, TrendingUp
 } from 'lucide-react';
 
 export default function AdminLayout({ children }) {
@@ -139,6 +139,24 @@ export default function AdminLayout({ children }) {
                 </span>
               </Link>
             </div>
+
+            {/* --- LIEN SUIVI FINANCIER --- */}
+            <Link
+              to="/admin/suivi-financier"
+              onClick={closeMobileMenu}
+              className={`flex items-center gap-4 p-4 rounded-2xl transition-all group ${
+                location.pathname === '/admin/suivi-financier' 
+                  ? 'bg-slate-50 text-[#1a5f7a]' 
+                  : 'text-slate-400 hover:bg-slate-50 hover:text-[#1a5f7a]'
+              }`}
+            >
+              <span className={`transition-transform group-hover:scale-110 ${location.pathname === '/admin/suivi-financier' ? 'text-[#1a5f7a]' : 'text-slate-200'}`}>
+                <TrendingUp size={20} />
+              </span>
+              <span className={`text-[10px] uppercase tracking-widest ${location.pathname === '/admin/suivi-financier' ? 'font-black text-[#1a5f7a]' : 'font-bold'}`}>
+                Suivi financier
+              </span>
+            </Link>
 
             {/* --- LIEN PARAMÈTRES --- */}
             <Link
