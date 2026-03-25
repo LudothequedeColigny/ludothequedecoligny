@@ -45,6 +45,10 @@ export default function Prets() {
     quota_particulier: 3,
     quota_association: 5
   })
+  const [adhesionSettings, setAdhesionSettings] = useState({
+    mode_adhesion_particulier: 'degressif',
+    mode_adhesion_association: 'glissant',
+  })
 
   // --- ÉTATS FORMULAIRE ---
   const [selectedMember, setSelectedMember] = useState(null)
@@ -131,11 +135,15 @@ export default function Prets() {
       const { data } = await supabase.from('settings').select('*')
       if (data) {
         const newQuotas = { ...quotas }
+        const newAdhesion = { ...adhesionSettings }
         data.forEach(setting => {
           if (setting.id === 'quota_particulier') newQuotas.quota_particulier = parseInt(setting.value)
           if (setting.id === 'quota_association') newQuotas.quota_association = parseInt(setting.value)
+          if (setting.id === 'mode_adhesion_particulier') newAdhesion.mode_adhesion_particulier = setting.value
+          if (setting.id === 'mode_adhesion_association') newAdhesion.mode_adhesion_association = setting.value
         })
         setQuotas(newQuotas)
+        setAdhesionSettings(newAdhesion)
       }
     } catch (err) {
       console.error("Erreur quotas:", err)
@@ -181,11 +189,24 @@ export default function Prets() {
   }
 
   // --- LOGIQUE DE VÉRIFICATION COTISATION ---
+  // Identique à getExpirationStatus dans Adherents.tsx
   const isSubscriptionUpToDate = (member) => {
-    if (!member?.membership_end_date) return false;
-    const today = new Date();
-    const endDate = new Date(member.membership_end_date);
-    return endDate >= today;
+    if (!member?.has_paid) return false;
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const dateAdhesion = new Date(member.membership_date);
+    const isAsso = member.type === 'Association';
+    const mode = isAsso
+      ? adhesionSettings.mode_adhesion_association
+      : adhesionSettings.mode_adhesion_particulier;
+
+    if (mode === 'degressif') {
+      return dateAdhesion.getFullYear() >= currentYear;
+    } else {
+      const expiryDate = new Date(dateAdhesion);
+      expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+      return now <= expiryDate;
+    }
   }
 
   // --- LOGIQUE DE SCAN INTELLIGENT ---
