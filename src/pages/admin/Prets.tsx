@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-  Share2,
+  Share2, ChevronDown, ChevronUp,
   Trash2,
   Edit2,
   X,
@@ -26,7 +26,7 @@ import {
   ScanLine
 } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
-import { BrowserMultiFormatReader, NotFoundException } from '@zxing/browser'
+import { sendEmail } from '../../services/emailService'
 
 export default function Prets() {
   // --- ÉTATS ---
@@ -37,8 +37,11 @@ export default function Prets() {
   const [searchTerm, setSearchTerm] = useState('')
   const [showFormModal, setShowFormModal] = useState(false)
   const [confirmAction, setConfirmAction] = useState(null)
-  const [renewalAction, setRenewalAction] = useState(null)
-  const [showCodeStep, setShowCodeStep] = useState(false)
+  const [renewalAction, setRenewalAction] = useState(null) // loan cliqué
+  const [composeModal, setComposeModal] = useState({ show: false, member: null, loans: [] })
+  const [composeData, setComposeData] = useState({ subject: '', body: '' })
+  const [sendingMail, setSendingMail] = useState(false)
+  const [successModal, setSuccessModal] = useState(false)
 
   // --- QUOTAS DYNAMIQUES ---
   const [quotas, setQuotas] = useState({ quota_particulier: 3, quota_association: 5 })
@@ -126,6 +129,7 @@ export default function Prets() {
 
       } else {
         // ── BRANCHE iOS / AUTRES : zxing fallback ────────────────────────
+        const { BrowserMultiFormatReader } = await import('@zxing/browser')
         const codeReader = new BrowserMultiFormatReader()
         codeReaderRef.current = codeReader
 
@@ -138,7 +142,9 @@ export default function Prets() {
               stopScanner()
               await handleSmartScan(barcode)
             }
-            if (error && !(error instanceof NotFoundException)) {
+            // NotFoundException n'est plus exportée dans les versions récentes de @zxing/browser
+            // On filtre les erreurs "pas de résultat" via le nom de l'erreur
+            if (error && error?.name !== 'NotFoundException') {
               console.warn('zxing – erreur scanner :', error)
             }
           }
@@ -158,7 +164,7 @@ export default function Prets() {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null }
     if (codeReaderRef.current) {
-      try { BrowserMultiFormatReader.releaseAllStreams() } catch (e) { /* silencieux */ }
+      try { import('@zxing/browser').then(({ BrowserMultiFormatReader: R }) => R.releaseAllStreams()) } catch (e) { /* silencieux */ }
       codeReaderRef.current = null
     }
     setShowScanner(false)
@@ -312,14 +318,71 @@ export default function Prets() {
     }
   }
 
-  const triggerOutlook = (loan) => {
-    const subject = encodeURIComponent(`Relance : Retour de jeu - Ludothèque de Coligny`)
-    const body = encodeURIComponent(
-      `Bonjour ${loan.members?.first_name || loan.members?.last_name},\n\n` +
-      `Sauf erreur de notre part, le jeu "${loan.games?.name}" est toujours en votre possession depuis le ${new Date(loan.loan_date).toLocaleDateString()}.\n\n` +
-      `Nous vous remercions de bien vouloir nous le rapporter lors de notre prochaine permanence.\n\nÀ bientôt !\n\nL'équipe de la Ludothèque`
-    )
-    window.open(`https://outlook.live.com/mail/0/deeplink/compose?to=${loan.members?.email}&subject=${subject}&body=${body}`, '_blank')
+  const openComposeLoan = (loan) => {
+    // Regrouper tous les prêts en retard du même adhérent
+    const memberId = loan.members?.id || loan.member_id
+    const memberLoans = loans.filter(l => {
+      const lId = l.members?.id || l.member_id
+      return lId === memberId && isOverdue(l.loan_date)
+    })
+    const member = loan.members
+    const prenom = member?.first_name || member?.last_name || 'adhérent'
+    const listeJeux = memberLoans.map(l =>
+      `  - "${l.games?.name}" (emprunté le ${new Date(l.loan_date).toLocaleDateString('fr-FR')})`
+    ).join('\n')
+
+    const subject = `Relance : Retour de jeu${memberLoans.length > 1 ? 'x' : ''} - Ludothèque de Coligny`
+    const body = `Bonjour ${prenom},
+
+Sauf erreur de notre part, le${memberLoans.length > 1 ? 's jeux suivants sont' : ' jeu suivant est'} toujours en votre possession :
+
+${listeJeux}
+
+Nous vous remercions de bien vouloir nous le${memberLoans.length > 1 ? 's' : ''} rapporter lors de notre prochaine permanence.
+
+À bientôt !
+
+L'équipe de la Ludothèque de Coligny
+www.ludothequedecoligny.fr`
+
+    setComposeData({ subject, body })
+    setComposeModal({ show: true, member, loans: memberLoans })
+    setRenewalAction(null)
+  }
+
+  const handleSendLoanReminder = async () => {
+    if (!composeModal.member?.email) { alert("Email de l'adhérent introuvable."); return }
+    setSendingMail(true)
+    try {
+      const html = composeData.body
+        .split('\n')
+        .map(line => line.trim() === '' ? '<br/>' : `<p style="margin:0 0 6px 0;">${line}</p>`)
+        .join('')
+      const fullHtml = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
+        <div style="background:#1a5f7a;padding:24px;border-radius:12px 12px 0 0;">
+          <h1 style="color:white;margin:0;font-size:18px;">Ludothèque de Coligny</h1>
+        </div>
+        <div style="background:#fdfaf6;padding:32px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;">
+          ${html}
+        </div>
+      </div>`
+      await sendEmail({ to: composeModal.member.email, subject: composeData.subject, html: fullHtml })
+      // Marquer tous les prêts concernés comme relancés
+      const today = new Date().toISOString().split('T')[0]
+      for (const l of composeModal.loans) {
+        await supabase.from('loans').update({ last_reminder_date: today }).eq('id', l.id)
+      }
+      setLoans(prev => prev.map(l =>
+        composeModal.loans.find(cl => cl.id === l.id) ? { ...l, last_reminder_date: today } : l
+      ))
+      setComposeModal({ show: false, member: null, loans: [] })
+      setSuccessModal(true)
+    } catch (err) {
+      console.error('Erreur envoi relance:', err)
+      alert("Erreur lors de l'envoi. Vérifiez la console.")
+    } finally {
+      setSendingMail(false)
+    }
   }
 
   const isOverdue = (dateString) => {
@@ -510,7 +573,7 @@ export default function Prets() {
                   </button>
                   {late && (
                     <button
-                      onClick={() => { setRenewalAction(l); setShowCodeStep(false) }}
+                      onClick={() => setRenewalAction(l)}
                       className="flex-1 py-4 bg-[#1a5f7a] text-white rounded-xl flex items-center justify-center shadow-md"
                     >
                       <Send size={16} />
@@ -556,7 +619,7 @@ export default function Prets() {
                       {late && (
                         <button
                           title="Relancer"
-                          onClick={() => { setRenewalAction(l); setShowCodeStep(false) }}
+                          onClick={() => setRenewalAction(l)}
                           className="p-3 bg-amber-50 text-amber-600 rounded-xl border border-amber-100 hover:bg-amber-100 transition-all shadow-sm"
                         >
                           <Send size={18} />
@@ -658,93 +721,196 @@ export default function Prets() {
         </div>
       )}
 
-      {/* MODALE DE RELANCE */}
-      {renewalAction && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-[#1a5f7a]/80 backdrop-blur-md" onClick={() => setRenewalAction(null)}></div>
-          <div className="relative bg-white rounded-[3rem] p-8 md:p-12 max-w-lg w-full shadow-2xl border-b-8 border-amber-500 animate-in zoom-in-95 overflow-y-auto max-h-[90vh]">
-            {!showCodeStep ? (
-              <>
-                <div className="flex justify-between items-start mb-8">
-                  <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center">
-                    <Share2 size={28} />
+      {/* MODALE 1 : COORDONNÉES + SUIVI RELANCE */}
+      {renewalAction && !composeModal.show && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-[#1a5f7a]/80 backdrop-blur-md">
+          <div className="bg-white rounded-[3rem] p-10 max-w-lg w-full shadow-2xl border-b-8 border-amber-500">
+            
+            <div className="flex justify-between items-start mb-6">
+              <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center">
+                <Share2 size={28} />
+              </div>
+              <button onClick={() => setRenewalAction(null)} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
+                <X size={24} />
+              </button>
+            </div>
+
+            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight mb-1">Relance prêt en retard</h2>
+            <p className="text-sm text-slate-500 mb-6">
+              Adhérent : <strong>{renewalAction.members?.first_name} {renewalAction.members?.last_name}</strong>
+            </p>
+
+            {/* Coordonnées */}
+            <div className="space-y-3 mb-6">
+              <div className="flex items-center gap-4 text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <Mail size={18} className="text-[#1a5f7a] shrink-0" />
+                <span className="text-sm font-bold truncate">{renewalAction.members?.email || 'Email non renseigné'}</span>
+              </div>
+              <div className="flex items-center gap-4 text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <Phone size={18} className="text-[#1a5f7a] shrink-0" />
+                <span className="text-sm font-bold">{renewalAction.members?.phone || 'Téléphone non renseigné'}</span>
+              </div>
+              <div className="flex items-start gap-4 text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <MapPin size={18} className="text-[#1a5f7a] mt-1 shrink-0" />
+                <span className="text-sm font-bold leading-relaxed">{renewalAction.members?.address || 'Adresse non renseignée'}</span>
+              </div>
+            </div>
+
+            {/* Jeux en retard */}
+            <div className="mb-6">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Jeux en retard</p>
+              <div className="space-y-2">
+                {loans.filter(l => {
+                  const memberId = renewalAction.members?.id || renewalAction.member_id
+                  const lId = l.members?.id || l.member_id
+                  return lId === memberId && isOverdue(l.loan_date)
+                }).map(l => (
+                  <div key={l.id} className="flex items-center gap-3 p-3 bg-rose-50 rounded-xl border border-rose-100">
+                    <span className="text-[9px] font-black text-rose-400 uppercase">#{l.games?.registration_number}</span>
+                    <span className="text-sm font-bold text-rose-800 flex-1">{l.games?.name}</span>
+                    <span className="text-[9px] text-rose-400">depuis le {new Date(l.loan_date).toLocaleDateString('fr-FR')}</span>
                   </div>
-                  <button onClick={() => setRenewalAction(null)} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
-                    <X size={24} />
-                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Bouton email */}
+            <button
+              onClick={() => openComposeLoan(renewalAction)}
+              className="w-full p-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 mb-4"
+            >
+              <Mail size={18} /> Envoyer une relance par mail
+            </button>
+
+            {/* Suivi des relances */}
+            <div className="bg-amber-50/50 rounded-[2rem] p-6 border border-amber-100">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-[10px] font-black uppercase text-amber-600 flex items-center gap-2">
+                  <Calendar size={14} /> Suivi des relances
+                </span>
+                {renewalAction.last_reminder_date ? (
+                  <span className="px-3 py-1 bg-amber-100 text-amber-700 text-[9px] font-black rounded-full uppercase">
+                    Relancé le {new Date(renewalAction.last_reminder_date).toLocaleDateString()}
+                  </span>
+                ) : (
+                  <span className="text-[9px] font-bold text-amber-400 italic">Aucun rappel noté</span>
+                )}
+              </div>
+              <button
+                onClick={async () => {
+                  const today = new Date().toISOString().split('T')[0]
+                  const memberId = renewalAction.members?.id || renewalAction.member_id
+                  const memberLoans = loans.filter(l => {
+                    const lId = l.members?.id || l.member_id
+                    return lId === memberId && isOverdue(l.loan_date)
+                  })
+                  for (const l of memberLoans) {
+                    await supabase.from('loans').update({ last_reminder_date: today }).eq('id', l.id)
+                  }
+                  setLoans(prev => prev.map(l =>
+                    memberLoans.find(ml => ml.id === l.id) ? { ...l, last_reminder_date: today } : l
+                  ))
+                  setRenewalAction({ ...renewalAction, last_reminder_date: today })
+                }}
+                className="w-full py-3 bg-white border border-amber-200 text-amber-600 rounded-xl font-black uppercase text-[9px] tracking-widest hover:bg-amber-500 hover:text-white transition-all shadow-sm flex items-center justify-center gap-2"
+              >
+                Marquer comme relancé aujourd'hui
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE 2 : COMPOSITION EMAIL */}
+      {composeModal.show && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+
+            <div className="sticky top-0 bg-white rounded-t-[2.5rem] p-8 pb-4 border-b border-slate-100 flex items-center justify-between z-10">
+              <div>
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="p-2.5 bg-amber-50 text-amber-500 rounded-xl"><Mail size={20} /></div>
+                  <h3 className="text-base font-black uppercase text-slate-900">Relance — {composeModal.member?.first_name} {composeModal.member?.last_name}</h3>
                 </div>
-                <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight mb-2">Relance Prêt en retard</h2>
-                <p className="text-sm text-slate-500 mb-6">Coordonnées de l'adhérent <strong>{renewalAction.members?.first_name} {renewalAction.members?.last_name}</strong> :</p>
-                <div className="space-y-3 mb-8">
-                  <div className="flex items-center gap-4 text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                    <Mail size={18} className="text-[#1a5f7a] shrink-0" />
-                    <span className="text-sm font-bold truncate">{renewalAction.members?.email || 'Email non renseigné'}</span>
-                  </div>
-                  <div className="flex items-center gap-4 text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                    <Phone size={18} className="text-[#1a5f7a] shrink-0" />
-                    <span className="text-sm font-bold">{renewalAction.members?.phone || 'Téléphone non renseigné'}</span>
-                  </div>
-                  <div className="flex items-start gap-4 text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                    <MapPin size={18} className="text-[#1a5f7a] mt-1 shrink-0" />
-                    <span className="text-sm font-bold leading-relaxed">{renewalAction.members?.address || 'Adresse non renseignée'}</span>
-                  </div>
-                </div>
-                <div className="space-y-4 mb-8">
-                  <button
-                    onClick={() => setShowCodeStep(true)}
-                    className="w-full p-5 bg-[#1a5f7a] text-white rounded-[1.5rem] flex items-center justify-center gap-4 hover:bg-[#154d63] transition-all shadow-xl font-black uppercase text-[10px] tracking-widest"
-                  >
-                    Envoyer le mail de rappel <ExternalLink size={18} />
-                  </button>
-                </div>
-                <div className="bg-amber-50/50 rounded-[2rem] p-6 border border-amber-100">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-[10px] font-black uppercase text-amber-600 flex items-center gap-2">
-                      <Calendar size={14} /> Suivi des relances
-                    </span>
-                    {renewalAction.last_reminder_date ? (
-                      <span className="px-3 py-1 bg-amber-100 text-amber-700 text-[9px] font-black rounded-full uppercase">
-                        Relancé le {new Date(renewalAction.last_reminder_date).toLocaleDateString()}
-                      </span>
-                    ) : (
-                      <span className="text-[9px] font-bold text-amber-400 italic">Aucun rappel noté</span>
-                    )}
-                  </div>
-                  <button
-                    onClick={async () => {
-                      const today = new Date().toISOString().split('T')[0]
-                      const { error } = await supabase.from('loans').update({ last_reminder_date: today }).eq('id', renewalAction.id)
-                      if (!error) {
-                        setLoans(loans.map(l => l.id === renewalAction.id ? { ...l, last_reminder_date: today } : l))
-                        setRenewalAction({ ...renewalAction, last_reminder_date: today })
-                      }
-                    }}
-                    className="w-full py-3 bg-white border border-amber-200 text-amber-600 rounded-xl font-black uppercase text-[9px] tracking-widest hover:bg-amber-500 hover:text-white transition-all shadow-sm flex items-center justify-center gap-2"
-                  >
-                    Valider une relance aujourd'hui
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="text-center animate-in slide-in-from-right-4">
-                <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <ExternalLink size={32} />
-                </div>
-                <h3 className="text-xl font-black uppercase text-slate-900 mb-2">Prêt pour l'envoi</h3>
-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-8">Code d'accès Outlook de la ludo :</p>
-                <div className="bg-[#1a5f7a] rounded-[2rem] p-8 mb-10 shadow-xl border border-white/10">
-                  <p className="text-3xl font-black text-white tracking-[0.4em]">Coligny1991</p>
-                </div>
-                <div className="flex flex-col gap-3">
-                  <button onClick={() => triggerOutlook(renewalAction)} className="w-full py-6 bg-emerald-600 text-white rounded-[1.5rem] font-black uppercase text-sm shadow-lg hover:bg-emerald-700 transition-all">
-                    Ouvrir Outlook
-                  </button>
-                  <button onClick={() => setShowCodeStep(false)} className="py-4 text-slate-400 font-black uppercase text-[10px] underline">
-                    Retour
-                  </button>
+                <p className="text-[10px] text-slate-400 ml-12">
+                  {composeModal.loans.length} jeu{composeModal.loans.length > 1 ? 'x' : ''} en retard · {composeModal.member?.email}
+                </p>
+              </div>
+              <button onClick={() => setComposeModal({ show: false, member: null, loans: [] })} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-all"><X size={20} /></button>
+            </div>
+
+            <div className="p-8 space-y-6 flex-1">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Jeux concernés</label>
+                <div className="space-y-2">
+                  {composeModal.loans.map(l => (
+                    <div key={l.id} className="flex items-center gap-3 p-3 bg-rose-50 rounded-xl border border-rose-100">
+                      <span className="text-[9px] font-black text-rose-400 uppercase">#{l.games?.registration_number}</span>
+                      <span className="text-sm font-bold text-rose-800 flex-1">{l.games?.name}</span>
+                      <span className="text-[9px] text-rose-400">depuis le {new Date(l.loan_date).toLocaleDateString('fr-FR')}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-            )}
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Objet</label>
+                <input
+                  className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                  value={composeData.subject}
+                  onChange={e => setComposeData(prev => ({ ...prev, subject: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Message</label>
+                <textarea
+                  rows={10}
+                  className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a] resize-y"
+                  value={composeData.body}
+                  onChange={e => setComposeData(prev => ({ ...prev, body: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 bg-white rounded-b-[2.5rem] p-8 pt-4 border-t border-slate-100 flex gap-3">
+              <button onClick={() => setComposeModal({ show: false, member: null, loans: [] })}
+                className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest">
+                Annuler
+              </button>
+              <button onClick={handleSendLoanReminder} disabled={sendingMail}
+                className={'flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 ' +
+                  (sendingMail ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-[#1a5f7a] text-white hover:bg-[#134a5e]')}>
+                {sendingMail ? <><Loader2 size={14} className="animate-spin" /> Envoi...</> : <><Send size={14} /> Envoyer la relance</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* OVERLAY ENVOI EN COURS */}
+      {sendingMail && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl">
+            <Loader2 className="animate-spin mx-auto text-[#1a5f7a] mb-6" size={40} />
+            <h3 className="text-lg font-black uppercase text-slate-900">Envoi en cours...</h3>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE SUCCÈS */}
+      {successModal && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-[3rem] p-10 max-w-md w-full text-center shadow-2xl">
+            <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle size={40} />
+            </div>
+            <h3 className="text-xl font-black uppercase mb-4 text-slate-900">Relance envoyée !</h3>
+            <p className="text-[11px] font-medium text-slate-500 mb-8">L'email a été envoyé avec succès.</p>
+            <button onClick={() => setSuccessModal(false)}
+              className="w-full py-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg">
+              Fermer
+            </button>
           </div>
         </div>
       )}

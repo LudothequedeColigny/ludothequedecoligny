@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Dice5, Plus, Trash2, Edit2, X, Hash, AlertCircle, Search, CheckCircle, ImageIcon, Link as LinkIcon, Tag, ExternalLink, Users, PlayCircle, Clock, FileText, WifiOff, Eye, Loader2, Camera, ScanLine } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
-import { BrowserMultiFormatReader, NotFoundException } from '@zxing/browser'
 
 export default function Jeux() {
   const [jeux, setJeux] = useState([])
@@ -94,6 +93,7 @@ export default function Jeux() {
 
       } else {
         // ── BRANCHE iOS / AUTRES : zxing fallback ────────────────────────
+        const { BrowserMultiFormatReader } = await import('@zxing/browser')
         const codeReader = new BrowserMultiFormatReader()
         codeReaderRef.current = codeReader
 
@@ -105,7 +105,9 @@ export default function Jeux() {
               setNewGame(prev => ({ ...prev, barcode: result.getText() }))
               stopScanner()
             }
-            if (error && !(error instanceof NotFoundException)) {
+            // NotFoundException n'est plus exportée dans les versions récentes de @zxing/browser
+            // On filtre les erreurs de "pas de résultat" par leur nom/message
+            if (error && error?.name !== 'NotFoundException') {
               console.warn('zxing – erreur scanner :', error)
             }
           }
@@ -127,7 +129,7 @@ export default function Jeux() {
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null }
     // Nettoyage zxing
     if (codeReaderRef.current) {
-      try { BrowserMultiFormatReader.releaseAllStreams() } catch (e) { /* silencieux */ }
+      try { import('@zxing/browser').then(({ BrowserMultiFormatReader }) => BrowserMultiFormatReader.releaseAllStreams()) } catch (e) { /* silencieux */ }
       codeReaderRef.current = null
     }
     setShowScanner(false)
@@ -224,10 +226,7 @@ export default function Jeux() {
 
     setUploading(true)
     try {
-      const isPng = file.type === 'image/png'
-      const fileExtension = isPng ? 'png' : 'jpg'
-      const mimeType = isPng ? 'image/png' : 'image/jpeg'
-
+      // Conversion en WebP — ~30% plus léger qu'un JPEG à qualité équivalente
       const compressedFile = await new Promise((resolve) => {
         const reader = new FileReader()
         reader.readAsDataURL(file)
@@ -243,13 +242,13 @@ export default function Jeux() {
             const ctx = canvas.getContext('2d')
             ctx?.drawImage(img, 0, 0, canvas.width, canvas.height)
             canvas.toBlob((blob) => {
-              if (blob) resolve(new File([blob], file.name, { type: mimeType }))
-            }, mimeType, isPng ? 1.0 : 0.7)
+              if (blob) resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.webp'), { type: 'image/webp' }))
+            }, 'image/webp', 0.82)
           }
         }
       })
 
-      const fileName = `${Math.random()}-${Date.now()}.${fileExtension}`
+      const fileName = `${Math.random()}-${Date.now()}.webp`
       const { error: uploadError } = await supabase.storage.from('game-images').upload(fileName, compressedFile as File)
       if (uploadError) throw uploadError
       const { data: { publicUrl } } = supabase.storage.from('game-images').getPublicUrl(fileName)
@@ -502,8 +501,20 @@ export default function Jeux() {
                   </td>
                   <td className="p-8">
                     <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 shrink-0 bg-white rounded-xl border border-slate-100 p-1 flex items-center justify-center overflow-hidden">
-                        <img src={jeu.image_url || 'https://via.placeholder.com/150'} className="max-w-full max-h-full object-contain" alt="" />
+                      {/* Miniature avec lazy loading et fade-in */}
+                      <div className="w-16 h-16 shrink-0 bg-slate-50 rounded-xl border border-slate-100 p-1 flex items-center justify-center overflow-hidden">
+                        {jeu.image_url
+                          ? <img
+                              src={jeu.image_url}
+                              loading="lazy"
+                              decoding="async"
+                              onLoad={e => (e.currentTarget.style.opacity = '1')}
+                              style={{ opacity: 0, transition: 'opacity 0.4s' }}
+                              className="max-w-full max-h-full object-contain"
+                              alt=""
+                            />
+                          : <Dice5 size={24} className="text-slate-200" />
+                        }
                       </div>
                       <div>
                         <div className="font-black uppercase text-sm text-slate-800">{jeu.name}</div>
@@ -538,8 +549,20 @@ export default function Jeux() {
           {filteredJeux.map((jeu) => (
             <div key={jeu.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100">
               <div className="flex gap-4 mb-4">
+                {/* Miniature mobile avec lazy loading et fade-in */}
                 <div className="w-20 h-20 shrink-0 bg-slate-50 rounded-2xl flex items-center justify-center p-2">
-                  <img src={jeu.image_url || 'https://via.placeholder.com/150'} className="max-w-full max-h-full object-contain" alt="" />
+                  {jeu.image_url
+                    ? <img
+                        src={jeu.image_url}
+                        loading="lazy"
+                        decoding="async"
+                        onLoad={e => (e.currentTarget.style.opacity = '1')}
+                        style={{ opacity: 0, transition: 'opacity 0.4s' }}
+                        className="max-w-full max-h-full object-contain"
+                        alt=""
+                      />
+                    : <Dice5 size={28} className="text-slate-200" />
+                  }
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">

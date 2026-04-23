@@ -353,9 +353,17 @@ function Catalogue() {
                   onClick={() => openModale(jeu)}
                   className="group bg-white rounded-[2.5rem] shadow-sm overflow-hidden border border-slate-50 transition-all hover:shadow-2xl hover:-translate-y-2 cursor-pointer flex flex-col"
                 >
-                  <div className="h-56 w-full bg-white relative flex items-center justify-center p-6">
+                  {/* Zone image — fond slate-50 comme placeholder pendant le chargement */}
+                  <div className="h-56 w-full bg-slate-50 relative flex items-center justify-center p-6">
                     {jeu.image_url ? (
-                      <img src={jeu.image_url} alt={jeu.name} className="relative z-10 max-w-full max-h-full object-contain transition-transform duration-700 group-hover:scale-110" />
+                      <img
+                        src={jeu.image_url}
+                        alt={jeu.name}
+                        loading="lazy"
+                        decoding="async"
+                        onLoad={e => e.currentTarget.classList.add('opacity-100')}
+                        className="relative z-10 max-w-full max-h-full object-contain transition-all duration-500 opacity-0 group-hover:scale-110"
+                      />
                     ) : ( <Dice5 size={64} className="text-slate-100" /> )}
                     <div className="absolute top-4 left-4 z-20 flex flex-col gap-1.5">
                       <span className="bg-[#1a5f7a] text-white px-3 py-1 rounded-full text-[9px] font-black uppercase">{jeu.min_age || '3'}+ ans</span>
@@ -397,9 +405,16 @@ function Catalogue() {
           <div className="relative bg-white w-full sm:max-w-4xl max-h-[90vh] overflow-y-auto rounded-[3rem] shadow-2xl flex flex-col md:flex-row border-b-8 border-[#e38154]">
             <button onClick={() => setSelectedJeu(null)} className="absolute top-6 right-6 p-2 bg-slate-50 text-[#1a5f7a] hover:bg-[#e38154] hover:text-white rounded-full z-30 transition-all"><X size={20} /></button>
 
-            <div className="md:w-1/2 bg-white flex items-center justify-center p-8 md:p-12 min-h-[300px]">
+            {/* Zone image modale — pas de lazy (prioritaire après clic) */}
+            <div className="md:w-1/2 bg-slate-50 flex items-center justify-center p-8 md:p-12 min-h-[300px]">
               {selectedJeu.image_url ? (
-                <img src={selectedJeu.image_url} alt={selectedJeu.name} className="max-w-full max-h-[40vh] object-contain drop-shadow-xl" />
+                <img
+                  src={selectedJeu.image_url}
+                  alt={selectedJeu.name}
+                  decoding="async"
+                  onLoad={e => e.currentTarget.classList.add('opacity-100')}
+                  className="max-w-full max-h-[40vh] object-contain drop-shadow-xl transition-opacity duration-500 opacity-0"
+                />
               ) : ( <Dice5 size={80} className="text-slate-100" /> )}
             </div>
 

@@ -1,21 +1,29 @@
 import { useState, useEffect } from 'react'
+import GenerateurAffiche from './GenerateurAffiche'
 import { supabase } from '../../services/supabaseClient'
+import { sendEmail } from '../../services/emailService'
 import { 
   Calendar, MapPin, Plus, Trash2, Clock, ImageIcon, 
-  Upload, X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2
+  Upload, X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2, Users, ChevronDown, ChevronUp
 } from 'lucide-react'
 
 export default function Evenements() {
   const [events, setEvents] = useState([])
+  const [activeTab, setActiveTab] = useState('events') // 'events' | 'affiche'
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [editingId, setEditingId] = useState(null)
   
   const [deleteModal, setDeleteModal] = useState({ show: false, id: null, title: '' })
-  const [mailModal, setMailModal] = useState({ show: false, event: null })
-  // Nouvel état pour la modale de succès du presse-papier
-  const [clipboardModal, setClipboardModal] = useState({ show: false, url: '' })
+  // Modale de composition email
+  const [composeModal, setComposeModal] = useState({ show: false, event: null })
+  const [composeData, setComposeData] = useState({ subject: '', body: '', recipients: [] })
+  const [loadingRecipients, setLoadingRecipients] = useState(false)
+  const [sendingMail, setSendingMail] = useState(false)
+  const [successModal, setSuccessModal] = useState({ show: false, count: 0 })
+  const [showMairies, setShowMairies] = useState(true)
+  const [showAdherents, setShowAdherents] = useState(true)
 
   const initialEventState = {
     title: '',
@@ -56,6 +64,23 @@ export default function Evenements() {
     setNewEvent(initialEventState)
     setEditingId(null)
     setShowForm(false)
+  }
+
+  // Appelé depuis GenerateurAffiche : bascule vers l'onglet événements
+  // avec le formulaire pré-rempli (date, heure, titre, lieu, image_url)
+  const handleCreateEventFromAffiche = ({ date, end_time, title, location, image_url }) => {
+    setNewEvent({
+      ...initialEventState,
+      date: date || '',
+      end_time: end_time || '',
+      title: title || '',
+      location: location || '',
+      image_url: image_url || '',
+    })
+    setEditingId(null)
+    setShowForm(true)
+    setActiveTab('events')
+    setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 50)
   }
 
   async function handleFileUpload(event) {
@@ -108,47 +133,125 @@ export default function Evenements() {
     }
   }
 
-  const handleSendMail = async (eventToNotify = null) => {
-    const event = eventToNotify || mailModal.event;
+  const COLLECTIVITES = [
+    { email: "mairie@domsure.fr", label: "Mairie de Domsure" },
+    { email: "mairie@beaupont.fr", label: "Mairie de Beaupont" },
+    { email: "mairie.verjon@wanadoo.fr", label: "Mairie de Verjon" },
+    { email: "contact@mairie-beny.fr", label: "Mairie de Bény" },
+    { email: "accueil@saintamour39.fr", label: "Mairie de Saint-Amour" },
+    { email: "mairie@lestroischateaux.fr", label: "Mairie des Trois Châteaux" },
+    { email: "mairie.valdepy@orange.fr", label: "Mairie de Val-d'Épy" },
+    { email: "villemotier@wanadoo.fr", label: "Mairie de Villemotier" },
+    { email: "mairie.valsuran@valsuran.fr", label: "Mairie de Valsuran" },
+    { email: "mairie@andelot-morval.fr", label: "Mairie d'Andelot-Morval" },
+    { email: "mairie.veria@wanadoo.fr", label: "Mairie de Véria" },
+    { email: "mairie.broissia@orange.fr", label: "Mairie de Broissia" },
+    { email: "mairie.balanod@aricia.fr", label: "Mairie de Balanod" },
+    { email: "mairie.montagnalereconduit@wanadoo.fr", label: "Mairie de Montagna-le-Reconduit" },
+    { email: "mairiejoudes@wanadoo.fr", label: "Mairie de Jouds" },
+    { email: "mairie.condal@wanadoo.fr", label: "Mairie de Condal" },
+    { email: "mairie@cormoz.fr", label: "Mairie de Cormoz" },
+    { email: "mairie@foissiat.com", label: "Mairie de Foissiat" },
+    { email: "mairie@saintetiennedubois.fr", label: "Mairie de Saint-Étienne-du-Bois" },
+    { email: "genemapi@hotmail.fr", label: "Genemapi" },
+    { email: "mairie-salavre@orange.fr", label: "Mairie de Salavre" },
+  ]
+
+  const openComposeModal = async (event) => {
+    setLoadingRecipients(true)
+    setComposeModal({ show: true, event })
     
-    const collectivites = ["mairie@domsure.fr", "mairie@beaupont.fr", "mairie.verjon@wanadoo.fr", "contact@mairie-beny.fr", "accueil@saintamour39.fr", "mairie@lestroischateaux.fr", "mairie.valdepy@orange.fr", "villemotier@wanadoo.fr", "mairie.valsuran@valsuran.fr", "mairie@andelot-morval.fr", "mairie.veria@wanadoo.fr", "mairie.broissia@orange.fr", "mairie.balanod@aricia.fr", "mairie.montagnalereconduit@wanadoo.fr", "mairiejoudes@wanadoo.fr", "mairie.condal@wanadoo.fr", "mairie@cormoz.fr", "mairie@foissiat.com", "mairie@saintetiennedubois.fr", "genemapi@hotmail.fr", "mairie-salavre@orange.fr"]
+    const start = new Date(event.date)
+    const dateFormatee = start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+    const heureDebut = start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    const plageHoraire = event.end_time
+      ? `de ${heureDebut} à ${event.end_time.replace(':', 'h')}`
+      : `à partir de ${heureDebut}`
+
+    const subject = `Communication Événement - Association PACTES - ${event.title}`
+    const body = `Bonjour,
+
+L'association PACTES à Coligny souhaiterait communiquer sur un événement organisé qui va avoir lieu à la date suivante :
+
+Le ${dateFormatee} - ${event.title} à ${event.location}. ${plageHoraire}.${event.description ? ' ' + event.description : ''}
+
+Pouvez-vous l'intégrer dans vos communications afin de faire connaître l'existence de cet évènement à vos concitoyens ?
+
+Vous en souhaitant bonne réception.
+
+Bonne journée.
+
+Victor Guyon
+06 71 41 56 96`
 
     try {
-      const { data: members } = await supabase.from('members').select('email');
-      const memberEmails = members 
-        ? members.map(m => m.email).filter(email => email && email.includes('@')) 
-        : [];
-      
-      const allEmails = [...new Set([...collectivites, ...memberEmails])];
-      const emailsString = allEmails.join('; ');
+      const { data: members } = await supabase.from('members').select('email, first_name, last_name')
+      const memberRecipients = members
+        ? members
+            .filter(m => m.email && m.email.includes('@'))
+            .map(m => ({ email: m.email, label: `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email, group: 'adherent', checked: true }))
+        : []
 
-      await navigator.clipboard.writeText(emailsString);
+      const collectiviteRecipients = COLLECTIVITES.map(c => ({ ...c, group: 'mairie', checked: true }))
+      setComposeData({ subject, body, recipients: [...collectiviteRecipients, ...memberRecipients] })
+    } catch (e) {
+      setComposeData({ subject, body, recipients: COLLECTIVITES.map(c => ({ ...c, group: 'mairie', checked: true })) })
+    } finally {
+      setLoadingRecipients(false)
+    }
+  }
 
-      const start = new Date(event.date);
-      const dateFormatee = start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-      const heureDebut = start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-      const plageHoraire = event.end_time ? `de ${heureDebut} à ${event.end_time.replace(':', 'h')}` : `à partir de ${heureDebut}`;
+  const toggleRecipient = (email) => {
+    setComposeData(prev => ({
+      ...prev,
+      recipients: prev.recipients.map(r => r.email === email ? { ...r, checked: !r.checked } : r)
+    }))
+  }
 
-      const subject = encodeURIComponent(`Communication Événement - Association PACTES - ${event.title}`);
-      const body = encodeURIComponent(
-        `Bonjour,\n\nL'association PACTES à Coligny souhaiterait communiquer sur un événement organisé qui va avoir lieu à la date suivante :\n\n` +
-        `Le ${dateFormatee} - ${event.title} à ${event.location}. ${plageHoraire}. ${event.description || ""}\n\n` +
-        `Pouvez-vous les intégrer dans vos communications afin de faire connaître l'existence de cet évènement à vos concitoyens ?\n\n` +
-        `Vous en souhaitant bonne réception.\n\nBonne journée.\n\nVictor Guyon\n06 71 41 56 96`
-      );
+  const toggleGroup = (group) => {
+    const groupRecipients = composeData.recipients.filter(r => r.group === group)
+    const allChecked = groupRecipients.every(r => r.checked)
+    setComposeData(prev => ({
+      ...prev,
+      recipients: prev.recipients.map(r => r.group === group ? { ...r, checked: !allChecked } : r)
+    }))
+  }
 
-      await supabase.from('events').update({ mail_sent_at: new Date().toISOString() }).eq('id', event.id);
+  const handleSendMail = async () => {
+    const activeRecipients = composeData.recipients.filter(r => r.checked).map(r => r.email)
+    if (activeRecipients.length === 0) { alert('Aucun destinataire sélectionné.'); return }
+    setSendingMail(true)
+    try {
+      const htmlBody = composeData.body
+        .split('\n')
+        .map(line => line.trim() === '' ? '<br/>' : `<p style="margin:0 0 8px 0;">${line}</p>`)
+        .join('')
+      const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
+        <div style="background:#1a5f7a;padding:24px;border-radius:12px 12px 0 0;">
+          <h1 style="color:white;margin:0;font-size:18px;">Association PACTES – Ludothèque de Coligny</h1>
+        </div>
+        <div style="background:#fdfaf6;padding:32px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;">
+          ${htmlBody}
+          <p style="margin-top:24px;font-size:12px;color:#888;">
+            <a href="https://www.ludothequedecoligny.fr" style="color:#1a5f7a;">www.ludothequedecoligny.fr</a>
+          </p>
+        </div>
+      </div>`
 
-      // Au lieu de alert(), on ouvre notre belle modale
-      setClipboardModal({ 
-        show: true, 
-        url: `https://outlook.live.com/mail/0/deeplink/compose?subject=${subject}&body=${body}`
-      });
-      
-      setMailModal({ show: false, event: null });
-      fetchEvents();
+      const BATCH_SIZE = 50
+      for (let i = 0; i < activeRecipients.length; i += BATCH_SIZE) {
+        await sendEmail({ to: activeRecipients.slice(i, i + BATCH_SIZE), subject: composeData.subject, html })
+      }
+
+      await supabase.from('events').update({ mail_sent_at: new Date().toISOString() }).eq('id', composeModal.event.id)
+      fetchEvents()
+      setComposeModal({ show: false, event: null })
+      setSuccessModal({ show: true, count: activeRecipients.length })
     } catch (err) {
-      alert("Erreur lors de la copie des adresses.");
+      console.error('Erreur envoi:', err)
+      alert("Erreur lors de l'envoi. Vérifiez la console.")
+    } finally {
+      setSendingMail(false)
     }
   }
 
@@ -168,12 +271,33 @@ export default function Evenements() {
           <div className="p-3 bg-[#1a5f7a] rounded-[1.2rem] shadow-lg text-white"><Calendar size={28} /></div>
           <span>Gestion des <span className="text-[#1a5f7a]">Événements</span></span>
         </h1>
-        <button onClick={editingId ? cancelEdit : () => setShowForm(!showForm)} className={`px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl ${showForm ? 'bg-slate-800 text-white' : 'bg-[#e38154] text-white'}`}>
-          {showForm ? "Fermer" : "Nouvel Événement"}
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Tabs */}
+          <div className="flex bg-slate-100 rounded-2xl p-1 gap-1">
+            <button
+              onClick={() => setActiveTab('events')}
+              className={"px-5 py-3 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all " + (activeTab === 'events' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600')}>
+              Événements
+            </button>
+            <button
+              onClick={() => setActiveTab('affiche')}
+              className={"px-5 py-3 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all " + (activeTab === 'affiche' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600')}>
+              🎨 Affiches
+            </button>
+          </div>
+          {activeTab === 'events' && (
+            <button onClick={editingId ? cancelEdit : () => setShowForm(!showForm)} className={"px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl " + (showForm ? 'bg-slate-800 text-white' : 'bg-[#e38154] text-white')}>
+              {showForm ? "Fermer" : "Nouvel Événement"}
+            </button>
+          )}
+        </div>
       </div>
 
       <main className="max-w-7xl mx-auto">
+        {activeTab === 'affiche' && (
+          <GenerateurAffiche events={events} onCreateEvent={handleCreateEventFromAffiche} />
+        )}
+        {activeTab === 'events' && (<>
         {showForm && (
           <form onSubmit={handleSubmit} className="bg-white p-6 md:p-12 rounded-[2.5rem] shadow-xl border border-slate-50 mb-12">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
@@ -225,7 +349,7 @@ export default function Evenements() {
                 {event.image_url ? <img src={event.image_url} className="max-w-full max-h-full object-contain" alt="" /> : <ImageIcon size={48} className="text-slate-200" />}
                 <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button onClick={() => startEdit(event)} className="p-2.5 bg-white text-slate-400 rounded-xl shadow-lg hover:bg-[#1a5f7a] hover:text-white transition-all"><Edit2 size={16} /></button>
-                  <button onClick={() => handleSendMail(event)} className="p-2.5 bg-white text-amber-500 rounded-xl shadow-lg hover:bg-amber-500 hover:text-white transition-all"><Mail size={16} /></button>
+                  <button onClick={() => openComposeModal(event)} className="p-2.5 bg-white text-amber-500 rounded-xl shadow-lg hover:bg-amber-500 hover:text-white transition-all"><Mail size={16} /></button>
                   <button onClick={() => setDeleteModal({show: true, id: event.id, title: event.title})} className="p-2.5 bg-white text-slate-400 rounded-xl shadow-lg hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={16} /></button>
                 </div>
                 {event.mail_sent_at && (
@@ -250,42 +374,182 @@ export default function Evenements() {
             </div>
           ))}
         </div>
+        </>)}
       </main>
       
-      {/* MODALE INITIALE : QUESTION ENVOI MAIL */}
-      {mailModal.show && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-[#1a5f7a]/80 backdrop-blur-md">
-          <div className="bg-white rounded-[3rem] p-10 max-w-md w-full text-center">
-             <Send className="mx-auto text-[#e38154] mb-6" size={40} />
-             <h3 className="text-2xl font-black uppercase mb-2">Événement enregistré !</h3>
-             <p className="text-xs text-slate-500 mb-8">Informer les mairies et les adhérents par mail ?</p>
-             <button onClick={() => handleSendMail()} className="w-full py-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest mb-3">Ouvrir Outlook Web</button>
-             <button onClick={() => setMailModal({show: false})} className="w-full py-5 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase text-[10px] tracking-widest">Plus tard</button>
+      {/* MODALE COMPOSITION EMAIL */}
+      {composeModal.show && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-3xl max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col">
+            
+            {/* Header */}
+            <div className="sticky top-0 bg-white rounded-t-[2.5rem] p-8 pb-4 border-b border-slate-100 flex items-center justify-between z-10">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-amber-50 text-amber-500 rounded-xl"><Mail size={20} /></div>
+                <h3 className="text-base font-black uppercase text-slate-900">Composer l'email</h3>
+              </div>
+              <button onClick={() => setComposeModal({ show: false, event: null })} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-all"><X size={20} /></button>
+            </div>
+
+            <div className="p-8 space-y-6 flex-1">
+
+              {/* Objet */}
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Objet</label>
+                <input
+                  className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                  value={composeData.subject}
+                  onChange={e => setComposeData(prev => ({ ...prev, subject: e.target.value }))}
+                />
+              </div>
+
+              {/* Corps */}
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Message</label>
+                <textarea
+                  rows={10}
+                  className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a] resize-y"
+                  value={composeData.body}
+                  onChange={e => setComposeData(prev => ({ ...prev, body: e.target.value }))}
+                />
+              </div>
+
+              {/* Destinataires */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2">
+                    <Users size={12} /> Destinataires
+                  </label>
+                  <span className="text-[9px] font-black text-slate-400 uppercase">
+                    {composeData.recipients.filter(r => r.checked).length} / {composeData.recipients.length} sélectionnés
+                  </span>
+                </div>
+
+                {loadingRecipients ? (
+                  <div className="flex items-center gap-2 text-slate-400 text-xs p-4">
+                    <Loader2 size={14} className="animate-spin" /> Chargement des destinataires...
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+
+                    {/* Groupe Mairies */}
+                    <div className="border border-slate-100 rounded-2xl overflow-hidden">
+                      <button
+                        onClick={() => setShowMairies(v => !v)}
+                        className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <input type="checkbox" readOnly
+                            checked={composeData.recipients.filter(r => r.group === 'mairie').every(r => r.checked)}
+                            onClick={e => { e.stopPropagation(); toggleGroup('mairie') }}
+                            className="w-4 h-4 accent-[#1a5f7a] cursor-pointer"
+                          />
+                          <span className="text-xs font-black text-slate-700 uppercase tracking-wide">
+                            Mairies & Collectivités
+                          </span>
+                          <span className="text-[9px] font-bold text-slate-400">
+                            ({composeData.recipients.filter(r => r.group === 'mairie' && r.checked).length}/{composeData.recipients.filter(r => r.group === 'mairie').length})
+                          </span>
+                        </div>
+                        {showMairies ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+                      </button>
+                      {showMairies && (
+                        <div className="divide-y divide-slate-50">
+                          {composeData.recipients.filter(r => r.group === 'mairie').map(r => (
+                            <label key={r.email} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 cursor-pointer">
+                              <input type="checkbox" checked={r.checked} onChange={() => toggleRecipient(r.email)}
+                                className="w-4 h-4 accent-[#1a5f7a] cursor-pointer flex-shrink-0" />
+                              <span className="text-xs font-bold text-slate-700 flex-1">{r.label}</span>
+                              <span className="text-[9px] text-slate-400">{r.email}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Groupe Adhérents */}
+                    {composeData.recipients.filter(r => r.group === 'adherent').length > 0 && (
+                      <div className="border border-slate-100 rounded-2xl overflow-hidden">
+                        <button
+                          onClick={() => setShowAdherents(v => !v)}
+                          className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <input type="checkbox" readOnly
+                              checked={composeData.recipients.filter(r => r.group === 'adherent').every(r => r.checked)}
+                              onClick={e => { e.stopPropagation(); toggleGroup('adherent') }}
+                              className="w-4 h-4 accent-[#1a5f7a] cursor-pointer"
+                            />
+                            <span className="text-xs font-black text-slate-700 uppercase tracking-wide">Adhérents</span>
+                            <span className="text-[9px] font-bold text-slate-400">
+                              ({composeData.recipients.filter(r => r.group === 'adherent' && r.checked).length}/{composeData.recipients.filter(r => r.group === 'adherent').length})
+                            </span>
+                          </div>
+                          {showAdherents ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+                        </button>
+                        {showAdherents && (
+                          <div className="divide-y divide-slate-50">
+                            {composeData.recipients.filter(r => r.group === 'adherent').map(r => (
+                              <label key={r.email} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 cursor-pointer">
+                                <input type="checkbox" checked={r.checked} onChange={() => toggleRecipient(r.email)}
+                                  className="w-4 h-4 accent-[#1a5f7a] cursor-pointer flex-shrink-0" />
+                                <span className="text-xs font-bold text-slate-700 flex-1">{r.label}</span>
+                                <span className="text-[9px] text-slate-400">{r.email}</span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer sticky */}
+            <div className="sticky bottom-0 bg-white rounded-b-[2.5rem] p-8 pt-4 border-t border-slate-100 flex gap-3">
+              <button onClick={() => setComposeModal({ show: false, event: null })}
+                className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-colors">
+                Annuler
+              </button>
+              <button onClick={handleSendMail} disabled={sendingMail || composeData.recipients.filter(r => r.checked).length === 0}
+                className={'flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all ' +
+                  (sendingMail || composeData.recipients.filter(r => r.checked).length === 0
+                    ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                    : 'bg-[#1a5f7a] text-white hover:bg-[#134a5e]')}>
+                {sendingMail ? <><Loader2 size={14} className="animate-spin" /> Envoi...</> : <><Send size={14} /> Envoyer ({composeData.recipients.filter(r => r.checked).length})</>}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* NOUVELLE MODALE ESTHÉTIQUE : SUCCÈS COPIE PRESSE-PAPIER */}
-      {clipboardModal.show && (
+      {/* OVERLAY ENVOI EN COURS */}
+      {sendingMail && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl">
+            <Loader2 className="animate-spin mx-auto text-[#1a5f7a] mb-6" size={40} />
+            <h3 className="text-lg font-black uppercase text-slate-900">Envoi en cours...</h3>
+            <p className="text-[11px] text-slate-400 mt-2">Merci de patienter</p>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE SUCCÈS */}
+      {successModal.show && (
         <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-[3rem] p-10 max-w-md w-full text-center shadow-2xl">
-             <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle2 size={40} />
-             </div>
-             <h3 className="text-xl font-black uppercase mb-4 text-slate-900">Adresses copiées !</h3>
-             <p className="text-[11px] font-medium text-slate-500 mb-8 leading-relaxed">
-               Toutes les adresses ont été ajoutées à votre presse-papier.<br/>
-               Dans Outlook, faites <strong>CTRL + V</strong> dans le champ <strong>Cci</strong>.
-             </p>
-             <button 
-                onClick={() => {
-                  window.open(clipboardModal.url, '_blank');
-                  setClipboardModal({ show: false, url: '' });
-                }} 
-                className="w-full py-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg"
-             >
-               Continuer vers Outlook
-             </button>
+            <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle2 size={40} />
+            </div>
+            <h3 className="text-xl font-black uppercase mb-4 text-slate-900">Emails envoyés !</h3>
+            <p className="text-[11px] font-medium text-slate-500 mb-8 leading-relaxed">
+              <strong>{successModal.count} destinataire{successModal.count > 1 ? 's' : ''}</strong> ont reçu votre email avec succès.
+            </p>
+            <button onClick={() => setSuccessModal({ show: false, count: 0 })}
+              className="w-full py-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg">
+              Fermer
+            </button>
           </div>
         </div>
       )}

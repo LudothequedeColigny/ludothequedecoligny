@@ -5,6 +5,7 @@ import {
   Building2, ExternalLink, Calendar, ShieldCheck, ShieldOff, CheckCircle2, ChevronRight, Info
 } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
+import { sendEmail } from '../../services/emailService'
 
 export default function Adherents() {
   const [members, setMembers] = useState([])
@@ -16,6 +17,10 @@ export default function Adherents() {
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [viewMember, setViewMember] = useState(null)
   const [renewalAction, setRenewalAction] = useState(null)
+  const [composeModal, setComposeModal] = useState({ show: false, member: null })
+  const [composeData, setComposeData] = useState({ subject: '', body: '' })
+  const [sendingMail, setSendingMail] = useState(false)
+  const [successModal, setSuccessModal] = useState(false)
   const [showPaymentInfoModal, setShowPaymentInfoModal] = useState(false) // MODALE INFO PAIEMENT
 
   const [appSettings, setAppSettings] = useState({
@@ -144,12 +149,55 @@ export default function Adherents() {
     setLoading(false)
   }
 
-  const triggerOutlook = (member) => {
-    const name = member.type === 'Association' ? member.last_name : member.first_name;
-    const subject = encodeURIComponent(`Renouvellement de votre adhésion - Ludothèque`);
-    const body = encodeURIComponent(`Bonjour ${name},\n\nSauf erreur de notre part, votre adhésion à la ludothèque est arrivée à son terme.\n\nNous serions ravis de vous compter à nouveau parmi nos adhérents ! Nous vous invitons à venir renouveler votre adhésion lors de notre prochaine permanence.\n\nCe sera l'occasion de découvrir les nouveautés et de partager un moment convivial.\n\nÀ très bientôt !`);
-    window.open(`https://outlook.live.com/mail/0/deeplink/compose?to=${member.email}&subject=${subject}&body=${body}`, '_blank');
-  };
+  const openComposeMember = (member) => {
+    const name = member.type === 'Association' ? member.last_name : member.first_name
+    const subject = `Renouvellement de votre adhésion - Ludothèque de Coligny`
+    const body = `Bonjour ${name},
+
+Sauf erreur de notre part, votre adhésion à la ludothèque est arrivée à son terme.
+
+Nous serions ravis de vous compter à nouveau parmi nos adhérents ! Nous vous invitons à venir renouveler votre adhésion lors de notre prochaine permanence.
+
+Ce sera l'occasion de découvrir les nouveautés et de partager un moment convivial.
+
+À très bientôt !
+
+L'équipe de la Ludothèque de Coligny
+www.ludothequedecoligny.fr`
+    setComposeData({ subject, body })
+    setComposeModal({ show: true, member })
+    setRenewalAction(null)
+  }
+
+  const handleSendRenewal = async () => {
+    if (!composeModal.member?.email) { alert("Email de l'adhérent introuvable."); return }
+    setSendingMail(true)
+    try {
+      const html = composeData.body
+        .split('\n')
+        .map(line => line.trim() === '' ? '<br/>' : `<p style="margin:0 0 6px 0;">${line}</p>`)
+        .join('')
+      const fullHtml = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
+        <div style="background:#1a5f7a;padding:24px;border-radius:12px 12px 0 0;">
+          <h1 style="color:white;margin:0;font-size:18px;">Ludothèque de Coligny</h1>
+        </div>
+        <div style="background:#fdfaf6;padding:32px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;">
+          ${html}
+        </div>
+      </div>`
+      await sendEmail({ to: composeModal.member.email, subject: composeData.subject, html: fullHtml })
+      const today = new Date().toISOString().split('T')[0]
+      await supabase.from('members').update({ last_reminder_date: today }).eq('id', composeModal.member.id)
+      fetchMembers()
+      setComposeModal({ show: false, member: null })
+      setSuccessModal(true)
+    } catch (err) {
+      console.error('Erreur envoi relance:', err)
+      alert("Erreur lors de l'envoi. Vérifiez la console.")
+    } finally {
+      setSendingMail(false)
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -467,7 +515,7 @@ export default function Adherents() {
                 <div className="bg-slate-50 p-4 rounded-xl flex gap-3 text-sm font-bold text-slate-600"><Phone size={18} className="text-[#1a5f7a] shrink-0"/> {renewalAction.phone || 'N/A'}</div>
                 <div className="bg-slate-50 p-4 rounded-xl flex gap-3 text-sm font-bold text-slate-600"><MapPin size={18} className="text-[#1a5f7a] shrink-0"/> {renewalAction.address || 'N/A'}</div>
             </div>
-            <button onClick={() => triggerOutlook(renewalAction)} className="w-full p-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95">Ouvrir Outlook <ExternalLink size={18} /></button>
+            <button onClick={() => openComposeMember(renewalAction)} className="w-full p-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95"><Mail size={18} /> Envoyer une relance par mail</button>
             <button onClick={async () => {
                 const today = new Date().toISOString().split('T')[0];
                 await supabase.from('members').update({ last_reminder_date: today }).eq('id', renewalAction.id);
@@ -521,6 +569,67 @@ export default function Adherents() {
                <button onClick={async () => { await supabase.from('members').delete().eq('id', deleteConfirm.id); setDeleteConfirm(null); fetchMembers(); }} className="w-full py-5 bg-rose-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg">Confirmer</button>
                <button onClick={() => setDeleteConfirm(null)} className="w-full py-5 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase text-[10px]">Annuler</button>
              </div>
+          </div>
+        </div>
+      )}
+
+      {composeModal.show && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+            <div className="sticky top-0 bg-white rounded-t-[2.5rem] p-8 pb-4 border-b border-slate-100 flex items-center justify-between z-10">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-amber-50 text-amber-500 rounded-xl"><Mail size={20} /></div>
+                <div>
+                  <h3 className="text-base font-black uppercase text-slate-900">Relance cotisation</h3>
+                  <p className="text-[10px] text-slate-400">{composeModal.member?.email}</p>
+                </div>
+              </div>
+              <button onClick={() => setComposeModal({ show: false, member: null })} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-all"><X size={20} /></button>
+            </div>
+            <div className="p-8 space-y-6 flex-1">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Objet</label>
+                <input className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                  value={composeData.subject} onChange={e => setComposeData(prev => ({ ...prev, subject: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Message</label>
+                <textarea rows={10} className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a] resize-y"
+                  value={composeData.body} onChange={e => setComposeData(prev => ({ ...prev, body: e.target.value }))} />
+              </div>
+            </div>
+            <div className="sticky bottom-0 bg-white rounded-b-[2.5rem] p-8 pt-4 border-t border-slate-100 flex gap-3">
+              <button onClick={() => setComposeModal({ show: false, member: null })}
+                className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest">Annuler</button>
+              <button onClick={handleSendRenewal} disabled={sendingMail}
+                className={'flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 ' +
+                  (sendingMail ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-[#1a5f7a] text-white hover:bg-[#134a5e]')}>
+                {sendingMail ? <><Loader2 size={14} className="animate-spin" /> Envoi...</> : <><Send size={14} /> Envoyer</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {sendingMail && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl">
+            <Loader2 className="animate-spin mx-auto text-[#1a5f7a] mb-6" size={40} />
+            <h3 className="text-lg font-black uppercase text-slate-900">Envoi en cours...</h3>
+          </div>
+        </div>
+      )}
+
+      {successModal && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-[3rem] p-10 max-w-md w-full text-center shadow-2xl">
+            <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle2 size={40} />
+            </div>
+            <h3 className="text-xl font-black uppercase mb-4 text-slate-900">Email envoyé !</h3>
+            <p className="text-[11px] font-medium text-slate-500 mb-8">La relance a été envoyée avec succès à l'adhérent.</p>
+            <button onClick={() => setSuccessModal(false)}
+              className="w-full py-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg">Fermer</button>
           </div>
         </div>
       )}
