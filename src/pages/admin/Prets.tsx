@@ -1,35 +1,35 @@
-import { useState, useEffect } from 'react'
-import { 
-  Share2, 
-  Trash2, 
-  Edit2, 
-  X, 
-  Plus, 
-  Hash, 
-  CreditCard, 
-  Phone, 
-  Mail, 
-  Search, 
-  MapPin, 
-  Eye, 
-  User, 
-  Send, 
-  AlertTriangle, 
-  Building2, 
-  Home, 
-  ChevronRight, 
-  ExternalLink, 
-  Calendar, 
-  Clock, 
+import { useState, useEffect, useRef } from 'react'
+import {
+  Share2,
+  Trash2,
+  Edit2,
+  X,
+  Plus,
+  Hash,
+  CreditCard,
+  Phone,
+  Mail,
+  Search,
+  MapPin,
+  Eye,
+  User,
+  Send,
+  AlertTriangle,
+  Building2,
+  Home,
+  ChevronRight,
+  ExternalLink,
+  Calendar,
+  Clock,
   CheckCircle,
   Loader2,
-  ScanLine 
+  ScanLine
 } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
-import { Html5QrcodeScanner } from 'html5-qrcode'
+import { BrowserMultiFormatReader, NotFoundException } from '@zxing/browser'
 
 export default function Prets() {
-  // --- ÉTATS D'ORIGINE ---
+  // --- ÉTATS ---
   const [loans, setLoans] = useState([])
   const [members, setMembers] = useState([])
   const [games, setGames] = useState([])
@@ -40,17 +40,14 @@ export default function Prets() {
   const [renewalAction, setRenewalAction] = useState(null)
   const [showCodeStep, setShowCodeStep] = useState(false)
 
-  // --- ÉTATS POUR LES QUOTAS DYNAMIQUES ---
-  const [quotas, setQuotas] = useState({
-    quota_particulier: 3,
-    quota_association: 5
-  })
+  // --- QUOTAS DYNAMIQUES ---
+  const [quotas, setQuotas] = useState({ quota_particulier: 3, quota_association: 5 })
   const [adhesionSettings, setAdhesionSettings] = useState({
     mode_adhesion_particulier: 'degressif',
     mode_adhesion_association: 'glissant',
   })
 
-  // --- ÉTATS FORMULAIRE ---
+  // --- FORMULAIRE ---
   const [selectedMember, setSelectedMember] = useState(null)
   const [selectedGames, setSelectedGames] = useState([])
   const [memberSearch, setMemberSearch] = useState('')
@@ -58,78 +55,116 @@ export default function Prets() {
   const [memberListVisible, setMemberListVisible] = useState(false)
   const [gameListVisible, setGameListVisible] = useState(false)
   const [loanDate, setLoanDate] = useState(new Date().toISOString().split('T')[0])
+  const [quotaWarning, setQuotaWarning] = useState(null) // Message d'avertissement quota scan
 
-  // --- NOUVEAUX ÉTATS POUR LE SCAN ---
+  // --- SCANNER ---
   const [showScanner, setShowScanner] = useState(false)
   const [scannedGamesForLoan, setScannedGamesForLoan] = useState([])
   const [scanReturnConfirm, setScanReturnConfirm] = useState(null)
+  const [iosWarning, setIosWarning] = useState(false)
+
+  // Références pour le scanner hybride
+  const videoRef = useRef(null)
+  const codeReaderRef = useRef(null)
+  const streamRef = useRef(null)
+  const intervalRef = useRef(null)
 
   useEffect(() => {
     fetchInitialData()
     fetchQuotas()
   }, [])
 
-  // --- LOGIQUE DU SCANNER OPTIMISÉE (CORRECTION CRASH & PERFORMANCE) ---
-  useEffect(() => {
-    let scanner = null;
-    if (showScanner) {
-      scanner = new Html5QrcodeScanner(
-        "quick-reader", 
-        { 
-          fps: 20, 
-          qrbox: { width: 250, height: 150 }, 
-          experimentalFeatures: { useBarCodeDetectorIfSupported: true },
-          aspectRatio: 1.777778
-        }, 
-        false
-      );
-      
-      scanner.render(async (decodedText) => {
-        await handleSmartScan(decodedText);
-      }, (error) => {
-        // Erreurs de scan silencieuses
-      });
-      const style = document.createElement('style');
-      style.innerHTML = `
-        #quick-reader button {
-          padding: 10px 20px !important;
-          border-radius: 12px !important;
-          border: none !important;
-          background-color: #1a5f7a !important;
-          color: white !important;
-          font-weight: 800 !important;
-          text-transform: uppercase !important;
-          font-size: 10px !important;
-          letter-spacing: 0.05em !important;
-          cursor: pointer !important;
-          margin: 5px !important;
-          transition: all 0.2s !important;
-        }
-        #quick-reader button:hover { opacity: 0.9 !important; transform: scale(0.98) !important; }
-        #quick-reader select {
-          padding: 8px !important;
-          border-radius: 10px !important;
-          border: 1px solid #e2e8f0 !important;
-          font-size: 11px !important;
-          outline: none !important;
-        }
-        #quick-reader__dashboard_section_csr button:nth-child(2) {
-          background-color: #e38154 !important;
-        }
-      `;
-      document.head.appendChild(style);
-      return () => {
-        if (scanner) {
-          scanner.clear().catch((err) => console.warn("Nettoyage du scanner :", err));
-        }
-        if (document.head.contains(style)) {
-          document.head.removeChild(style);
-        }
-      }
-    }
-  }, [showScanner]);
+  // --- DÉTECTION NAVIGATEUR ---
+  const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent)
+  const isSafari = () => /safari/i.test(navigator.userAgent) && !/chrome/i.test(navigator.userAgent)
 
-  // --- FONCTIONS DE DONNÉES D'ORIGINE ---
+  // --- LOGIQUE DU SCANNER HYBRIDE ---
+  // • Android Chrome  → BarcodeDetector natif (ultra-rapide)
+  // • iOS Safari + autres → @zxing/browser (compatible)
+  useEffect(() => {
+    if (!showScanner) return
+
+    if (isIOS() && !isSafari()) {
+      setIosWarning(true)
+    } else {
+      setIosWarning(false)
+    }
+
+    const timeoutId = setTimeout(async () => {
+      if (!videoRef.current) return
+
+      if ('BarcodeDetector' in window) {
+        // ── BRANCHE ANDROID : BarcodeDetector natif ──────────────────────
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' } }
+          })
+          streamRef.current = stream
+          videoRef.current.srcObject = stream
+
+          const detector = new (window as any).BarcodeDetector({
+            formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'qr_code', 'code_128', 'code_39']
+          })
+
+          intervalRef.current = setInterval(async () => {
+            if (!videoRef.current) { clearInterval(intervalRef.current); return }
+            try {
+              const barcodes = await detector.detect(videoRef.current)
+              if (barcodes.length > 0) {
+                clearInterval(intervalRef.current)
+                const barcode = barcodes[0].rawValue
+                stopScanner()
+                await handleSmartScan(barcode)
+              }
+            } catch (e) {
+              // Frame vide ou erreur de détection silencieuse
+            }
+          }, 100)
+        } catch (err) {
+          console.error('BarcodeDetector – erreur caméra :', err)
+        }
+
+      } else {
+        // ── BRANCHE iOS / AUTRES : zxing fallback ────────────────────────
+        const codeReader = new BrowserMultiFormatReader()
+        codeReaderRef.current = codeReader
+
+        codeReader.decodeFromConstraints(
+          { video: { facingMode: { ideal: 'environment' } } },
+          videoRef.current,
+          async (result, error) => {
+            if (result) {
+              const barcode = result.getText()
+              stopScanner()
+              await handleSmartScan(barcode)
+            }
+            if (error && !(error instanceof NotFoundException)) {
+              console.warn('zxing – erreur scanner :', error)
+            }
+          }
+        ).catch(err => {
+          console.error('zxing – impossible de démarrer la caméra :', err)
+        })
+      }
+    }, 100)
+
+    return () => {
+      clearTimeout(timeoutId)
+      stopScanner()
+    }
+  }, [showScanner])
+
+  const stopScanner = () => {
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
+    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null }
+    if (codeReaderRef.current) {
+      try { BrowserMultiFormatReader.releaseAllStreams() } catch (e) { /* silencieux */ }
+      codeReaderRef.current = null
+    }
+    setShowScanner(false)
+  }
+
+  // --- DONNÉES ---
   async function fetchQuotas() {
     try {
       const { data } = await supabase.from('settings').select('*')
@@ -158,17 +193,10 @@ export default function Prets() {
           .from('loans')
           .select('*, members(*), games(*)')
           .order('loan_date', { ascending: false })
-        
-        const { data: membersData } = await supabase
-          .from('members')
-          .select('*')
-          .order('last_name')
-        
-        const { data: gamesData } = await supabase
-          .from('games')
-          .select('*')
-          .order('name')
-        
+
+        const { data: membersData } = await supabase.from('members').select('*').order('last_name')
+        const { data: gamesData } = await supabase.from('games').select('*').order('name')
+
         setLoans(loansData || [])
         setMembers(membersData || [])
         setGames(gamesData || [])
@@ -188,123 +216,167 @@ export default function Prets() {
     }
   }
 
-  // --- LOGIQUE DE VÉRIFICATION COTISATION ---
-  // Identique à getExpirationStatus dans Adherents.tsx
+  // --- VÉRIFICATION COTISATION ---
   const isSubscriptionUpToDate = (member) => {
-    if (!member?.has_paid) return false;
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const dateAdhesion = new Date(member.membership_date);
-    const isAsso = member.type === 'Association';
-    const mode = isAsso
-      ? adhesionSettings.mode_adhesion_association
-      : adhesionSettings.mode_adhesion_particulier;
-
+    if (!member?.has_paid) return false
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    const dateAdhesion = new Date(member.membership_date)
+    const isAsso = member.type === 'Association'
+    const mode = isAsso ? adhesionSettings.mode_adhesion_association : adhesionSettings.mode_adhesion_particulier
     if (mode === 'degressif') {
-      return dateAdhesion.getFullYear() >= currentYear;
+      return dateAdhesion.getFullYear() >= currentYear
     } else {
-      const expiryDate = new Date(dateAdhesion);
-      expiryDate.setFullYear(expiryDate.getFullYear() + 1);
-      return now <= expiryDate;
+      const expiryDate = new Date(dateAdhesion)
+      expiryDate.setFullYear(expiryDate.getFullYear() + 1)
+      return now <= expiryDate
     }
   }
 
-  // --- LOGIQUE DE SCAN INTELLIGENT ---
+  // --- QUOTA ---
+  const getLoanLimit = (member) => member?.type === 'Association' ? quotas.quota_association : quotas.quota_particulier
+  const getDatabaseLoansCount = (memberId) => loans.filter(l => l.member_id === memberId).length
+
+  // Calcule combien de jeux supplémentaires l'adhérent peut encore emprunter
+  const getRemainingSlots = (member) => {
+    if (!member) return 0
+    const alreadyBorrowed = getDatabaseLoansCount(member.id)
+    return Math.max(0, getLoanLimit(member) - alreadyBorrowed)
+  }
+
+  // --- SÉLECTION ADHÉRENT AVEC TRONCATURE DU QUOTA ---
+  // Appelée quand l'utilisateur choisit un adhérent dans le formulaire.
+  // Si des jeux ont déjà été scannés et dépassent le quota restant,
+  // on tronque la liste et on avertit l'utilisateur.
+  const handleSelectMember = (member) => {
+    setSelectedMember(member)
+    const remaining = getRemainingSlots(member)
+    setQuotaWarning(null)
+
+    setSelectedGames(prev => {
+      if (prev.length > remaining) {
+        setQuotaWarning(
+          `Quota dépassé : ${prev.length} jeux scannés mais cet adhérent ne peut en emprunter que ${remaining} de plus. ` +
+          `La liste a été réduite automatiquement.`
+        )
+        return prev.slice(0, remaining)
+      }
+      return prev
+    })
+  }
+
+  // --- SCAN INTELLIGENT ---
   async function handleSmartScan(barcode) {
-    const { data: game } = await supabase.from('games').select('*').eq('barcode', barcode).single();
-    if (!game) return;
+    const { data: game } = await supabase.from('games').select('*').eq('barcode', barcode).single()
+    if (!game) return
 
     if (game.is_available) {
       setScannedGamesForLoan(prev => {
-        if (prev.find(g => g.id === game.id)) return prev;
-        return [...prev, game];
-      });
+        // Éviter les doublons
+        if (prev.find(g => g.id === game.id)) {
+          // Jeu déjà scanné : on rouvre quand même le scanner
+          setShowScanner(true)
+          return prev
+        }
+        const updated = [...prev, game]
+        // Ré-ouvrir le scanner pour permettre de scanner un jeu supplémentaire
+        setShowScanner(true)
+        return updated
+      })
     } else {
-      const { data: activeLoan } = await supabase.from('loans')
+      // Jeu non disponible → proposer le retour
+      const { data: activeLoan } = await supabase
+        .from('loans')
         .select('*, members(*), games(*)')
         .eq('game_id', game.id)
-        .single();
-      
-      if (activeLoan) {
-        setScanReturnConfirm(activeLoan);
-        setShowScanner(false); 
-      }
+        .single()
+
+      if (activeLoan) setScanReturnConfirm(activeLoan)
     }
   }
 
   async function confirmScanReturn() {
-    if (!scanReturnConfirm) return;
+    if (!scanReturnConfirm) return
     const historyEntry = {
       member_id: scanReturnConfirm.member_id,
       game_id: scanReturnConfirm.game_id,
       loan_date: scanReturnConfirm.loan_date,
       return_date: new Date().toISOString().split('T')[0]
     }
-    const { error } = await supabase.from('loan_history').insert([historyEntry]);
+    const { error } = await supabase.from('loan_history').insert([historyEntry])
     if (!error) {
-      await supabase.from('loans').delete().eq('id', scanReturnConfirm.id);
-      await supabase.from('games').update({ is_available: true }).eq('id', scanReturnConfirm.game_id);
-      setScanReturnConfirm(null);
-      fetchInitialData();
+      await supabase.from('loans').delete().eq('id', scanReturnConfirm.id)
+      await supabase.from('games').update({ is_available: true }).eq('id', scanReturnConfirm.game_id)
+      setScanReturnConfirm(null)
+      fetchInitialData()
     }
   }
 
   const triggerOutlook = (loan) => {
-    const subject = encodeURIComponent(`Relance : Retour de jeu - Ludothèque de Coligny`);
+    const subject = encodeURIComponent(`Relance : Retour de jeu - Ludothèque de Coligny`)
     const body = encodeURIComponent(
       `Bonjour ${loan.members?.first_name || loan.members?.last_name},\n\n` +
       `Sauf erreur de notre part, le jeu "${loan.games?.name}" est toujours en votre possession depuis le ${new Date(loan.loan_date).toLocaleDateString()}.\n\n` +
       `Nous vous remercions de bien vouloir nous le rapporter lors de notre prochaine permanence.\n\nÀ bientôt !\n\nL'équipe de la Ludothèque`
-    );
-    const outlookUrl = `https://outlook.live.com/mail/0/deeplink/compose?to=${loan.members?.email}&subject=${subject}&body=${body}`;
-    window.open(outlookUrl, '_blank');
-  };
+    )
+    window.open(`https://outlook.live.com/mail/0/deeplink/compose?to=${loan.members?.email}&subject=${subject}&body=${body}`, '_blank')
+  }
 
   const isOverdue = (dateString) => {
     const diff = Math.ceil((new Date() - new Date(dateString)) / (1000 * 60 * 60 * 24))
     return diff > 30
   }
 
-  const getLoanLimit = (member) => {
-    return member?.type === 'Association' ? quotas.quota_association : quotas.quota_particulier
-  }
-
-  const getDatabaseLoansCount = (memberId) => {
-    return loans.filter(l => l.member_id === memberId).length
-  }
-
   const openNewLoan = () => {
     setSelectedMember(null)
     setSelectedGames([])
+    setQuotaWarning(null)
     setLoanDate(new Date().toISOString().split('T')[0])
     setShowFormModal(true)
   }
 
+  // totalCount = jeux déjà empruntés en base + jeux en cours de sélection
+  const totalCount = (selectedMember ? getDatabaseLoansCount(selectedMember.id) : 0) + selectedGames.length
+
   async function handleSaveLoan() {
     if (!selectedMember || selectedGames.length === 0) return
-    
+
+    // ── VÉRIFICATION FINALE DU QUOTA ─────────────────────────────────────
+    // Double sécurité : même si l'UI a tronqué, on vérifie côté logique
+    // avant tout envoi vers la base de données.
+    const alreadyBorrowed = getDatabaseLoansCount(selectedMember.id)
+    const limit = getLoanLimit(selectedMember)
+    if (alreadyBorrowed + selectedGames.length > limit) {
+      alert(
+        `Quota dépassé. Cet adhérent a déjà ${alreadyBorrowed} jeu(x) en cours et son quota est de ${limit}. ` +
+        `Veuillez retirer des jeux de la sélection.`
+      )
+      return
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     const entries = selectedGames.map(game => ({
       member_id: selectedMember.id,
       game_id: game.id,
       loan_date: loanDate
     }))
-    
+
     if (navigator.onLine) {
       const { error } = await supabase.from('loans').insert(entries)
       if (!error) {
         await supabase.from('games').update({ is_available: false }).in('id', selectedGames.map(g => g.id))
         setShowFormModal(false)
+        setQuotaWarning(null)
         fetchInitialData()
       }
     } else {
-      const queue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]');
-      entries.forEach(entry => {
-        queue.push({ table: 'loans', data: entry, timestamp: Date.now() });
-      });
-      localStorage.setItem('offline_sync_queue', JSON.stringify(queue));
-      alert("⚠️ Mode hors-ligne : Prêt enregistré localement.");
-      setShowFormModal(false);
-      fetchInitialData();
+      const queue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]')
+      entries.forEach(entry => queue.push({ table: 'loans', data: entry, timestamp: Date.now() }))
+      localStorage.setItem('offline_sync_queue', JSON.stringify(queue))
+      alert("⚠️ Mode hors-ligne : Prêt enregistré localement.")
+      setShowFormModal(false)
+      setQuotaWarning(null)
+      fetchInitialData()
     }
   }
 
@@ -318,41 +390,32 @@ export default function Prets() {
           loan_date: loan.loan_date,
           return_date: new Date().toISOString().split('T')[0]
         }
-
-        const { error: historyError } = await supabase
-          .from('loan_history')
-          .insert([historyEntry])
-        
+        const { error: historyError } = await supabase.from('loan_history').insert([historyEntry])
         if (!historyError) {
           await supabase.from('loans').delete().eq('id', loan.id)
           await supabase.from('games').update({ is_available: true }).eq('id', loan.game_id)
         } else {
-          console.error("Erreur d'archivage :", historyError)
           alert("Erreur lors de l'archivage du prêt.")
           return
         }
       } else if (type === 'extend') {
         const newDate = new Date(loan.loan_date)
         newDate.setDate(newDate.getDate() + 15)
-        await supabase
-          .from('loans')
-          .update({ loan_date: newDate.toISOString().split('T')[0] })
-          .eq('id', loan.id)
+        await supabase.from('loans').update({ loan_date: newDate.toISOString().split('T')[0] }).eq('id', loan.id)
       }
       setConfirmAction(null)
       fetchInitialData()
     } else {
-      alert("Action réseau requise pour cette opération.");
-      setConfirmAction(null);
+      alert("Action réseau requise pour cette opération.")
+      setConfirmAction(null)
     }
   }
 
-  const filteredLoans = loans.filter(l => 
+  const filteredLoans = loans.filter(l =>
     `${l.members?.first_name} ${l.members?.last_name} ${l.games?.name}`.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  
+  )
+
   const overdueLoansCount = loans.filter(l => isOverdue(l.loan_date)).length
-  const totalCount = (selectedMember ? getDatabaseLoansCount(selectedMember.id) : 0) + selectedGames.length
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-screen bg-[#fdfaf6] text-[#1a5f7a] gap-4">
@@ -363,7 +426,7 @@ export default function Prets() {
 
   return (
     <div className="p-4 md:p-10 bg-[#fdfaf6] min-h-screen font-sans text-slate-900">
-      
+
       {/* HEADER */}
       <div className="max-w-7xl mx-auto mb-6 md:mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-xl md:text-4xl font-black text-slate-900 flex items-center gap-3">
@@ -372,16 +435,16 @@ export default function Prets() {
           </div>
           <span>Gestion des <span className="text-[#1a5f7a]">Prêts</span></span>
         </h1>
-        
+
         <div className="flex gap-2">
-          <button 
-            onClick={() => { setScannedGamesForLoan([]); setShowScanner(true); }}
+          <button
+            onClick={() => { setScannedGamesForLoan([]); setShowScanner(true) }}
             className="px-6 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl flex items-center gap-2"
           >
             <ScanLine size={16} /> Scan Rapide
           </button>
-          <button 
-            onClick={openNewLoan} 
+          <button
+            onClick={openNewLoan}
             className="px-6 py-4 bg-[#e38154] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl"
           >
             Nouveau Prêt
@@ -390,7 +453,7 @@ export default function Prets() {
       </div>
 
       <main className="max-w-7xl mx-auto space-y-6">
-        
+
         {overdueLoansCount > 0 && (
           <div className="flex items-center gap-3 bg-rose-50 border border-rose-100 p-4 rounded-2xl text-rose-800 animate-in fade-in slide-in-from-top-2">
             <AlertTriangle className="text-rose-500 shrink-0 animate-bounce" size={20} />
@@ -402,27 +465,25 @@ export default function Prets() {
 
         <div className="relative group">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-          <input 
-            type="text" 
-            placeholder="Rechercher par adhérent ou jeu..." 
-            className="w-full bg-white border border-slate-100 p-4 pl-14 rounded-2xl font-bold text-slate-700 outline-none shadow-sm focus:ring-2 focus:ring-[#1a5f7a]/10 transition-all" 
-            value={searchTerm} 
-            onChange={(e) => setSearchTerm(e.target.value)} 
+          <input
+            type="text"
+            placeholder="Rechercher par adhérent ou jeu..."
+            className="w-full bg-white border border-slate-100 p-4 pl-14 rounded-2xl font-bold text-slate-700 outline-none shadow-sm focus:ring-2 focus:ring-[#1a5f7a]/10 transition-all"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
         {/* VERSION MOBILE */}
         <div className="md:hidden space-y-4">
           {filteredLoans.map((l) => {
-            const late = isOverdue(l.loan_date);
+            const late = isOverdue(l.loan_date)
             return (
               <div key={l.id} className={`bg-white p-5 rounded-[2rem] shadow-sm border ${late ? 'border-rose-200 bg-rose-50/20' : 'border-slate-50'}`}>
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-black text-[#1a5f7a] bg-cyan-50 px-2 py-0.5 rounded-md">
-                        #{l.games?.registration_number}
-                      </span>
+                      <span className="text-[10px] font-black text-[#1a5f7a] bg-cyan-50 px-2 py-0.5 rounded-md">#{l.games?.registration_number}</span>
                       <span className={`text-[10px] font-black uppercase ${late ? 'text-rose-600' : 'text-slate-400'}`}>
                         Sortie le {new Date(l.loan_date).toLocaleDateString()}
                       </span>
@@ -434,23 +495,22 @@ export default function Prets() {
                   </div>
                   {late && <AlertTriangle size={18} className="text-rose-500 animate-pulse shrink-0" />}
                 </div>
-
                 <div className="flex gap-2 pt-2">
-                  <button 
-                    onClick={() => setConfirmAction({ type: 'return', loan: l })} 
+                  <button
+                    onClick={() => setConfirmAction({ type: 'return', loan: l })}
                     className={`flex-[2] py-4 rounded-xl text-[9px] font-black uppercase text-white shadow-md flex items-center justify-center gap-2 ${late ? 'bg-rose-500' : 'bg-emerald-500'}`}
                   >
-                    <CheckCircle size={14}/> Retour
+                    <CheckCircle size={14} /> Retour
                   </button>
-                  <button 
-                    onClick={() => setConfirmAction({ type: 'extend', loan: l })} 
+                  <button
+                    onClick={() => setConfirmAction({ type: 'extend', loan: l })}
                     className="flex-1 py-4 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center shadow-sm"
                   >
                     <Clock size={16} />
                   </button>
                   {late && (
-                    <button 
-                      onClick={() => { setRenewalAction(l); setShowCodeStep(false); }} 
+                    <button
+                      onClick={() => { setRenewalAction(l); setShowCodeStep(false) }}
                       className="flex-1 py-4 bg-[#1a5f7a] text-white rounded-xl flex items-center justify-center shadow-md"
                     >
                       <Send size={16} />
@@ -475,7 +535,7 @@ export default function Prets() {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {filteredLoans.map((l) => {
-                const late = isOverdue(l.loan_date);
+                const late = isOverdue(l.loan_date)
                 return (
                   <tr key={l.id} className={`transition-colors ${late ? 'bg-rose-50/40 hover:bg-rose-50/60' : 'hover:bg-slate-50/50'}`}>
                     <td className={`p-8 font-black ${late ? 'text-rose-600' : 'text-[#1a5f7a]'}`}>
@@ -494,23 +554,23 @@ export default function Prets() {
                     </td>
                     <td className="p-8 text-right pr-12 space-x-2">
                       {late && (
-                        <button 
-                          title="Relancer" 
-                          onClick={() => { setRenewalAction(l); setShowCodeStep(false); }} 
+                        <button
+                          title="Relancer"
+                          onClick={() => { setRenewalAction(l); setShowCodeStep(false) }}
                           className="p-3 bg-amber-50 text-amber-600 rounded-xl border border-amber-100 hover:bg-amber-100 transition-all shadow-sm"
                         >
                           <Send size={18} />
                         </button>
                       )}
-                      <button 
-                        title="Prolonger" 
-                        onClick={() => setConfirmAction({ type: 'extend', loan: l })} 
+                      <button
+                        title="Prolonger"
+                        onClick={() => setConfirmAction({ type: 'extend', loan: l })}
                         className="p-3 text-slate-400 bg-white rounded-xl shadow-sm hover:text-amber-500 transition-all"
                       >
                         <Clock size={18} />
                       </button>
-                      <button 
-                        onClick={() => setConfirmAction({ type: 'return', loan: l })} 
+                      <button
+                        onClick={() => setConfirmAction({ type: 'return', loan: l })}
                         className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase text-white shadow-md transition-all active:scale-95 ${late ? 'bg-rose-500' : 'bg-emerald-500'}`}
                       >
                         Valider Retour
@@ -524,25 +584,38 @@ export default function Prets() {
         </div>
 
         <div className="flex justify-center md:justify-end pt-6">
-          <button 
-            onClick={() => window.location.href = '/admin/historique-prets'} 
+          <button
+            onClick={() => window.location.href = '/admin/historique-prets'}
             className="flex items-center gap-2 px-8 py-4 bg-slate-800 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-lg hover:bg-slate-700 active:scale-95"
           >
             <Clock size={16} /> Consulter l'historique complet
           </button>
         </div>
-
       </main>
 
-      {/* --- MODALE SCANNER --- */}
+      {/* MODALE SCANNER HYBRIDE */}
       {showScanner && (
         <div className="fixed inset-0 z-[250] flex flex-col items-center justify-center p-6 bg-slate-900/95 backdrop-blur-md">
           <div className="w-full max-w-md bg-white rounded-[2.5rem] p-8 shadow-2xl relative">
-            <button onClick={() => setShowScanner(false)} className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-rose-50 hover:text-rose-500 transition-colors"><X size={16}/></button>
-            <h3 className="text-center font-black uppercase text-xs tracking-widest mb-6">Scan Rapide (Prêt/Retour)</h3>
-            
-            <div id="quick-reader" className="w-full rounded-2xl overflow-hidden shadow-inner mb-6 bg-slate-50 border border-slate-100"></div>
-            
+            <button onClick={stopScanner} className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-rose-50 hover:text-rose-500 transition-colors">
+              <X size={16} />
+            </button>
+            <h3 className="text-center font-black uppercase text-xs tracking-widest mb-4">Scan Rapide (Prêt / Retour)</h3>
+
+            {iosWarning && (
+              <div className="mb-4 p-4 bg-amber-50 border border-amber-100 rounded-2xl text-amber-700 text-[10px] font-black uppercase text-center">
+                ⚠️ Sur iPhone, le scan nécessite Safari. Veuillez ouvrir cette page dans Safari.
+              </div>
+            )}
+
+            <video
+              ref={videoRef}
+              className="w-full rounded-2xl overflow-hidden shadow-inner bg-slate-900 mb-6"
+              autoPlay
+              muted
+              playsInline
+            />
+
             {scannedGamesForLoan.length > 0 && (
               <div className="space-y-3 mb-6 animate-in slide-in-from-bottom-2">
                 <p className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Jeux scannés ({scannedGamesForLoan.length})</p>
@@ -550,19 +623,27 @@ export default function Prets() {
                   {scannedGamesForLoan.map(g => (
                     <div key={g.id} className="flex justify-between p-3 bg-slate-50 rounded-xl text-[10px] font-bold border border-slate-100">
                       <span className="truncate">#{g.registration_number} - {g.name}</span>
-                      <X size={14} className="text-rose-400 cursor-pointer hover:text-rose-600" onClick={() => setScannedGamesForLoan(scannedGamesForLoan.filter(sg => sg.id !== g.id))}/>
+                      <X size={14} className="text-rose-400 cursor-pointer hover:text-rose-600 shrink-0" onClick={() => setScannedGamesForLoan(scannedGamesForLoan.filter(sg => sg.id !== g.id))} />
                     </div>
                   ))}
                 </div>
-                <button onClick={() => { setSelectedGames(scannedGamesForLoan); setShowScanner(false); setShowFormModal(true); }} className="w-full py-4 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">Valider pour un adhérent</button>
+                <button
+                  onClick={() => { setSelectedGames(scannedGamesForLoan); stopScanner(); setShowFormModal(true) }}
+                  className="w-full py-4 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all"
+                >
+                  Valider pour un adhérent
+                </button>
               </div>
             )}
-            <p className="text-center text-[10px] text-slate-400 italic">Scannez un jeu libre pour le prêter, ou un jeu déjà prêté pour le rendre.</p>
+
+            <p className="text-center text-[10px] text-slate-400 italic">
+              Scannez un jeu libre pour le prêter, ou un jeu déjà prêté pour le rendre.
+            </p>
           </div>
         </div>
       )}
 
-      {/* --- MODALE CONFIRMATION RETOUR SCAN --- */}
+      {/* MODALE CONFIRMATION RETOUR SCAN */}
       {scanReturnConfirm && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-md">
           <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl">
@@ -582,7 +663,6 @@ export default function Prets() {
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-[#1a5f7a]/80 backdrop-blur-md" onClick={() => setRenewalAction(null)}></div>
           <div className="relative bg-white rounded-[3rem] p-8 md:p-12 max-w-lg w-full shadow-2xl border-b-8 border-amber-500 animate-in zoom-in-95 overflow-y-auto max-h-[90vh]">
-            
             {!showCodeStep ? (
               <>
                 <div className="flex justify-between items-start mb-8">
@@ -593,35 +673,30 @@ export default function Prets() {
                     <X size={24} />
                   </button>
                 </div>
-
                 <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight mb-2">Relance Prêt en retard</h2>
                 <p className="text-sm text-slate-500 mb-6">Coordonnées de l'adhérent <strong>{renewalAction.members?.first_name} {renewalAction.members?.last_name}</strong> :</p>
-
                 <div className="space-y-3 mb-8">
                   <div className="flex items-center gap-4 text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                    <Mail size={18} className="text-[#1a5f7a] shrink-0"/>
+                    <Mail size={18} className="text-[#1a5f7a] shrink-0" />
                     <span className="text-sm font-bold truncate">{renewalAction.members?.email || 'Email non renseigné'}</span>
                   </div>
                   <div className="flex items-center gap-4 text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                    <Phone size={18} className="text-[#1a5f7a] shrink-0"/>
+                    <Phone size={18} className="text-[#1a5f7a] shrink-0" />
                     <span className="text-sm font-bold">{renewalAction.members?.phone || 'Téléphone non renseigné'}</span>
                   </div>
                   <div className="flex items-start gap-4 text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                    <MapPin size={18} className="text-[#1a5f7a] mt-1 shrink-0"/>
+                    <MapPin size={18} className="text-[#1a5f7a] mt-1 shrink-0" />
                     <span className="text-sm font-bold leading-relaxed">{renewalAction.members?.address || 'Adresse non renseignée'}</span>
                   </div>
                 </div>
-
                 <div className="space-y-4 mb-8">
-                  <button 
+                  <button
                     onClick={() => setShowCodeStep(true)}
                     className="w-full p-5 bg-[#1a5f7a] text-white rounded-[1.5rem] flex items-center justify-center gap-4 hover:bg-[#154d63] transition-all shadow-xl font-black uppercase text-[10px] tracking-widest"
                   >
-                    Envoyer le mail de rappel
-                    <ExternalLink size={18} />
+                    Envoyer le mail de rappel <ExternalLink size={18} />
                   </button>
                 </div>
-
                 <div className="bg-amber-50/50 rounded-[2rem] p-6 border border-amber-100">
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-[10px] font-black uppercase text-amber-600 flex items-center gap-2">
@@ -635,14 +710,13 @@ export default function Prets() {
                       <span className="text-[9px] font-bold text-amber-400 italic">Aucun rappel noté</span>
                     )}
                   </div>
-                  
                   <button
                     onClick={async () => {
-                      const today = new Date().toISOString().split('T')[0];
-                      const { error } = await supabase.from('loans').update({ last_reminder_date: today }).eq('id', renewalAction.id);
+                      const today = new Date().toISOString().split('T')[0]
+                      const { error } = await supabase.from('loans').update({ last_reminder_date: today }).eq('id', renewalAction.id)
                       if (!error) {
-                        setLoans(loans.map(l => l.id === renewalAction.id ? {...l, last_reminder_date: today} : l));
-                        setRenewalAction({...renewalAction, last_reminder_date: today});
+                        setLoans(loans.map(l => l.id === renewalAction.id ? { ...l, last_reminder_date: today } : l))
+                        setRenewalAction({ ...renewalAction, last_reminder_date: today })
                       }
                     }}
                     className="w-full py-3 bg-white border border-amber-200 text-amber-600 rounded-xl font-black uppercase text-[9px] tracking-widest hover:bg-amber-500 hover:text-white transition-all shadow-sm flex items-center justify-center gap-2"
@@ -654,26 +728,18 @@ export default function Prets() {
             ) : (
               <div className="text-center animate-in slide-in-from-right-4">
                 <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <ExternalLink size={32}/>
+                  <ExternalLink size={32} />
                 </div>
                 <h3 className="text-xl font-black uppercase text-slate-900 mb-2">Prêt pour l'envoi</h3>
                 <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-8">Code d'accès Outlook de la ludo :</p>
-                
                 <div className="bg-[#1a5f7a] rounded-[2rem] p-8 mb-10 shadow-xl border border-white/10">
                   <p className="text-3xl font-black text-white tracking-[0.4em]">Coligny1991</p>
                 </div>
-
                 <div className="flex flex-col gap-3">
-                  <button 
-                    onClick={() => triggerOutlook(renewalAction)} 
-                    className="w-full py-6 bg-emerald-600 text-white rounded-[1.5rem] font-black uppercase text-sm shadow-lg hover:bg-emerald-700 transition-all"
-                  >
+                  <button onClick={() => triggerOutlook(renewalAction)} className="w-full py-6 bg-emerald-600 text-white rounded-[1.5rem] font-black uppercase text-sm shadow-lg hover:bg-emerald-700 transition-all">
                     Ouvrir Outlook
                   </button>
-                  <button 
-                    onClick={() => setShowCodeStep(false)} 
-                    className="py-4 text-slate-400 font-black uppercase text-[10px] underline"
-                  >
+                  <button onClick={() => setShowCodeStep(false)} className="py-4 text-slate-400 font-black uppercase text-[10px] underline">
                     Retour
                   </button>
                 </div>
@@ -686,25 +752,22 @@ export default function Prets() {
       {/* MODALES CONFIRMATION */}
       {confirmAction && (
         <div className="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-sm p-10 text-center shadow-2xl animate-in zoom-in-95">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-10 text-center shadow-2xl animate-in zoom-in-95">
             <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 ${confirmAction.type === 'return' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-              {confirmAction.type === 'return' ? <CheckCircle size={32}/> : <Clock size={32}/>}
+              {confirmAction.type === 'return' ? <CheckCircle size={32} /> : <Clock size={32} />}
             </div>
             <h3 className="text-xl font-black uppercase mb-2">
               {confirmAction.type === 'return' ? 'Confirmer le retour de ce jeu' : "Autoriser l'allongement du délai d'emprunt de 14 jours"}
             </h3>
             <p className="text-[10px] font-black uppercase text-slate-500 mb-8">Voulez-vous valider cette action ?</p>
             <div className="flex flex-col gap-3">
-              <button 
-                onClick={processConfirmAction} 
+              <button
+                onClick={processConfirmAction}
                 className={`w-full py-5 text-white rounded-2xl font-black uppercase text-xs shadow-lg ${confirmAction.type === 'return' ? 'bg-emerald-600' : 'bg-amber-600'}`}
               >
                 Confirmer
               </button>
-              <button 
-                onClick={() => setConfirmAction(null)} 
-                className="w-full py-4 bg-slate-50 text-slate-400 rounded-2xl font-black uppercase text-[10px]"
-              >
+              <button onClick={() => setConfirmAction(null)} className="w-full py-4 bg-slate-50 text-slate-400 rounded-2xl font-black uppercase text-[10px]">
                 Annuler
               </button>
             </div>
@@ -718,31 +781,40 @@ export default function Prets() {
           <div className="bg-white rounded-[2.5rem] w-full max-w-xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
             <div className="p-8 border-b border-slate-50 flex justify-between items-center shrink-0">
               <h2 className="text-xl font-black uppercase">Enregistrer un <span className="text-[#1a5f7a]">Prêt</span></h2>
-              <button onClick={() => setShowFormModal(false)} className="p-2 bg-slate-50 rounded-full text-slate-400 hover:text-rose-500">
-                <X size={24}/>
+              <button onClick={() => { setShowFormModal(false); setQuotaWarning(null) }} className="p-2 bg-slate-50 rounded-full text-slate-400 hover:text-rose-500">
+                <X size={24} />
               </button>
             </div>
             <div className="p-8 space-y-8 overflow-y-auto">
+
+              {/* ÉTAPE 1 : ADHÉRENT */}
               <div className="space-y-3">
                 <label className="text-[10px] font-black uppercase tracking-tighter text-[#1a5f7a]">1. Sélection de l'adhérent</label>
                 {!selectedMember ? (
                   <div className="relative">
-                    <input 
-                      type="text" 
-                      placeholder="Nom ou prénom..." 
-                      className="w-full p-5 bg-slate-50 rounded-2xl font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]" 
-                      value={memberSearch} 
-                      onFocus={() => setMemberListVisible(true)} 
-                      onBlur={() => setTimeout(() => setMemberListVisible(false), 200)} 
-                      onChange={(e) => setMemberSearch(e.target.value)} 
+                    <input
+                      type="text"
+                      placeholder="Nom ou prénom..."
+                      className="w-full p-5 bg-slate-50 rounded-2xl font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                      value={memberSearch}
+                      onFocus={() => setMemberListVisible(true)}
+                      onBlur={() => setTimeout(() => setMemberListVisible(false), 200)}
+                      onChange={(e) => setMemberSearch(e.target.value)}
                     />
                     {memberListVisible && (
                       <div className="absolute top-full w-full bg-white border border-slate-100 rounded-2xl mt-2 shadow-2xl max-h-48 overflow-y-auto z-[110] p-2 divide-y divide-slate-50">
-                        {members.filter(m => `${m.first_name} ${m.last_name}`.toLowerCase().includes(memberSearch.toLowerCase())).map(m => (
-                          <div key={m.id} onMouseDown={() => setSelectedMember(m)} className="p-4 hover:bg-slate-50 rounded-xl cursor-pointer flex justify-between items-center">
-                            <span className="uppercase font-black text-xs">{m.last_name} {m.first_name}</span>
-                          </div>
-                        ))}
+                        {members
+                          .filter(m => `${m.first_name} ${m.last_name}`.toLowerCase().includes(memberSearch.toLowerCase()))
+                          .map(m => (
+                            <div
+                              key={m.id}
+                              onMouseDown={() => handleSelectMember(m)}
+                              className="p-4 hover:bg-slate-50 rounded-xl cursor-pointer"
+                            >
+                              <span className="uppercase font-black text-xs">{m.last_name} {m.first_name}</span>
+                            </div>
+                          ))
+                        }
                       </div>
                     )}
                   </div>
@@ -751,12 +823,22 @@ export default function Prets() {
                     <div className="bg-cyan-50 p-5 rounded-2xl flex justify-between items-center border border-cyan-100">
                       <div>
                         <p className="font-black text-[#1a5f7a] text-sm uppercase">{selectedMember.last_name} {selectedMember.first_name}</p>
-                        <p className="text-[10px] font-bold text-cyan-600 uppercase">Emprunts autorisés : {totalCount} / {getLoanLimit(selectedMember)}</p>
+                        <p className="text-[10px] font-bold text-cyan-600 uppercase">
+                          Emprunts : {totalCount} / {getLoanLimit(selectedMember)}
+                          {getRemainingSlots(selectedMember) === 0 && (
+                            <span className="ml-2 text-rose-500">— Quota atteint</span>
+                          )}
+                        </p>
                       </div>
-                      <button onClick={() => {setSelectedMember(null); setSelectedGames([]);}} className="text-[9px] font-black uppercase text-slate-400 underline">Changer</button>
+                      <button
+                        onClick={() => { setSelectedMember(null); setSelectedGames([]); setQuotaWarning(null) }}
+                        className="text-[9px] font-black uppercase text-slate-400 underline"
+                      >
+                        Changer
+                      </button>
                     </div>
 
-                    {/* ALERTE COTISATION NON À JOUR */}
+                    {/* Avertissement cotisation expirée */}
                     {!isSubscriptionUpToDate(selectedMember) && (
                       <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-center gap-3 text-amber-700 animate-in fade-in zoom-in-95">
                         <AlertTriangle size={18} className="shrink-0 text-amber-500 animate-pulse" />
@@ -765,69 +847,98 @@ export default function Prets() {
                         </p>
                       </div>
                     )}
+
+                    {/* Avertissement troncature quota après scan */}
+                    {quotaWarning && (
+                      <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-3 text-rose-700 animate-in fade-in zoom-in-95">
+                        <AlertTriangle size={18} className="shrink-0 text-rose-500 mt-0.5" />
+                        <p className="text-[9px] font-black uppercase tracking-wider leading-tight">{quotaWarning}</p>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
 
+              {/* ÉTAPE 2 : JEUX */}
               <div className="space-y-3">
                 <label className="text-[10px] font-black uppercase tracking-tighter text-[#1a5f7a]">2. Jeux à ajouter</label>
                 {selectedMember ? (
                   <>
-                    {totalCount < getLoanLimit(selectedMember) ? (
+                    {/* Barre de recherche manuelle — masquée si quota atteint */}
+                    {getRemainingSlots(selectedMember) - selectedGames.length > 0 ? (
                       <div className="relative">
-                        <input 
-                          type="text" 
-                          placeholder="Rechercher un jeu..." 
-                          className="w-full p-5 bg-slate-50 rounded-2xl font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]" 
-                          value={gameSearch} 
-                          onFocus={() => setGameListVisible(true)} 
-                          onBlur={() => setTimeout(() => setGameListVisible(false), 200)} 
-                          onChange={(e) => setGameSearch(e.target.value)} 
+                        <input
+                          type="text"
+                          placeholder="Rechercher un jeu..."
+                          className="w-full p-5 bg-slate-50 rounded-2xl font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                          value={gameSearch}
+                          onFocus={() => setGameListVisible(true)}
+                          onBlur={() => setTimeout(() => setGameListVisible(false), 200)}
+                          onChange={(e) => setGameSearch(e.target.value)}
                         />
                         {gameListVisible && (
                           <div className="absolute top-full w-full bg-white border border-slate-100 rounded-2xl mt-2 shadow-2xl max-h-48 overflow-y-auto z-[110] p-2 divide-y divide-slate-50">
-                            {games.filter(g => g.is_available && g.name.toLowerCase().includes(gameSearch.toLowerCase())).map(g => (
-                              <div key={g.id} onMouseDown={() => { setSelectedGames([...selectedGames, g]); setGameSearch('') }} className="p-4 hover:bg-slate-50 rounded-xl cursor-pointer">
-                                <p className="font-black text-xs uppercase tracking-tight">#{g.registration_number} - {g.name}</p>
-                              </div>
-                            ))}
+                            {games
+                              .filter(g =>
+                                g.is_available &&
+                                g.name.toLowerCase().includes(gameSearch.toLowerCase()) &&
+                                !selectedGames.find(sg => sg.id === g.id)
+                              )
+                              .map(g => (
+                                <div
+                                  key={g.id}
+                                  onMouseDown={() => { setSelectedGames([...selectedGames, g]); setGameSearch('') }}
+                                  className="p-4 hover:bg-slate-50 rounded-xl cursor-pointer"
+                                >
+                                  <p className="font-black text-xs uppercase tracking-tight">#{g.registration_number} - {g.name}</p>
+                                </div>
+                              ))
+                            }
                           </div>
                         )}
                       </div>
                     ) : (
-                      <div className="p-5 bg-rose-50 text-rose-500 rounded-2xl text-[10px] font-black uppercase text-center">Quota maximum atteint.</div>
+                      <div className="p-5 bg-rose-50 text-rose-500 rounded-2xl text-[10px] font-black uppercase text-center border border-rose-100">
+                        Quota maximum atteint — {getLoanLimit(selectedMember)} jeu(x) autorisé(s)
+                      </div>
                     )}
+
+                    {/* Liste des jeux sélectionnés */}
                     <div className="space-y-2">
                       {selectedGames.map(g => (
                         <div key={g.id} className="bg-white border border-slate-100 p-4 rounded-xl flex justify-between items-center shadow-sm">
                           <span className="text-[10px] font-black uppercase text-slate-700">#{g.registration_number} - {g.name}</span>
                           <button onClick={() => setSelectedGames(selectedGames.filter(sg => sg.id !== g.id))} className="text-rose-500">
-                            <X size={16}/>
+                            <X size={16} />
                           </button>
                         </div>
                       ))}
                     </div>
                   </>
                 ) : (
-                  <div className="p-5 bg-slate-50 text-slate-400 rounded-2xl text-[10px] font-bold uppercase text-center border-dashed border-2">Veuillez d'abord choisir l'adhérent</div>
+                  <div className="p-5 bg-slate-50 text-slate-400 rounded-2xl text-[10px] font-bold uppercase text-center border-dashed border-2">
+                    Veuillez d'abord choisir l'adhérent
+                  </div>
                 )}
               </div>
 
+              {/* ÉTAPE 3 : DATE + VALIDATION */}
               <div className="pt-6 border-t border-slate-50 space-y-4">
-                <input 
-                  type="date" 
-                  className="w-full p-5 bg-slate-50 rounded-2xl font-black text-sm outline-none" 
-                  value={loanDate} 
-                  onChange={e => setLoanDate(e.target.value)} 
+                <input
+                  type="date"
+                  className="w-full p-5 bg-slate-50 rounded-2xl font-black text-sm outline-none"
+                  value={loanDate}
+                  onChange={e => setLoanDate(e.target.value)}
                 />
-                <button 
-                  onClick={handleSaveLoan} 
-                  disabled={!selectedMember || selectedGames.length === 0} 
+                <button
+                  onClick={handleSaveLoan}
+                  disabled={!selectedMember || selectedGames.length === 0}
                   className="w-full py-6 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl disabled:opacity-30 transition-all active:scale-95"
                 >
                   Valider le prêt
                 </button>
               </div>
+
             </div>
           </div>
         </div>
