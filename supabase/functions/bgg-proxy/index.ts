@@ -294,6 +294,20 @@ Deno.serve(async (req) => {
 
     if (endpoint === 'search') {
       result = await searchGames(query)
+    } else if (endpoint === 'search-by-barcode') {
+      // Recherche par code-barres → renvoie directement les détails complets si trouvé
+      const barcode = url.searchParams.get('barcode') || ''
+      const session = await getSession()
+      const searchUrl = `${MYLUDO_BASE}/search/datas.php?type=search&tab=games&words=${encodeURIComponent(barcode)}&page=1`
+      const searchRes = await fetch(searchUrl, { headers: myludoHeaders(session) })
+      const searchData = await searchRes.json()
+      const games = searchData?.list || []
+      if (games.length === 0) {
+        result = null  // Jeu non trouvé sur MyLudo
+      } else {
+        // Prend le premier résultat et récupère ses détails complets
+        result = await getGameDetails(String(games[0].id))
+      }
     } else if (endpoint === 'thing') {
       const numericId = /^\d+$/.test(id) ? id : null
       if (!numericId) return new Response(JSON.stringify(null), {

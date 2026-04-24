@@ -4,7 +4,7 @@ import { supabase } from '../../services/supabaseClient'
 import { sendEmail } from '../../services/emailService'
 import { 
   Calendar, MapPin, Plus, Trash2, Clock, ImageIcon, 
-  Upload, X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2, Users, ChevronDown, ChevronUp
+  Upload, X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2, Users, ChevronDown, ChevronUp, PlusCircle, Paperclip, GripVertical
 } from 'lucide-react'
 
 export default function Evenements() {
@@ -24,6 +24,8 @@ export default function Evenements() {
   const [successModal, setSuccessModal] = useState({ show: false, count: 0 })
   const [showMairies, setShowMairies] = useState(true)
   const [showAdherents, setShowAdherents] = useState(true)
+  const [selectedEvents, setSelectedEvents] = useState([])
+  const [showEventPicker, setShowEventPicker] = useState(false)
 
   const initialEventState = {
     title: '',
@@ -160,42 +162,19 @@ export default function Evenements() {
   const openComposeModal = async (event) => {
     setLoadingRecipients(true)
     setComposeModal({ show: true, event })
-    
-    const start = new Date(event.date)
-    const dateFormatee = start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-    const heureDebut = start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-    const plageHoraire = event.end_time
-      ? `de ${heureDebut} à ${event.end_time.replace(':', 'h')}`
-      : `à partir de ${heureDebut}`
-
+    setSelectedEvents([makeEventBlock(event)])
+    setShowEventPicker(false)
     const subject = `Communication Événement - Association PACTES - ${event.title}`
-    const body = `Bonjour,
-
-L'association PACTES à Coligny souhaiterait communiquer sur un événement organisé qui va avoir lieu à la date suivante :
-
-Le ${dateFormatee} - ${event.title} à ${event.location}. ${plageHoraire}.${event.description ? ' ' + event.description : ''}
-
-Pouvez-vous l'intégrer dans vos communications afin de faire connaître l'existence de cet évènement à vos concitoyens ?
-
-Vous en souhaitant bonne réception.
-
-Bonne journée.
-
-Victor Guyon
-06 71 41 56 96`
-
     try {
       const { data: members } = await supabase.from('members').select('email, first_name, last_name')
       const memberRecipients = members
-        ? members
-            .filter(m => m.email && m.email.includes('@'))
+        ? members.filter(m => m.email && m.email.includes('@'))
             .map(m => ({ email: m.email, label: `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email, group: 'adherent', checked: true }))
         : []
-
       const collectiviteRecipients = COLLECTIVITES.map(c => ({ ...c, group: 'mairie', checked: true }))
-      setComposeData({ subject, body, recipients: [...collectiviteRecipients, ...memberRecipients] })
+      setComposeData({ subject, recipients: [...collectiviteRecipients, ...memberRecipients] })
     } catch (e) {
-      setComposeData({ subject, body, recipients: COLLECTIVITES.map(c => ({ ...c, group: 'mairie', checked: true })) })
+      setComposeData({ subject, recipients: COLLECTIVITES.map(c => ({ ...c, group: 'mairie', checked: true })) })
     } finally {
       setLoadingRecipients(false)
     }
@@ -217,35 +196,81 @@ Victor Guyon
     }))
   }
 
+  const makeEventBlock = (event) => {
+    const start = new Date(event.date)
+    const dateFormatee = start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+    const heureDebut = start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    const plageHoraire = event.end_time
+      ? `de ${heureDebut} à ${event.end_time.replace(':', 'h')}`
+      : `à partir de ${heureDebut}`
+    return { event, titre: event.title, date: dateFormatee, horaire: plageHoraire, lieu: event.location || '', description: event.description || '' }
+  }
+
+  const addEventToMail = (event) => {
+    if (selectedEvents.find(b => b.event.id === event.id)) return
+    setSelectedEvents(prev => [...prev, makeEventBlock(event)])
+    if (selectedEvents.length >= 1) {
+      setComposeData(prev => ({ ...prev, subject: 'Communication Événements - Association PACTES' }))
+    }
+    setShowEventPicker(false)
+  }
+
+  const removeEventFromMail = (eventId) => {
+    setSelectedEvents(prev => prev.filter(b => b.event.id !== eventId))
+  }
+
+  const updateEventBlock = (eventId, field, value) => {
+    setSelectedEvents(prev => prev.map(b => b.event.id === eventId ? { ...b, [field]: value } : b))
+  }
+
   const handleSendMail = async () => {
     const activeRecipients = composeData.recipients.filter(r => r.checked).map(r => r.email)
     if (activeRecipients.length === 0) { alert('Aucun destinataire sélectionné.'); return }
+    if (selectedEvents.length === 0) { alert('Aucun événement sélectionné.'); return }
     setSendingMail(true)
     try {
-      const htmlBody = composeData.body
-        .split('\n')
-        .map(line => line.trim() === '' ? '<br/>' : `<p style="margin:0 0 8px 0;">${line}</p>`)
-        .join('')
+      const blocksHtml = selectedEvents.map(b => `
+        <div style="background:white;border-left:4px solid #e38154;padding:16px;margin:20px 0;border-radius:0 8px 8px 0;">
+          <h2 style="color:#1a5f7a;margin:0 0 8px 0;font-size:17px;">${b.titre}</h2>
+          <p style="margin:4px 0;">📅 Le <strong>${b.date}</strong> — ${b.horaire}</p>
+          ${b.lieu ? `<p style="margin:4px 0;">📍 ${b.lieu}</p>` : ''}
+          ${b.description ? `<p style="margin:10px 0 0 0;color:#555;font-size:14px;">${b.description}</p>` : ''}
+        </div>
+      `).join('')
+
+      const intro = selectedEvents.length > 1
+        ? "L'association PACTES à Coligny souhaiterait communiquer sur les événements organisés suivants :"
+        : "L'association PACTES à Coligny souhaiterait communiquer sur l'événement organisé suivant :"
+
       const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
         <div style="background:#1a5f7a;padding:24px;border-radius:12px 12px 0 0;">
           <h1 style="color:white;margin:0;font-size:18px;">Association PACTES – Ludothèque de Coligny</h1>
         </div>
         <div style="background:#fdfaf6;padding:32px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;">
-          ${htmlBody}
-          <p style="margin-top:24px;font-size:12px;color:#888;">
+          <p>Bonjour,</p>
+          <p>${intro}</p>
+          ${blocksHtml}
+          <p>Pourriez-vous intégrer ${selectedEvents.length > 1 ? 'ces événements' : 'cet événement'} dans vos communications afin de les faire connaître à vos concitoyens ?</p>
+          <p>Vous en souhaitant bonne réception.</p><p>Bonne journée.</p>
+          <p style="margin-top:24px;"><strong>Victor Guyon</strong><br/>06 71 41 56 96<br/>
             <a href="https://www.ludothequedecoligny.fr" style="color:#1a5f7a;">www.ludothequedecoligny.fr</a>
           </p>
         </div>
       </div>`
 
+      const image_urls = selectedEvents.map(b => b.event.image_url).filter(Boolean)
+
       const BATCH_SIZE = 50
       for (let i = 0; i < activeRecipients.length; i += BATCH_SIZE) {
-        await sendEmail({ to: activeRecipients.slice(i, i + BATCH_SIZE), subject: composeData.subject, html })
+        await sendEmail({ to: activeRecipients.slice(i, i + BATCH_SIZE), subject: composeData.subject, html, image_urls })
       }
 
-      await supabase.from('events').update({ mail_sent_at: new Date().toISOString() }).eq('id', composeModal.event.id)
+      for (const b of selectedEvents) {
+        await supabase.from('events').update({ mail_sent_at: new Date().toISOString() }).eq('id', b.event.id)
+      }
       fetchEvents()
       setComposeModal({ show: false, event: null })
+      setSelectedEvents([])
       setSuccessModal({ show: true, count: activeRecipients.length })
     } catch (err) {
       console.error('Erreur envoi:', err)
@@ -403,15 +428,96 @@ Victor Guyon
                 />
               </div>
 
-              {/* Corps */}
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Message</label>
-                <textarea
-                  rows={10}
-                  className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a] resize-y"
-                  value={composeData.body}
-                  onChange={e => setComposeData(prev => ({ ...prev, body: e.target.value }))}
-                />
+              {/* Événements — blocs éditables */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2">
+                    <Calendar size={12} /> Événements ({selectedEvents.length})
+                  </label>
+                  <button onClick={() => setShowEventPicker(v => !v)}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-[#1a5f7a]/10 text-[#1a5f7a] rounded-xl text-[9px] font-black uppercase tracking-wide hover:bg-[#1a5f7a]/20 transition-colors">
+                    <PlusCircle size={12} /> Ajouter un événement
+                  </button>
+                </div>
+                {showEventPicker && (
+                  <div className="border-2 border-[#1a5f7a]/20 rounded-2xl overflow-hidden">
+                    <div className="p-3 bg-[#1a5f7a]/5 border-b border-[#1a5f7a]/10">
+                      <p className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Choisir un événement à ajouter</p>
+                    </div>
+                    <div className="divide-y divide-slate-50 max-h-48 overflow-y-auto">
+                      {events.filter(e => !selectedEvents.find(b => b.event.id === e.id))
+                        .sort((a, b) => new Date(a.date) - new Date(b.date))
+                        .map(e => (
+                          <button key={e.id} onClick={() => addEventToMail(e)}
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left">
+                            <Paperclip size={12} className={e.image_url ? 'text-[#e38154]' : 'text-slate-200'} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-slate-800 truncate">{e.title}</p>
+                              <p className="text-[9px] text-slate-400">{new Date(e.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                            </div>
+                            <Plus size={14} className="text-[#1a5f7a] shrink-0" />
+                          </button>
+                        ))}
+                      {events.filter(e => !selectedEvents.find(b => b.event.id === e.id)).length === 0 && (
+                        <p className="text-center text-[10px] text-slate-400 py-4">Tous les événements sont déjà ajoutés</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-4">
+                  {selectedEvents.map((b, idx) => (
+                    <div key={b.event.id} className="border-2 border-slate-100 rounded-2xl overflow-hidden">
+                      <div className="flex items-center justify-between p-4 bg-slate-50 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <GripVertical size={14} className="text-slate-300" />
+                          <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Événement {idx + 1}</span>
+                          {b.event.image_url && (
+                            <span className="flex items-center gap-1 text-[8px] font-black text-[#e38154] uppercase">
+                              <Paperclip size={10} /> Affiche jointe
+                            </span>
+                          )}
+                        </div>
+                        {selectedEvents.length > 1 && (
+                          <button onClick={() => removeEventFromMail(b.event.id)}
+                            className="p-1.5 text-slate-300 hover:text-rose-400 hover:bg-rose-50 rounded-lg transition-all">
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+                      <div className="p-4 space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Titre</label>
+                            <input value={b.titre} onChange={e => updateEventBlock(b.event.id, 'titre', e.target.value)}
+                              className="w-full mt-1 p-2.5 rounded-xl bg-slate-50 text-xs font-bold outline-none border border-transparent focus:border-[#1a5f7a]" />
+                          </div>
+                          <div>
+                            <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Lieu</label>
+                            <input value={b.lieu} onChange={e => updateEventBlock(b.event.id, 'lieu', e.target.value)}
+                              className="w-full mt-1 p-2.5 rounded-xl bg-slate-50 text-xs font-bold outline-none border border-transparent focus:border-[#1a5f7a]" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Date</label>
+                            <input value={b.date} onChange={e => updateEventBlock(b.event.id, 'date', e.target.value)}
+                              className="w-full mt-1 p-2.5 rounded-xl bg-slate-50 text-xs font-bold outline-none border border-transparent focus:border-[#1a5f7a]" />
+                          </div>
+                          <div>
+                            <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Horaires</label>
+                            <input value={b.horaire} onChange={e => updateEventBlock(b.event.id, 'horaire', e.target.value)}
+                              className="w-full mt-1 p-2.5 rounded-xl bg-slate-50 text-xs font-bold outline-none border border-transparent focus:border-[#1a5f7a]" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Description (optionnel)</label>
+                          <textarea value={b.description} onChange={e => updateEventBlock(b.event.id, 'description', e.target.value)}
+                            rows={2} className="w-full mt-1 p-2.5 rounded-xl bg-slate-50 text-xs font-medium outline-none border border-transparent focus:border-[#1a5f7a] resize-none" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Destinataires */}

@@ -60,9 +60,10 @@ export default function Jeux() {
   const [availableCategories, setAvailableCategories] = useState([])
 
   // ── BGG autofill ──
-  const [bggResults, setBggResults] = useState<{ id: string; name: string; year: string }[]>([])
+  const [bggResults, setBggResults] = useState<{ id: string; name: string; year: string; language?: string }[]>([])
   const [bggLoading, setBggLoading] = useState(false)
   const [bggFilled, setBggFilled] = useState(false)
+  const [scanToAdd, setScanToAdd] = useState(false)  // true = le scan déclenche un ajout direct
   const bggDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const bggDropdownRef = useRef(null)
 
@@ -154,6 +155,51 @@ export default function Jeux() {
     }
   }
 
+  // Appelé dès qu'un code-barres est scanné
+  const handleBarcodeDetected = async (barcode: string) => {
+    setNewGame(prev => ({ ...prev, barcode }))
+
+    // Mode "scan pour ajouter" → recherche MyLudo automatique
+    if (scanToAdd) {
+      setBggLoading(true)
+      try {
+        const qs = new URLSearchParams({ endpoint: 'search-by-barcode', barcode }).toString()
+        const res = await fetch(`${BGG_FUNCTION_URL}?${qs}`, {
+          headers: { 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY }
+        })
+        const details = await res.json()
+
+        if (details) {
+          setNewGame(prev => ({
+            ...prev,
+            barcode,
+            name:        details.name        || prev.name,
+            description: details.description || prev.description,
+            min_players: details.minPlayers  || prev.min_players,
+            max_players: details.maxPlayers  || prev.max_players,
+            min_age:     details.minAge      || prev.min_age,
+            duration:    details.duration    || prev.duration,
+            image_url:   details.image       || prev.image_url,
+            category:    details.categories?.join(', ') || prev.category,
+            registration_number: prev.registration_number || getNextRegistrationNumber()
+          }))
+          setBggFilled(true)
+          setShowForm(true)  // Ouvre le formulaire pré-rempli
+        } else {
+          // Jeu non trouvé → ouvre le formulaire avec juste le code-barres
+          setShowForm(true)
+          alert(`Jeu non trouvé sur MyLudo pour le code-barres ${barcode}. Remplissez les informations manuellement.`)
+        }
+      } catch (e) {
+        console.warn('Barcode search error:', e)
+        setShowForm(true)
+      } finally {
+        setBggLoading(false)
+        setScanToAdd(false)
+      }
+    }
+  }
+
   // --- DÉTECTION NAVIGATEUR ---
   const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent)
   const isSafari = () => /safari/i.test(navigator.userAgent) && !/chrome/i.test(navigator.userAgent)
@@ -190,7 +236,7 @@ export default function Jeux() {
               if (barcodes.length > 0) {
                 clearInterval(intervalRef.current)
                 stopScanner()
-                setNewGame(prev => ({ ...prev, barcode: barcodes[0].rawValue }))
+                handleBarcodeDetected(barcodes[0].rawValue)
               }
             } catch (e) {}
           }, 100)
@@ -208,7 +254,7 @@ export default function Jeux() {
           videoRef.current,
           (result, error) => {
             if (result) {
-              setNewGame(prev => ({ ...prev, barcode: result.getText() }))
+              handleBarcodeDetected(result.getText())
               stopScanner()
             }
             if (error && error?.name !== 'NotFoundException') {
@@ -454,15 +500,28 @@ export default function Jeux() {
           <span>Gestion des <span className="text-[#1a5f7a]">Jeux</span></span>
         </h1>
 
-        <button
-          onClick={editingId ? cancelEdit : handleOpenForm}
-          className={`w-full md:w-auto px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95 ${
-            showForm ? 'bg-slate-800 text-white' : 'bg-[#e38154] text-white hover:bg-[#d16f43]'
-          }`}
-        >
-          {showForm ? <X size={18} className="inline mr-2" strokeWidth={3} /> : <Plus size={18} className="inline mr-2" strokeWidth={3} />}
-          {editingId ? "Annuler" : (showForm ? "Fermer" : "Nouveau Jeu")}
-        </button>
+        <div className="flex gap-3 w-full md:w-auto">
+          <button
+            onClick={() => {
+              setScanToAdd(true)
+              setNewGame({ ...initialGameState, registration_number: getNextRegistrationNumber() })
+              setBggFilled(false)
+              setShowScanner(true)
+            }}
+            className="flex-1 md:flex-none px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95 bg-[#1a5f7a] text-white hover:bg-[#154f67] flex items-center justify-center gap-2"
+          >
+            <ScanLine size={18} strokeWidth={3} /> Scanner un jeu
+          </button>
+          <button
+            onClick={editingId ? cancelEdit : handleOpenForm}
+            className={`flex-1 md:flex-none px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95 ${
+              showForm ? 'bg-slate-800 text-white' : 'bg-[#e38154] text-white hover:bg-[#d16f43]'
+            }`}
+          >
+            {showForm ? <X size={18} className="inline mr-2" strokeWidth={3} /> : <Plus size={18} className="inline mr-2" strokeWidth={3} />}
+            {editingId ? "Annuler" : (showForm ? "Fermer" : "Nouveau Jeu")}
+          </button>
+        </div>
       </div>
 
       <main className="max-w-7xl mx-auto">
@@ -743,6 +802,16 @@ export default function Jeux() {
           ))}
         </div>
       </main>
+
+      {/* OVERLAY CHARGEMENT APRÈS SCAN */}
+      {bggLoading && scanToAdd && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-[#1a5f7a]/80 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] p-10 flex flex-col items-center gap-4 shadow-2xl">
+            <Loader2 size={40} className="animate-spin text-[#1a5f7a]" />
+            <p className="font-black uppercase text-xs tracking-widest text-slate-600">Recherche sur MyLudo...</p>
+          </div>
+        </div>
+      )}
 
       {/* MODALE SCANNER HYBRIDE */}
       {showScanner && (
