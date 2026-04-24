@@ -64,38 +64,29 @@ async function loginToMyludo(): Promise<{ cookie: string; csrf: string }> {
   const email    = Deno.env.get('MYLUDO_EMAIL')    || ''
   const password = Deno.env.get('MYLUDO_PASSWORD') || ''
 
-  // 1. Charger la page d'accueil pour obtenir un CSRF initial
+  // 1. Charger la page d'accueil pour obtenir SESSID + CSRF depuis la balise <meta>
   const homeRes = await fetch('https://www.myludo.fr/', {
-    headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' }
+    headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36' }
   })
+  const homeHtml = await homeRes.text()
   const homeCookies = homeRes.headers.get('set-cookie') || ''
 
-  // Extraire le SESSID initial
+  // Extraire le SESSID
   const sessMatch = homeCookies.match(/MYLUDO_SESSID=([^;]+)/)
-  const initSessid = sessMatch ? sessMatch[1] : ''
+  const sessid = sessMatch ? sessMatch[1] : ''
 
-  // 2. Récupérer le token CSRF via l'endpoint init
-  const initRes = await fetch(`${MYLUDO_BASE}/login/datas.php?type=init`, {
-    headers: {
-      'accept': 'application/json, text/javascript, */*; q=0.01',
-      'referer': 'https://www.myludo.fr/',
-      'x-requested-with': 'XMLHttpRequest',
-      'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-      'cookie': `MYLUDO_SESSID=${initSessid}`
-    }
-  })
-  const initData = await initRes.json()
-  const csrf = initData?.csrf || initData?.token || ''
-  const initSetCookie = initRes.headers.get('set-cookie') || ''
+  // Extraire le CSRF depuis <meta name="csrf-token" content="...">
+  const csrfMatch = homeHtml.match(/csrf-token"\s+content="([^"]+)"/)
+  const csrf = csrfMatch ? csrfMatch[1] : ''
 
-  // Construire le cookie complet depuis les headers
-  const cookieParts: string[] = []
-  if (initSessid) cookieParts.push(`MYLUDO_SESSID=${initSessid}`)
-  const extraMatch = initSetCookie.match(/MYLUDO_[^=]+=([^;]+)/g)
-  if (extraMatch) cookieParts.push(...extraMatch)
+  if (!sessid || !csrf) {
+    throw new Error(`Failed to get SESSID or CSRF (sessid=${!!sessid}, csrf=${!!csrf})`)
+  }
 
-  // 3. Se connecter
-  const loginRes = await fetch(`${MYLUDO_BASE}/login/datas.php?type=login`, {
+  console.log(`Got SESSID: ${sessid.slice(0, 8)}... CSRF: ${csrf.slice(0, 10)}...`)
+
+  // 2. Login avec le SESSID et le CSRF
+  const loginRes = await fetch('https://www.myludo.fr/views/login/datas.php?type=login', {
     method: 'POST',
     headers: {
       'accept': 'application/json, text/javascript, */*; q=0.01',
@@ -103,50 +94,40 @@ async function loginToMyludo(): Promise<{ cookie: string; csrf: string }> {
       'referer': 'https://www.myludo.fr/',
       'x-requested-with': 'XMLHttpRequest',
       'x-csrf-token': csrf,
-      'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-      'cookie': cookieParts.join('; ')
+      'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
+      'cookie': `MYLUDO_SESSID=${sessid}`
     },
     body: new URLSearchParams({ email, password, remember: '1' }).toString()
   })
 
-  const loginSetCookie = loginRes.headers.get('set-cookie') || ''
   const loginData = await loginRes.json()
+  console.log('Login response:', JSON.stringify(loginData).slice(0, 100))
 
-  // Extraire tous les cookies de session après login
-  const allCookies: Record<string, string> = {}
-  if (initSessid) allCookies['MYLUDO_SESSID'] = initSessid
+  if (!loginData?.success) {
+    throw new Error(`Login failed: ${loginData?.message}`)
+  }
 
-  // Parser les set-cookie
-  ;[homeCookies, initSetCookie, loginSetCookie].forEach(cookieStr => {
-    const matches = cookieStr.matchAll(/([A-Z_]+)=([^;,\s]+)/g)
-    for (const m of matches) {
-      if (m[1].startsWith('MYLUDO_')) allCookies[m[1]] = m[2]
-    }
-  })
+  const loginSetCookie = loginRes.headers.get('set-cookie') || ''
 
-  // Ajouter les infos de l'utilisateur connecté
-  if (loginData?.uid)  allCookies['MYLUDO_UID'] = String(loginData.uid)
-  if (loginData?.cid)  allCookies['MYLUDO_CID'] = String(loginData.cid)
-  if (loginData?.tok)  allCookies['MYLUDO_TOK'] = loginData.tok
+  // Construire le cookie complet
+  const allCookies: Record<string, string> = {
+    'MYLUDO_SESSID': sessid
+  }
+
+  // Parser les cookies de la réponse login
+  const cookieMatches = loginSetCookie.matchAll(/([A-Z_]+)=([^;,\s]+)/g)
+  for (const m of cookieMatches) {
+    if (m[1].startsWith('MYLUDO_')) allCookies[m[1]] = m[2]
+  }
+
+  // Ajouter les infos utilisateur
+  const user = loginData.user || {}
+  if (user.id) allCookies['MYLUDO_UID'] = String(user.id)
 
   const finalCookie = Object.entries(allCookies).map(([k, v]) => `${k}=${v}`).join('; ')
 
-  // 4. Récupérer un nouveau CSRF avec la session authentifiée
-  const checkRes = await fetch(`${MYLUDO_BASE}/login/datas.php?type=check`, {
-    headers: {
-      'accept': 'application/json, text/javascript, */*; q=0.01',
-      'referer': 'https://www.myludo.fr/',
-      'x-requested-with': 'XMLHttpRequest',
-      'x-csrf-token': csrf,
-      'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-      'cookie': finalCookie
-    }
-  })
-  const checkData = await checkRes.json()
-  const finalCsrf = checkData?.csrf || csrf
-
-  console.log('MyLudo login success, UID:', loginData?.uid)
-  return { cookie: finalCookie, csrf: finalCsrf }
+  console.log('MyLudo login success, UID:', user.id)
+  return { cookie: finalCookie, csrf }
 }
 
 // Headers MyLudo avec session courante
