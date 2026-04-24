@@ -246,43 +246,36 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
 
           <div className="space-y-2">
             <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest ml-1">Type d'affiche</label>
-            <div className="space-y-2">
+            <div className="grid grid-cols-3 gap-3">
               {Object.entries(AFFICHE_CONFIGS).map(([key, cfg]) => (
                 <button key={key} onClick={() => setSelectedType(key)}
-                  className={'w-full p-4 rounded-2xl text-left text-xs font-bold transition-all border-2 ' +
+                  className={'relative flex flex-col rounded-2xl overflow-hidden border-2 transition-all shadow-sm aspect-[3/4] ' +
                     (selectedType === key
-                      ? 'bg-[#1a5f7a] text-white border-[#1a5f7a] shadow-md'
-                      : 'bg-slate-50 text-slate-600 border-transparent hover:border-slate-200')}>
-                  {cfg.label}
+                      ? 'border-[#1a5f7a] shadow-lg scale-[1.03]'
+                      : 'border-transparent hover:border-slate-200')}>
+                  {/* Fond miniature */}
+                  <img src={cfg.url} alt={cfg.label}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    crossOrigin="anonymous" />
+                  {/* Overlay + titre */}
+                  <div className={'absolute inset-0 flex items-end p-2 ' +
+                    (selectedType === key ? 'bg-[#1a5f7a]/70' : 'bg-black/40 hover:bg-black/30')}>
+                    <span className="text-white text-[10px] font-black uppercase leading-tight text-left drop-shadow-md">
+                      {cfg.label}
+                    </span>
+                  </div>
+                  {/* Coche sélection */}
+                  {selectedType === key && (
+                    <div className="absolute top-2 right-2 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow">
+                      <div className="w-3 h-3 bg-[#1a5f7a] rounded-full" />
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
           </div>
 
-          {events.length > 0 && (
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest ml-1">
-                Importer depuis un événement
-              </label>
-              <select
-                className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-xs text-slate-600 outline-none border-2 border-transparent focus:border-[#1a5f7a]"
-                defaultValue=""
-                onChange={e => {
-                  const ev = events.find(ev => ev.id === e.target.value)
-                  if (ev) {
-                    setSelectedDate(ev.date ? ev.date.slice(0, 16) : '')
-                    setSelectedEndTime(ev.end_time || '')
-                  }
-                }}>
-                <option value="">— Choisir un événement —</option>
-                {events.map(ev => (
-                  <option key={ev.id} value={ev.id}>
-                    {ev.title} — {new Date(ev.date).toLocaleDateString('fr-FR')}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+
 
           <div className="space-y-2">
             <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest ml-1">Date & heure de début</label>

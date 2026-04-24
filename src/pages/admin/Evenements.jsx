@@ -4,7 +4,7 @@ import { supabase } from '../../services/supabaseClient'
 import { sendEmail } from '../../services/emailService'
 import { 
   Calendar, MapPin, Plus, Trash2, Clock, ImageIcon, 
-  Upload, X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2, Users, ChevronDown, ChevronUp, PlusCircle, Paperclip, GripVertical
+  Upload, X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2, Users, ChevronDown, ChevronUp, PlusCircle, Paperclip, GripVertical, Building2, Trash
 } from 'lucide-react'
 
 export default function Evenements() {
@@ -26,6 +26,10 @@ export default function Evenements() {
   const [showAdherents, setShowAdherents] = useState(true)
   const [selectedEvents, setSelectedEvents] = useState([])
   const [showEventPicker, setShowEventPicker] = useState(false)
+  const [collectivites, setCollectivites] = useState([])
+  const [collectivitesModal, setCollectivitesModal] = useState(false)
+  const [newCollectivite, setNewCollectivite] = useState({ nom: '', email: '' })
+  const [editingCollectivite, setEditingCollectivite] = useState(null)
 
   const initialEventState = {
     title: '',
@@ -135,29 +139,29 @@ export default function Evenements() {
     }
   }
 
-  const COLLECTIVITES = [
-    { email: "mairie@domsure.fr", label: "Mairie de Domsure" },
-    { email: "mairie@beaupont.fr", label: "Mairie de Beaupont" },
-    { email: "mairie.verjon@wanadoo.fr", label: "Mairie de Verjon" },
-    { email: "contact@mairie-beny.fr", label: "Mairie de Bény" },
-    { email: "accueil@saintamour39.fr", label: "Mairie de Saint-Amour" },
-    { email: "mairie@lestroischateaux.fr", label: "Mairie des Trois Châteaux" },
-    { email: "mairie.valdepy@orange.fr", label: "Mairie de Val-d'Épy" },
-    { email: "villemotier@wanadoo.fr", label: "Mairie de Villemotier" },
-    { email: "mairie.valsuran@valsuran.fr", label: "Mairie de Valsuran" },
-    { email: "mairie@andelot-morval.fr", label: "Mairie d'Andelot-Morval" },
-    { email: "mairie.veria@wanadoo.fr", label: "Mairie de Véria" },
-    { email: "mairie.broissia@orange.fr", label: "Mairie de Broissia" },
-    { email: "mairie.balanod@aricia.fr", label: "Mairie de Balanod" },
-    { email: "mairie.montagnalereconduit@wanadoo.fr", label: "Mairie de Montagna-le-Reconduit" },
-    { email: "mairiejoudes@wanadoo.fr", label: "Mairie de Jouds" },
-    { email: "mairie.condal@wanadoo.fr", label: "Mairie de Condal" },
-    { email: "mairie@cormoz.fr", label: "Mairie de Cormoz" },
-    { email: "mairie@foissiat.com", label: "Mairie de Foissiat" },
-    { email: "mairie@saintetiennedubois.fr", label: "Mairie de Saint-Étienne-du-Bois" },
-    { email: "genemapi@hotmail.fr", label: "Genemapi" },
-    { email: "mairie-salavre@orange.fr", label: "Mairie de Salavre" },
-  ]
+  const fetchCollectivites = async () => {
+    const { data } = await supabase.from('collectivites').select('*').order('nom')
+    if (data) setCollectivites(data.map(c => ({ id: c.id, email: c.email, label: c.nom })))
+  }
+
+  useEffect(() => { fetchCollectivites() }, [])
+
+  const saveCollectivite = async () => {
+    if (!newCollectivite.nom || !newCollectivite.email) return
+    if (editingCollectivite) {
+      await supabase.from('collectivites').update({ nom: newCollectivite.nom, email: newCollectivite.email }).eq('id', editingCollectivite)
+    } else {
+      await supabase.from('collectivites').insert({ nom: newCollectivite.nom, email: newCollectivite.email })
+    }
+    setNewCollectivite({ nom: '', email: '' })
+    setEditingCollectivite(null)
+    fetchCollectivites()
+  }
+
+  const deleteCollectivite = async (id) => {
+    await supabase.from('collectivites').delete().eq('id', id)
+    fetchCollectivites()
+  }
 
   const openComposeModal = async (event) => {
     setLoadingRecipients(true)
@@ -171,10 +175,10 @@ export default function Evenements() {
         ? members.filter(m => m.email && m.email.includes('@'))
             .map(m => ({ email: m.email, label: `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email, group: 'adherent', checked: true }))
         : []
-      const collectiviteRecipients = COLLECTIVITES.map(c => ({ ...c, group: 'mairie', checked: true }))
+      const collectiviteRecipients = collectivites.map(c => ({ ...c, group: 'mairie', checked: true }))
       setComposeData({ subject, recipients: [...collectiviteRecipients, ...memberRecipients] })
     } catch (e) {
-      setComposeData({ subject, recipients: COLLECTIVITES.map(c => ({ ...c, group: 'mairie', checked: true })) })
+      setComposeData({ subject, recipients: collectivites.map(c => ({ ...c, group: 'mairie', checked: true })) })
     } finally {
       setLoadingRecipients(false)
     }
@@ -260,9 +264,10 @@ export default function Evenements() {
 
       const image_urls = selectedEvents.map(b => b.event.image_url).filter(Boolean)
 
-      const BATCH_SIZE = 50
-      for (let i = 0; i < activeRecipients.length; i += BATCH_SIZE) {
-        await sendEmail({ to: activeRecipients.slice(i, i + BATCH_SIZE), subject: composeData.subject, html, image_urls })
+      // Envoi individuel : chaque destinataire reçoit son propre email
+      // sans voir les adresses des autres (équivalent BCC)
+      for (const recipient of activeRecipients) {
+        await sendEmail({ to: [recipient], subject: composeData.subject, html, image_urls })
       }
 
       for (const b of selectedEvents) {
@@ -296,7 +301,7 @@ export default function Evenements() {
           <div className="p-3 bg-[#1a5f7a] rounded-[1.2rem] shadow-lg text-white"><Calendar size={28} /></div>
           <span>Gestion des <span className="text-[#1a5f7a]">Événements</span></span>
         </h1>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Tabs */}
           <div className="flex bg-slate-100 rounded-2xl p-1 gap-1">
             <button
@@ -311,7 +316,7 @@ export default function Evenements() {
             </button>
           </div>
           {activeTab === 'events' && (
-            <button onClick={editingId ? cancelEdit : () => setShowForm(!showForm)} className={"px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl " + (showForm ? 'bg-slate-800 text-white' : 'bg-[#e38154] text-white')}>
+            <button onClick={editingId ? cancelEdit : () => setShowForm(!showForm)} className={"px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl whitespace-nowrap " + (showForm ? 'bg-slate-800 text-white' : 'bg-[#e38154] text-white')}>
               {showForm ? "Fermer" : "Nouvel Événement"}
             </button>
           )}
@@ -575,7 +580,7 @@ export default function Evenements() {
 
                     {/* Groupe Adhérents */}
                     {composeData.recipients.filter(r => r.group === 'adherent').length > 0 && (
-                      <div className="border border-slate-100 rounded-2xl overflow-hidden">
+                      <div className="mt-4 border border-slate-100 rounded-2xl overflow-hidden">
                         <button
                           onClick={() => setShowAdherents(v => !v)}
                           className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
@@ -669,6 +674,114 @@ export default function Evenements() {
           </div>
         </div>
       )}
+
+      {/* BOUTON DESTINATAIRES ENREGISTRÉS en bas de page */}
+      <div className="max-w-7xl mx-auto mt-8 mb-4 flex justify-end px-4 md:px-0">
+        <button
+          onClick={() => setCollectivitesModal(true)}
+          className="flex items-center gap-2 px-5 py-3 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[9px] tracking-widest hover:bg-slate-200 transition-colors shadow-sm">
+          <Building2 size={14} /> Destinataires enregistrés
+        </button>
+      </div>
+
+      {/* MODALE GESTION COLLECTIVITÉS */}
+      {collectivitesModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+
+            <div className="sticky top-0 bg-white rounded-t-[2.5rem] p-8 pb-4 border-b border-slate-100 flex items-center justify-between z-10">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-[#1a5f7a]/10 text-[#1a5f7a] rounded-xl"><Building2 size={20} /></div>
+                <div>
+                  <h3 className="text-base font-black uppercase text-slate-900">Destinataires enregistrés</h3>
+                  <p className="text-[10px] text-slate-400">{collectivites.length} collectivité{collectivites.length > 1 ? 's' : ''}</p>
+                </div>
+              </div>
+              <button onClick={() => { setCollectivitesModal(false); setEditingCollectivite(null); setNewCollectivite({ nom: '', email: '' }) }}
+                className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-all"><X size={20} /></button>
+            </div>
+
+            <div className="p-8 space-y-6 flex-1">
+
+              {/* Note info adhérents */}
+              <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-2xl p-4">
+                <Users size={16} className="text-blue-400 mt-0.5 shrink-0" />
+                <p className="text-[10px] text-blue-600 font-medium leading-relaxed">
+                  Les emails des <strong>adhérents</strong> n'ont pas besoin d'être renseignés ici — ils sont automatiquement récupérés depuis la base de données lors de l'envoi.
+                </p>
+              </div>
+
+              {/* Formulaire ajout/édition */}
+              <div id="collectivite-form" className="bg-slate-50 rounded-2xl p-5 space-y-3 scroll-mt-4">
+                <p className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">
+                  {editingCollectivite ? '✏️ Modifier la collectivité' : 'Ajouter une collectivité'}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input
+                    placeholder="Nom (ex: Mairie de Beaupont)"
+                    className="p-3 rounded-xl bg-white text-sm font-bold outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                    value={newCollectivite.nom}
+                    onChange={e => setNewCollectivite(prev => ({ ...prev, nom: e.target.value }))}
+                  />
+                  <input
+                    placeholder="Email"
+                    type="email"
+                    className="p-3 rounded-xl bg-white text-sm font-bold outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                    value={newCollectivite.email}
+                    onChange={e => setNewCollectivite(prev => ({ ...prev, email: e.target.value }))}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={saveCollectivite}
+                    disabled={!newCollectivite.nom || !newCollectivite.email}
+                    className={'flex-1 py-3 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all ' +
+                      (newCollectivite.nom && newCollectivite.email
+                        ? 'bg-[#1a5f7a] text-white hover:bg-[#134a5e]'
+                        : 'bg-slate-100 text-slate-300 cursor-not-allowed')}>
+                    {editingCollectivite ? 'Enregistrer les modifications' : 'Ajouter'}
+                  </button>
+                  {editingCollectivite && (
+                    <button onClick={() => { setEditingCollectivite(null); setNewCollectivite({ nom: '', email: '' }) }}
+                      className="px-4 py-3 rounded-xl font-black uppercase text-[9px] tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200">
+                      Annuler
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Liste */}
+              <div className="divide-y divide-slate-50">
+                {collectivites.map(c => (
+                  <div key={c.id} className="flex items-center gap-3 py-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-800 truncate">{c.label}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{c.email}</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setEditingCollectivite(c.id)
+                        setNewCollectivite({ nom: c.label, email: c.email })
+                        document.getElementById('collectivite-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                      }}
+                      className="p-2 text-slate-300 hover:text-[#1a5f7a] hover:bg-[#1a5f7a]/10 rounded-lg transition-all">
+                      <Edit2 size={14} />
+                    </button>
+                    <button
+                      onClick={() => deleteCollectivite(c.id)}
+                      className="p-2 text-slate-300 hover:text-rose-400 hover:bg-rose-50 rounded-lg transition-all">
+                      <Trash size={14} />
+                    </button>
+                  </div>
+                ))}
+                {collectivites.length === 0 && (
+                  <p className="text-center text-[10px] text-slate-400 py-6">Aucune collectivité enregistrée</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
