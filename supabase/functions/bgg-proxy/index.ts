@@ -1,0 +1,338 @@
+// supabase/functions/bgg-proxy/index.ts
+// ─────────────────────────────────────────────────────────────────
+// Edge Function — recherche de jeux via MyLudo
+// Reconnexion automatique si les cookies expirent
+// ─────────────────────────────────────────────────────────────────
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+const MYLUDO_BASE  = 'https://www.myludo.fr/views'
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://epzfnymfksxnhprcodec.supabase.co'
+
+// ── Session MyLudo (cookie + csrf) ────────────────────────────────
+// Stockée en mémoire le temps de l'exécution, persistée dans app_settings
+let sessionCache: { cookie: string; csrf: string } | null = null
+
+function storageKey() {
+  return Deno.env.get('STORAGE_SERVICE_KEY') || ''
+}
+
+// Lit la session depuis app_settings Supabase
+async function loadSession(): Promise<{ cookie: string; csrf: string } | null> {
+  if (sessionCache) return sessionCache
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/app_settings?key=in.("myludo_cookie","myludo_csrf")&select=key,value`,
+      { headers: { 'Authorization': `Bearer ${storageKey()}`, 'apikey': storageKey() } }
+    )
+    const rows = await res.json()
+    if (!Array.isArray(rows) || rows.length < 2) return null
+    const cookie = rows.find((r: any) => r.key === 'myludo_cookie')?.value || ''
+    const csrf   = rows.find((r: any) => r.key === 'myludo_csrf')?.value   || ''
+    if (!cookie || !csrf) return null
+    sessionCache = { cookie, csrf }
+    return sessionCache
+  } catch {
+    return null
+  }
+}
+
+// Sauvegarde la session dans app_settings Supabase
+async function saveSession(cookie: string, csrf: string) {
+  sessionCache = { cookie, csrf }
+  const upsert = [
+    { key: 'myludo_cookie', value: cookie, updated_at: new Date().toISOString() },
+    { key: 'myludo_csrf',   value: csrf,   updated_at: new Date().toISOString() }
+  ]
+  await fetch(`${SUPABASE_URL}/rest/v1/app_settings`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${storageKey()}`,
+      'apikey': storageKey(),
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=merge-duplicates'
+    },
+    body: JSON.stringify(upsert)
+  })
+}
+
+// Se connecte à MyLudo et retourne cookie + csrf frais
+async function loginToMyludo(): Promise<{ cookie: string; csrf: string }> {
+  const email    = Deno.env.get('MYLUDO_EMAIL')    || ''
+  const password = Deno.env.get('MYLUDO_PASSWORD') || ''
+
+  // 1. Charger la page d'accueil pour obtenir un CSRF initial
+  const homeRes = await fetch('https://www.myludo.fr/', {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' }
+  })
+  const homeCookies = homeRes.headers.get('set-cookie') || ''
+
+  // Extraire le SESSID initial
+  const sessMatch = homeCookies.match(/MYLUDO_SESSID=([^;]+)/)
+  const initSessid = sessMatch ? sessMatch[1] : ''
+
+  // 2. Récupérer le token CSRF via l'endpoint init
+  const initRes = await fetch(`${MYLUDO_BASE}/login/datas.php?type=init`, {
+    headers: {
+      'accept': 'application/json, text/javascript, */*; q=0.01',
+      'referer': 'https://www.myludo.fr/',
+      'x-requested-with': 'XMLHttpRequest',
+      'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+      'cookie': `MYLUDO_SESSID=${initSessid}`
+    }
+  })
+  const initData = await initRes.json()
+  const csrf = initData?.csrf || initData?.token || ''
+  const initSetCookie = initRes.headers.get('set-cookie') || ''
+
+  // Construire le cookie complet depuis les headers
+  const cookieParts: string[] = []
+  if (initSessid) cookieParts.push(`MYLUDO_SESSID=${initSessid}`)
+  const extraMatch = initSetCookie.match(/MYLUDO_[^=]+=([^;]+)/g)
+  if (extraMatch) cookieParts.push(...extraMatch)
+
+  // 3. Se connecter
+  const loginRes = await fetch(`${MYLUDO_BASE}/login/datas.php?type=login`, {
+    method: 'POST',
+    headers: {
+      'accept': 'application/json, text/javascript, */*; q=0.01',
+      'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      'referer': 'https://www.myludo.fr/',
+      'x-requested-with': 'XMLHttpRequest',
+      'x-csrf-token': csrf,
+      'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+      'cookie': cookieParts.join('; ')
+    },
+    body: new URLSearchParams({ email, password, remember: '1' }).toString()
+  })
+
+  const loginSetCookie = loginRes.headers.get('set-cookie') || ''
+  const loginData = await loginRes.json()
+
+  // Extraire tous les cookies de session après login
+  const allCookies: Record<string, string> = {}
+  if (initSessid) allCookies['MYLUDO_SESSID'] = initSessid
+
+  // Parser les set-cookie
+  ;[homeCookies, initSetCookie, loginSetCookie].forEach(cookieStr => {
+    const matches = cookieStr.matchAll(/([A-Z_]+)=([^;,\s]+)/g)
+    for (const m of matches) {
+      if (m[1].startsWith('MYLUDO_')) allCookies[m[1]] = m[2]
+    }
+  })
+
+  // Ajouter les infos de l'utilisateur connecté
+  if (loginData?.uid)  allCookies['MYLUDO_UID'] = String(loginData.uid)
+  if (loginData?.cid)  allCookies['MYLUDO_CID'] = String(loginData.cid)
+  if (loginData?.tok)  allCookies['MYLUDO_TOK'] = loginData.tok
+
+  const finalCookie = Object.entries(allCookies).map(([k, v]) => `${k}=${v}`).join('; ')
+
+  // 4. Récupérer un nouveau CSRF avec la session authentifiée
+  const checkRes = await fetch(`${MYLUDO_BASE}/login/datas.php?type=check`, {
+    headers: {
+      'accept': 'application/json, text/javascript, */*; q=0.01',
+      'referer': 'https://www.myludo.fr/',
+      'x-requested-with': 'XMLHttpRequest',
+      'x-csrf-token': csrf,
+      'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+      'cookie': finalCookie
+    }
+  })
+  const checkData = await checkRes.json()
+  const finalCsrf = checkData?.csrf || csrf
+
+  console.log('MyLudo login success, UID:', loginData?.uid)
+  return { cookie: finalCookie, csrf: finalCsrf }
+}
+
+// Headers MyLudo avec session courante
+function myludoHeaders(session: { cookie: string; csrf: string }): HeadersInit {
+  return {
+    'accept': 'application/json, text/javascript, */*; q=0.01',
+    'accept-language': 'fr-FR,fr;q=0.9',
+    'referer': 'https://www.myludo.fr/',
+    'x-requested-with': 'XMLHttpRequest',
+    'x-csrf-token': session.csrf,
+    'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
+    'cookie': session.cookie,
+  }
+}
+
+// Vérifie si la session est valide
+async function isSessionValid(session: { cookie: string; csrf: string }): Promise<boolean> {
+  try {
+    const res = await fetch(`${MYLUDO_BASE}/login/datas.php?type=check`, {
+      headers: myludoHeaders(session)
+    })
+    const data = await res.json()
+    return data?.success !== false && !!data?.uid
+  } catch {
+    return false
+  }
+}
+
+// Obtient une session valide (depuis la DB, ou reconnexion auto)
+async function getSession(): Promise<{ cookie: string; csrf: string }> {
+  // 1. Essayer la session en mémoire ou en base
+  let session = await loadSession()
+
+  // Si pas de session en base, utiliser les secrets comme fallback initial
+  if (!session) {
+    const cookieFromSecret = Deno.env.get('MYLUDO_COOKIE') || ''
+    const csrfFromSecret   = Deno.env.get('MYLUDO_CSRF')   || ''
+    if (cookieFromSecret && csrfFromSecret) {
+      session = { cookie: cookieFromSecret, csrf: csrfFromSecret }
+    }
+  }
+
+  // 2. Vérifier si la session est valide
+  if (session && await isSessionValid(session)) {
+    return session
+  }
+
+  // 3. Session invalide ou absente → reconnexion automatique
+  console.log('Session expired, logging in to MyLudo...')
+  session = await loginToMyludo()
+  await saveSession(session.cookie, session.csrf)
+  sessionCache = session
+  return session
+}
+
+// ── Recherche ──────────────────────────────────────────────────────
+async function searchGames(query: string) {
+  const session = await getSession()
+  const url = `${MYLUDO_BASE}/search/datas.php?type=search&tab=games&words=${encodeURIComponent(query)}&page=1`
+  const res = await fetch(url, { headers: myludoHeaders(session) })
+  const data = await res.json()
+
+  const games = data?.list || []
+  if (!Array.isArray(games) || games.length === 0) return []
+
+  const q = query.toLowerCase()
+  const scored = games.map((g: any) => {
+    const title = (g.title || '').toLowerCase()
+    const isBase = g.type === 'basegame'
+    const score = title === q ? 0
+                : title.startsWith(q) && isBase ? 1
+                : title.startsWith(q) ? 2
+                : isBase ? 3 : 4
+    return { ...g, _score: score }
+  }).sort((a: any, b: any) => a._score - b._score)
+
+  return scored.slice(0, 5).map((g: any) => ({
+    id:       String(g.id),
+    name:     g.title || '',
+    year:     String(g.edition || ''),
+    code:     g.code || '',
+    language: g.languages ? Object.values(g.languages).join(', ') : ''
+  }))
+}
+
+// ── Détails ────────────────────────────────────────────────────────
+async function getGameDetails(id: string) {
+  const session = await getSession()
+  const headers = myludoHeaders(session)
+
+  const [gameRes, infoRes] = await Promise.all([
+    fetch(`${MYLUDO_BASE}/game/datas.php?type=game&id=${id}`, { headers }),
+    fetch(`${MYLUDO_BASE}/game/datas.php?type=info&id=${id}&page=1&limit=&family=&order=bytitle`, { headers })
+  ])
+
+  const game = await gameRes.json()
+  const info = await infoRes.json()
+  if (!game || !game.id) return null
+
+  const rawImage = game.image?.S300 || game.image?.S160 || game.image?.S80 || ''
+  const image = rawImage ? await uploadImageToSupabase(rawImage) : ''
+
+  const rawDesc = info.description || ''
+  const description = rawDesc.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+
+  const themes = info.themes || {}
+  const categories = [
+    ...Object.values(themes.theme     || {}) as string[],
+    ...Object.values(themes.mecanisme || {}) as string[]
+  ].slice(0, 5)
+
+  return {
+    name:        game.title || '',
+    description,
+    minPlayers:  parseInt(game.players_min) || 1,
+    maxPlayers:  parseInt(game.players_max) || 4,
+    minAge:      parseInt(game.age_min)     || 0,
+    duration:    parseInt(game.duration)    || 0,
+    image,
+    categories,
+    barcode: (info.barcodes && info.barcodes.length > 0) ? String(info.barcodes[0]) : ''
+  }
+}
+
+// ── Upload image sur Supabase ──────────────────────────────────────
+async function uploadImageToSupabase(imageUrl: string): Promise<string> {
+  try {
+    const res = await fetch(imageUrl)
+    if (!res.ok) return imageUrl
+    const buffer = await res.arrayBuffer()
+    const key = storageKey()
+    const fileName = `myludo-${Date.now()}-${Math.random().toString(36).slice(2)}.png`
+    const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/game-images/${fileName}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': res.headers.get('content-type') || 'image/png',
+        'x-upsert': 'false'
+      },
+      body: buffer
+    })
+    if (!uploadRes.ok) {
+      console.error('Image upload failed:', await uploadRes.text())
+      return imageUrl
+    }
+    return `${SUPABASE_URL}/storage/v1/object/public/game-images/${fileName}`
+  } catch (e) {
+    console.error('uploadImageToSupabase error:', e)
+    return imageUrl
+  }
+}
+
+// ── Serveur ────────────────────────────────────────────────────────
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+  try {
+    const url      = new URL(req.url)
+    const endpoint = url.searchParams.get('endpoint')
+    const query    = url.searchParams.get('query') || ''
+    const id       = url.searchParams.get('id')    || ''
+
+    let result: any
+
+    if (endpoint === 'search') {
+      result = await searchGames(query)
+    } else if (endpoint === 'thing') {
+      const numericId = /^\d+$/.test(id) ? id : null
+      if (!numericId) return new Response(JSON.stringify(null), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+      result = await getGameDetails(numericId)
+    } else {
+      return new Response(JSON.stringify({ error: 'Unknown endpoint' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
+    })
+
+  } catch (err) {
+    console.error('Edge function error:', err)
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
+  }
+})

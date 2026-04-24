@@ -1,6 +1,49 @@
 import { useState, useEffect, useRef } from 'react'
-import { Dice5, Plus, Trash2, Edit2, X, Hash, AlertCircle, Search, CheckCircle, ImageIcon, Link as LinkIcon, Tag, ExternalLink, Users, PlayCircle, Clock, FileText, WifiOff, Eye, Loader2, Camera, ScanLine } from 'lucide-react'
+import { Dice5, Plus, Trash2, Edit2, X, Hash, AlertCircle, Search, CheckCircle, ImageIcon, Link as LinkIcon, Tag, ExternalLink, Users, PlayCircle, Clock, FileText, WifiOff, Eye, Loader2, Camera, ScanLine, Sparkles } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
+
+// ─── Helpers MyLudo (via Edge Function Supabase) ──────────────────────────────
+
+const BGG_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bgg-proxy`
+
+async function bggCall(endpoint: string, params: Record<string, string>): Promise<any> {
+  const qs = new URLSearchParams({ endpoint, ...params }).toString()
+  const res = await fetch(`${BGG_FUNCTION_URL}?${qs}`, {
+    headers: { 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY },
+    signal: AbortSignal.timeout(10000)
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json()
+}
+
+async function bggSearch(query: string): Promise<{ id: string; name: string; year: string; language: string }[]> {
+  const data = await bggCall('search', { query })
+  if (!Array.isArray(data)) return []
+  return data.map((item: any) => ({
+    id:       String(item.id),
+    name:     item.name,
+    year:     item.year || '',
+    language: item.language || ''
+  })).filter(i => i.name && i.id)
+}
+
+async function bggGetDetails(id: string) {
+  const item = await bggCall('thing', { id })
+  if (!item) return null
+  return {
+    name:        item.name        || '',
+    description: item.description || '',
+    minPlayers:  item.minPlayers  || 1,
+    maxPlayers:  item.maxPlayers  || 4,
+    minAge:      item.minAge      || 0,
+    duration:    item.duration    || 0,
+    image:       item.image       || '',   // URL Supabase déjà uploadée par la Edge Function
+    categories:  item.categories  || [],
+    barcode:     item.barcode     || ''
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function Jeux() {
   const [jeux, setJeux] = useState([])
@@ -16,11 +59,18 @@ export default function Jeux() {
   const [categoryInput, setCategoryInput] = useState('')
   const [availableCategories, setAvailableCategories] = useState([])
 
+  // ── BGG autofill ──
+  const [bggResults, setBggResults] = useState<{ id: string; name: string; year: string }[]>([])
+  const [bggLoading, setBggLoading] = useState(false)
+  const [bggFilled, setBggFilled] = useState(false)
+  const bggDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const bggDropdownRef = useRef(null)
+
   // Références pour le scanner hybride
   const videoRef = useRef(null)
-  const codeReaderRef = useRef(null)   // instance zxing (fallback iOS)
-  const streamRef = useRef(null)       // flux caméra natif (BarcodeDetector Android)
-  const intervalRef = useRef(null)     // intervalle de détection (BarcodeDetector Android)
+  const codeReaderRef = useRef(null)
+  const streamRef = useRef(null)
+  const intervalRef = useRef(null)
 
   const initialGameState = {
     registration_number: '',
@@ -42,13 +92,73 @@ export default function Jeux() {
 
   useEffect(() => { fetchJeux() }, [])
 
+  // Fermer le dropdown BGG si clic extérieur
+  useEffect(() => {
+    const handler = (e) => {
+      if (bggDropdownRef.current && !bggDropdownRef.current.contains(e.target)) {
+        setBggResults([])
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  // ── Debounce sur le champ Titre → recherche BGG automatique après 1s ──
+  const handleNameChange = (value: string) => {
+    setNewGame(prev => ({ ...prev, name: value }))
+    setBggFilled(false)
+    setBggResults([])
+
+    if (bggDebounceRef.current) clearTimeout(bggDebounceRef.current)
+    if (value.trim().length < 2) return
+
+    bggDebounceRef.current = setTimeout(async () => {
+      setBggLoading(true)
+      try {
+        const results = await bggSearch(value.trim())
+        setBggResults(results)
+      } catch (e) {
+        console.warn('BGG search error:', e)
+      } finally {
+        setBggLoading(false)
+      }
+    }, 1000)
+  }
+
+  // ── Sélection d'un résultat → récupération des détails et remplissage ──
+  const handleBggSelect = async (result: { id: string; name: string; year: string; language: string }) => {
+    setBggResults([])
+    setBggLoading(true)
+    setNewGame(prev => ({ ...prev, name: result.name }))
+    try {
+      const details = await bggGetDetails(result.id)
+      if (!details) return
+
+      setNewGame(prev => ({
+        ...prev,
+        name:        result.name,
+        description: details.description || prev.description,
+        min_players: details.minPlayers  || prev.min_players,
+        max_players: details.maxPlayers  || prev.max_players,
+        min_age:     details.minAge      || prev.min_age,
+        duration:    details.duration    || prev.duration,
+        image_url:   details.image       || prev.image_url,
+        category:    details.categories?.join(', ') || prev.category,
+        barcode:     details.barcode     || prev.barcode
+      }))
+      setBggFilled(true)
+    } catch (e) {
+      console.warn('MyLudo details error:', e)
+    } finally {
+      setBggLoading(false)
+    }
+  }
+
   // --- DÉTECTION NAVIGATEUR ---
   const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent)
   const isSafari = () => /safari/i.test(navigator.userAgent) && !/chrome/i.test(navigator.userAgent)
 
   // --- LOGIQUE DU SCANNER HYBRIDE ---
-  // • Android Chrome  → BarcodeDetector natif (ultra-rapide)
-  // • iOS Safari + autres → @zxing/browser (compatible)
   useEffect(() => {
     if (!showScanner) return
 
@@ -62,7 +172,6 @@ export default function Jeux() {
       if (!videoRef.current) return
 
       if ('BarcodeDetector' in window) {
-        // ── BRANCHE ANDROID : BarcodeDetector natif ──────────────────────
         try {
           const stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: { ideal: 'environment' } }
@@ -83,16 +192,13 @@ export default function Jeux() {
                 stopScanner()
                 setNewGame(prev => ({ ...prev, barcode: barcodes[0].rawValue }))
               }
-            } catch (e) {
-              // Frame vide ou erreur de détection silencieuse
-            }
+            } catch (e) {}
           }, 100)
         } catch (err) {
           console.error('BarcodeDetector – erreur caméra :', err)
         }
 
       } else {
-        // ── BRANCHE iOS / AUTRES : zxing fallback ────────────────────────
         const { BrowserMultiFormatReader } = await import('@zxing/browser')
         const codeReader = new BrowserMultiFormatReader()
         codeReaderRef.current = codeReader
@@ -105,8 +211,6 @@ export default function Jeux() {
               setNewGame(prev => ({ ...prev, barcode: result.getText() }))
               stopScanner()
             }
-            // NotFoundException n'est plus exportée dans les versions récentes de @zxing/browser
-            // On filtre les erreurs de "pas de résultat" par leur nom/message
             if (error && error?.name !== 'NotFoundException') {
               console.warn('zxing – erreur scanner :', error)
             }
@@ -124,12 +228,10 @@ export default function Jeux() {
   }, [showScanner])
 
   const stopScanner = () => {
-    // Nettoyage BarcodeDetector
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null }
-    // Nettoyage zxing
     if (codeReaderRef.current) {
-      try { import('@zxing/browser').then(({ BrowserMultiFormatReader }) => BrowserMultiFormatReader.releaseAllStreams()) } catch (e) { /* silencieux */ }
+      try { import('@zxing/browser').then(({ BrowserMultiFormatReader }) => BrowserMultiFormatReader.releaseAllStreams()) } catch (e) {}
       codeReaderRef.current = null
     }
     setShowScanner(false)
@@ -175,7 +277,11 @@ export default function Jeux() {
   }
 
   const handleOpenForm = () => {
-    if (!showForm) setNewGame({ ...initialGameState, registration_number: getNextRegistrationNumber() })
+    if (!showForm) {
+      setNewGame({ ...initialGameState, registration_number: getNextRegistrationNumber() })
+      setBggResults([])
+      setBggFilled(false)
+    }
     setShowForm(!showForm)
     setEditingId(null)
   }
@@ -211,12 +317,16 @@ export default function Jeux() {
     setNewGame(jeu)
     setEditingId(jeu.id)
     setShowForm(true)
+    setBggFilled(false)
+    setBggResults([])
   }
 
   const cancelEdit = () => {
     setNewGame(initialGameState)
     setEditingId(null)
     setShowForm(false)
+    setBggResults([])
+    setBggFilled(false)
   }
 
   const handleFileUpload = async (e) => {
@@ -226,7 +336,6 @@ export default function Jeux() {
 
     setUploading(true)
     try {
-      // Conversion en WebP — ~30% plus léger qu'un JPEG à qualité équivalente
       const compressedFile = await new Promise((resolve) => {
         const reader = new FileReader()
         reader.readAsDataURL(file)
@@ -387,9 +496,63 @@ export default function Jeux() {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Titre du jeu</label>
-                      <input required className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none border-2 border-transparent focus:border-[#1a5f7a]/10" value={newGame.name} onChange={e => setNewGame({ ...newGame, name: e.target.value })} />
+                    {/* ── TITRE avec autocomplétion MyLudo ── */}
+                    <div className="space-y-2" ref={bggDropdownRef}>
+                      <label className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-2">
+                        Titre du jeu
+                        {bggLoading && <Loader2 size={10} className="animate-spin text-[#1a5f7a]" />}
+                        {bggFilled && !bggLoading && (
+                          <span className="flex items-center gap-1 text-emerald-500">
+                            <Sparkles size={10} /> Rempli via MyLudo
+                          </span>
+                        )}
+                      </label>
+                      <div className="relative">
+                        <input
+                          required
+                          placeholder="Ex : Catan, Ticket to Ride..."
+                          className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none border-2 border-transparent focus:border-[#1a5f7a]/10"
+                          value={newGame.name}
+                          onChange={e => handleNameChange(e.target.value)}
+                        />
+
+                        {/* Dropdown résultats MyLudo */}
+                        {bggResults.length > 0 && (
+                          <div className="absolute z-50 top-full mt-2 w-full bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
+                            <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
+                              <Sparkles size={12} className="text-[#1a5f7a]" />
+                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Résultats MyLudo</span>
+                            </div>
+                            <div className="max-h-60 overflow-y-auto">
+                              {bggResults.map(result => (
+                                <button
+                                  key={result.id}
+                                  type="button"
+                                  onClick={() => handleBggSelect(result)}
+                                  className="w-full text-left px-4 py-3 hover:bg-[#f0f7f9] transition-colors flex items-center justify-between gap-3 border-b border-slate-50 last:border-0"
+                                >
+                                  <span className="font-bold text-sm text-slate-800 truncate">{result.name}</span>
+                                  <div className="shrink-0 flex items-center gap-2">
+                                    {result.language && (
+                                      <span className="text-[9px] font-black text-[#1a5f7a] bg-cyan-50 px-2 py-1 rounded-lg">{result.language}</span>
+                                    )}
+                                    {result.year && (
+                                      <span className="text-[9px] font-black text-slate-300 bg-slate-50 px-2 py-1 rounded-lg">{result.year}</span>
+                                    )}
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Indicateur pendant récupération des détails */}
+                      {bggLoading && bggResults.length === 0 && (
+                        <p className="text-[9px] text-[#1a5f7a] font-black ml-2 flex items-center gap-1">
+                          <Loader2 size={10} className="animate-spin" /> Récupération des informations MyLudo...
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -501,18 +664,9 @@ export default function Jeux() {
                   </td>
                   <td className="p-8">
                     <div className="flex items-center gap-4">
-                      {/* Miniature avec lazy loading et fade-in */}
                       <div className="w-16 h-16 shrink-0 bg-slate-50 rounded-xl border border-slate-100 p-1 flex items-center justify-center overflow-hidden">
                         {jeu.image_url
-                          ? <img
-                              src={jeu.image_url}
-                              loading="lazy"
-                              decoding="async"
-                              onLoad={e => (e.currentTarget.style.opacity = '1')}
-                              style={{ opacity: 0, transition: 'opacity 0.4s' }}
-                              className="max-w-full max-h-full object-contain"
-                              alt=""
-                            />
+                          ? <img src={jeu.image_url} loading="lazy" decoding="async" onLoad={e => (e.currentTarget.style.opacity = '1')} style={{ opacity: 0, transition: 'opacity 0.4s' }} className="max-w-full max-h-full object-contain" alt="" />
                           : <Dice5 size={24} className="text-slate-200" />
                         }
                       </div>
@@ -549,18 +703,9 @@ export default function Jeux() {
           {filteredJeux.map((jeu) => (
             <div key={jeu.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100">
               <div className="flex gap-4 mb-4">
-                {/* Miniature mobile avec lazy loading et fade-in */}
                 <div className="w-20 h-20 shrink-0 bg-slate-50 rounded-2xl flex items-center justify-center p-2">
                   {jeu.image_url
-                    ? <img
-                        src={jeu.image_url}
-                        loading="lazy"
-                        decoding="async"
-                        onLoad={e => (e.currentTarget.style.opacity = '1')}
-                        style={{ opacity: 0, transition: 'opacity 0.4s' }}
-                        className="max-w-full max-h-full object-contain"
-                        alt=""
-                      />
+                    ? <img src={jeu.image_url} loading="lazy" decoding="async" onLoad={e => (e.currentTarget.style.opacity = '1')} style={{ opacity: 0, transition: 'opacity 0.4s' }} className="max-w-full max-h-full object-contain" alt="" />
                     : <Dice5 size={28} className="text-slate-200" />
                   }
                 </div>
@@ -586,31 +731,14 @@ export default function Jeux() {
         <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center p-6 bg-slate-900/95 backdrop-blur-sm">
           <div className="w-full max-w-md bg-white rounded-[2.5rem] p-8 shadow-2xl overflow-hidden relative">
             <h3 className="text-center font-black uppercase text-xs tracking-widest mb-4">Scannez le code-barres</h3>
-
-            {/* Avertissement iPhone hors Safari */}
             {iosWarning && (
               <div className="mb-4 p-4 bg-amber-50 border border-amber-100 rounded-2xl text-amber-700 text-[10px] font-black uppercase text-center">
                 ⚠️ Sur iPhone, le scan nécessite Safari. Veuillez ouvrir cette page dans Safari.
               </div>
             )}
-
-            {/* Élément vidéo — playsInline indispensable sur iOS */}
-            <video
-              ref={videoRef}
-              className="w-full rounded-2xl overflow-hidden shadow-inner bg-slate-900"
-              autoPlay
-              muted
-              playsInline
-            />
-
-            <p className="text-center text-[9px] text-slate-400 italic mt-4 mb-6">
-              Pointez la caméra vers le code-barres du jeu
-            </p>
-
-            <button
-              onClick={stopScanner}
-              className="w-full py-5 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-rose-50 hover:text-rose-500 transition-colors"
-            >
+            <video ref={videoRef} className="w-full rounded-2xl overflow-hidden shadow-inner bg-slate-900" autoPlay muted playsInline />
+            <p className="text-center text-[9px] text-slate-400 italic mt-4 mb-6">Pointez la caméra vers le code-barres du jeu</p>
+            <button onClick={stopScanner} className="w-full py-5 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-rose-50 hover:text-rose-500 transition-colors">
               Annuler le scan
             </button>
           </div>
