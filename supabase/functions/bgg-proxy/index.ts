@@ -246,8 +246,8 @@ async function getGameDetails(id: string) {
   const info = await infoRes.json()
   if (!game || !game.id) return null
 
-  const rawImage = game.image?.S300 || game.image?.S160 || game.image?.S80 || ''
-  const image = rawImage ? await uploadImageToSupabase(rawImage) : ''
+  // On renvoie l'URL MyLudo brute — l'upload Supabase se fait uniquement à la validation
+  const image = game.image?.S300 || game.image?.S160 || game.image?.S80 || ''
 
   const rawDesc = info.description || ''
   const description = rawDesc.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
@@ -319,6 +319,14 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
       result = await getGameDetails(numericId)
+    } else if (endpoint === 'upload-image') {
+      // Appelé uniquement à la validation du formulaire
+      const imageUrl = url.searchParams.get('imageUrl') || ''
+      if (!imageUrl) return new Response(JSON.stringify({ error: 'Missing imageUrl' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+      const supabaseUrl = await uploadImageToSupabase(imageUrl)
+      result = { url: supabaseUrl }
     } else {
       return new Response(JSON.stringify({ error: 'Unknown endpoint' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }

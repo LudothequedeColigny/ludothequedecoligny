@@ -374,6 +374,24 @@ export default function Jeux() {
     if (isNumberDuplicate) return
 
     if (navigator.onLine) {
+      // Si l'image vient de MyLudo, on l'uploade sur Supabase uniquement maintenant
+      // → si l'utilisateur annule avant de valider, rien n'est uploadé
+      let finalImageUrl = newGame.image_url || ''
+      if (finalImageUrl && finalImageUrl.includes('myludo.fr')) {
+        try {
+          const qs = new URLSearchParams({ endpoint: 'upload-image', imageUrl: finalImageUrl }).toString()
+          const res = await fetch(`${BGG_FUNCTION_URL}?${qs}`, {
+            headers: { 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY }
+          })
+          if (res.ok) {
+            const data = await res.json()
+            finalImageUrl = data.url || finalImageUrl
+          }
+        } catch (e) {
+          console.warn('Image upload skipped, keeping MyLudo URL:', e)
+        }
+      }
+
       const gameData = {
         registration_number: newGame.registration_number,
         barcode: newGame.barcode || '',
@@ -385,7 +403,7 @@ export default function Jeux() {
         min_age: parseInt(newGame.min_age as any) || 0,
         duration: parseInt(newGame.duration as any) || 0,
         category: newGame.category || '',
-        image_url: newGame.image_url || '',
+        image_url: finalImageUrl,
         youtube_url: newGame.youtube_url || '',
         is_available: newGame.is_available ?? true
       }
