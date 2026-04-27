@@ -85,7 +85,7 @@ const FloatingIcons = memo(() => {
 
 export default function Home() {
   const navigate = useNavigate()
-  const [events, setEvents] = useState([])
+  const [events, setEvents] = useState({ upcoming: [], past: [] })
   const [gameCount, setGameCount] = useState(0)
   const [playerCount, setPlayerCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -184,13 +184,21 @@ export default function Home() {
           setPlayerCount(total)
         }
 
+        // Supprimer les événements de plus de 3 mois
+        const threeMonthsAgo = new Date()
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
+        await supabase.from('events').delete().lt('date', threeMonthsAgo.toISOString())
+
+        // Charger tous les événements restants
         const { data: eventData } = await supabase
           .from('events')
           .select('*')
           .order('date', { ascending: true })
-          .limit(4)
-        
-        setEvents(eventData || [])
+
+        const now = new Date()
+        const upcoming = (eventData || []).filter(e => new Date(e.date) >= now)
+        const past = (eventData || []).filter(e => new Date(e.date) < now)
+        setEvents({ upcoming, past })
       } catch (error) {
         console.error("Erreur Home:", error.message)
       } finally {
@@ -298,35 +306,76 @@ export default function Home() {
 
           {loading ? (
             <div className="flex justify-center py-20"><Loader2 className="animate-spin text-[#1a5f7a]" size={40} /></div>
-          ) : events.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {events.map((event) => (
-                <div key={event.id} onClick={() => setSelectedEvent(event)} className="group bg-[#fcfcfc] rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all flex flex-col sm:flex-row h-full cursor-pointer">
-                  <div className="sm:w-48 h-48 sm:h-auto bg-slate-100 flex-shrink-0">
-                    {event.image_url ? (
-                      <img src={event.image_url} alt={event.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon size={40} /></div>
-                    )}
-                  </div>
-                  <div className="p-8 flex flex-col justify-center">
-                    <p className="text-[#e38154] font-bold text-xs uppercase tracking-widest mb-2 flex items-center gap-2">
-                       <Calendar size={14} /> {new Date(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
-                       <span className="text-slate-300 mx-1">|</span>
-                       <Clock size={12} /> {formatEventDuration(event.date, event.end_time)}
-                    </p>
-                    <h4 className="text-2xl font-bold text-slate-900 mb-2">{event.title}</h4>
-                    <p className="text-slate-500 text-sm line-clamp-2 italic">{event.description}</p>
-                    <div className="mt-4 flex items-center gap-2 text-[#1a5f7a] font-black text-[10px] uppercase tracking-widest group-hover:gap-4 transition-all">
-                      Voir les détails <ArrowRight size={14} />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
+          ) : events.upcoming.length === 0 && events.past.length === 0 ? (
             <div className="text-center py-10 bg-slate-50 rounded-3xl border border-dashed border-slate-200">
               <p className="text-slate-400 italic">Consultez régulièrement notre agenda.</p>
+            </div>
+          ) : (
+            <div className="space-y-8">
+
+              {/* Événements à venir */}
+              {events.upcoming.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {events.upcoming.map((event) => (
+                    <div key={event.id} onClick={() => setSelectedEvent(event)}
+                      className="group bg-[#fcfcfc] rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all flex flex-col sm:flex-row h-full cursor-pointer">
+                      <div className="sm:w-48 h-48 sm:h-auto bg-slate-100 flex-shrink-0">
+                        {event.image_url ? (
+                          <img src={event.image_url} alt={event.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon size={40} /></div>
+                        )}
+                      </div>
+                      <div className="p-8 flex flex-col justify-center">
+                        <p className="text-[#e38154] font-bold text-xs uppercase tracking-widest mb-2 flex items-center gap-2">
+                          <Calendar size={14} /> {new Date(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
+                          <span className="text-slate-300 mx-1">|</span>
+                          <Clock size={12} /> {formatEventDuration(event.date, event.end_time)}
+                        </p>
+                        <h4 className="text-2xl font-bold text-slate-900 mb-2">{event.title}</h4>
+                        <p className="text-slate-500 text-sm line-clamp-2 italic">{event.description}</p>
+                        <div className="mt-4 flex items-center gap-2 text-[#1a5f7a] font-black text-[10px] uppercase tracking-widest group-hover:gap-4 transition-all">
+                          Voir les détails <ArrowRight size={14} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Événements passés — grisés et estompés */}
+              {events.past.length > 0 && (
+                <div className="relative">
+                  <div className="flex items-center gap-3 mb-4 mt-4">
+                    <div className="h-px flex-1 bg-slate-100"></div>
+                    <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Événements passés</span>
+                    <div className="h-px flex-1 bg-slate-100"></div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 opacity-50 grayscale">
+                    {events.past.map((event) => (
+                      <div key={event.id}
+                        className="bg-[#fcfcfc] rounded-[2.5rem] overflow-hidden border border-slate-100 flex flex-col sm:flex-row h-full">
+                        <div className="sm:w-48 h-48 sm:h-auto bg-slate-100 flex-shrink-0">
+                          {event.image_url ? (
+                            <img src={event.image_url} alt={event.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon size={40} /></div>
+                          )}
+                        </div>
+                        <div className="p-8 flex flex-col justify-center">
+                          <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-2 flex items-center gap-2">
+                            <Calendar size={14} /> {new Date(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
+                            <span className="text-slate-200 mx-1">|</span>
+                            <Clock size={12} /> {formatEventDuration(event.date, event.end_time)}
+                          </p>
+                          <h4 className="text-xl font-bold text-slate-400 mb-2">{event.title}</h4>
+                          <p className="text-slate-300 text-sm line-clamp-2 italic">{event.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

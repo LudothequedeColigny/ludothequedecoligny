@@ -18,7 +18,8 @@ export default function Evenements() {
   const [deleteModal, setDeleteModal] = useState({ show: false, id: null, title: '' })
   // Modale de composition email
   const [composeModal, setComposeModal] = useState({ show: false, event: null })
-  const [composeData, setComposeData] = useState({ subject: '', body: '', recipients: [] })
+  const [composeData, setComposeData] = useState({ subject: '', bodyCollectivites: '', bodyAdherents: '', recipients: [] })
+  const [activeMailTab, setActiveMailTab] = useState('collectivites') // 'collectivites' | 'adherents'
   const [loadingRecipients, setLoadingRecipients] = useState(false)
   const [sendingMail, setSendingMail] = useState(false)
   const [successModal, setSuccessModal] = useState({ show: false, count: 0 })
@@ -163,12 +164,57 @@ export default function Evenements() {
     fetchCollectivites()
   }
 
+  const buildBodies = (eventsBlocks) => {
+    const blocksHtml = eventsBlocks.map(b => `
+      <div style="background:white;border-left:4px solid #e38154;padding:16px;margin:20px 0;border-radius:0 8px 8px 0;">
+        <h2 style="color:#1a5f7a;margin:0 0 8px 0;font-size:17px;">${b.titre}</h2>
+        <p style="margin:4px 0;">📅 Le <strong>${b.date}</strong> — ${b.horaire}</p>
+        ${b.lieu ? `<p style="margin:4px 0;">📍 ${b.lieu}</p>` : ''}
+        ${b.description ? `<p style="margin:10px 0 0 0;color:#555;font-size:14px;">${b.description}</p>` : ''}
+      </div>
+    `).join('')
+    const n = eventsBlocks.length
+    const bodyCollectivites = `Bonjour,
+
+L'association PACTES à Coligny souhaiterait communiquer sur ${n > 1 ? 'les événements organisés suivants' : "l'événement organisé suivant"} :
+
+[BLOCS_EVENEMENTS]
+
+Pourriez-vous intégrer ${n > 1 ? 'ces événements' : 'cet événement'} dans vos communications afin de les faire connaître à vos concitoyens ?
+
+Vous en souhaitant bonne réception.
+
+Bonne journée.
+
+Victor Guyon
+06 71 41 56 96`
+
+    const bodyAdherents = `Bonjour,
+
+Nous avons le plaisir de vous inviter à ${n > 1 ? 'nos prochains événements' : 'notre prochain événement'} :
+
+[BLOCS_EVENEMENTS]
+
+${n > 1 ? 'Ces événements sont' : "Cet événement est"} ouvert${n > 1 ? 's' : ''} à tous, n'hésitez pas à en parler autour de vous !
+
+Nous espérons vous y retrouver nombreux.
+
+À très bientôt,
+
+L'équipe de la Ludothèque de Coligny
+06 71 41 56 96`
+
+    return { bodyCollectivites, bodyAdherents, blocksHtml }
+  }
+
   const openComposeModal = async (event) => {
     setLoadingRecipients(true)
     setComposeModal({ show: true, event })
     setSelectedEvents([makeEventBlock(event)])
     setShowEventPicker(false)
+    setActiveMailTab('collectivites')
     const subject = `Communication Événement - Association PACTES - ${event.title}`
+    const { bodyCollectivites, bodyAdherents } = buildBodies([makeEventBlock(event)])
     try {
       const { data: members } = await supabase.from('members').select('email, first_name, last_name')
       const memberRecipients = members
@@ -176,9 +222,9 @@ export default function Evenements() {
             .map(m => ({ email: m.email, label: `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email, group: 'adherent', checked: true }))
         : []
       const collectiviteRecipients = collectivites.map(c => ({ ...c, group: 'mairie', checked: true }))
-      setComposeData({ subject, recipients: [...collectiviteRecipients, ...memberRecipients] })
+      setComposeData({ subject, bodyCollectivites, bodyAdherents, recipients: [...collectiviteRecipients, ...memberRecipients] })
     } catch (e) {
-      setComposeData({ subject, recipients: collectivites.map(c => ({ ...c, group: 'mairie', checked: true })) })
+      setComposeData({ subject, bodyCollectivites, bodyAdherents, recipients: collectivites.map(c => ({ ...c, group: 'mairie', checked: true })) })
     } finally {
       setLoadingRecipients(false)
     }
@@ -212,10 +258,15 @@ export default function Evenements() {
 
   const addEventToMail = (event) => {
     if (selectedEvents.find(b => b.event.id === event.id)) return
-    setSelectedEvents(prev => [...prev, makeEventBlock(event)])
-    if (selectedEvents.length >= 1) {
-      setComposeData(prev => ({ ...prev, subject: 'Communication Événements - Association PACTES' }))
-    }
+    const newBlocks = [...selectedEvents, makeEventBlock(event)]
+    setSelectedEvents(newBlocks)
+    const { bodyCollectivites, bodyAdherents } = buildBodies(newBlocks)
+    setComposeData(prev => ({
+      ...prev,
+      subject: newBlocks.length > 1 ? 'Communication Événements - Association PACTES' : prev.subject,
+      bodyCollectivites,
+      bodyAdherents,
+    }))
     setShowEventPicker(false)
   }
 
@@ -227,47 +278,39 @@ export default function Evenements() {
     setSelectedEvents(prev => prev.map(b => b.event.id === eventId ? { ...b, [field]: value } : b))
   }
 
+  const bodyToHtml = (bodyText, blocksHtml) => {
+    const withBlocks = bodyText.replace('[BLOCS_EVENEMENTS]', blocksHtml)
+    const htmlBody = withBlocks.split('\n')
+      .map(line => line.trim() === '' ? '<br/>' : `<p style="margin:0 0 6px 0;">${line}</p>`)
+      .join('')
+    return `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
+      <div style="background:#1a5f7a;padding:24px;border-radius:12px 12px 0 0;">
+        <h1 style="color:white;margin:0;font-size:18px;">Association PACTES – Ludothèque de Coligny</h1>
+      </div>
+      <div style="background:#fdfaf6;padding:32px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;">
+        ${htmlBody}
+        <p style="margin-top:24px;font-size:12px;">
+          <a href="https://www.ludothequedecoligny.fr" style="color:#1a5f7a;">www.ludothequedecoligny.fr</a>
+        </p>
+      </div>
+    </div>`
+  }
+
   const handleSendMail = async () => {
-    const activeRecipients = composeData.recipients.filter(r => r.checked).map(r => r.email)
+    const activeRecipients = composeData.recipients.filter(r => r.checked)
     if (activeRecipients.length === 0) { alert('Aucun destinataire sélectionné.'); return }
     if (selectedEvents.length === 0) { alert('Aucun événement sélectionné.'); return }
     setSendingMail(true)
     try {
-      const blocksHtml = selectedEvents.map(b => `
-        <div style="background:white;border-left:4px solid #e38154;padding:16px;margin:20px 0;border-radius:0 8px 8px 0;">
-          <h2 style="color:#1a5f7a;margin:0 0 8px 0;font-size:17px;">${b.titre}</h2>
-          <p style="margin:4px 0;">📅 Le <strong>${b.date}</strong> — ${b.horaire}</p>
-          ${b.lieu ? `<p style="margin:4px 0;">📍 ${b.lieu}</p>` : ''}
-          ${b.description ? `<p style="margin:10px 0 0 0;color:#555;font-size:14px;">${b.description}</p>` : ''}
-        </div>
-      `).join('')
-
-      const intro = selectedEvents.length > 1
-        ? "L'association PACTES à Coligny souhaiterait communiquer sur les événements organisés suivants :"
-        : "L'association PACTES à Coligny souhaiterait communiquer sur l'événement organisé suivant :"
-
-      const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
-        <div style="background:#1a5f7a;padding:24px;border-radius:12px 12px 0 0;">
-          <h1 style="color:white;margin:0;font-size:18px;">Association PACTES – Ludothèque de Coligny</h1>
-        </div>
-        <div style="background:#fdfaf6;padding:32px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;">
-          <p>Bonjour,</p>
-          <p>${intro}</p>
-          ${blocksHtml}
-          <p>Pourriez-vous intégrer ${selectedEvents.length > 1 ? 'ces événements' : 'cet événement'} dans vos communications afin de les faire connaître à vos concitoyens ?</p>
-          <p>Vous en souhaitant bonne réception.</p><p>Bonne journée.</p>
-          <p style="margin-top:24px;"><strong>Victor Guyon</strong><br/>06 71 41 56 96<br/>
-            <a href="https://www.ludothequedecoligny.fr" style="color:#1a5f7a;">www.ludothequedecoligny.fr</a>
-          </p>
-        </div>
-      </div>`
-
+      const { blocksHtml } = buildBodies(selectedEvents)
+      const htmlCollectivites = bodyToHtml(composeData.bodyCollectivites, blocksHtml)
+      const htmlAdherents = bodyToHtml(composeData.bodyAdherents, blocksHtml)
       const image_urls = selectedEvents.map(b => b.event.image_url).filter(Boolean)
 
-      // Envoi individuel : chaque destinataire reçoit son propre email
-      // sans voir les adresses des autres (équivalent BCC)
-      for (const recipient of activeRecipients) {
-        await sendEmail({ to: [recipient], subject: composeData.subject, html, image_urls })
+      // Envoi individuel par groupe avec le bon corps de message
+      for (const r of activeRecipients) {
+        const html = r.group === 'mairie' ? htmlCollectivites : htmlAdherents
+        await sendEmail({ to: [r.email], subject: composeData.subject, html, image_urls })
       }
 
       for (const b of selectedEvents) {
@@ -431,6 +474,66 @@ export default function Evenements() {
                   value={composeData.subject}
                   onChange={e => setComposeData(prev => ({ ...prev, subject: e.target.value }))}
                 />
+              </div>
+
+              {/* Corps — onglets Collectivités / Adhérents */}
+              <div className="space-y-3">
+                <div className="flex bg-slate-100 rounded-2xl p-1 gap-1 w-fit">
+                  <button
+                    onClick={() => setActiveMailTab('collectivites')}
+                    className={'px-4 py-2.5 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all flex items-center gap-2 ' +
+                      (activeMailTab === 'collectivites' ? 'bg-white text-[#1a5f7a] shadow-sm' : 'text-slate-400 hover:text-slate-600')}>
+                    <Building2 size={11} />
+                    Collectivités
+                    <span className="text-[8px] font-bold opacity-60">
+                      ({composeData.recipients.filter(r => r.group === 'mairie' && r.checked).length})
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setActiveMailTab('adherents')}
+                    className={'px-4 py-2.5 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all flex items-center gap-2 ' +
+                      (activeMailTab === 'adherents' ? 'bg-white text-[#1a5f7a] shadow-sm' : 'text-slate-400 hover:text-slate-600')}>
+                    <Users size={11} />
+                    Adhérents
+                    <span className="text-[8px] font-bold opacity-60">
+                      ({composeData.recipients.filter(r => r.group === 'adherent' && r.checked).length})
+                    </span>
+                  </button>
+                </div>
+
+                {activeMailTab === 'collectivites' && (
+                  <div className="space-y-1">
+                    <p className="text-[9px] text-slate-400 font-medium ml-1">
+                      Message envoyé aux mairies & collectivités — invite à communiquer sur l'événement
+                    </p>
+                    <textarea
+                      rows={8}
+                      className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a] resize-y"
+                      value={composeData.bodyCollectivites}
+                      onChange={e => setComposeData(prev => ({ ...prev, bodyCollectivites: e.target.value }))}
+                    />
+                    <p className="text-[8px] text-slate-300 ml-1 italic">
+                      [BLOCS_EVENEMENTS] sera remplacé par les détails des événements sélectionnés
+                    </p>
+                  </div>
+                )}
+
+                {activeMailTab === 'adherents' && (
+                  <div className="space-y-1">
+                    <p className="text-[9px] text-slate-400 font-medium ml-1">
+                      Message envoyé aux adhérents — invite à venir participer
+                    </p>
+                    <textarea
+                      rows={8}
+                      className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a] resize-y"
+                      value={composeData.bodyAdherents}
+                      onChange={e => setComposeData(prev => ({ ...prev, bodyAdherents: e.target.value }))}
+                    />
+                    <p className="text-[8px] text-slate-300 ml-1 italic">
+                      [BLOCS_EVENEMENTS] sera remplacé par les détails des événements sélectionnés
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Événements — blocs éditables */}

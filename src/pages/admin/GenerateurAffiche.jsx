@@ -2,27 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Download, Eye, Palette, ArrowRight, Loader2 } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
 
-// ─── Config des 3 types d'affiches ────────────────────────────────────────────
-const AFFICHE_CONFIGS = {
-  famille: {
-    label: 'Après-midi jeux en famille',
-    url: 'https://epzfnymfksxnhprcodec.supabase.co/storage/v1/object/sign/event-font/FOND%20-%20jeux%20en%20famille.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV81NjJhMGFhMS1lNDQ0LTQwMjUtOTBmNC01Y2FiZDdlMDBkYWIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJldmVudC1mb250L0ZPTkQgLSBqZXV4IGVuIGZhbWlsbGUucG5nIiwiaWF0IjoxNzc2OTQ4NDc1LCJleHAiOjIwOTIzMDg0NzV9.9p7hiIsH1ErgB0aBTnXKUuf873fQvIUY-VHYQ2ZU7d0',
-    cx: 218.5, cy: 841.2, fontSize: 38.7,
-    color: '#000000', fontFamily: 'PersonaAura', layout: 'famille',
-  },
-  soirees: {
-    label: 'Soirées jeux',
-    url: 'https://epzfnymfksxnhprcodec.supabase.co/storage/v1/object/sign/event-font/FOND%20-%20Soirees%20jeux%20de%20societe.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV81NjJhMGFhMS1lNDQ0LTQwMjUtOTBmNC01Y2FiZDdlMDBkYWIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJldmVudC1mb250L0ZPTkQgLSBTb2lyZWVzIGpldXggZGUgc29jaWV0ZS5wbmciLCJpYXQiOjE3NzY5NDg1MjcsImV4cCI6MjA5MjMwODUyN30.JP11RxQTXUcjn9lI86RHVBuYZ0jUUkXbDJA258XwgU8',
-    cx: 396.9, cy: 57.1, fontSize: 32.0,
-    color: '#ffffff', fontFamily: 'Roboto', layout: 'soirees',
-  },
-  permanences: {
-    label: 'Permanences de la ludothèque',
-    url: 'https://epzfnymfksxnhprcodec.supabase.co/storage/v1/object/sign/event-font/FOND%20-%20Permanences%20ludotheque.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV81NjJhMGFhMS1lNDQ0LTQwMjUtOTBmNC01Y2FiZDdlMDBkYWIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJldmVudC1mb250L0ZPTkQgLSBQZXJtYW5lbmNlcyBsdWRvdGhlcXVlLnBuZyIsImlhdCI6MTc3Njk0ODUwMCwiZXhwIjoyMDkyMzA4NTAwfQ.mD0JJ8Zn3RNqPvIlVEcXrMidLDF5CWOVwLeXbfi-re0',
-    cx: 651.8, cy: 811.4, fontSize: 38.7,
-    color: '#000000', fontFamily: 'PersonaAura', layout: 'famille',
-  },
-}
+// Config chargée depuis Supabase (affiche_templates)
 
 const A4_W = 794
 const A4_H = 1123
@@ -57,25 +37,51 @@ function formatHeure(dateStr) {
   return d.getHours() + 'h' + (m > 0 ? String(m).padStart(2, '0') : '')
 }
 
-function wrapText(ctx, text, x, y, maxWidth, lineH) {
+function wrapLineInZone(ctx, text, maxWidth) {
   const words = text.split(' ')
+  const wrapped = []
   let line = ''
-  let currentY = y
-  for (let i = 0; i < words.length; i++) {
-    const test = line + words[i] + ' '
-    if (ctx.measureText(test).width > maxWidth && i > 0) {
-      ctx.fillText(line.trim(), x, currentY)
-      line = words[i] + ' '
-      currentY += lineH
+  for (const word of words) {
+    const test = line ? line + ' ' + word : word
+    if (ctx.measureText(test).width > maxWidth && line) {
+      wrapped.push(line)
+      line = word
     } else {
       line = test
     }
   }
-  if (line.trim()) ctx.fillText(line.trim(), x, currentY)
+  if (line) wrapped.push(line)
+  return wrapped
+}
+
+function drawTextInZone(ctx, lines, zx, zy, zw, zh, fontSize, fontFamily, color, style = 'normal') {
+  ctx.fillStyle = color
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  const cx = zx + zw / 2
+  const lh = fontSize * 1.3
+
+  // Expand each input line into wrapped sub-lines
+  const allLines = []
+  lines.forEach((line, i) => {
+    const fs = i === 0 && style === 'big-first' ? fontSize * 1.05 : fontSize
+    ctx.font = fs + 'px ' + fontFamily + ', sans-serif'
+    const wrapped = wrapLineInZone(ctx, line, zw - 10)
+    wrapped.forEach(wl => allLines.push({ text: wl, fs }))
+  })
+
+  const totalH = (allLines.length - 1) * lh
+  const startY = zy + zh / 2 - totalH / 2
+
+  allLines.forEach(({ text, fs }, i) => {
+    ctx.font = fs + 'px ' + fontFamily + ', sans-serif'
+    ctx.fillText(text, cx, startY + i * lh)
+  })
 }
 
 export default function GenerateurAffiche({ events = [], onCreateEvent }) {
-  const [selectedType, setSelectedType] = useState('famille')
+  const [templates, setTemplates] = useState([])
+  const [selectedId, setSelectedId] = useState(null)
   const [selectedDate, setSelectedDate] = useState('')
   const [selectedEndTime, setSelectedEndTime] = useState('')
   const [selectedLocation, setSelectedLocation] = useState('la salle des fêtes de Coligny')
@@ -88,7 +94,41 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
   const exportCanvasRef = useRef(null)
   const bgImageRef = useRef(null)
 
-  const config = AFFICHE_CONFIGS[selectedType]
+  const config = templates.find(t => t.id === selectedId) || null
+
+  // ── Charger les templates depuis Supabase ──
+  useEffect(() => {
+    supabase.from('affiche_templates').select('*').order('created_at')
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          // Normaliser les champs pour correspondre à l'interface existante
+          const normalized = data.map(t => ({
+            id: t.id,
+            label: t.label,
+            url: t.url,
+            // Zone 1 : Date
+            x1: t.x1 != null ? parseFloat(t.x1) : null,
+            y1: t.y1 != null ? parseFloat(t.y1) : null,
+            w1: t.w1 != null ? parseFloat(t.w1) : null,
+            h1: t.h1 != null ? parseFloat(t.h1) : null,
+            fontSize: parseFloat(t.font_size),
+            color: t.color,
+            fontFamily: t.font_family,
+            layout: t.layout,
+            // Zone 2 : Lieu (optionnel)
+            x2: t.x2 != null ? parseFloat(t.x2) : null,
+            y2: t.y2 != null ? parseFloat(t.y2) : null,
+            w2: t.w2 != null ? parseFloat(t.w2) : null,
+            h2: t.h2 != null ? parseFloat(t.h2) : null,
+            fontSize2: t.font_size2 ? parseFloat(t.font_size2) : 28,
+            color2: t.color2 || '#000000',
+            fontFamily2: t.font_family2 || 'PersonaAura',
+          }))
+          setTemplates(normalized)
+          setSelectedId(normalized[0].id)
+        }
+      })
+  }, [])
 
   // ── Charger les polices ──
   useEffect(() => {
@@ -120,19 +160,20 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
     load()
   }, [])
 
-  // ── Charger le fond quand le type change ──
+  // ── Charger le fond quand le template change ──
   useEffect(() => {
+    if (!config) return
     setImgLoaded(false)
     const img = new window.Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => { bgImageRef.current = img; setImgLoaded(true) }
     img.onerror = () => { bgImageRef.current = null; setImgLoaded(true) }
     img.src = config.url
-  }, [selectedType, config.url])
+  }, [selectedId, config])
 
   // ── Dessin sur canvas ──
   const draw = useCallback((canvas) => {
-    if (!canvas || !imgLoaded) return
+    if (!canvas || !imgLoaded || !config) return
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, A4_W, A4_H)
     if (bgImageRef.current) {
@@ -142,42 +183,35 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
     }
     if (!selectedDate) return
 
-    const { cx, cy, fontSize, fontFamily, color, layout } = config
-    ctx.fillStyle = color
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
+    const { x1, y1, w1, h1, fontSize, fontFamily, color, layout,
+            x2, y2, w2, h2, fontSize2, color2, fontFamily2 } = config
 
-    if (layout === 'famille') {
-      const { jour, date, heure } = formatShort(selectedDate)
-      const fin = selectedEndTime ? selectedEndTime.replace(':', 'h') : ''
-      const heureStr = fin ? heure + ' à ' + fin : heure
-      const lines = [jour, date, heureStr]
-      const lh = fontSize * 1.3
-      const totalH = (lines.length - 1) * lh
-      const startY = cy - totalH / 2
-      lines.forEach((line, i) => {
-        ctx.font = (i === 0 ? fontSize * 1.05 : fontSize) + 'px ' + fontFamily + ', serif'
-        ctx.fillText(line, cx, startY + i * lh)
-      })
-    } else {
-      const dateLong = formatLong(selectedDate)
-      const hDeb = formatHeure(selectedDate)
-      const fin = selectedEndTime ? selectedEndTime.replace(':', 'h') : ''
-      const prefixe = fin ? 'de ' + hDeb + ' à ' + fin : 'à partir de ' + hDeb
-      const loc = selectedLocation ? ' à ' + selectedLocation : ''
-      const ligne2 = prefixe + loc
-      const lh = fontSize * 1.3
-      ctx.font = fontSize + 'px ' + fontFamily + ', sans-serif'
-      ctx.fillText(dateLong, cx, cy - lh / 2)
-      ctx.font = (fontSize * 0.80) + 'px ' + fontFamily + ', sans-serif'
-      wrapText(ctx, ligne2, cx, cy + lh / 2, A4_W - 80, fontSize * 0.80 * 1.2)
+    // ── Zone 1 : Date ──
+    if (x1 != null && w1 > 0) {
+      if (layout === 'famille') {
+        const { jour, date, heure } = formatShort(selectedDate)
+        const fin = selectedEndTime ? selectedEndTime.replace(':', 'h') : ''
+        const heureStr = fin ? heure + ' à ' + fin : heure
+        drawTextInZone(ctx, [jour, date, heureStr], x1, y1, w1, h1, fontSize, fontFamily, color, 'big-first')
+      } else {
+        const dateLong = formatLong(selectedDate)
+        const hDeb = formatHeure(selectedDate)
+        const fin = selectedEndTime ? selectedEndTime.replace(':', 'h') : ''
+        const prefixe = fin ? 'de ' + hDeb + ' à ' + fin : 'à partir de ' + hDeb
+        drawTextInZone(ctx, [dateLong, prefixe], x1, y1, w1, h1, fontSize, fontFamily, color)
+      }
+    }
+
+    // ── Zone 2 : Lieu ──
+    if (x2 != null && w2 > 0 && selectedLocation) {
+      drawTextInZone(ctx, [selectedLocation], x2, y2, w2, h2, fontSize2, fontFamily2, color2)
     }
   }, [selectedDate, selectedEndTime, selectedLocation, config, imgLoaded, fontLoaded])
 
   useEffect(() => { draw(canvasRef.current) }, [draw])
 
   // Reset le bouton "créer l'événement" si les paramètres changent
-  useEffect(() => { setReadyToCreate(false) }, [selectedType, selectedDate, selectedEndTime, selectedLocation])
+  useEffect(() => { setReadyToCreate(false) }, [selectedId, selectedDate, selectedEndTime, selectedLocation])
 
   async function handleDownload() {
     setGenerating(true)
@@ -188,7 +222,7 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
       draw(exportCanvas)
       await new Promise(r => setTimeout(r, 80))
       const link = document.createElement('a')
-      link.download = 'affiche-' + selectedType + '-' + (selectedDate?.slice(0, 10) || 'date') + '.png'
+      link.download = 'affiche-' + (config?.label?.toLowerCase().replace(/\s+/g, '-') || 'affiche') + '-' + (selectedDate?.slice(0, 10) || 'date') + '.png'
       link.href = exportCanvas.toDataURL('image/png', 1.0)
       link.click()
       setReadyToCreate(true)
@@ -208,7 +242,7 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
       onCreateEvent && onCreateEvent({
         date: selectedDate,
         end_time: selectedEndTime,
-        title: AFFICHE_CONFIGS[selectedType].label,
+        title: config?.label || '',
         location: selectedType === 'soirees' ? selectedLocation : '',
         image_url: dataUrl,
       })
@@ -217,7 +251,7 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
       onCreateEvent && onCreateEvent({
         date: selectedDate,
         end_time: selectedEndTime,
-        title: AFFICHE_CONFIGS[selectedType].label,
+        title: config?.label || '',
         location: selectedType === 'soirees' ? selectedLocation : '',
         image_url: '',
       })
@@ -246,33 +280,36 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
 
           <div className="space-y-2">
             <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest ml-1">Type d'affiche</label>
-            <div className="grid grid-cols-3 gap-3">
-              {Object.entries(AFFICHE_CONFIGS).map(([key, cfg]) => (
-                <button key={key} onClick={() => setSelectedType(key)}
-                  className={'relative flex flex-col rounded-2xl overflow-hidden border-2 transition-all shadow-sm aspect-[3/4] ' +
-                    (selectedType === key
-                      ? 'border-[#1a5f7a] shadow-lg scale-[1.03]'
-                      : 'border-transparent hover:border-slate-200')}>
-                  {/* Fond miniature */}
-                  <img src={cfg.url} alt={cfg.label}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    crossOrigin="anonymous" />
-                  {/* Overlay + titre */}
-                  <div className={'absolute inset-0 flex items-end p-2 ' +
-                    (selectedType === key ? 'bg-[#1a5f7a]/70' : 'bg-black/40 hover:bg-black/30')}>
-                    <span className="text-white text-[10px] font-black uppercase leading-tight text-left drop-shadow-md">
-                      {cfg.label}
-                    </span>
-                  </div>
-                  {/* Coche sélection */}
-                  {selectedType === key && (
-                    <div className="absolute top-2 right-2 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow">
-                      <div className="w-3 h-3 bg-[#1a5f7a] rounded-full" />
+            {templates.length === 0 ? (
+              <div className="flex items-center gap-2 text-slate-300 text-xs py-4">
+                <Loader2 size={14} className="animate-spin" /> Chargement des modèles...
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-3">
+                {templates.map((tmpl) => (
+                  <button key={tmpl.id} onClick={() => setSelectedId(tmpl.id)}
+                    className={'relative flex flex-col rounded-2xl overflow-hidden border-2 transition-all shadow-sm aspect-[3/4] ' +
+                      (selectedId === tmpl.id
+                        ? 'border-[#1a5f7a] shadow-lg scale-[1.03]'
+                        : 'border-transparent hover:border-slate-200')}>
+                    <img src={tmpl.url} alt={tmpl.label}
+                      className="absolute inset-0 w-full h-full object-cover"
+                      crossOrigin="anonymous" />
+                    <div className={'absolute inset-0 flex items-end p-2 ' +
+                      (selectedId === tmpl.id ? 'bg-[#1a5f7a]/70' : 'bg-black/40 hover:bg-black/30')}>
+                      <span className="text-white text-[10px] font-black uppercase leading-tight text-left drop-shadow-md">
+                        {tmpl.label}
+                      </span>
                     </div>
-                  )}
-                </button>
-              ))}
-            </div>
+                    {selectedId === tmpl.id && (
+                      <div className="absolute top-2 right-2 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow">
+                        <div className="w-3 h-3 bg-[#1a5f7a] rounded-full" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
 
@@ -301,21 +338,17 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
               )}
             </div>
             <p className="text-[9px] text-slate-400 ml-1 font-medium">
-              {selectedType === 'soirees'
-                ? (selectedEndTime ? 'Affiche : "de Xh à Yh ..."' : 'Affiche : "à partir de Xh ..."')
-                : (selectedEndTime ? 'Affiche : "Xh à Yh"' : 'Affiche : heure seule')}
+              {selectedEndTime ? 'Affiche : heure de début à heure de fin' : 'Affiche : heure seule'}
             </p>
           </div>
 
-          {selectedType === 'soirees' && (
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest ml-1">Lieu (affiché sur l'affiche)</label>
+          <div className="space-y-2">
+              <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest ml-1">Lieu</label>
               <input type="text"
                 className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
                 value={selectedLocation} onChange={e => setSelectedLocation(e.target.value)}
                 placeholder="la salle des fêtes de Coligny" />
             </div>
-          )}
 
           <button onClick={handleDownload} disabled={!canDownload || generating}
             className={'w-full py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 transition-all shadow-lg ' +
