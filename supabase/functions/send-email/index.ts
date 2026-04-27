@@ -3,6 +3,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 const FROM_EMAIL = 'Ludothèque de Coligny <contact@ludothequedecoligny.fr>'
 const REPLY_TO = 'ludothequedecoligny@outlook.fr'
+const CONFIRM_EMAIL = 'ludothequedecoligny@outlook.fr'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -14,7 +15,6 @@ async function urlToBase64Attachment(image_url: string, index: number) {
     let base64: string
     let mimeType = 'image/png'
     let ext = 'png'
-
     if (image_url.startsWith('data:')) {
       const commaIdx = image_url.indexOf(',')
       if (commaIdx === -1) return null
@@ -35,11 +35,8 @@ async function urlToBase64Attachment(image_url: string, index: number) {
       }
       base64 = btoa(binary)
       ext = image_url.split('?')[0].split('.').pop()?.toLowerCase() || 'png'
-      mimeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg'
-               : ext === 'webp' ? 'image/webp'
-               : 'image/png'
+      mimeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'webp' ? 'image/webp' : 'image/png'
     }
-
     const label = index === 0 ? 'affiche' : `affiche-${index + 1}`
     return { filename: `${label}.${ext}`, content: base64, type: mimeType }
   } catch (e) {
@@ -54,16 +51,7 @@ serve(async (req) => {
   }
 
   try {
-    const payload = await req.json()
-    const { to, subject, html, image_url, image_urls } = payload
-
-    // LOG COMPLET DU PAYLOAD REÇU
-    console.log('=== PAYLOAD REÇU ===')
-    console.log('to:', JSON.stringify(to))
-    console.log('subject:', subject)
-    console.log('image_url:', image_url ? image_url.substring(0, 60) : 'null')
-    console.log('image_urls:', image_urls ? JSON.stringify(image_urls.map((u: string) => u?.substring(0, 60))) : 'null')
-    console.log('clés reçues:', Object.keys(payload).join(', '))
+    const { to, subject, html, image_url, image_urls, send_confirmation } = await req.json()
 
     if (!to || !subject || !html) {
       return new Response(
@@ -72,19 +60,13 @@ serve(async (req) => {
       )
     }
 
-    // Construire la liste des URLs à joindre
+    // Construire les pièces jointes
     const urls: string[] = []
-    if (image_urls && Array.isArray(image_urls)) {
-      urls.push(...image_urls.filter(Boolean))
-    } else if (image_url) {
-      urls.push(image_url)
-    }
-    console.log('URLs à joindre:', urls.length, urls.map(u => u?.substring(0, 60)))
+    if (image_urls && Array.isArray(image_urls)) urls.push(...image_urls.filter(Boolean))
+    else if (image_url) urls.push(image_url)
 
-    // Convertir chaque URL en pièce jointe
     const attachmentResults = await Promise.all(urls.map((url, i) => urlToBase64Attachment(url, i)))
     const attachments = attachmentResults.filter(Boolean)
-    console.log(`Envoi à ${Array.isArray(to) ? to.length : 1} destinataire(s), ${attachments.length} pj`)
 
     const body = {
       from: FROM_EMAIL,
@@ -97,20 +79,47 @@ serve(async (req) => {
 
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-      },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${RESEND_API_KEY}` },
       body: JSON.stringify(body),
     })
 
     const data = await res.json()
 
     if (!res.ok) {
-      console.error('Erreur Resend:', JSON.stringify(data))
+      console.error('Erreur Resend:', JSON.stringify(data), 'to:', JSON.stringify(to))
       return new Response(JSON.stringify({ error: data }), {
         status: res.status,
         headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+      })
+    }
+
+    // Email de confirmation récapitulatif (uniquement si demandé = dernier envoi du lot)
+    if (send_confirmation) {
+      const recipients = Array.isArray(to) ? to : [to]
+      const confirmHtml = `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
+          <div style="background:#1a5f7a;padding:24px;border-radius:12px 12px 0 0;">
+            <h1 style="color:white;margin:0;font-size:18px;">✅ Confirmation d'envoi</h1>
+          </div>
+          <div style="background:#fdfaf6;padding:32px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;">
+            <p>L'email suivant a bien été envoyé :</p>
+            <div style="background:white;border-left:4px solid #e38154;padding:16px;margin:16px 0;border-radius:0 8px 8px 0;">
+              <p style="margin:0;"><strong>Objet :</strong> ${subject}</p>
+              <p style="margin:8px 0 0 0;"><strong>Destinataires :</strong> ${recipients.join(', ')}</p>
+            </div>
+            <p style="color:#888;font-size:12px;">Email envoyé automatiquement par la Ludothèque de Coligny</p>
+          </div>
+        </div>`
+
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${RESEND_API_KEY}` },
+        body: JSON.stringify({
+          from: FROM_EMAIL,
+          to: [CONFIRM_EMAIL],
+          subject: `✅ Confirmation : "${subject}" envoyé à ${recipients.length} destinataire(s)`,
+          html: confirmHtml,
+        }),
       })
     }
 

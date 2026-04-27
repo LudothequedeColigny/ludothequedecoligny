@@ -307,10 +307,28 @@ L'équipe de la Ludothèque de Coligny
       const htmlAdherents = bodyToHtml(composeData.bodyAdherents, blocksHtml)
       const image_urls = selectedEvents.map(b => b.event.image_url).filter(Boolean)
 
-      // Envoi individuel par groupe avec le bon corps de message
-      for (const r of activeRecipients) {
+      // Envoi individuel BCC — chaque destinataire reçoit son propre email
+      const failed = []
+      for (let i = 0; i < activeRecipients.length; i++) {
+        const r = activeRecipients[i]
         const html = r.group === 'mairie' ? htmlCollectivites : htmlAdherents
-        await sendEmail({ to: [r.email], subject: composeData.subject, html, image_urls })
+        const isLast = i === activeRecipients.length - 1
+        try {
+          await sendEmail({
+            to: [r.email],
+            subject: composeData.subject,
+            html,
+            image_urls,
+            send_confirmation: isLast,
+          })
+        } catch (err) {
+          console.error('Échec envoi à', r.email, ':', err)
+          failed.push(r.email)
+        }
+      }
+      if (failed.length > 0) {
+        console.warn('Emails non envoyés :', failed.join(', '))
+      }
       }
 
       for (const b of selectedEvents) {
