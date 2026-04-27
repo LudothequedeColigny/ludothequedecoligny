@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { 
   Users, Trash2, Edit2, X, Plus, CreditCard, 
   Phone, Mail, Search, MapPin, Eye, User, Send, AlertTriangle, 
-  Building2, ExternalLink, Calendar, ShieldCheck, ShieldOff, CheckCircle2, ChevronRight, Info
+  Building2, ExternalLink, Calendar, ShieldCheck, ShieldOff, CheckCircle2, ChevronRight, Info,
+  RefreshCw, Loader2
 } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
 import { sendEmail } from '../../services/emailService'
@@ -21,7 +22,13 @@ export default function Adherents() {
   const [composeData, setComposeData] = useState({ subject: '', body: '' })
   const [sendingMail, setSendingMail] = useState(false)
   const [successModal, setSuccessModal] = useState(false)
-  const [showPaymentInfoModal, setShowPaymentInfoModal] = useState(false) // MODALE INFO PAIEMENT
+  const [successModalMessage, setSuccessModalMessage] = useState('')
+  const [showPaymentInfoModal, setShowPaymentInfoModal] = useState(false)
+
+  // ── MODALE RENOUVELLEMENT ADHÉSION ────────────────────────────────────────
+  const [renewalModal, setRenewalModal] = useState({ show: false, member: null })
+  const [renewalForm, setRenewalForm] = useState({ membership_date: '', fee_amount: 0, has_paid: true, sendEmail: true })
+  const [savingRenewal, setSavingRenewal] = useState(false)
 
   const [appSettings, setAppSettings] = useState({
     prix_particulier: 0,
@@ -149,6 +156,88 @@ export default function Adherents() {
     setLoading(false)
   }
 
+  // ── HELPER : construire un email HTML ─────────────────────────────────────
+  const buildEmailHtml = (bodyText) => {
+    const html = bodyText
+      .split('\n')
+      .map(line => line.trim() === '' ? '<br/>' : `<p style="margin:0 0 6px 0;">${line}</p>`)
+      .join('')
+    return `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
+      <div style="background:#1a5f7a;padding:24px;border-radius:12px 12px 0 0;">
+        <h1 style="color:white;margin:0;font-size:18px;">Ludothèque de Coligny</h1>
+      </div>
+      <div style="background:#fdfaf6;padding:32px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;">
+        ${html}
+      </div>
+    </div>`
+  }
+
+  // ── OUVRIR LA MODALE DE RENOUVELLEMENT D'ADHÉSION ─────────────────────────
+  const openRenewalModal = (member) => {
+    const newDate = todayStr
+    const fee = calculateFee(member.type, newDate, appSettings)
+    setRenewalForm({ membership_date: newDate, fee_amount: fee, has_paid: true, sendEmail: !!member.email })
+    setRenewalModal({ show: true, member })
+    setRenewalAction(null)
+  }
+
+  // ── ENREGISTRER LE RENOUVELLEMENT ─────────────────────────────────────────
+  const handleSaveRenewal = async () => {
+    const { member } = renewalModal
+    if (!member) return
+    setSavingRenewal(true)
+    try {
+      // 1. Mettre à jour la fiche adhérent
+      await supabase.from('members').update({
+        membership_date: renewalForm.membership_date,
+        fee_amount: renewalForm.fee_amount,
+        has_paid: renewalForm.has_paid,
+      }).eq('id', member.id)
+
+      // 2. Enregistrer la transaction financière si payé
+      if (renewalForm.has_paid) {
+        const memberName = member.type === 'Association' ? member.last_name : `${member.first_name} ${member.last_name}`
+        await supabase.from('financial_transactions').insert({
+          label: `Cotisation – ${memberName} (N°${member.member_number})`,
+          amount: Number(renewalForm.fee_amount) || 0,
+          type: 'entree',
+          category: 'Cotisation',
+          date: renewalForm.membership_date,
+        })
+      }
+
+      // 3. Envoyer l'email de confirmation si demandé
+      if (renewalForm.sendEmail && member.email) {
+        const name = member.type === 'Association' ? member.last_name : member.first_name
+        const dateFormatted = new Date(renewalForm.membership_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+        const subject = `Confirmation de renouvellement d'adhésion - Ludothèque de Coligny`
+        const body = `Bonjour ${name},
+
+Nous avons bien enregistré le renouvellement de votre adhésion à la Ludothèque de Coligny.
+
+Votre adhésion est à jour depuis le ${dateFormatted}${renewalForm.has_paid ? ` pour un montant de ${renewalForm.fee_amount}€` : ''}.
+
+Merci de votre fidélité ! Nous sommes ravis de vous compter parmi nos adhérents pour cette nouvelle année.
+
+À très bientôt à la ludothèque !
+
+L'équipe de la Ludothèque de Coligny
+www.ludothequedecoligny.fr`
+        await sendEmail({ to: member.email, subject, html: buildEmailHtml(body) })
+      }
+
+      fetchMembers()
+      setRenewalModal({ show: false, member: null })
+      setSuccessModalMessage(renewalForm.sendEmail && member.email ? 'Adhésion renouvelée et email de confirmation envoyé !' : 'Adhésion renouvelée avec succès !')
+      setSuccessModal(true)
+    } catch (err) {
+      console.error('Erreur renouvellement:', err)
+      alert("Erreur lors du renouvellement. Vérifiez la console.")
+    } finally {
+      setSavingRenewal(false)
+    }
+  }
+
   const openComposeMember = (member) => {
     const name = member.type === 'Association' ? member.last_name : member.first_name
     const subject = `Renouvellement de votre adhésion - Ludothèque de Coligny`
@@ -173,23 +262,12 @@ www.ludothequedecoligny.fr`
     if (!composeModal.member?.email) { alert("Email de l'adhérent introuvable."); return }
     setSendingMail(true)
     try {
-      const html = composeData.body
-        .split('\n')
-        .map(line => line.trim() === '' ? '<br/>' : `<p style="margin:0 0 6px 0;">${line}</p>`)
-        .join('')
-      const fullHtml = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
-        <div style="background:#1a5f7a;padding:24px;border-radius:12px 12px 0 0;">
-          <h1 style="color:white;margin:0;font-size:18px;">Ludothèque de Coligny</h1>
-        </div>
-        <div style="background:#fdfaf6;padding:32px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;">
-          ${html}
-        </div>
-      </div>`
-      await sendEmail({ to: composeModal.member.email, subject: composeData.subject, html: fullHtml })
+      await sendEmail({ to: composeModal.member.email, subject: composeData.subject, html: buildEmailHtml(composeData.body) })
       const today = new Date().toISOString().split('T')[0]
       await supabase.from('members').update({ last_reminder_date: today }).eq('id', composeModal.member.id)
       fetchMembers()
       setComposeModal({ show: false, member: null })
+      setSuccessModalMessage('La relance a été envoyée avec succès à l\'adhérent.')
       setSuccessModal(true)
     } catch (err) {
       console.error('Erreur envoi relance:', err)
@@ -198,6 +276,8 @@ www.ludothequedecoligny.fr`
       setSendingMail(false)
     }
   }
+
+  const [sendWelcomeEmail, setSendWelcomeEmail] = useState(true)
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -238,7 +318,7 @@ www.ludothequedecoligny.fr`
       }
     } else {
       // ── CRÉATION ──────────────────────────────────────────────────────────
-      const { error } = await supabase.from('members').insert([newMember])
+      const { data: inserted, error } = await supabase.from('members').insert([newMember]).select().single()
 
       if (!error) {
         if (newMember.has_paid && isNewAdhesion) {
@@ -252,6 +332,30 @@ www.ludothequedecoligny.fr`
             category: 'Cotisation',
             date: newMember.membership_date,
           })
+        }
+
+        // ── EMAIL DE BIENVENUE ─────────────────────────────────────────────
+        if (sendWelcomeEmail && newMember.email) {
+          const name = newMember.type === 'Association' ? newMember.last_name : newMember.first_name
+          const dateFormatted = new Date(newMember.membership_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+          const subject = `Bienvenue à la Ludothèque de Coligny !`
+          const body = `Bonjour ${name},
+
+Nous sommes ravis de vous accueillir parmi les adhérents de la Ludothèque de Coligny !
+
+Votre adhésion a bien été enregistrée le ${dateFormatted}.
+
+Vous pouvez dès maintenant emprunter des jeux lors de nos permanences. N'hésitez pas à consulter notre catalogue en ligne et à nous contacter si vous avez des questions.
+
+À très bientôt !
+
+L'équipe de la Ludothèque de Coligny
+www.ludothequedecoligny.fr`
+          try {
+            await sendEmail({ to: newMember.email, subject, html: buildEmailHtml(body) })
+          } catch (mailErr) {
+            console.error('Erreur envoi email bienvenue:', mailErr)
+          }
         }
 
         setShowForm(false); setNewMember(initialFormState); fetchMembers(); setEditingId(null)
@@ -366,6 +470,12 @@ www.ludothequedecoligny.fr`
                   <button type="submit" className="w-full py-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg transition-all active:scale-95">
                     {editingId ? "Mettre à jour" : "Enregistrer"}
                   </button>
+                  {!editingId && newMember.email && (
+                    <label className="flex items-center gap-3 cursor-pointer px-2">
+                      <input type="checkbox" className="w-5 h-5 accent-[#1a5f7a]" checked={sendWelcomeEmail} onChange={e => setSendWelcomeEmail(e.target.checked)} />
+                      <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2"><Mail size={12}/> Envoyer un email de bienvenue</span>
+                    </label>
+                  )}
                 </div>
              </div>
           </form>
@@ -406,7 +516,16 @@ www.ludothequedecoligny.fr`
                           {!isCautionActive ? <span className="text-slate-300 italic">N/A</span> : m.caution_received ? <span className="text-orange-600 flex items-center gap-2"><ShieldCheck size={16}/> OK</span> : <span className="text-rose-400 flex items-center gap-2"><ShieldOff size={16}/> Manquante</span>}
                         </td>
                         <td className="p-8 text-right pr-12 space-x-2">
-                          {status.expired && <button onClick={() => setRenewalAction(m)} className="p-3 bg-amber-50 text-amber-600 rounded-xl"><Send size={18} /></button>}
+                          {status.expired && (
+                            <button
+                              onClick={() => openRenewalModal(m)}
+                              title="Renouveler l'adhésion"
+                              className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-emerald-100 transition-all"
+                            >
+                              <RefreshCw size={14} /> Renouveler
+                            </button>
+                          )}
+                          {status.expired && <button onClick={() => setRenewalAction(m)} title="Envoyer une relance" className="p-3 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-100 transition-all"><Send size={18} /></button>}
                           <button onClick={() => setViewMember(m)} className="p-3 text-slate-400 hover:text-[#1a5f7a]"><Eye size={18} /></button>
                           <button onClick={() => { setNewMember({...m, family_members: m.family_members || []}); setEditingId(m.id); setShowForm(true); }} className="p-3 text-slate-400 hover:text-amber-500"><Edit2 size={18} /></button>
                           <button onClick={() => setDeleteConfirm(m)} className="p-3 text-slate-400 hover:text-rose-500"><Trash2 size={18} /></button>
@@ -446,7 +565,10 @@ www.ludothequedecoligny.fr`
                         <button onClick={() => setDeleteConfirm(m)} className="p-3 bg-rose-50 text-rose-400 rounded-xl"><Trash2 size={18}/></button>
                        </div>
                        {status.expired && (
-                         <button onClick={() => setRenewalAction(m)} className="px-5 py-3 bg-amber-50 text-amber-600 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2">Relancer <Send size={14}/></button>
+                         <div className="flex gap-2">
+                           <button onClick={() => openRenewalModal(m)} className="px-4 py-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2"><RefreshCw size={14}/> Renouveler</button>
+                           <button onClick={() => setRenewalAction(m)} className="p-3 bg-amber-50 text-amber-600 rounded-xl"><Send size={16}/></button>
+                         </div>
                        )}
                     </div>
                   </div>
@@ -501,6 +623,88 @@ www.ludothequedecoligny.fr`
                 )}
              </div>
              <button onClick={() => setShowPaymentInfoModal(false)} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">Fermer</button>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE RENOUVELLEMENT ADHÉSION */}
+      {renewalModal.show && renewalModal.member && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-[#1a5f7a]/80 backdrop-blur-md">
+          <div className="bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl border-b-8 border-emerald-500 animate-in zoom-in-95">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl"><RefreshCw size={24}/></div>
+              <div>
+                <h2 className="text-xl font-black text-slate-900 uppercase leading-tight">Renouveler l'adhésion</h2>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
+                  {renewalModal.member.type === 'Association' ? renewalModal.member.last_name : `${renewalModal.member.first_name} ${renewalModal.member.last_name}`} — N°{renewalModal.member.member_number}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-5">
+              {/* Date d'adhésion */}
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2"><Calendar size={12}/> Date de renouvellement</label>
+                <input
+                  type="date"
+                  className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                  value={renewalForm.membership_date}
+                  onChange={e => {
+                    const newDate = e.target.value
+                    const newFee = calculateFee(renewalModal.member.type, newDate, appSettings)
+                    setRenewalForm(f => ({ ...f, membership_date: newDate, fee_amount: newFee }))
+                  }}
+                />
+              </div>
+
+              {/* Montant cotisation */}
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2"><CreditCard size={12}/> Montant de la cotisation</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    className="flex-1 p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                    value={renewalForm.fee_amount}
+                    onChange={e => setRenewalForm(f => ({ ...f, fee_amount: parseFloat(e.target.value) || 0 }))}
+                  />
+                  <span className="text-xl font-black text-slate-400">€</span>
+                </div>
+              </div>
+
+              {/* Cotisation réglée */}
+              <div className={`p-5 rounded-2xl border-2 transition-all ${renewalForm.has_paid ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={renewalForm.has_paid} onChange={e => setRenewalForm(f => ({ ...f, has_paid: e.target.checked }))} />
+                  <span className="text-[10px] font-black uppercase text-slate-600 tracking-widest">Cotisation réglée</span>
+                </label>
+                {renewalForm.has_paid && (
+                  <p className="text-[9px] text-emerald-600 font-bold mt-2 ml-8">Une entrée de {renewalForm.fee_amount}€ sera enregistrée dans le suivi financier.</p>
+                )}
+              </div>
+
+              {/* Email de confirmation */}
+              {renewalModal.member.email ? (
+                <label className="flex items-center gap-3 cursor-pointer px-1">
+                  <input type="checkbox" className="w-5 h-5 accent-[#1a5f7a]" checked={renewalForm.sendEmail} onChange={e => setRenewalForm(f => ({ ...f, sendEmail: e.target.checked }))} />
+                  <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2"><Mail size={12}/> Envoyer un email de confirmation</span>
+                </label>
+              ) : (
+                <p className="text-[9px] text-slate-400 italic px-1 flex items-center gap-2"><Mail size={12}/> Aucun email renseigné — confirmation impossible.</p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-3 mt-8">
+              <button
+                onClick={handleSaveRenewal}
+                disabled={savingRenewal}
+                className={`w-full py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg flex items-center justify-center gap-3 transition-all active:scale-95 ${savingRenewal ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
+              >
+                {savingRenewal ? <><Loader2 size={16} className="animate-spin"/> Enregistrement...</> : <><CheckCircle2 size={16}/> Confirmer le renouvellement</>}
+              </button>
+              <button onClick={() => setRenewalModal({ show: false, member: null })} className="w-full py-3 text-slate-400 font-bold text-[10px] uppercase">Annuler</button>
+            </div>
           </div>
         </div>
       )}
@@ -626,8 +830,8 @@ www.ludothequedecoligny.fr`
             <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
               <CheckCircle2 size={40} />
             </div>
-            <h3 className="text-xl font-black uppercase mb-4 text-slate-900">Email envoyé !</h3>
-            <p className="text-[11px] font-medium text-slate-500 mb-8">La relance a été envoyée avec succès à l'adhérent.</p>
+            <h3 className="text-xl font-black uppercase mb-4 text-slate-900">Succès !</h3>
+            <p className="text-[11px] font-medium text-slate-500 mb-8">{successModalMessage}</p>
             <button onClick={() => setSuccessModal(false)}
               className="w-full py-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg">Fermer</button>
           </div>

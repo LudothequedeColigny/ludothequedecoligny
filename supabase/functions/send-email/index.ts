@@ -3,7 +3,6 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 const FROM_EMAIL = 'Ludothèque de Coligny <contact@ludothequedecoligny.fr>'
 const REPLY_TO = 'ludothequedecoligny@outlook.fr'
-const CONFIRM_EMAIL = 'ludothequedecoligny@outlook.fr'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -51,7 +50,7 @@ serve(async (req) => {
   }
 
   try {
-    const { to, subject, html, image_url, image_urls, send_confirmation } = await req.json()
+    const { to, subject, html, image_url, image_urls } = await req.json()
 
     if (!to || !subject || !html) {
       return new Response(
@@ -60,7 +59,6 @@ serve(async (req) => {
       )
     }
 
-    // Construire les pièces jointes
     const urls: string[] = []
     if (image_urls && Array.isArray(image_urls)) urls.push(...image_urls.filter(Boolean))
     else if (image_url) urls.push(image_url)
@@ -90,36 +88,6 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: data }), {
         status: res.status,
         headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-      })
-    }
-
-    // Email de confirmation récapitulatif (uniquement si demandé = dernier envoi du lot)
-    if (send_confirmation) {
-      const recipients = Array.isArray(to) ? to : [to]
-      const confirmHtml = `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
-          <div style="background:#1a5f7a;padding:24px;border-radius:12px 12px 0 0;">
-            <h1 style="color:white;margin:0;font-size:18px;">✅ Confirmation d'envoi</h1>
-          </div>
-          <div style="background:#fdfaf6;padding:32px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;">
-            <p>L'email suivant a bien été envoyé :</p>
-            <div style="background:white;border-left:4px solid #e38154;padding:16px;margin:16px 0;border-radius:0 8px 8px 0;">
-              <p style="margin:0;"><strong>Objet :</strong> ${subject}</p>
-              <p style="margin:8px 0 0 0;"><strong>Destinataires :</strong> ${recipients.join(', ')}</p>
-            </div>
-            <p style="color:#888;font-size:12px;">Email envoyé automatiquement par la Ludothèque de Coligny</p>
-          </div>
-        </div>`
-
-      await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${RESEND_API_KEY}` },
-        body: JSON.stringify({
-          from: FROM_EMAIL,
-          to: [CONFIRM_EMAIL],
-          subject: `✅ Confirmation : "${subject}" envoyé à ${recipients.length} destinataire(s)`,
-          html: confirmHtml,
-        }),
       })
     }
 

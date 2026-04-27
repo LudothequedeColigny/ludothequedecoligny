@@ -319,7 +319,6 @@ L'équipe de la Ludothèque de Coligny
             subject: composeData.subject,
             html,
             image_urls,
-            send_confirmation: isLast,
           })
         } catch (err) {
           console.error('Échec envoi à', r.email, ':', err)
@@ -329,6 +328,29 @@ L'équipe de la Ludothèque de Coligny
       if (failed.length > 0) {
         console.warn('Emails non envoyés :', failed.join(', '))
       }
+
+      // Envoyer la confirmation récapitulative après la boucle complète
+      const sent = activeRecipients.filter(r => !failed.includes(r.email)).map(r => r.email)
+      await sendEmail({
+        to: ['ludothequedecoligny@outlook.fr'],
+        subject: `✅ Récapitulatif : "${composeData.subject}"`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
+          <div style="background:#1a5f7a;padding:24px;border-radius:12px 12px 0 0;">
+            <h1 style="color:white;margin:0;font-size:18px;">✅ Récapitulatif d'envoi</h1>
+          </div>
+          <div style="background:#fdfaf6;padding:32px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;">
+            <p><strong>Objet :</strong> ${composeData.subject}</p>
+            <p><strong>✓ ${sent.length} email(s) envoyé(s) avec succès</strong></p>
+            <ul style="font-size:13px;color:#555;">${sent.map(e => `<li>${e}</li>`).join('')}</ul>
+            ${failed.length > 0 ? `
+            <p style="color:#e53e3e;margin-top:16px;"><strong>✗ ${failed.length} échec(s) :</strong></p>
+            <ul style="font-size:13px;color:#e53e3e;">${failed.map(e => `<li>${e}</li>`).join('')}</ul>
+            <p style="font-size:12px;color:#888;">Ces adresses ont été rejetées (bounce). Vérifiez-les dans Resend → Suppressions.</p>
+            ` : ''}
+          </div>
+        </div>`,
+        send_confirmation: false,
+      })
 
       for (const b of selectedEvents) {
         await supabase.from('events').update({ mail_sent_at: new Date().toISOString() }).eq('id', b.event.id)
