@@ -329,7 +329,6 @@ L'équipe de la Ludothèque de Coligny
       if (failed.length > 0) {
         console.warn('Emails non envoyés :', failed.join(', '))
       }
-      }
 
       for (const b of selectedEvents) {
         await supabase.from('events').update({ mail_sent_at: new Date().toISOString() }).eq('id', b.event.id)
