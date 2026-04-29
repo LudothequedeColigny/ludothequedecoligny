@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Dice5, Plus, Trash2, Edit2, X, Hash, AlertCircle, Search, CheckCircle, ImageIcon, Link as LinkIcon, Tag, ExternalLink, Users, PlayCircle, Clock, FileText, WifiOff, Eye, Loader2, Camera, ScanLine, Sparkles } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
+import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
 
 // ─── Helpers MyLudo (via Edge Function Supabase) ──────────────────────────────
 
@@ -45,9 +46,108 @@ async function bggGetDetails(id: string) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+const JEUX_TUTORIAL_STEPS = (openForm, cancelForm) => [
+  {
+    id: 'jeux-header',
+    noSpotlight: true,
+    title: 'Bienvenue sur la page Jeux',
+    description: `Cette page centralise tout le catalogue de la ludothèque : ajouter, modifier, supprimer des jeux et suivre leur disponibilité.`,
+    action: () => cancelForm(),
+  },
+  {
+    id: 'jeux-scanner-btn',
+    title: 'Scanner un jeu par code-barres',
+    description: `Ce bouton ouvre la caméra pour scanner le code-barres d'une boîte. Si le jeu est reconnu dans la base de données en ligne, la fiche est pré-remplie automatiquement (titre, description, image, catégories, etc.).`,
+    action: () => cancelForm(),
+  },
+  {
+    id: 'jeux-add-btn',
+    title: 'Ajouter un jeu manuellement',
+    description: `Cliquez ici pour ouvrir le formulaire de création. Le numéro d'inventaire est pré-rempli automatiquement. Nous allons parcourir le formulaire ensemble.`,
+    action: () => cancelForm(),
+  },
+  {
+    id: 'jeux-form-modal',
+    title: `Formulaire d'ajout d'un jeu`,
+    description: `Ce formulaire permet de saisir toutes les informations d'un jeu : identifiants, titre, description, détails techniques, médias et disponibilité. Vous pouvez le remplir manuellement ou laisser la base de données en ligne compléter les champs automatiquement.`,
+    action: () => openForm(),
+    actionDelay: 350,
+  },
+  {
+    id: 'jeux-form-numero',
+    title: `Numéro d'inventaire et code-barres`,
+    description: `Le numéro d'inventaire identifie le jeu de façon unique dans la ludothèque, il est calculé automatiquement mais peut être modifié. Le code-barres peut être scanné via la caméra ou saisi manuellement.`,
+    action: () => openForm(),
+    actionDelay: 350,
+  },
+  {
+    id: 'jeux-form-titre',
+    title: 'Titre avec autocomplétion depuis la base de données en ligne',
+    description: `En tapant le nom du jeu, la base de données en ligne propose automatiquement des suggestions. Sélectionner un résultat remplit la fiche complète : description, joueurs, âge, durée, image.`,
+    action: () => openForm(),
+    actionDelay: 350,
+  },
+  {
+    id: 'jeux-form-desc-obs',
+    title: 'Description et observations',
+    description: `La description présente le thème ou les règles du jeu. Les observations servent à noter l'état du jeu : usure, pièces manquantes, remarques particulières.`,
+    action: () => openForm(),
+    actionDelay: 350,
+  },
+  {
+    id: 'jeux-form-joueurs-age',
+    id2: 'jeux-form-age-duree',
+    title: 'Nombre de joueurs, âge et durée',
+    description: `Renseignez le nombre de joueurs minimum et maximum, l'âge minimum recommandé et la durée moyenne d'une partie. Ces informations s'affichent dans le catalogue public pour guider les usagers.`,
+    action: () => openForm(),
+    actionDelay: 350,
+  },
+  {
+    id: 'jeux-form-medias',
+    title: 'Image et vidéo',
+    description: `Collez une adresse internet d'image ou chargez une photo depuis votre appareil. Vous pouvez ajouter un lien YouTube de règles qui permettra aux usagers de voir une présentation du jeu depuis le catalogue public.`,
+    action: () => openForm(),
+    actionDelay: 350,
+  },
+  {
+    id: 'jeux-form-submit',
+    title: 'Enregistrer le jeu',
+    description: `Cliquez sur ce bouton pour valider l'ajout. Le jeu apparaît immédiatement dans le catalogue et devient visible dans la page publique si "Disponible" est coché.`,
+    action: () => openForm(),
+    actionDelay: 350,
+  },
+  {
+    id: 'jeux-search',
+    title: 'Barre de recherche',
+    description: `Filtrez la liste en temps réel par nom, numéro d'inventaire, code-barres ou catégorie.`,
+    action: () => cancelForm(),
+  },
+  {
+    id: 'jeux-list-row1',
+    id2: 'jeux-list-row2',
+    title: 'Catalogue des jeux',
+    description: `Chaque ligne affiche la photo, le nom, les catégories, le nombre de joueurs et le statut de disponibilité du jeu.`,
+    action: () => cancelForm(),
+  },
+  {
+    id: 'jeux-action-edit',
+    title: 'Modifier un jeu',
+    description: `L'icône crayon ouvre la fiche du jeu en mode édition avec tous les champs pré-remplis. Modifiez les informations souhaitées puis enregistrez pour mettre à jour le catalogue.`,
+    action: () => cancelForm(),
+  },
+  {
+    id: 'jeux-action-delete',
+    title: 'Supprimer un jeu',
+    description: `L'icône poubelle supprime définitivement le jeu après confirmation. Cette action est irréversible.`,
+    tip: `Un jeu actuellement emprunté ne peut pas être supprimé. Retournez-le d'abord depuis la page Prêts.`,
+    action: () => cancelForm(),
+  },
+]
+
 export default function Jeux() {
   const [jeux, setJeux] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showTuto, setShowTuto] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
@@ -481,6 +581,21 @@ export default function Jeux() {
     else alert("Erreur lors de la suppression")
   }
 
+  // ── Steps tutoriel stabilisés avec useMemo ──────────────────────────────
+  const jeuxSteps = useMemo(() => JEUX_TUTORIAL_STEPS(
+    () => {
+      setNewGame(g => ({ ...initialGameState, registration_number: g.registration_number || getNextRegistrationNumber() }))
+      setBggResults([])
+      setBggFilled(false)
+      setEditingId(null)
+      setShowForm(true)
+    },
+    () => {
+      setShowForm(false)
+      setEditingId(null)
+    }
+  ), []) // eslint-disable-line react-hooks/exhaustive-deps
+
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-screen bg-[#fdfaf6] text-[#1a5f7a] font-bold gap-4">
       <Dice5 className="animate-bounce" size={40} />
@@ -493,7 +608,7 @@ export default function Jeux() {
 
       {/* HEADER */}
       <div className="max-w-7xl mx-auto mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-4">
+        <h1 data-tutorial="jeux-header" className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-4">
           <div className="p-3 bg-[#1a5f7a] rounded-[1.2rem] shadow-lg text-white">
             <Dice5 size={28} />
           </div>
@@ -502,6 +617,17 @@ export default function Jeux() {
 
         <div className="flex gap-3 w-full md:w-auto">
           <button
+            data-tutorial="jeux-add-btn"
+            onClick={editingId ? cancelEdit : handleOpenForm}
+            className={`flex-1 md:flex-none px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95 ${
+              showForm ? 'bg-slate-800 text-white' : 'bg-[#e38154] text-white hover:bg-[#d16f43]'
+            }`}
+          >
+            {showForm ? <X size={18} className="inline mr-2" strokeWidth={3} /> : <Plus size={18} className="inline mr-2" strokeWidth={3} />}
+            {editingId ? "Annuler" : (showForm ? "Fermer" : "Nouveau Jeu")}
+          </button>
+          <button
+            data-tutorial="jeux-scanner-btn"
             onClick={() => {
               setScanToAdd(true)
               setNewGame({ ...initialGameState, registration_number: getNextRegistrationNumber() })
@@ -510,16 +636,7 @@ export default function Jeux() {
             }}
             className="flex-1 md:flex-none px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95 bg-[#1a5f7a] text-white hover:bg-[#154f67] flex items-center justify-center gap-2"
           >
-            <ScanLine size={18} strokeWidth={3} /> Scanner un jeu
-          </button>
-          <button
-            onClick={editingId ? cancelEdit : handleOpenForm}
-            className={`flex-1 md:flex-none px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95 ${
-              showForm ? 'bg-slate-800 text-white' : 'bg-[#e38154] text-white hover:bg-[#d16f43]'
-            }`}
-          >
-            {showForm ? <X size={18} className="inline mr-2" strokeWidth={3} /> : <Plus size={18} className="inline mr-2" strokeWidth={3} />}
-            {editingId ? "Annuler" : (showForm ? "Fermer" : "Nouveau Jeu")}
+            <ScanLine size={18} strokeWidth={3} /> Ajouter par scan
           </button>
         </div>
       </div>
@@ -533,7 +650,7 @@ export default function Jeux() {
           </div>
         )}
 
-        <div className="relative mb-8">
+        <div data-tutorial="jeux-search" className="relative mb-8">
           <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
           <input
             type="text"
@@ -548,7 +665,7 @@ export default function Jeux() {
         {showForm && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 md:p-10">
             <div className="absolute inset-0 bg-[#1a5f7a]/40 backdrop-blur-sm" onClick={cancelEdit}></div>
-            <div className="relative w-full max-w-5xl bg-white rounded-[2.5rem] shadow-2xl overflow-y-auto max-h-[90vh] animate-in zoom-in-95 duration-300">
+            <div data-tutorial="jeux-form-modal" className="relative w-full max-w-5xl bg-white rounded-[2.5rem] shadow-2xl overflow-y-auto max-h-[90vh] animate-in zoom-in-95 duration-300">
               <form onSubmit={handleSubmit} className="p-6 md:p-12">
                 <div className="flex justify-between items-center mb-8">
                   <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">{editingId ? 'Modifier le jeu' : 'Ajouter un jeu'}</h2>
@@ -559,7 +676,7 @@ export default function Jeux() {
                   <div className="space-y-6">
                     <h3 className="text-[10px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2 mb-2"><Hash size={16} /> Informations principales</h3>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div data-tutorial="jeux-form-numero" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="text-[9px] font-black text-slate-400 uppercase ml-2">N° d'enregistrement</label>
                         <input required className={`w-full p-4 rounded-2xl bg-slate-50 font-black outline-none border-2 ${isNumberDuplicate ? 'border-rose-500 bg-rose-50 text-rose-600' : 'border-transparent'}`} value={newGame.registration_number} onChange={e => setNewGame({ ...newGame, registration_number: e.target.value })} />
@@ -574,8 +691,8 @@ export default function Jeux() {
                     </div>
 
                     {/* ── TITRE avec autocomplétion MyLudo ── */}
-                    <div className="space-y-2" ref={bggDropdownRef}>
-                      <label className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-2">
+                    <div data-tutorial="jeux-form-titre" className="space-y-2" ref={bggDropdownRef}>
+                      <label data-tutorial="jeux-form-nom" className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-2">
                         Titre du jeu
                         {bggLoading && <Loader2 size={10} className="animate-spin text-[#1a5f7a]" />}
                         {bggFilled && !bggLoading && (
@@ -632,24 +749,27 @@ export default function Jeux() {
                       )}
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><FileText size={12} /> Description du jeu</label>
-                      <textarea rows={3} placeholder="Règles ou thème..." className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]/10 resize-none" value={newGame.description || ''} onChange={e => setNewGame({ ...newGame, description: e.target.value })} />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-black text-[#e38154] uppercase ml-2 flex items-center gap-1"><AlertCircle size={12} /> Observations (État, pièces...)</label>
-                      <textarea rows={3} placeholder="Vrac d'infos : usure, pièces manquantes..." className="w-full p-4 rounded-2xl bg-orange-50/30 font-medium text-sm outline-none border-2 border-transparent focus:border-orange-200 resize-none" value={newGame.observations || ''} onChange={e => setNewGame({ ...newGame, observations: e.target.value })} />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
+                    <div data-tutorial="jeux-form-desc-obs" className="space-y-4">
                       <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Joueurs Min</label>
-                        <input type="number" className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none" value={newGame.min_players} onChange={e => setNewGame({ ...newGame, min_players: parseInt(e.target.value) })} />
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><FileText size={12} /> Description du jeu</label>
+                        <textarea rows={3} placeholder="Règles ou thème..." className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]/10 resize-none" value={newGame.description || ''} onChange={e => setNewGame({ ...newGame, description: e.target.value })} />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Joueurs Max</label>
-                        <input type="number" className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none" value={newGame.max_players} onChange={e => setNewGame({ ...newGame, max_players: parseInt(e.target.value) })} />
+                        <label className="text-[9px] font-black text-[#e38154] uppercase ml-2 flex items-center gap-1"><AlertCircle size={12} /> Observations (État, pièces...)</label>
+                        <textarea rows={3} placeholder="Vrac d'infos : usure, pièces manquantes..." className="w-full p-4 rounded-2xl bg-orange-50/30 font-medium text-sm outline-none border-2 border-transparent focus:border-orange-200 resize-none" value={newGame.observations || ''} onChange={e => setNewGame({ ...newGame, observations: e.target.value })} />
+                      </div>
+                    </div>
+
+                    <div data-tutorial="jeux-form-joueurs-age" className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Joueurs Min</label>
+                          <input type="number" className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none" value={newGame.min_players} onChange={e => setNewGame({ ...newGame, min_players: parseInt(e.target.value) })} />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Joueurs Max</label>
+                          <input type="number" className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none" value={newGame.max_players} onChange={e => setNewGame({ ...newGame, max_players: parseInt(e.target.value) })} />
+                        </div>
                       </div>
                     </div>
 
@@ -669,7 +789,7 @@ export default function Jeux() {
                     </div>
                   </div>
 
-                  <div className="space-y-6">
+                  <div data-tutorial="jeux-form-medias" className="space-y-6">
                     <h3 className="text-[10px] font-black text-[#e38154] uppercase tracking-widest flex items-center gap-2 mb-2"><ImageIcon size={16} /> Médias & Âge</h3>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -689,7 +809,7 @@ export default function Jeux() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div data-tutorial="jeux-form-age-duree" className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Âge Min</label>
                         <input type="number" className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none" value={newGame.min_age} onChange={e => setNewGame({ ...newGame, min_age: parseInt(e.target.value) })} />
@@ -706,7 +826,7 @@ export default function Jeux() {
                       </div>
                     )}
 
-                    <button type="submit" disabled={isNumberDuplicate} className={`w-full py-5 md:py-6 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl transition-all ${isNumberDuplicate ? 'bg-slate-200 text-slate-400' : 'bg-[#1a5f7a] text-white active:scale-95'}`}>
+                    <button data-tutorial="jeux-form-submit" type="submit" disabled={isNumberDuplicate} className={`w-full py-5 md:py-6 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl transition-all ${isNumberDuplicate ? 'bg-slate-200 text-slate-400' : 'bg-[#1a5f7a] text-white active:scale-95'}`}>
                       {editingId ? "Enregistrer les modifications" : "Valider l'ajout du jeu"}
                     </button>
                   </div>
@@ -728,8 +848,8 @@ export default function Jeux() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filteredJeux.map((jeu) => (
-                <tr key={jeu.id} className="hover:bg-slate-50/50 transition-colors">
+              {filteredJeux.map((jeu, idx) => (
+                <tr key={jeu.id} {...(idx === 0 ? {"data-tutorial": "jeux-list-row1"} : idx === 1 ? {"data-tutorial": "jeux-list-row2"} : {})} className="hover:bg-slate-50/50 transition-colors">
                   <td className="p-8">
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
@@ -765,8 +885,8 @@ export default function Jeux() {
                   </td>
                   <td className="p-8 pr-12 text-right">
                     <div className="flex justify-end gap-3">
-                      <button onClick={() => startEdit(jeu)} className="p-3 bg-slate-50 text-slate-400 rounded-xl hover:bg-[#1a5f7a] hover:text-white transition-all shadow-sm"><Edit2 size={18} /></button>
-                      <button onClick={() => openDeleteModal(jeu)} className="p-3 bg-slate-50 text-slate-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"><Trash2 size={18} /></button>
+                      <button data-tutorial="jeux-action-edit" onClick={() => startEdit(jeu)} className="p-3 bg-slate-50 text-slate-400 rounded-xl hover:bg-[#1a5f7a] hover:text-white transition-all shadow-sm"><Edit2 size={18} /></button>
+                      <button data-tutorial="jeux-action-delete" onClick={() => openDeleteModal(jeu)} className="p-3 bg-slate-50 text-slate-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"><Trash2 size={18} /></button>
                     </div>
                   </td>
                 </tr>
@@ -849,6 +969,14 @@ export default function Jeux() {
           </div>
         </div>
       )}
+
+      {/* ── TUTORIEL ─────────────────────────────────────────────────────── */}
+      <TutorialButton onClick={() => setShowTuto(true)} />
+      <TutorialOverlay
+        steps={jeuxSteps}
+        open={showTuto}
+        onClose={() => { setShowTuto(false); setShowForm(false); setEditingId(null) }}
+      />
     </div>
   )
 }

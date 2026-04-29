@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../services/supabaseClient'
+import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
 import { 
   Calendar, Clock, Plus, Trash2, Users, Link as LinkIcon, 
   CheckCircle, CalendarDays, UserCheck, Loader2, AlertTriangle,
@@ -19,6 +20,7 @@ export default function GestionPermanences() {
   const [editingShift, setEditingShift] = useState(null)
   const [copied, setCopied] = useState(false)
   const [errorMsg, setErrorMsg] = useState(null)
+  const [showTuto, setShowTuto] = useState(false)
 
   // --- ÉTAT FORMULAIRE ---
   const [formData, setFormData] = useState({ 
@@ -153,6 +155,75 @@ export default function GestionPermanences() {
     .toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+
+const PERMANENCES_TUTORIAL_STEPS = (openFormFn, closeFormFn, openLinkFn) => [
+  {
+    id: 'perm-header',
+    noSpotlight: true,
+    title: `Bienvenue sur la page Permanences`,
+    description: `Cette page vous permet de planifier et gérer les créneaux de bénévolat de la ludothèque. Les bénévoles peuvent s'inscrire eux-mêmes via un lien public partageable.`,
+    action: () => { closeFormFn(); openLinkFn(false) },
+  },
+  {
+    id: 'perm-link-btn',
+    title: `Lien public d'inscription`,
+    description: `Ce bouton ouvre la fenêtre de partage du lien public — nous allons l'explorer ensemble à l'étape suivante.`,
+    action: () => { closeFormFn(); openLinkFn(false) },
+  },
+  {
+    id: 'perm-link-modal',
+    title: `Partager le lien d'inscription`,
+    description: `Ce lien permet aux bénévoles de s'inscrire en autonomie sur les créneaux disponibles, sans accès à l'administration. Copiez-le et envoyez-le par WhatsApp, email ou tout autre moyen. Les inscriptions apparaissent automatiquement dans le tableau.`,
+    action: () => { closeFormFn(); openLinkFn(true) },
+    actionDelay: 400,
+  },
+  {
+    id: 'perm-add-btn',
+    title: `Planifier une nouvelle date`,
+    description: `Ce bouton ouvre le formulaire de création d'un créneau. Nous allons le parcourir ensemble.`,
+    action: () => { closeFormFn(); openLinkFn(false) },
+  },
+  {
+    id: 'perm-form-modal',
+    title: `Formulaire de créneau`,
+    description: `Renseignez la date de la permanence, l'heure de début et l'heure de fin. Une fois validé, le créneau apparaît dans le tableau et devient accessible via le lien public pour les inscriptions.`,
+    action: () => { openFormFn(); openLinkFn(false) },
+    actionDelay: 400,
+  },
+  {
+    id: 'perm-search',
+    title: `Rechercher une date`,
+    description: `Filtrez la liste en tapant une date ou un jour de la semaine. La recherche est instantanée.`,
+    action: () => { closeFormFn(); openLinkFn(false) },
+  },
+  {
+    id: 'perm-list-row1',
+    id2: 'perm-list-row2',
+    title: `Liste des permanences`,
+    description: `Chaque ligne affiche la date, le créneau horaire et les bénévoles déjà inscrits. Un badge vert indique chaque bénévole inscrit. La croix à côté d'un nom permet de le désinscrire.`,
+    action: () => { closeFormFn(); openLinkFn(false) },
+  },
+  {
+    id: 'perm-action-edit',
+    title: `Modifier un créneau`,
+    description: `L'icône crayon ouvre le formulaire en mode édition pour modifier la date ou les horaires d'un créneau existant. Les bénévoles déjà inscrits ne sont pas affectés.`,
+    action: () => { closeFormFn(); openLinkFn(false) },
+  },
+  {
+    id: 'perm-action-delete',
+    title: `Supprimer un créneau`,
+    description: `L'icône poubelle supprime définitivement le créneau et tous les bénévoles inscrits après confirmation. Cette action est irréversible.`,
+    action: () => { closeFormFn(); openLinkFn(false) },
+  },
+]
+
+  // ── Steps tutoriel ─────────────────────────────────────────────────────────
+  const permSteps = useMemo(() => PERMANENCES_TUTORIAL_STEPS(
+    () => openForm(null),
+    () => setShowFormModal(false),
+    (open) => setShowLinkModal(open)
+  ), []) // eslint-disable-line react-hooks/exhaustive-deps
+
   if (loading) return <div className="flex h-screen items-center justify-center font-black text-[#1a5f7a] uppercase text-[10px] tracking-[0.3em]">Synchronisation du planning...</div>
 
   return (
@@ -160,7 +231,7 @@ export default function GestionPermanences() {
       
       {/* HEADER */}
       <div className="max-w-7xl mx-auto mb-6 md:mb-10 flex flex-col md:flex-row justify-between items-center gap-4">
-        <h1 className="text-xl md:text-4xl font-black flex items-center gap-3">
+        <h1 data-tutorial="perm-header" className="text-xl md:text-4xl font-black flex items-center gap-3">
           <div className="bg-[#1a5f7a] p-2.5 rounded-xl shadow-lg text-white">
             <CalendarDays size={24} />
           </div>
@@ -169,10 +240,10 @@ export default function GestionPermanences() {
           </span>
         </h1>
         <div className="flex gap-2 w-full md:w-auto">
-          <button onClick={() => setShowLinkModal(true)} className="flex-1 md:flex-none px-6 py-4 bg-white border-2 border-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-sm hover:border-[#1a5f7a] transition-all">
+          <button data-tutorial="perm-link-btn" onClick={() => setShowLinkModal(true)} className="flex-1 md:flex-none px-6 py-4 bg-white border-2 border-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-sm hover:border-[#1a5f7a] transition-all">
              <LinkIcon size={16} className="inline mr-2"/> Lien Public
           </button>
-          <button onClick={() => openForm()} className={`flex-1 md:flex-none px-6 py-4 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all ${!navigator.onLine ? 'bg-slate-300' : 'bg-[#e38154]'}`}>
+          <button data-tutorial="perm-add-btn" onClick={() => openForm()} className={`flex-1 md:flex-none px-6 py-4 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all ${!navigator.onLine ? 'bg-slate-300' : 'bg-[#e38154]'}`}>
             <Plus size={16} className="mr-2 inline" /> Planifier une date
           </button>
         </div>
@@ -188,7 +259,7 @@ export default function GestionPermanences() {
         )}
 
         {/* RECHERCHE */}
-        <div className="relative">
+        <div data-tutorial="perm-search" className="relative">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
           <input type="text" placeholder="Rechercher une date..." className="w-full bg-white border border-slate-100 p-4 pl-14 rounded-2xl font-bold text-sm shadow-sm outline-none focus:ring-2 focus:ring-[#1a5f7a]/10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
@@ -205,8 +276,8 @@ export default function GestionPermanences() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filteredShifts.map((shift) => (
-                <tr key={shift.id} className="hover:bg-slate-50/50 transition-colors">
+              {filteredShifts.map((shift, idx) => (
+                <tr key={shift.id} {...(idx === 0 ? {"data-tutorial": "perm-list-row1"} : idx === 1 ? {"data-tutorial": "perm-list-row2"} : {})} className="hover:bg-slate-50/50 transition-colors">
                   <td className="p-8 text-sm font-black uppercase tracking-tight">
                     {new Date(shift.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
                   </td>
@@ -234,10 +305,10 @@ export default function GestionPermanences() {
                     </div>
                   </td>
                   <td className="p-8 text-right pr-12 space-x-2">
-                    <button onClick={() => openForm(shift)} className="p-3 text-slate-300 hover:text-[#1a5f7a] hover:bg-cyan-50 rounded-xl transition-all shadow-sm">
+                    <button data-tutorial="perm-action-edit" onClick={() => openForm(shift)} className="p-3 text-slate-300 hover:text-[#1a5f7a] hover:bg-cyan-50 rounded-xl transition-all shadow-sm">
                       <Edit2 size={18} />
                     </button>
-                    <button onClick={() => navigator.onLine ? setConfirmDelete(shift.id) : alert('Action impossible hors-ligne')} className="p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
+                    <button data-tutorial="perm-action-delete" onClick={() => navigator.onLine ? setConfirmDelete(shift.id) : alert('Action impossible hors-ligne')} className="p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
                       <Trash2 size={18} />
                     </button>
                   </td>
@@ -287,10 +358,18 @@ export default function GestionPermanences() {
         </div>
       </main>
 
+      {/* ── TUTORIEL ─────────────────────────────────────────────────────── */}
+      <TutorialButton onClick={() => setShowTuto(true)} />
+      <TutorialOverlay
+        steps={permSteps}
+        open={showTuto}
+        onClose={() => { setShowTuto(false); setShowFormModal(false); setShowLinkModal(false) }}
+      />
+
       {/* --- MODALE FORMULAIRE --- */}
       {showFormModal && (
         <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-end md:items-center justify-center p-0">
-          <div className="bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in slide-in-from-bottom flex flex-col">
+          <div data-tutorial="perm-form-modal" className="bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in slide-in-from-bottom flex flex-col">
             <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-white shrink-0">
               <div className="flex flex-col">
                 <h2 className="text-xl font-black tracking-tight">
@@ -329,7 +408,7 @@ export default function GestionPermanences() {
       {/* --- MODALE LIEN PUBLIC --- */}
       {showLinkModal && (
         <div className="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4">
-          <div className="bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] w-full max-w-sm p-10 text-center shadow-2xl animate-in slide-in-from-bottom">
+          <div data-tutorial="perm-link-modal" className="bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] w-full max-w-sm p-10 text-center shadow-2xl animate-in slide-in-from-bottom">
             <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 bg-cyan-50 text-[#1a5f7a] shadow-inner">
               <Share2 size={32} />
             </div>

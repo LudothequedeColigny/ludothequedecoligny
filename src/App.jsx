@@ -23,7 +23,7 @@ import EvenementsAdmin from './pages/admin/Evenements'
 import GestionPermanences from './pages/admin/GestionPermanences'
 import InstallationApp from './pages/admin/InstallationApp'
 import Parametres from './pages/admin/Parametres'
-import Aide from './pages/admin/Aide'
+import Suggestions from './pages/admin/Suggestions'
 import SuiviFinancier from './pages/admin/SuiviFinancier'
 
 /**
@@ -77,7 +77,7 @@ function App() {
         <Route path="/admin/permanences" element={<ProtectedRoute><AdminLayout><GestionPermanences /></AdminLayout></ProtectedRoute>} />
         <Route path="/admin/installation" element={<ProtectedRoute><AdminLayout><InstallationApp /></AdminLayout></ProtectedRoute>} />
         <Route path="/admin/parametres" element={<ProtectedRoute><AdminLayout><Parametres /></AdminLayout></ProtectedRoute>} />
-        <Route path="/admin/aide" element={<ProtectedRoute><AdminLayout><Aide /></AdminLayout></ProtectedRoute>} />
+        <Route path="/admin/suggestions" element={<ProtectedRoute><AdminLayout><Suggestions /></AdminLayout></ProtectedRoute>} />
         <Route path="/admin/suivi-financier" element={<ProtectedRoute><AdminLayout><SuiviFinancier /></AdminLayout></ProtectedRoute>} />
         
         {/* Redirection automatique vers l'accueil si la route n'existe pas */}

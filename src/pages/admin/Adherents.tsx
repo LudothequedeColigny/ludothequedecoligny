@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
+import { useState, useEffect, useMemo } from 'react'
 import { 
   Users, Trash2, Edit2, X, Plus, CreditCard, 
   Phone, Mail, Search, MapPin, Eye, User, Send, AlertTriangle, 
@@ -7,6 +8,119 @@ import {
 } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
 import { sendEmail } from '../../services/emailService'
+
+
+const ADHERENTS_TUTORIAL_STEPS = (openForm, closeForm, openRelance, openRenewal) => [
+  {
+    id: 'adherents-header',
+    noSpotlight: true,
+    title: `Bienvenue sur la page Adhérents`,
+    description: `Cette page centralise tous les membres de l'association. Vous pouvez gérer les inscriptions, renouvellements, envoyer des relances et consulter les fiches détaillées.`,
+    action: () => { closeForm(); openRelance(false); openRenewal(false) },
+  },
+  {
+    id: 'adherents-add-btn',
+    title: `Ajouter un nouvel adhérent`,
+    description: `Ce bouton ouvre le formulaire d'inscription. Nous allons le parcourir ensemble.`,
+    action: () => { closeForm(); openRelance(false); openRenewal(false) },
+  },
+  {
+    id: 'adherents-form',
+    title: `Formulaire d'inscription`,
+    description: `Ce formulaire est divisé en trois colonnes : Type & Identité, Coordonnées, et Cotisation. Vous pouvez inscrire un particulier ou une association.`,
+    action: () => { openForm(); openRelance(false); openRenewal(false) },
+    actionDelay: 400,
+  },
+  {
+    id: 'adherents-form-type',
+    title: `Type et identité`,
+    description: `Choisissez "Particulier" ou "Association". Ce choix détermine le calcul de la cotisation et la durée de validité. Renseignez ensuite le numéro d'adhérent, le prénom, le nom et la date d'adhésion.`,
+    action: () => { openForm(); openRelance(false); openRenewal(false) },
+    actionDelay: 400,
+  },
+  {
+    id: 'adherents-form-contact',
+    title: `Coordonnées`,
+    description: `Saisissez l'email, le téléphone et l'adresse. Pour un particulier, vous pouvez aussi ajouter les membres du foyer qui bénéficient de l'adhésion.`,
+    action: () => { openForm(); openRelance(false); openRenewal(false) },
+    actionDelay: 400,
+  },
+  {
+    id: 'adherents-form-cotisation',
+    title: `Cotisation`,
+    description: `Le montant est calculé automatiquement selon la date d'adhésion et le mode configuré (dégressif ou fixe). Cochez "Réglée" dès réception du paiement. Si une caution est requise, un encart supplémentaire apparaît.`,
+    action: () => { openForm(); openRelance(false); openRenewal(false) },
+    actionDelay: 400,
+  },
+  {
+    id: 'adherents-form-submit',
+    title: `Enregistrer l'adhérent`,
+    description: `Ce bouton enregistre le nouvel adhérent. Si un email est renseigné, vous pouvez cocher l'option pour lui envoyer automatiquement un email de bienvenue.`,
+    action: () => { openForm(); openRelance(false); openRenewal(false) },
+    actionDelay: 400,
+  },
+  {
+    id: 'adherents-search',
+    title: `Rechercher un adhérent`,
+    description: `Filtrez la liste par nom, prénom ou numéro d'adhérent. La recherche est instantanée.`,
+    action: () => { closeForm(); openRelance(false); openRenewal(false) },
+  },
+  {
+    id: 'adherents-list-row1',
+    id2: 'adherents-list-row2',
+    title: `Liste des adhérents`,
+    description: `Chaque ligne affiche le numéro, le nom, le statut (à jour / expiré) avec le montant de cotisation, et le statut de la caution.`,
+    tip: `Un particulier est "à jour" pour l'année civile en cours. Une association bénéficie d'un an glissant à partir de sa date d'inscription.`,
+    action: () => { closeForm(); openRelance(false); openRenewal(false) },
+  },
+  {
+    id: 'adherents-action-view',
+    title: `Voir la fiche complète`,
+    description: `L'icône œil ouvre la fiche détaillée de l'adhérent : coordonnées complètes et membres du foyer pour les particuliers.`,
+    action: () => { closeForm(); openRelance(false); openRenewal(false) },
+  },
+  {
+    id: 'adherents-action-edit',
+    title: `Modifier un adhérent`,
+    description: `L'icône crayon ouvre le formulaire en mode édition avec toutes les informations pré-remplies. Modifiez puis enregistrez pour mettre à jour la fiche.`,
+    action: () => { closeForm(); openRelance(false); openRenewal(false) },
+  },
+  {
+    id: 'adherents-action-delete',
+    title: `Supprimer un adhérent`,
+    description: `L'icône poubelle supprime définitivement la fiche de l'adhérent après confirmation. Cette action est irréversible.`,
+    action: () => { closeForm(); openRelance(false); openRenewal(false) },
+  },
+  {
+    id: 'adherents-action-renew',
+    title: `Renouveler une adhésion`,
+    description: `Ce bouton apparaît uniquement sur les adhérents expirés. Cliquez dessus pour ouvrir la fenêtre de renouvellement — nous allons l'explorer ensemble à l'étape suivante.`,
+    action: () => { closeForm(); openRelance(false); openRenewal(false) },
+    tip: `Si aucun adhérent n'est expiré en ce moment, ce bouton n'est pas visible dans le tableau.`,
+  },
+  {
+    id: 'adherents-renewal-modal',
+    title: `Fenêtre de renouvellement`,
+    description: `Cette fenêtre permet de renouveler l'adhésion : choisissez la date, vérifiez le montant recalculé automatiquement, cochez si la cotisation est réglée, et optionnellement envoyez un email de confirmation à l'adhérent.`,
+    action: () => { closeForm(); openRelance(false); openRenewal(true) },
+    actionDelay: 450,
+  },
+  {
+    id: 'adherents-action-relance',
+    title: `Envoyer une relance`,
+    description: `Cette icône apparaît uniquement sur les adhérents expirés. Elle ouvre une fenêtre de relance — nous allons l'explorer ensemble à l'étape suivante.`,
+    action: () => { closeForm(); openRenewal(false); openRelance(false) },
+    tip: `Si aucun adhérent n'est expiré en ce moment, cette icône n'est pas visible dans le tableau.`,
+  },
+  {
+    id: 'adherents-relance-modal',
+    title: `Fenêtre de relance`,
+    description: `Cette fenêtre affiche les coordonnées de l'adhérent expiré (email, téléphone, adresse) et permet d'envoyer un email de relance de cotisation pré-rédigé, ou simplement de marquer la relance comme effectuée sans envoyer d'email.`,
+    action: () => { closeForm(); openRenewal(false); openRelance(true) },
+    actionDelay: 450,
+  },
+]
+
 
 export default function Adherents() {
   const [members, setMembers] = useState([])
@@ -24,6 +138,7 @@ export default function Adherents() {
   const [successModal, setSuccessModal] = useState(false)
   const [successModalMessage, setSuccessModalMessage] = useState('')
   const [showPaymentInfoModal, setShowPaymentInfoModal] = useState(false)
+  const [showTuto, setShowTuto] = useState(false)
 
   // ── MODALE RENOUVELLEMENT ADHÉSION ────────────────────────────────────────
   const [renewalModal, setRenewalModal] = useState({ show: false, member: null })
@@ -368,6 +483,25 @@ www.ludothequedecoligny.fr`
     m.member_number?.toString().includes(searchTerm)
   );
 
+  // ── Membres expirés pour le tutoriel (pour ouvrir les modales de démo) ──────
+  const fakeExpiredMember = members.find(m => {
+    const s = getExpirationStatus(m)
+    return s.expired
+  }) ?? members[0] ?? null
+
+  const adherentsSteps = useMemo(() => ADHERENTS_TUTORIAL_STEPS(
+    () => { setEditingId(null); setNewMember(initialFormState); setShowForm(true) },
+    () => setShowForm(false),
+    (open) => {
+      if (open && fakeExpiredMember) setRenewalAction(fakeExpiredMember)
+      else setRenewalAction(null)
+    },
+    (open) => {
+      if (open && fakeExpiredMember) openRenewalModal(fakeExpiredMember)
+      else setRenewalModal({ show: false, member: null })
+    }
+  ), [fakeExpiredMember]) // eslint-disable-line react-hooks/exhaustive-deps
+
   if (loading) return <div className="flex items-center justify-center h-screen bg-[#fdfaf6] text-[#1a5f7a] font-black uppercase text-xs tracking-widest animate-pulse">Chargement...</div>
 
   return (
@@ -375,28 +509,28 @@ www.ludothequedecoligny.fr`
       
       {/* HEADER */}
       <div className="max-w-7xl mx-auto mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h1 className="text-xl md:text-4xl font-black text-slate-900 flex items-center gap-3">
+        <h1 data-tutorial="adherents-header" className="text-xl md:text-4xl font-black text-slate-900 flex items-center gap-3">
           <div className="p-2.5 bg-[#1a5f7a] rounded-xl shadow-lg text-white"><Users size={24} /></div>
           <span>Gestion des <span className="text-[#1a5f7a]">Adhérents</span></span>
         </h1>
-        <button onClick={() => showForm ? setShowForm(false) : handleOpenForm()} className={`w-full md:w-auto px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl ${showForm ? 'bg-slate-800 text-white' : 'bg-[#e38154] text-white'}`}>
+        <button data-tutorial="adherents-add-btn" onClick={() => showForm ? setShowForm(false) : handleOpenForm()} className={`w-full md:w-auto px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl ${showForm ? 'bg-slate-800 text-white' : 'bg-[#e38154] text-white'}`}>
           {showForm ? "Fermer" : "Nouvel Adhérent"}
         </button>
       </div>
 
       <main className="max-w-7xl mx-auto space-y-6">
         {!showForm && (
-          <div className="relative group">
+          <div data-tutorial="adherents-search" className="relative group">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
             <input type="text" placeholder="Rechercher..." className="w-full bg-white border border-slate-100 p-4 pl-14 rounded-2xl font-bold text-slate-700 outline-none shadow-sm focus:ring-2 focus:ring-[#1a5f7a]/10 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
         )}
 
         {showForm && (
-          <form onSubmit={handleSubmit} className="bg-white p-6 md:p-12 rounded-[2.5rem] shadow-xl border border-slate-50 mb-8 animate-in zoom-in-95">
+          <form data-tutorial="adherents-form" onSubmit={handleSubmit} className="bg-white p-6 md:p-12 rounded-[2.5rem] shadow-xl border border-slate-50 mb-8 animate-in zoom-in-95">
              <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                 {/* IDENTITÉ */}
-                <div className="space-y-4">
+                <div data-tutorial="adherents-form-type" className="space-y-4">
                   <h3 className="text-[10px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2"><User size={14}/> Type & Identité</h3>
                   <div className="grid grid-cols-2 gap-2">
                     {['Particulier', 'Association'].map((t) => (
@@ -414,7 +548,7 @@ www.ludothequedecoligny.fr`
                 </div>
 
                 {/* CONTACT */}
-                <div className="space-y-4">
+                <div data-tutorial="adherents-form-contact" className="space-y-4">
                   <h3 className="text-[10px] font-black text-[#e38154] uppercase tracking-widest flex items-center gap-2"><Mail size={14}/> Coordonnées</h3>
                   <input type="email" placeholder="Email" className="w-full p-4 rounded-xl bg-slate-50 font-bold text-sm" value={newMember.email} onChange={e => setNewMember({...newMember, email: e.target.value})} />
                   <input type="tel" placeholder="Téléphone" className="w-full p-4 rounded-xl bg-slate-50 font-bold text-sm" value={newMember.phone} onChange={e => setNewMember({...newMember, phone: e.target.value})} />
@@ -438,7 +572,7 @@ www.ludothequedecoligny.fr`
                 </div>
 
                 {/* PAIEMENT */}
-                <div className="space-y-4">
+                <div data-tutorial="adherents-form-cotisation" className="space-y-4">
                   <h3 className="text-[10px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2"><CreditCard size={14}/> Cotisation</h3>
                   <div className={`p-6 rounded-[2rem] border-2 text-center transition-all ${newMember.has_paid ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
                     <span className="text-3xl font-black text-slate-900 block mb-3">{newMember.fee_amount}€</span>
@@ -467,7 +601,7 @@ www.ludothequedecoligny.fr`
                     </div>
                   )}
 
-                  <button type="submit" className="w-full py-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg transition-all active:scale-95">
+                  <button data-tutorial="adherents-form-submit" type="submit" className="w-full py-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg transition-all active:scale-95">
                     {editingId ? "Mettre à jour" : "Enregistrer"}
                   </button>
                   {!editingId && newMember.email && (
@@ -497,11 +631,11 @@ www.ludothequedecoligny.fr`
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {filteredMembers.map((m) => {
+                  {filteredMembers.map((m, idx) => {
                     const status = getExpirationStatus(m);
                     const isCautionActive = (m.type === 'Particulier' && appSettings.active_caution_particulier === "true") || (m.type === 'Association' && appSettings.active_caution_association === "true");
                     return (
-                      <tr key={m.id} className={`transition-colors ${status.expired ? 'bg-rose-50/40 hover:bg-rose-50/60' : 'hover:bg-slate-50/50'}`}>
+                      <tr key={m.id} {...(idx === 0 ? {"data-tutorial": "adherents-list-row1"} : idx === 1 ? {"data-tutorial": "adherents-list-row2"} : {})} className={`transition-colors ${status.expired ? 'bg-rose-50/40 hover:bg-rose-50/60' : 'hover:bg-slate-50/50'}`}>
                         <td className="p-8 font-black text-[#1a5f7a]">{m.member_number}</td>
                         <td className="p-8 font-black uppercase text-sm">
                           {m.type === 'Association' && <Building2 size={14} className="inline mr-2 text-slate-400"/>}
@@ -518,6 +652,7 @@ www.ludothequedecoligny.fr`
                         <td className="p-8 text-right pr-12 space-x-2">
                           {status.expired && (
                             <button
+                              data-tutorial="adherents-action-renew"
                               onClick={() => openRenewalModal(m)}
                               title="Renouveler l'adhésion"
                               className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-emerald-100 transition-all"
@@ -525,10 +660,10 @@ www.ludothequedecoligny.fr`
                               <RefreshCw size={14} /> Renouveler
                             </button>
                           )}
-                          {status.expired && <button onClick={() => setRenewalAction(m)} title="Envoyer une relance" className="p-3 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-100 transition-all"><Send size={18} /></button>}
-                          <button onClick={() => setViewMember(m)} className="p-3 text-slate-400 hover:text-[#1a5f7a]"><Eye size={18} /></button>
-                          <button onClick={() => { setNewMember({...m, family_members: m.family_members || []}); setEditingId(m.id); setShowForm(true); }} className="p-3 text-slate-400 hover:text-amber-500"><Edit2 size={18} /></button>
-                          <button onClick={() => setDeleteConfirm(m)} className="p-3 text-slate-400 hover:text-rose-500"><Trash2 size={18} /></button>
+                          {status.expired && <button data-tutorial="adherents-action-relance" onClick={() => setRenewalAction(m)} title="Envoyer une relance" className="p-3 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-100 transition-all"><Send size={18} /></button>}
+                          <button data-tutorial="adherents-action-view" onClick={() => setViewMember(m)} className="p-3 text-slate-400 hover:text-[#1a5f7a]"><Eye size={18} /></button>
+                          <button data-tutorial="adherents-action-edit" onClick={() => { setNewMember({...m, family_members: m.family_members || []}); setEditingId(m.id); setShowForm(true); }} className="p-3 text-slate-400 hover:text-amber-500"><Edit2 size={18} /></button>
+                          <button data-tutorial="adherents-action-delete" onClick={() => setDeleteConfirm(m)} className="p-3 text-slate-400 hover:text-rose-500"><Trash2 size={18} /></button>
                         </td>
                       </tr>
                     )
@@ -630,7 +765,7 @@ www.ludothequedecoligny.fr`
       {/* MODALE RENOUVELLEMENT ADHÉSION */}
       {renewalModal.show && renewalModal.member && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-[#1a5f7a]/80 backdrop-blur-md">
-          <div className="bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl border-b-8 border-emerald-500 animate-in zoom-in-95">
+          <div data-tutorial="adherents-renewal-modal" className="bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl border-b-8 border-emerald-500 animate-in zoom-in-95">
             <div className="flex items-center gap-4 mb-8">
               <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl"><RefreshCw size={24}/></div>
               <div>
@@ -712,7 +847,7 @@ www.ludothequedecoligny.fr`
       {/* MODALE DE RELANCE */}
       {renewalAction && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-[#1a5f7a]/80 backdrop-blur-md">
-          <div className="bg-white rounded-[3rem] p-10 max-w-lg w-full shadow-2xl border-b-8 border-amber-500 animate-in zoom-in-95">
+          <div data-tutorial="adherents-relance-modal" className="bg-white rounded-[3rem] p-10 max-w-lg w-full shadow-2xl border-b-8 border-amber-500 animate-in zoom-in-95">
             <h2 className="text-2xl font-black text-slate-900 uppercase mb-6">Relancer l'adhérent</h2>
             <div className="space-y-4 mb-8">
                 <div className="bg-slate-50 p-4 rounded-xl flex gap-3 text-sm font-bold text-slate-600 truncate"><Mail size={18} className="text-[#1a5f7a] shrink-0"/> {renewalAction.email || 'N/A'}</div>
@@ -837,6 +972,14 @@ www.ludothequedecoligny.fr`
           </div>
         </div>
       )}
+
+      {/* ── TUTORIEL ─────────────────────────────────────────────────────── */}
+      <TutorialButton onClick={() => setShowTuto(true)} />
+      <TutorialOverlay
+        steps={adherentsSteps}
+        open={showTuto}
+        onClose={() => { setShowTuto(false); setShowForm(false); setRenewalAction(null); setRenewalModal({ show: false, member: null }) }}
+      />
     </div>
   )
 }

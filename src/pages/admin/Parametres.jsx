@@ -30,7 +30,7 @@ export default function Parametres() {
     label: '', url: '',
     x1: null, y1: null, w1: null, h1: null,
     font_family: 'PersonaAura', font_size: 38.7,
-    color: '#000000', layout: 'famille',
+    color: '#000000', layout: 'famille', text_align: 'center',
     x2: null, y2: null, w2: null, h2: null,
     font_family2: 'PersonaAura', font_size2: 28,
     color2: '#000000'
@@ -112,8 +112,10 @@ export default function Parametres() {
   }
 
   const fetchAffichesTemplates = async () => {
-    const { data } = await supabase.from('affiche_templates').select('*').order('created_at')
+    const { data, error } = await supabase.from('affiche_templates').select('*').order('created_at')
+    if (error) console.error('fetchAffichesTemplates error:', error)
     setAffichesTemplates(data || [])
+    return data || []
   }
 
   const openAffichesModal = () => {
@@ -129,12 +131,12 @@ export default function Parametres() {
     setTemplateForm({
       label: t.label, url: t.url,
       x1: t.x1 || null, y1: t.y1 || null, w1: t.w1 || null, h1: t.h1 || null,
-      font_family: t.font_family, font_size: t.font_size,
-      color: t.color, layout: t.layout,
+      font_family: t.font_family || 'PersonaAura', font_size: t.font_size || 38.7,
+      color: t.color || '#000000', layout: t.layout || 'famille', text_align: t.text_align || 'center',
       x2: t.x2 || null, y2: t.y2 || null, w2: t.w2 || null, h2: t.h2 || null,
       font_family2: t.font_family2 || 'PersonaAura',
       font_size2: t.font_size2 || 28,
-      color2: t.color2 || '#000000'
+      color2: t.color2 || '#000000', text_align2: t.text_align2 || 'center'
     })
     setPreviewImg(t.url)
   }
@@ -222,12 +224,26 @@ export default function Parametres() {
     ctx.font = 'bold 14px sans-serif'
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
     ctx.fillText(label, x + 14, y + 14)
-    // Texte exemple dans la zone
+    // Texte exemple dans la zone — taille réelle
     ctx.fillStyle = textColor || '#000000'
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-    const fs = Math.min(parseFloat(fontSize) || 38, h * 0.35)
+    const fs = parseFloat(fontSize) || 38
     ctx.font = `${fs}px ${font || 'sans-serif'}`
-    ctx.fillText(sampleText, x + w / 2, y + h / 2)
+    // Wrapping simple pour l'aperçu
+    const words = sampleText.split(' ')
+    const lh = fs * 1.3
+    let line = ''
+    const wrappedLines = []
+    for (const word of words) {
+      const test = line ? line + ' ' + word : word
+      if (ctx.measureText(test).width > w - 10 && line) {
+        wrappedLines.push(line); line = word
+      } else { line = test }
+    }
+    if (line) wrappedLines.push(line)
+    const totalH = (wrappedLines.length - 1) * lh
+    const startY = y + h / 2 - totalH / 2
+    wrappedLines.forEach((l, i) => ctx.fillText(l, x + w / 2, startY + i * lh))
   }
 
   const drawPreviewCanvas = (canvas, tf, imgUrl) => {
@@ -261,6 +277,7 @@ export default function Parametres() {
         font_size: parseFloat(templateForm.font_size) || 38.7,
         color: templateForm.color,
         layout: templateForm.layout,
+        text_align: templateForm.text_align || 'center',
         x2: templateForm.x2 != null ? parseFloat(templateForm.x2) : null,
         y2: templateForm.y2 != null ? parseFloat(templateForm.y2) : null,
         w2: templateForm.w2 != null ? parseFloat(templateForm.w2) : null,
@@ -268,15 +285,19 @@ export default function Parametres() {
         font_family2: templateForm.font_family2 || 'PersonaAura',
         font_size2: parseFloat(templateForm.font_size2) || 28,
         color2: templateForm.color2 || '#000000',
+        text_align2: templateForm.text_align2 || 'center',
       }
       if (editingTemplate) {
-        await supabase.from('affiche_templates').update(payload).eq('id', editingTemplate.id)
+        const { error: updateError } = await supabase.from('affiche_templates').update(payload).eq('id', editingTemplate.id)
+        if (updateError) { console.error('UPDATE error:', updateError); alert('Erreur update: ' + JSON.stringify(updateError)); return }
       } else {
-        await supabase.from('affiche_templates').insert(payload)
+        const { error: insertError } = await supabase.from('affiche_templates').insert(payload)
+        if (insertError) { console.error('INSERT error:', insertError); alert('Erreur insert: ' + JSON.stringify(insertError)); return }
       }
-      fetchAffichesTemplates()
+      const updated = await fetchAffichesTemplates()
+      console.log('Templates après save:', updated?.length, updated?.map(t => t.label))
       setEditingTemplate(null)
-      setTemplateForm({ label: '', url: '', x1: null, y1: null, w1: null, h1: null, font_family: 'PersonaAura', font_size: 38.7, color: '#000000', layout: 'famille', x2: null, y2: null, w2: null, h2: null, font_family2: 'PersonaAura', font_size2: 28, color2: '#000000' })
+      setTemplateForm({ label: '', url: '', x1: null, y1: null, w1: null, h1: null, font_family: 'PersonaAura', font_size: 38.7, color: '#000000', layout: 'famille', text_align: 'center', x2: null, y2: null, w2: null, h2: null, font_family2: 'PersonaAura', font_size2: 28, color2: '#000000', text_align2: 'center' })
       setPreviewImg(null)
     } catch (e) {
       alert('Erreur sauvegarde : ' + e.message)
@@ -994,6 +1015,18 @@ export default function Parametres() {
                             onChange={e => setTemplateForm(prev => ({ ...prev, color: e.target.value }))} />
                           <span className="text-xs font-bold text-slate-500">{templateForm.color}</span>
                         </div>
+                        <div>
+                          <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Alignement</label>
+                          <div className="flex gap-1 mt-1">
+                            {['left', 'center', 'right'].map(a => (
+                              <button key={a} onClick={() => setTemplateForm(prev => ({ ...prev, text_align: a }))}
+                                className={'flex-1 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all ' +
+                                  (templateForm.text_align === a ? 'bg-[#e38154] text-white' : 'bg-white text-slate-400 border border-slate-200')}>
+                                {a === 'left' ? '⬅' : a === 'center' ? '⬛' : '➡'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     )}
 
@@ -1040,6 +1073,18 @@ export default function Parametres() {
                             onChange={e => setTemplateForm(prev => ({ ...prev, color2: e.target.value }))} />
                           <span className="text-xs font-bold text-slate-500">{templateForm.color2}</span>
                         </div>
+                        <div>
+                          <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Alignement</label>
+                          <div className="flex gap-1 mt-1">
+                            {['left', 'center', 'right'].map(a => (
+                              <button key={a} onClick={() => setTemplateForm(prev => ({ ...prev, text_align2: a }))}
+                                className={'flex-1 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all ' +
+                                  (templateForm.text_align2 === a ? 'bg-[#1a5f7a] text-white' : 'bg-white text-slate-400 border border-slate-200')}>
+                                {a === 'left' ? '⬅' : a === 'center' ? '⬛' : '➡'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     )}
                     <p className="text-[8px] text-slate-300 italic ml-1">La zone ① (Date) est obligatoire. La zone ② (Lieu) est optionnelle.</p>
@@ -1066,27 +1111,29 @@ export default function Parametres() {
                 {/* Colonne droite : aperçu interactif */}
                 <div className="space-y-3">
                   <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                    <Eye size={10} /> Aperçu — cliquez pour positionner le texte
+                    <Eye size={10} /> Aperçu interactif
                   </h4>
                   {previewImg ? (
-                    <div className="relative rounded-2xl overflow-hidden border-2 border-slate-100 shadow-lg" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-                      <canvas
-                        width={794} height={1123}
-                        style={{ width: '100%', height: 'auto', display: 'block', cursor: 'crosshair', userSelect: 'none' }}
-                        onMouseDown={handleCanvasMouseDown}
-                        onMouseMove={handleCanvasMouseMove}
-                        onMouseUp={handleCanvasMouseUp}
-                        onMouseLeave={handleCanvasMouseUp}
-                        ref={el => {
-                          if (el) {
-                            previewCanvasRef.current = el
-                            drawPreviewCanvas(el, templateForm, previewImg)
-                          }
-                        }}
-                      />
-                      <div className="absolute bottom-2 left-2 right-2 bg-black/50 rounded-xl p-2 text-center">
-                        <p className="text-white text-[8px] font-black uppercase">Cliquez-glissez pour définir la zone ① ou ②</p>
+                    <div className="space-y-2">
+                      <div className="rounded-2xl border-2 border-slate-100 shadow-lg" style={{ maxHeight: '65vh', overflowY: 'auto' }}>
+                        <canvas
+                          width={794} height={1123}
+                          style={{ width: '100%', height: 'auto', display: 'block', cursor: 'crosshair', userSelect: 'none' }}
+                          onMouseDown={handleCanvasMouseDown}
+                          onMouseMove={handleCanvasMouseMove}
+                          onMouseUp={handleCanvasMouseUp}
+                          onMouseLeave={handleCanvasMouseUp}
+                          ref={el => {
+                            if (el) {
+                              previewCanvasRef.current = el
+                              drawPreviewCanvas(el, templateForm, previewImg)
+                            }
+                          }}
+                        />
                       </div>
+                      <p className="text-center text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                        ↑ Cliquez-glissez pour définir la zone ① ou ②
+                      </p>
                     </div>
                   ) : (
                     <div className="aspect-[794/1123] rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-3 text-slate-300">

@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Dices, Users, Calendar, LogOut, 
   X, Menu, ChevronRight, ClipboardCheck, Share2,
-  Settings, LifeBuoy, TrendingUp
+  Settings, Lightbulb, TrendingUp
 } from 'lucide-react';
 
 export default function AdminLayout({ children }) {
@@ -176,21 +176,21 @@ export default function AdminLayout({ children }) {
               </span>
             </Link>
 
-            {/* --- LIEN AIDE & TUTORIEL --- */}
+            {/* --- LIEN SUGGESTIONS --- */}
             <Link
-              to="/admin/aide"
+              to="/admin/suggestions"
               onClick={closeMobileMenu}
               className={`flex items-center gap-4 p-4 rounded-2xl transition-all group ${
-                location.pathname === '/admin/aide' 
+                location.pathname === '/admin/suggestions' 
                   ? 'bg-slate-50 text-[#1a5f7a]' 
                   : 'text-slate-400 hover:bg-slate-50 hover:text-[#1a5f7a]'
               }`}
             >
-              <span className={`transition-transform group-hover:scale-110 ${location.pathname === '/admin/aide' ? 'text-[#1a5f7a]' : 'text-slate-200'}`}>
-                <LifeBuoy size={20} />
+              <span className={`transition-transform group-hover:scale-110 ${location.pathname === '/admin/suggestions' ? 'text-[#1a5f7a]' : 'text-slate-200'}`}>
+                <Lightbulb size={20} />
               </span>
-              <span className={`text-[10px] uppercase tracking-widest ${location.pathname === '/admin/aide' ? 'font-black text-[#1a5f7a]' : 'font-bold'}`}>
-                Aide & Tutoriel
+              <span className={`text-[10px] uppercase tracking-widest ${location.pathname === '/admin/suggestions' ? 'font-black text-[#1a5f7a]' : 'font-bold'}`}>
+                Suggestions
               </span>
             </Link>
           </div>

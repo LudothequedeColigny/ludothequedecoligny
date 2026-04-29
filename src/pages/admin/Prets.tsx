@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   Share2, ChevronDown, ChevronUp,
   Trash2,
@@ -26,7 +26,135 @@ import {
   ScanLine
 } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
+import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
 import { sendEmail } from '../../services/emailService'
+
+
+const PRETS_TUTORIAL_STEPS = (openForm, closeForm, openRelance) => [
+  {
+    id: 'prets-header',
+    noSpotlight: true,
+    title: `Bienvenue sur la page Prêts`,
+    description: `Cette page centralise tous les emprunts actifs de la ludothèque. Vous pouvez créer de nouveaux prêts, enregistrer des retours, prolonger des emprunts et envoyer des relances.`,
+    action: () => { closeForm(); openRelance(false) },
+  },
+  {
+    id: 'prets-scanner-btn',
+    title: `Scan rapide : prêt ou retour`,
+    description: `Ce bouton ouvre la caméra. Scannez le code-barres d'un jeu disponible pour le prêter, ou d'un jeu déjà emprunté pour enregistrer son retour — sans chercher dans la liste.`,
+    action: () => { closeForm(); openRelance(false) },
+    tip: `Sur iPhone, le scanner fonctionne uniquement dans Safari. Autorisez l'accès caméra dans Réglages > Safari si nécessaire.`,
+  },
+  {
+    id: 'prets-add-btn',
+    title: `Créer un nouveau prêt`,
+    description: `Ouvre le formulaire d'enregistrement d'un prêt. Nous allons le parcourir ensemble.`,
+    action: () => { closeForm(); openRelance(false) },
+  },
+  {
+    id: 'prets-form-modal',
+    title: `Formulaire de prêt`,
+    description: `Ce formulaire permet d'enregistrer un emprunt en trois étapes : choisir l'adhérent, ajouter les jeux empruntés, puis valider avec la date.`,
+    action: () => { openForm(); openRelance(false) },
+    actionDelay: 400,
+  },
+  {
+    id: 'prets-form-adherent',
+    title: `Sélectionner l'adhérent`,
+    description: `Tapez les premières lettres du nom ou prénom de l'adhérent. Cliquez sur son nom dans la liste pour le sélectionner. Son quota d'emprunts restant s'affiche aussitôt.`,
+    action: () => { openForm(); openRelance(false) },
+    actionDelay: 400,
+  },
+  {
+    id: 'prets-form-jeux',
+    title: `Ajouter les jeux empruntés`,
+    description: `Recherchez les jeux à emprunter par nom ou numéro d'inventaire. Seuls les jeux disponibles apparaissent. Ajoutez-en plusieurs si nécessaire. Vous pouvez aussi scanner leurs codes-barres depuis l'écran précédent.`,
+    action: () => { openForm(); openRelance(false) },
+    actionDelay: 400,
+  },
+  {
+    id: 'prets-form-date-submit',
+    title: `Date et validation du prêt`,
+    description: `La date est pré-remplie avec la date du jour, modifiable si besoin. Cliquez sur "Valider le prêt" pour enregistrer. Les jeux passent en statut emprunté et disparaissent du catalogue public.`,
+    action: () => { openForm(); openRelance(false) },
+    actionDelay: 400,
+  },
+  {
+    id: 'prets-search',
+    title: `Rechercher un prêt`,
+    description: `Filtrez la liste par nom d'adhérent ou titre de jeu pour retrouver rapidement un prêt en cours.`,
+    action: () => { closeForm(); openRelance(false) },
+  },
+  {
+    id: 'prets-list-row1',
+    id2: 'prets-list-row2',
+    title: `Liste des prêts actifs`,
+    description: `Chaque ligne affiche la date de sortie, l'adhérent, le jeu emprunté et les actions disponibles. Les prêts en retard apparaissent en rouge.`,
+    action: () => { closeForm(); openRelance(false) },
+  },
+  {
+    id: 'prets-action-extend',
+    title: `Prolonger un prêt`,
+    description: `L'icône horloge prolonge le prêt de 14 jours supplémentaires après confirmation. Utile pour éviter qu'un prêt passe en retard.`,
+    action: () => { closeForm(); openRelance(false) },
+  },
+  {
+    id: 'prets-action-return',
+    title: `Valider un retour`,
+    description: `Ce bouton enregistre le retour du jeu après confirmation. Le jeu redevient disponible dans le catalogue public immédiatement.`,
+    action: () => { closeForm(); openRelance(false) },
+  },
+  {
+    id: 'prets-action-relance',
+    title: `Relancer un adhérent en retard`,
+    description: `Cette icône apparaît uniquement sur les prêts en retard. Cliquez dessus pour ouvrir la fenêtre de relance qui regroupe les coordonnées de l'adhérent, les jeux non rendus et les outils de suivi.`,
+    action: () => { closeForm(); openRelance(false) },
+    tip: `Si aucun prêt n'est en retard en ce moment, cette icône n'est pas visible dans le tableau.`,
+  },
+  {
+    id: 'prets-relance-modal',
+    title: `Fenêtre de relance`,
+    description: `Cette fenêtre regroupe tout ce qu'il faut pour contacter un adhérent en retard : ses coordonnées complètes et la liste des jeux non rendus avec leur date de sortie.`,
+    action: () => { closeForm(); openRelance(true) },
+    actionDelay: 450,
+  },
+  {
+    id: 'prets-relance-coordonnees',
+    title: `Coordonnées de l'adhérent`,
+    description: `L'email, le téléphone et l'adresse postale de l'adhérent sont affichés ici pour vous permettre de le contacter par le moyen le plus adapté.`,
+    action: () => { closeForm(); openRelance(true) },
+    actionDelay: 450,
+  },
+  {
+    id: 'prets-relance-jeux',
+    title: `Jeux en retard`,
+    description: `La liste des jeux non rendus par cet adhérent s'affiche ici avec leur numéro d'inventaire et la date de sortie. Utile pour mentionner précisément les jeux concernés lors du contact.`,
+    action: () => { closeForm(); openRelance(true) },
+    actionDelay: 450,
+  },
+  {
+    id: 'prets-relance-email',
+    title: `Envoyer une relance par email`,
+    description: `Ce bouton ouvre un éditeur d'email pré-rédigé avec les jeux en retard listés dans le corps du message. Vous pouvez le modifier avant envoi.`,
+    action: () => { closeForm(); openRelance(true) },
+    actionDelay: 450,
+  },
+  {
+    id: 'prets-relance-suivi',
+    title: `Suivi des relances`,
+    description: `Cet encart indique la date de la dernière relance envoyée. Le bouton "Marquer comme relancé aujourd'hui" enregistre la date du jour sans envoyer d'email — utile pour tracer un contact téléphonique ou postal.`,
+    action: () => { closeForm(); openRelance(true) },
+    actionDelay: 450,
+  },
+  {
+    id: 'prets-historique',
+    title: `Historique des prêts`,
+    description: `Ce bouton donne accès à l'historique complet de tous les prêts passés, avec les dates de sortie et de retour de chaque jeu.`,
+    action: () => { closeForm(); openRelance(false) },
+  },
+]
+
+
 
 export default function Prets() {
   // --- ÉTATS ---
@@ -65,6 +193,7 @@ export default function Prets() {
   const [scannedGamesForLoan, setScannedGamesForLoan] = useState([])
   const [scanReturnConfirm, setScanReturnConfirm] = useState(null)
   const [iosWarning, setIosWarning] = useState(false)
+  const [showTuto, setShowTuto] = useState(false)
 
   // Références pour le scanner hybride
   const videoRef = useRef(null)
@@ -480,6 +609,27 @@ www.ludothequedecoligny.fr`
 
   const overdueLoansCount = loans.filter(l => isOverdue(l.loan_date)).length
 
+  // ── Steps tutoriel stabilisés ──────────────────────────────────────────────
+  // On garde un fake loan pour ouvrir la modale relance en démo tutoriel
+  // Pour le tutoriel : on préfère un prêt en retard pour afficher l'icône de relance
+  const fakeLoanForTuto = loans.find(l => {
+    const d = new Date(l.loan_date)
+    const diff = (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24)
+    return diff > 14
+  }) ?? loans[0] ?? null
+
+  const pretsSteps = useMemo(() => PRETS_TUTORIAL_STEPS(
+    () => setShowFormModal(true),
+    () => setShowFormModal(false),
+    (open) => {
+      if (open && fakeLoanForTuto) {
+        setRenewalAction(fakeLoanForTuto)
+      } else {
+        setRenewalAction(null)
+      }
+    }
+  ), [fakeLoanForTuto]) // eslint-disable-line react-hooks/exhaustive-deps
+
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-screen bg-[#fdfaf6] text-[#1a5f7a] gap-4">
       <Loader2 className="animate-spin" size={40} />
@@ -492,7 +642,7 @@ www.ludothequedecoligny.fr`
 
       {/* HEADER */}
       <div className="max-w-7xl mx-auto mb-6 md:mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h1 className="text-xl md:text-4xl font-black text-slate-900 flex items-center gap-3">
+        <h1 data-tutorial="prets-header" className="text-xl md:text-4xl font-black text-slate-900 flex items-center gap-3">
           <div className="p-2.5 bg-[#1a5f7a] rounded-xl shadow-lg text-white">
             <Share2 size={24} />
           </div>
@@ -501,12 +651,14 @@ www.ludothequedecoligny.fr`
 
         <div className="flex gap-2">
           <button
+            data-tutorial="prets-scanner-btn"
             onClick={() => { setScannedGamesForLoan([]); setShowScanner(true) }}
             className="px-6 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl flex items-center gap-2"
           >
             <ScanLine size={16} /> Scan Rapide
           </button>
           <button
+            data-tutorial="prets-add-btn"
             onClick={openNewLoan}
             className="px-6 py-4 bg-[#e38154] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl"
           >
@@ -526,7 +678,7 @@ www.ludothequedecoligny.fr`
           </div>
         )}
 
-        <div className="relative group">
+        <div data-tutorial="prets-search" className="relative group">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
           <input
             type="text"
@@ -597,10 +749,10 @@ www.ludothequedecoligny.fr`
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filteredLoans.map((l) => {
+              {filteredLoans.map((l, idx) => {
                 const late = isOverdue(l.loan_date)
                 return (
-                  <tr key={l.id} className={`transition-colors ${late ? 'bg-rose-50/40 hover:bg-rose-50/60' : 'hover:bg-slate-50/50'}`}>
+                  <tr key={l.id} {...(idx === 0 ? {"data-tutorial": "prets-list-row1"} : idx === 1 ? {"data-tutorial": "prets-list-row2"} : {})} className={`transition-colors ${late ? 'bg-rose-50/40 hover:bg-rose-50/60' : 'hover:bg-slate-50/50'}`}>
                     <td className={`p-8 font-black ${late ? 'text-rose-600' : 'text-[#1a5f7a]'}`}>
                       {new Date(l.loan_date).toLocaleDateString()}
                     </td>
@@ -618,6 +770,7 @@ www.ludothequedecoligny.fr`
                     <td className="p-8 text-right pr-12 space-x-2">
                       {late && (
                         <button
+                          data-tutorial="prets-action-relance"
                           title="Relancer"
                           onClick={() => setRenewalAction(l)}
                           className="p-3 bg-amber-50 text-amber-600 rounded-xl border border-amber-100 hover:bg-amber-100 transition-all shadow-sm"
@@ -626,6 +779,7 @@ www.ludothequedecoligny.fr`
                         </button>
                       )}
                       <button
+                        data-tutorial="prets-action-extend"
                         title="Prolonger"
                         onClick={() => setConfirmAction({ type: 'extend', loan: l })}
                         className="p-3 text-slate-400 bg-white rounded-xl shadow-sm hover:text-amber-500 transition-all"
@@ -633,6 +787,7 @@ www.ludothequedecoligny.fr`
                         <Clock size={18} />
                       </button>
                       <button
+                        data-tutorial="prets-action-return"
                         onClick={() => setConfirmAction({ type: 'return', loan: l })}
                         className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase text-white shadow-md transition-all active:scale-95 ${late ? 'bg-rose-500' : 'bg-emerald-500'}`}
                       >
@@ -648,6 +803,7 @@ www.ludothequedecoligny.fr`
 
         <div className="flex justify-center md:justify-end pt-6">
           <button
+            data-tutorial="prets-historique"
             onClick={() => window.location.href = '/admin/historique-prets'}
             className="flex items-center gap-2 px-8 py-4 bg-slate-800 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-lg hover:bg-slate-700 active:scale-95"
           >
@@ -724,7 +880,7 @@ www.ludothequedecoligny.fr`
       {/* MODALE 1 : COORDONNÉES + SUIVI RELANCE */}
       {renewalAction && !composeModal.show && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-[#1a5f7a]/80 backdrop-blur-md">
-          <div className="bg-white rounded-[3rem] p-10 max-w-lg w-full shadow-2xl border-b-8 border-amber-500">
+          <div data-tutorial="prets-relance-modal" className="bg-white rounded-[3rem] p-10 max-w-lg w-full shadow-2xl border-b-8 border-amber-500">
             
             <div className="flex justify-between items-start mb-6">
               <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center">
@@ -741,7 +897,7 @@ www.ludothequedecoligny.fr`
             </p>
 
             {/* Coordonnées */}
-            <div className="space-y-3 mb-6">
+            <div data-tutorial="prets-relance-coordonnees" className="space-y-3 mb-6">
               <div className="flex items-center gap-4 text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100">
                 <Mail size={18} className="text-[#1a5f7a] shrink-0" />
                 <span className="text-sm font-bold truncate">{renewalAction.members?.email || 'Email non renseigné'}</span>
@@ -757,7 +913,7 @@ www.ludothequedecoligny.fr`
             </div>
 
             {/* Jeux en retard */}
-            <div className="mb-6">
+            <div data-tutorial="prets-relance-jeux" className="mb-6">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Jeux en retard</p>
               <div className="space-y-2">
                 {loans.filter(l => {
@@ -776,6 +932,7 @@ www.ludothequedecoligny.fr`
 
             {/* Bouton email */}
             <button
+              data-tutorial="prets-relance-email"
               onClick={() => openComposeLoan(renewalAction)}
               className="w-full p-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 mb-4"
             >
@@ -783,7 +940,7 @@ www.ludothequedecoligny.fr`
             </button>
 
             {/* Suivi des relances */}
-            <div className="bg-amber-50/50 rounded-[2rem] p-6 border border-amber-100">
+            <div data-tutorial="prets-relance-suivi" className="bg-amber-50/50 rounded-[2rem] p-6 border border-amber-100">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-[10px] font-black uppercase text-amber-600 flex items-center gap-2">
                   <Calendar size={14} /> Suivi des relances
@@ -944,7 +1101,7 @@ www.ludothequedecoligny.fr`
       {/* MODALE FORMULAIRE NOUVEAU PRÊT */}
       {showFormModal && (
         <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+          <div data-tutorial="prets-form-modal" className="bg-white rounded-[2.5rem] w-full max-w-xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
             <div className="p-8 border-b border-slate-50 flex justify-between items-center shrink-0">
               <h2 className="text-xl font-black uppercase">Enregistrer un <span className="text-[#1a5f7a]">Prêt</span></h2>
               <button onClick={() => { setShowFormModal(false); setQuotaWarning(null) }} className="p-2 bg-slate-50 rounded-full text-slate-400 hover:text-rose-500">
@@ -954,7 +1111,7 @@ www.ludothequedecoligny.fr`
             <div className="p-8 space-y-8 overflow-y-auto">
 
               {/* ÉTAPE 1 : ADHÉRENT */}
-              <div className="space-y-3">
+              <div data-tutorial="prets-form-adherent" className="space-y-3">
                 <label className="text-[10px] font-black uppercase tracking-tighter text-[#1a5f7a]">1. Sélection de l'adhérent</label>
                 {!selectedMember ? (
                   <div className="relative">
@@ -1026,7 +1183,7 @@ www.ludothequedecoligny.fr`
               </div>
 
               {/* ÉTAPE 2 : JEUX */}
-              <div className="space-y-3">
+              <div data-tutorial="prets-form-jeux" className="space-y-3">
                 <label className="text-[10px] font-black uppercase tracking-tighter text-[#1a5f7a]">2. Jeux à ajouter</label>
                 {selectedMember ? (
                   <>
@@ -1089,7 +1246,7 @@ www.ludothequedecoligny.fr`
               </div>
 
               {/* ÉTAPE 3 : DATE + VALIDATION */}
-              <div className="pt-6 border-t border-slate-50 space-y-4">
+              <div data-tutorial="prets-form-date-submit" className="pt-6 border-t border-slate-50 space-y-4">
                 <input
                   type="date"
                   className="w-full p-5 bg-slate-50 rounded-2xl font-black text-sm outline-none"
@@ -1109,6 +1266,14 @@ www.ludothequedecoligny.fr`
           </div>
         </div>
       )}
+
+      {/* ── TUTORIEL ─────────────────────────────────────────────────────── */}
+      <TutorialButton onClick={() => setShowTuto(true)} />
+      <TutorialOverlay
+        steps={pretsSteps}
+        open={showTuto}
+        onClose={() => { setShowTuto(false); setShowFormModal(false); setRenewalAction(null) }}
+      />
     </div>
   )
 }

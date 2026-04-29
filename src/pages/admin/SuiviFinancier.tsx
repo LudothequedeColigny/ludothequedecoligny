@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../services/supabaseClient'
+import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
 import {
   TrendingUp, TrendingDown, Plus, Trash2, Loader2,
   Wallet, ShoppingCart, Landmark, PiggyBank, X, AlertTriangle, Euro, Edit2
@@ -64,6 +65,7 @@ export default function SuiviFinancier() {
   })
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
+  const [showTuto, setShowTuto] = useState(false)
 
   // ── Chargement ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -180,13 +182,102 @@ export default function SuiviFinancier() {
     fetchTransactions()
   }
 
+
+const FINANCIER_TUTORIAL_STEPS = (openForm, closeForm) => [
+  {
+    id: 'fin-header',
+    noSpotlight: true,
+    title: `Bienvenue sur le Suivi Financier`,
+    description: `Cette page vous permet de suivre toute la trésorerie de l'association : cotisations, subventions, achats de jeux et autres dépenses. Le solde est recalculé en temps réel.`,
+    action: () => closeForm(),
+  },
+  {
+    id: 'fin-add-btn',
+    title: `Ajouter une opération`,
+    description: `Ce bouton ouvre le formulaire de saisie. Nous allons le parcourir ensemble.`,
+    action: () => closeForm(),
+  },
+  {
+    id: 'fin-modal',
+    title: `Formulaire de saisie`,
+    description: `Ce formulaire permet d'enregistrer une entrée (cotisation, subvention, don…) ou une sortie (achat de jeu, matériel, frais…). Choisissez le type, la catégorie, renseignez le libellé, le montant et la date.`,
+    action: () => openForm(),
+    actionDelay: 400,
+  },
+  {
+    id: 'fin-form-type',
+    title: `Type d'opération`,
+    description: `Sélectionnez "Entrée" pour un encaissement (cotisation, subvention, don…) ou "Sortie" pour une dépense (achat de jeu, matériel, frais divers…). Le choix adapte la liste des catégories disponibles.`,
+    action: () => openForm(),
+    actionDelay: 400,
+  },
+  {
+    id: 'fin-form-fields',
+    title: `Catégorie, libellé, montant et date`,
+    description: `Choisissez la catégorie dans la liste, saisissez un libellé descriptif (ex : "Achat Catan", "Subvention mairie"), le montant en euros et la date de l'opération.`,
+    action: () => openForm(),
+    actionDelay: 400,
+  },
+  {
+    id: 'fin-form-submit',
+    title: `Enregistrer l'opération`,
+    description: `Ce bouton enregistre la transaction. Le solde, les compteurs et l'historique sont mis à jour immédiatement.`,
+    action: () => openForm(),
+    actionDelay: 400,
+  },
+  {
+    id: 'fin-solde',
+    title: `Solde disponible`,
+    description: `Ce bloc affiche le solde global de la trésorerie (total des entrées moins total des sorties). Il passe au vert si positif, au rouge en cas de déficit.`,
+    action: () => closeForm(),
+  },
+  {
+    id: 'fin-compteurs',
+    title: `Répartition des flux`,
+    description: `Ces trois blocs décomposent la trésorerie : cotisations encaissées (toutes années confondues), autres entrées (subventions, dons, trésorerie initiale…) et total des sorties (achats, matériel, frais…).`,
+    action: () => closeForm(),
+    tip: `Les entrées de type "Cotisation" sont enregistrées automatiquement depuis la page Adhérents lors de chaque inscription ou renouvellement. Vous n'avez pas à les saisir manuellement ici.`,
+  },
+  {
+    id: 'fin-tabs',
+    title: `Filtrer l'historique`,
+    description: `Ces onglets filtrent la liste des transactions : "Tout" affiche toutes les opérations, "Entrées" uniquement les encaissements, "Sorties" uniquement les dépenses.`,
+    action: () => closeForm(),
+  },
+  {
+    id: 'fin-list-row1',
+    id2: 'fin-list-row2',
+    title: `Historique des transactions`,
+    description: `Chaque ligne affiche l'icône de catégorie, le libellé, la catégorie, la date et le montant (en vert pour une entrée, en rouge pour une sortie). Les cotisations sont mises en évidence en bleu.`,
+    action: () => closeForm(),
+  },
+  {
+    id: 'fin-action-edit',
+    title: `Modifier une transaction`,
+    description: `L'icône crayon ouvre le formulaire pré-rempli pour modifier une transaction. Elle n'apparaît que sur les opérations saisies manuellement — les cotisations générées automatiquement depuis la page Adhérents ne sont pas modifiables ici.`,
+    action: () => closeForm(),
+  },
+  {
+    id: 'fin-action-delete',
+    title: `Supprimer une transaction`,
+    description: `L'icône poubelle (visible au survol) supprime la transaction après confirmation. Le solde est recalculé immédiatement.`,
+    action: () => closeForm(),
+  },
+]
+
+  // ── Steps tutoriel ─────────────────────────────────────────────────────────
+  const finSteps = useMemo(() => FINANCIER_TUTORIAL_STEPS(
+    () => { setEditingId(null); setForm({ label: '', amount: '', type: 'entree', category: 'Cotisation', date: new Date().toISOString().split('T')[0] }); setShowModal(true) },
+    () => setShowModal(false)
+  ), []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Rendu ──────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#fdfaf6] font-sans">
 
       {/* EN-TÊTE */}
       <header className="p-4 md:p-10 max-w-5xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-4">
+        <h1 data-tutorial="fin-header" className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-4">
           <div className="p-3 bg-[#1a5f7a] rounded-[1.2rem] md:rounded-[1.5rem] shadow-lg shadow-cyan-900/20 text-white">
             <Wallet size={28} />
           </div>
@@ -201,6 +292,7 @@ export default function SuiviFinancier() {
         </h1>
 
         <button
+          data-tutorial="fin-add-btn"
           onClick={() => openCreate()}
           className="w-full md:w-auto inline-flex items-center justify-center gap-3 px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all bg-[#1a5f7a] text-white shadow-lg shadow-cyan-900/20 hover:bg-[#164f66] active:scale-95"
         >
@@ -220,7 +312,7 @@ export default function SuiviFinancier() {
           <div className="animate-in fade-in slide-in-from-bottom-6 duration-700 space-y-6 md:space-y-8">
 
             {/* ── SOLDE PRINCIPAL ──────────────────────────────────────────── */}
-            <div className={`rounded-[2.5rem] md:rounded-[3.5rem] p-8 md:p-14 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl relative overflow-hidden ${solde >= 0 ? 'bg-emerald-600 shadow-emerald-900/20' : 'bg-rose-500 shadow-rose-900/20'}`}>
+            <div data-tutorial="fin-solde" className={`rounded-[2.5rem] md:rounded-[3.5rem] p-8 md:p-14 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl relative overflow-hidden ${solde >= 0 ? 'bg-emerald-600 shadow-emerald-900/20' : 'bg-rose-500 shadow-rose-900/20'}`}>
               <div className="absolute -top-20 -right-20 w-56 h-56 bg-white/5 rounded-full pointer-events-none" />
               <div className="relative z-10 text-center md:text-left">
                 <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/60 mb-2">
@@ -244,7 +336,7 @@ export default function SuiviFinancier() {
             </div>
 
             {/* ── COMPTEURS ────────────────────────────────────────────────── */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+            <div data-tutorial="fin-compteurs" className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
 
               {/* Cotisations */}
               <div className="bg-white rounded-[2.5rem] p-6 md:p-8 border border-slate-100 shadow-sm flex flex-col gap-3">
@@ -305,7 +397,7 @@ export default function SuiviFinancier() {
             <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
 
               {/* Tabs */}
-              <div className="flex border-b border-slate-100 px-6 pt-6 gap-2">
+              <div data-tutorial="fin-tabs" className="flex border-b border-slate-100 px-6 pt-6 gap-2">
                 {(['tout', 'entrees', 'sorties'] as const).map(tab => (
                   <button
                     key={tab}
@@ -328,11 +420,17 @@ export default function SuiviFinancier() {
                     Aucune opération enregistrée
                   </div>
                 )}
-                {filteredTransactions.map(t => {
+                {(() => { let nonCotiCount = 0; return filteredTransactions.map((t, idx) => {
                   const isCotisation = t.category === 'Cotisation'
+                  if (!isCotisation) nonCotiCount++
+                  const tutoAttr = !isCotisation && nonCotiCount === 1 ? {"data-tutorial": "fin-list-row1"} :
+                                   !isCotisation && nonCotiCount === 2 ? {"data-tutorial": "fin-list-row2"} :
+                                   idx === 0 ? {"data-tutorial": "fin-list-row1"} :
+                                   idx === 1 ? {"data-tutorial": "fin-list-row2"} : {}
                   return (
                   <div
                     key={t.id}
+                    {...tutoAttr}
                     className={`flex items-center justify-between p-4 md:p-5 rounded-2xl border group transition-all ${
                       isCotisation
                         ? 'bg-[#f0f7f9] border-[#1a5f7a]/10'
@@ -378,14 +476,16 @@ export default function SuiviFinancier() {
                       {!isCotisation && (
                         <>
                           <button
+                            data-tutorial="fin-action-edit"
                             onClick={() => openEdit(t)}
-                            className="opacity-0 group-hover:opacity-100 p-2 bg-[#f0f7f9] text-[#1a5f7a] rounded-xl transition-all hover:bg-[#dceef4] active:scale-95"
+                            className={`p-2 bg-[#f0f7f9] text-[#1a5f7a] rounded-xl transition-all hover:bg-[#dceef4] active:scale-95 ${showTuto ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                           >
                             <Edit2 size={14} />
                           </button>
                           <button
+                            data-tutorial="fin-action-delete"
                             onClick={() => setDeleteConfirm(t)}
-                            className="opacity-0 group-hover:opacity-100 p-2 bg-rose-50 text-rose-400 rounded-xl transition-all hover:bg-rose-100 active:scale-95"
+                            className={`p-2 bg-rose-50 text-rose-400 rounded-xl transition-all hover:bg-rose-100 active:scale-95 ${showTuto ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                           >
                             <Trash2 size={14} />
                           </button>
@@ -394,7 +494,7 @@ export default function SuiviFinancier() {
                     </div>
                   </div>
                   )
-                })}
+                })})()}
               </div>
             </div>
 
@@ -405,7 +505,7 @@ export default function SuiviFinancier() {
       {/* ── MODALE AJOUT OPÉRATION ────────────────────────────────────────────── */}
       {showModal && (
         <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="relative bg-white rounded-[2.5rem] p-8 md:p-10 w-full max-w-lg shadow-2xl animate-in slide-in-from-bottom-4 md:zoom-in-95 duration-200">
+          <div data-tutorial="fin-modal" className="relative bg-white rounded-[2.5rem] p-8 md:p-10 w-full max-w-lg shadow-2xl animate-in slide-in-from-bottom-4 md:zoom-in-95 duration-200">
 
             <button
               onClick={closeModal}
@@ -419,7 +519,7 @@ export default function SuiviFinancier() {
             </h3>
 
             {/* Type entrée / sortie */}
-            <div className="flex gap-3 mb-6">
+            <div data-tutorial="fin-form-type" className="flex gap-3 mb-6">
               <button
                 onClick={() => handleTypeChange('entree')}
                 className={`flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center justify-center gap-2 ${
@@ -442,7 +542,7 @@ export default function SuiviFinancier() {
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div data-tutorial="fin-form-fields" className="space-y-4">
 
               {/* Catégorie */}
               <div>
@@ -512,6 +612,7 @@ export default function SuiviFinancier() {
 
               {/* Bouton */}
               <button
+                data-tutorial="fin-form-submit"
                 onClick={handleSubmit}
                 disabled={saving}
                 className={`w-full py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${
@@ -531,6 +632,14 @@ export default function SuiviFinancier() {
           </div>
         </div>
       )}
+
+      {/* ── TUTORIEL ─────────────────────────────────────────────────────── */}
+      <TutorialButton onClick={() => setShowTuto(true)} />
+      <TutorialOverlay
+        steps={finSteps}
+        open={showTuto}
+        onClose={() => { setShowTuto(false); setShowModal(false) }}
+      />
 
       {/* ── MODALE SUPPRESSION ───────────────────────────────────────────────── */}
       {deleteConfirm && (

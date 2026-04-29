@@ -37,13 +37,15 @@ function formatHeure(dateStr) {
   return d.getHours() + 'h' + (m > 0 ? String(m).padStart(2, '0') : '')
 }
 
-function wrapLineInZone(ctx, text, maxWidth) {
+function wrapLineInZone(ctx, text, fontStr, maxWidth) {
+  // La font DOIT être définie sur ctx avant d'appeler cette fonction
+  ctx.font = fontStr
   const words = text.split(' ')
   const wrapped = []
   let line = ''
   for (const word of words) {
     const test = line ? line + ' ' + word : word
-    if (ctx.measureText(test).width > maxWidth && line) {
+    if (ctx.measureText(test).width > maxWidth - 10 && line) {
       wrapped.push(line)
       line = word
     } else {
@@ -54,28 +56,31 @@ function wrapLineInZone(ctx, text, maxWidth) {
   return wrapped
 }
 
-function drawTextInZone(ctx, lines, zx, zy, zw, zh, fontSize, fontFamily, color, style = 'normal') {
+function drawTextInZone(ctx, lines, zx, zy, zw, zh, fontSize, fontFamily, color, style = 'normal', textAlign = 'center') {
   ctx.fillStyle = color
-  ctx.textAlign = 'center'
+  ctx.textAlign = textAlign
   ctx.textBaseline = 'middle'
-  const cx = zx + zw / 2
+  const cx = textAlign === 'left' ? zx + 10 : textAlign === 'right' ? zx + zw - 10 : zx + zw / 2
   const lh = fontSize * 1.3
 
   // Expand each input line into wrapped sub-lines
   const allLines = []
   lines.forEach((line, i) => {
     const fs = i === 0 && style === 'big-first' ? fontSize * 1.05 : fontSize
-    ctx.font = fs + 'px ' + fontFamily + ', sans-serif'
-    const wrapped = wrapLineInZone(ctx, line, zw - 10)
-    wrapped.forEach(wl => allLines.push({ text: wl, fs }))
+    const fontStr = fs + 'px ' + fontFamily + ', sans-serif'
+    // On passe fontStr pour que measureText utilise la bonne police
+    const wrapped = wrapLineInZone(ctx, line, fontStr, zw)
+    wrapped.forEach(wl => allLines.push({ text: wl, fs, fontStr }))
   })
 
   const totalH = (allLines.length - 1) * lh
   const startY = zy + zh / 2 - totalH / 2
 
-  allLines.forEach(({ text, fs }, i) => {
-    ctx.font = fs + 'px ' + fontFamily + ', sans-serif'
-    ctx.fillText(text, cx, startY + i * lh)
+  allLines.forEach(({ text, fs, fontStr }, i) => {
+    ctx.font = fontStr
+    // Pour left: ancrage à gauche+padding, right: ancrage à droite-padding
+    const tx = textAlign === 'left' ? zx + 10 : textAlign === 'right' ? zx + zw - 10 : zx + zw / 2
+    ctx.fillText(text, tx, startY + i * lh)
   })
 }
 
@@ -123,6 +128,8 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
             fontSize2: t.font_size2 ? parseFloat(t.font_size2) : 28,
             color2: t.color2 || '#000000',
             fontFamily2: t.font_family2 || 'PersonaAura',
+            textAlign: t.text_align || 'center',
+            textAlign2: t.text_align2 || 'center',
           }))
           setTemplates(normalized)
           setSelectedId(normalized[0].id)
@@ -184,7 +191,8 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
     if (!selectedDate) return
 
     const { x1, y1, w1, h1, fontSize, fontFamily, color, layout,
-            x2, y2, w2, h2, fontSize2, color2, fontFamily2 } = config
+            x2, y2, w2, h2, fontSize2, color2, fontFamily2,
+            textAlign, textAlign2 } = config
 
     // ── Zone 1 : Date ──
     if (x1 != null && w1 > 0) {
@@ -192,19 +200,19 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
         const { jour, date, heure } = formatShort(selectedDate)
         const fin = selectedEndTime ? selectedEndTime.replace(':', 'h') : ''
         const heureStr = fin ? heure + ' à ' + fin : heure
-        drawTextInZone(ctx, [jour, date, heureStr], x1, y1, w1, h1, fontSize, fontFamily, color, 'big-first')
+        drawTextInZone(ctx, [jour, date, heureStr], x1, y1, w1, h1, fontSize, fontFamily, color, 'big-first', textAlign || 'center')
       } else {
         const dateLong = formatLong(selectedDate)
         const hDeb = formatHeure(selectedDate)
         const fin = selectedEndTime ? selectedEndTime.replace(':', 'h') : ''
         const prefixe = fin ? 'de ' + hDeb + ' à ' + fin : 'à partir de ' + hDeb
-        drawTextInZone(ctx, [dateLong, prefixe], x1, y1, w1, h1, fontSize, fontFamily, color)
+        drawTextInZone(ctx, [dateLong, prefixe], x1, y1, w1, h1, fontSize, fontFamily, color, 'normal', textAlign || 'center')
       }
     }
 
     // ── Zone 2 : Lieu ──
     if (x2 != null && w2 > 0 && selectedLocation) {
-      drawTextInZone(ctx, [selectedLocation], x2, y2, w2, h2, fontSize2, fontFamily2, color2)
+      drawTextInZone(ctx, [selectedLocation], x2, y2, w2, h2, fontSize2, fontFamily2, color2, 'normal', textAlign2 || 'center')
     }
   }, [selectedDate, selectedEndTime, selectedLocation, config, imgLoaded, fontLoaded])
 

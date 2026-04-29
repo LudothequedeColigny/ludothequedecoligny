@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import GenerateurAffiche from './GenerateurAffiche'
+import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
 import { supabase } from '../../services/supabaseClient'
 import { sendEmail } from '../../services/emailService'
 import { 
@@ -31,6 +32,7 @@ export default function Evenements() {
   const [collectivitesModal, setCollectivitesModal] = useState(false)
   const [newCollectivite, setNewCollectivite] = useState({ nom: '', email: '' })
   const [editingCollectivite, setEditingCollectivite] = useState(null)
+  const [showTuto, setShowTuto] = useState(false)
 
   const initialEventState = {
     title: '',
@@ -373,19 +375,163 @@ L'équipe de la Ludothèque de Coligny
     fetchEvents()
   }
 
+
+const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollectivites) => [
+  {
+    id: 'evt-header',
+    noSpotlight: true,
+    title: `Bienvenue sur la page Événements`,
+    description: `Cette page vous permet de créer et gérer tous les événements de la ludothèque, de générer des affiches et d'envoyer des emails de communication à vos contacts.`,
+    action: () => { closeForm(); openCompose(false); openCollectivites(false) },
+  },
+  {
+    id: 'evt-tabs',
+    title: `Onglets Événements / Affiches`,
+    description: `Basculez entre la gestion des événements et le générateur d'affiches. Le générateur crée une affiche A4 haute résolution et peut pré-remplir automatiquement le formulaire d'événement avec la date et le lieu.`,
+    action: () => { closeForm(); openCompose(false); openCollectivites(false) },
+  },
+  {
+    id: 'evt-add-btn',
+    title: `Créer un nouvel événement`,
+    description: `Ce bouton ouvre le formulaire de création. Nous allons le parcourir ensemble.`,
+    action: () => { closeForm(); openCompose(false); openCollectivites(false) },
+  },
+  {
+    id: 'evt-form',
+    title: `Formulaire de création d'événement`,
+    description: `Ce formulaire permet de renseigner toutes les informations de l'événement : titre, date, horaires, lieu, affiche et description.`,
+    action: () => { openForm(); openCompose(false); openCollectivites(false) },
+    actionDelay: 400,
+  },
+  {
+    id: 'evt-form-details',
+    title: `Titre, date et lieu`,
+    description: `Saisissez le titre, la date et l'heure de début (obligatoires), l'heure de fin (optionnelle — si renseignée, l'email affichera une plage horaire complète) et le lieu de l'événement.`,
+    action: () => { openForm(); openCompose(false); openCollectivites(false) },
+    actionDelay: 400,
+  },
+  {
+    id: 'evt-form-affiche',
+    title: `Affiche de l'événement`,
+    description: `Collez une adresse internet d'image ou uploadez un fichier depuis votre appareil. Si vous avez généré une affiche via l'onglet Affiches, elle est déjà pré-remplie automatiquement ici.`,
+    action: () => { openForm(); openCompose(false); openCollectivites(false) },
+    actionDelay: 400,
+  },
+  {
+    id: 'evt-form-description',
+    title: `Description`,
+    description: `Rédigez une description détaillée de l'événement. Ce texte peut être repris dans le corps des emails de communication envoyés aux adhérents et collectivités.`,
+    action: () => { openForm(); openCompose(false); openCollectivites(false) },
+    actionDelay: 400,
+  },
+  {
+    id: 'evt-form-submit',
+    title: `Enregistrer l'événement`,
+    description: `Ce bouton enregistre l'événement. Il apparaît immédiatement dans la liste. Depuis sa carte, vous pourrez envoyer un email de communication à vos contacts.`,
+    action: () => { openForm(); openCompose(false); openCollectivites(false) },
+    actionDelay: 400,
+  },
+  {
+    id: 'evt-list-card1',
+    id2: 'evt-list-card2',
+    title: `Liste des événements`,
+    description: `Chaque carte affiche le titre, la date, l'heure et le lieu. Un badge vert indique qu'un email de communication a déjà été envoyé pour cet événement. Au survol, trois icônes apparaissent.`,
+    action: () => { closeForm(); openCompose(false); openCollectivites(false) },
+  },
+  {
+    id: 'evt-action-edit',
+    title: `Modifier un événement`,
+    description: `L'icône crayon ouvre le formulaire en mode édition avec toutes les informations pré-remplies. Modifiez puis enregistrez pour mettre à jour l'événement.`,
+    action: () => { closeForm(); openCompose(false); openCollectivites(false) },
+  },
+  {
+    id: 'evt-action-mail',
+    title: `Envoyer un email de communication`,
+    description: `L'icône enveloppe ouvre la fenêtre de composition d'email — nous allons l'explorer ensemble à l'étape suivante.`,
+    action: () => { closeForm(); openCompose(false); openCollectivites(false) },
+  },
+  {
+    id: 'evt-compose-modal',
+    title: `Fenêtre de composition email`,
+    description: `Cette fenêtre permet de composer et envoyer un email à vos contacts. Elle contient l'objet, le corps du message (différent selon les destinataires), les événements à inclure et la liste des destinataires.`,
+    action: () => { closeForm(); openCompose(true); openCollectivites(false) },
+    actionDelay: 450,
+  },
+  {
+    id: 'evt-compose-tabs',
+    title: `Deux messages distincts`,
+    description: `L'onglet "Collectivités" rédige un message destiné aux mairies et partenaires (invitation à relayer l'événement). L'onglet "Adhérents" rédige un message d'invitation à participer. Les deux peuvent être modifiés avant envoi.`,
+    action: () => { closeForm(); openCompose(true); openCollectivites(false) },
+    actionDelay: 450,
+  },
+  {
+    id: 'evt-compose-events',
+    title: `Événements inclus dans l'email`,
+    description: `L'événement est ajouté automatiquement mais vous pouvez en inclure d'autres via le bouton "+ Ajouter un événement". Chaque bloc est éditable : titre, lieu, date et horaires.`,
+    action: () => { closeForm(); openCompose(true); openCollectivites(false) },
+    actionDelay: 450,
+  },
+  {
+    id: 'evt-compose-recipients',
+    title: `Sélection des destinataires`,
+    description: `Les destinataires sont regroupés en deux listes : Mairies & Collectivités et Adhérents. Cochez ou décochez chaque contact individuellement, ou cochez la case de groupe pour tout sélectionner d'un clic.`,
+    action: () => { closeForm(); openCompose(true); openCollectivites(false) },
+    actionDelay: 450,
+  },
+  {
+    id: 'evt-compose-send',
+    title: `Envoyer l'email`,
+    description: `Ce bouton envoie l'email à tous les destinataires cochés. Un récapitulatif confirme le nombre d'envois réussis. La carte de l'événement affiche ensuite un badge "Diffusé".`,
+    action: () => { closeForm(); openCompose(true); openCollectivites(false) },
+    actionDelay: 450,
+  },
+  {
+    id: 'evt-collectivites-btn',
+    title: `Gérer les destinataires enregistrés`,
+    description: `Ce bouton ouvre la fenêtre de gestion des collectivités — nous allons l'explorer ensemble à l'étape suivante.`,
+    action: () => { closeForm(); openCompose(false); openCollectivites(false) },
+  },
+  {
+    id: 'evt-collectivites-modal',
+    title: `Fenêtre des collectivités`,
+    description: `Cette fenêtre liste les mairies et organismes partenaires enregistrés comme destinataires permanents. Ajoutez une collectivité en renseignant son nom et email. Les adhérents, eux, sont automatiquement récupérés depuis la base de données lors de l'envoi.`,
+    action: () => { closeForm(); openCompose(false); openCollectivites(true) },
+    actionDelay: 450,
+  },
+]
+
+  // ── Steps tutoriel ─────────────────────────────────────────────────────────
+  const fakeEvent = events[0] ?? null
+
+  const evtSteps = useMemo(() => EVENEMENTS_TUTORIAL_STEPS(
+    () => { setEditingId(null); setNewEvent(initialEventState); setActiveTab('events'); setShowForm(true) },
+    () => { setShowForm(false); setEditingId(null) },
+    (open) => {
+      if (open && fakeEvent) {
+        openComposeModal(fakeEvent)
+      } else {
+        setComposeModal({ show: false, event: null })
+      }
+    },
+    (open) => {
+      if (open) setCollectivitesModal(true)
+      else setCollectivitesModal(false)
+    }
+  ), [fakeEvent]) // eslint-disable-line react-hooks/exhaustive-deps
+
   if (loading) return <div className="flex items-center justify-center h-screen bg-[#fdfaf6] text-[#1a5f7a] font-black uppercase text-xs tracking-widest">Chargement...</div>
 
   return (
     <div className="p-4 md:p-10 bg-[#fdfaf6] min-h-screen font-sans text-slate-900">
       
       <div className="max-w-7xl mx-auto mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <h1 className="text-2xl md:text-4xl font-black text-slate-900 flex items-center gap-4">
+        <h1 data-tutorial="evt-header" className="text-2xl md:text-4xl font-black text-slate-900 flex items-center gap-4">
           <div className="p-3 bg-[#1a5f7a] rounded-[1.2rem] shadow-lg text-white"><Calendar size={28} /></div>
           <span>Gestion des <span className="text-[#1a5f7a]">Événements</span></span>
         </h1>
         <div className="flex flex-wrap items-center gap-3">
           {/* Tabs */}
-          <div className="flex bg-slate-100 rounded-2xl p-1 gap-1">
+          <div data-tutorial="evt-tabs" className="flex bg-slate-100 rounded-2xl p-1 gap-1">
             <button
               onClick={() => setActiveTab('events')}
               className={"px-5 py-3 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all " + (activeTab === 'events' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600')}>
@@ -398,7 +544,7 @@ L'équipe de la Ludothèque de Coligny
             </button>
           </div>
           {activeTab === 'events' && (
-            <button onClick={editingId ? cancelEdit : () => setShowForm(!showForm)} className={"px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl whitespace-nowrap " + (showForm ? 'bg-slate-800 text-white' : 'bg-[#e38154] text-white')}>
+            <button data-tutorial="evt-add-btn" onClick={editingId ? cancelEdit : () => setShowForm(!showForm)} className={"px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl whitespace-nowrap " + (showForm ? 'bg-slate-800 text-white' : 'bg-[#e38154] text-white')}>
               {showForm ? "Fermer" : "Nouvel Événement"}
             </button>
           )}
@@ -411,9 +557,9 @@ L'équipe de la Ludothèque de Coligny
         )}
         {activeTab === 'events' && (<>
         {showForm && (
-          <form onSubmit={handleSubmit} className="bg-white p-6 md:p-12 rounded-[2.5rem] shadow-xl border border-slate-50 mb-12">
+          <form data-tutorial="evt-form" onSubmit={handleSubmit} className="bg-white p-6 md:p-12 rounded-[2.5rem] shadow-xl border border-slate-50 mb-12">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-              <div className="space-y-6">
+              <div data-tutorial="evt-form-details" className="space-y-6">
                 <h3 className="text-[10px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2"><Type size={16} /> Détails</h3>
                 <input required placeholder="Titre" className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none" value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} />
                 
@@ -430,7 +576,7 @@ L'équipe de la Ludothèque de Coligny
 
                 <input required placeholder="Lieu" className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-sm" value={newEvent.location} onChange={e => setNewEvent({...newEvent, location: e.target.value})} />
                 
-                <div className="space-y-4">
+                <div data-tutorial="evt-form-affiche" className="space-y-4">
                   <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Affiche</label>
                   <input placeholder="Lien URL de l'image..." className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-[10px] outline-none" value={newEvent.image_url} onChange={e => setNewEvent({...newEvent, image_url: e.target.value})} />
                   <div className="border-4 border-dashed border-slate-50 rounded-[2rem] p-8 flex flex-col items-center justify-center bg-slate-50/50">
@@ -443,10 +589,10 @@ L'équipe de la Ludothèque de Coligny
                 </div>
               </div>
 
-              <div className="space-y-6 flex flex-col">
+              <div data-tutorial="evt-form-description" className="space-y-6 flex flex-col">
                 <h3 className="text-[10px] font-black text-[#e38154] uppercase tracking-widest flex items-center gap-2"><AlignLeft size={16} /> Description</h3>
-                <textarea placeholder="Détails..." className="w-full p-6 rounded-[2rem] bg-slate-50 font-medium text-sm outline-none flex-1 min-h-[200px]" value={newEvent.description} onChange={e => setNewEvent({...newEvent, description: e.target.value})} />
-                <button type="submit" disabled={uploading} className="w-full py-6 mt-6 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl bg-[#1a5f7a] text-white">
+                <textarea data-tutorial="evt-form-description" placeholder="Détails..." className="w-full p-6 rounded-[2rem] bg-slate-50 font-medium text-sm outline-none flex-1 min-h-[200px]" value={newEvent.description} onChange={e => setNewEvent({...newEvent, description: e.target.value})} />
+                <button data-tutorial="evt-form-submit" type="submit" disabled={uploading} className="w-full py-6 mt-6 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl bg-[#1a5f7a] text-white">
                   Enregistrer l'événement
                 </button>
               </div>
@@ -455,13 +601,13 @@ L'équipe de la Ludothèque de Coligny
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {events.map(event => (
-            <div key={event.id} className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden flex flex-col group hover:shadow-xl transition-all">
+          {events.map((event, idx) => (
+            <div key={event.id} {...(idx === 0 ? {"data-tutorial": "evt-list-card1"} : idx === 1 ? {"data-tutorial": "evt-list-card2"} : {})} className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden flex flex-col group hover:shadow-xl transition-all">
               <div className="h-48 bg-slate-50 relative flex items-center justify-center p-4">
                 {event.image_url ? <img src={event.image_url} className="max-w-full max-h-full object-contain" alt="" /> : <ImageIcon size={48} className="text-slate-200" />}
-                <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => startEdit(event)} className="p-2.5 bg-white text-slate-400 rounded-xl shadow-lg hover:bg-[#1a5f7a] hover:text-white transition-all"><Edit2 size={16} /></button>
-                  <button onClick={() => openComposeModal(event)} className="p-2.5 bg-white text-amber-500 rounded-xl shadow-lg hover:bg-amber-500 hover:text-white transition-all"><Mail size={16} /></button>
+                <div className="evt-card-actions absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button data-tutorial="evt-action-edit" onClick={() => startEdit(event)} className="p-2.5 bg-white text-slate-400 rounded-xl shadow-lg hover:bg-[#1a5f7a] hover:text-white transition-all"><Edit2 size={16} /></button>
+                  <button data-tutorial="evt-action-mail" onClick={() => openComposeModal(event)} className="p-2.5 bg-white text-amber-500 rounded-xl shadow-lg hover:bg-amber-500 hover:text-white transition-all"><Mail size={16} /></button>
                   <button onClick={() => setDeleteModal({show: true, id: event.id, title: event.title})} className="p-2.5 bg-white text-slate-400 rounded-xl shadow-lg hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={16} /></button>
                 </div>
                 {event.mail_sent_at && (
@@ -492,7 +638,7 @@ L'équipe de la Ludothèque de Coligny
       {/* MODALE COMPOSITION EMAIL */}
       {composeModal.show && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-3xl max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col">
+          <div data-tutorial="evt-compose-modal" className="bg-white rounded-[2.5rem] w-full max-w-3xl max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col">
             
             {/* Header */}
             <div className="sticky top-0 bg-white rounded-t-[2.5rem] p-8 pb-4 border-b border-slate-100 flex items-center justify-between z-10">
@@ -517,7 +663,7 @@ L'équipe de la Ludothèque de Coligny
 
               {/* Corps — onglets Collectivités / Adhérents */}
               <div className="space-y-3">
-                <div className="flex bg-slate-100 rounded-2xl p-1 gap-1 w-fit">
+                <div data-tutorial="evt-compose-tabs" className="flex bg-slate-100 rounded-2xl p-1 gap-1 w-fit">
                   <button
                     onClick={() => setActiveMailTab('collectivites')}
                     className={'px-4 py-2.5 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all flex items-center gap-2 ' +
@@ -576,7 +722,7 @@ L'équipe de la Ludothèque de Coligny
               </div>
 
               {/* Événements — blocs éditables */}
-              <div className="space-y-3">
+              <div data-tutorial="evt-compose-events" className="space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2">
                     <Calendar size={12} /> Événements ({selectedEvents.length})
@@ -668,7 +814,7 @@ L'équipe de la Ludothèque de Coligny
               </div>
 
               {/* Destinataires */}
-              <div className="space-y-3">
+              <div data-tutorial="evt-compose-recipients" className="space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2">
                     <Users size={12} /> Destinataires
@@ -765,7 +911,7 @@ L'équipe de la Ludothèque de Coligny
                 className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-colors">
                 Annuler
               </button>
-              <button onClick={handleSendMail} disabled={sendingMail || composeData.recipients.filter(r => r.checked).length === 0}
+              <button data-tutorial="evt-compose-send" onClick={handleSendMail} disabled={sendingMail || composeData.recipients.filter(r => r.checked).length === 0}
                 className={'flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all ' +
                   (sendingMail || composeData.recipients.filter(r => r.checked).length === 0
                     ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
@@ -820,6 +966,7 @@ L'équipe de la Ludothèque de Coligny
       {/* BOUTON DESTINATAIRES ENREGISTRÉS en bas de page */}
       <div className="max-w-7xl mx-auto mt-8 mb-4 flex justify-end px-4 md:px-0">
         <button
+          data-tutorial="evt-collectivites-btn"
           onClick={() => setCollectivitesModal(true)}
           className="flex items-center gap-2 px-5 py-3 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[9px] tracking-widest hover:bg-slate-200 transition-colors shadow-sm">
           <Building2 size={14} /> Destinataires enregistrés
@@ -829,7 +976,7 @@ L'équipe de la Ludothèque de Coligny
       {/* MODALE GESTION COLLECTIVITÉS */}
       {collectivitesModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+          <div data-tutorial="evt-collectivites-modal" className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
 
             <div className="sticky top-0 bg-white rounded-t-[2.5rem] p-8 pb-4 border-b border-slate-100 flex items-center justify-between z-10">
               <div className="flex items-center gap-3">
@@ -924,6 +1071,24 @@ L'équipe de la Ludothèque de Coligny
         </div>
       )}
 
+
+      {/* Force l'affichage des boutons de carte pendant le tutoriel */}
+      {showTuto && (
+        <style>{`.evt-card-actions { opacity: 1 !important; }`}</style>
+      )}
+
+      {/* ── TUTORIEL ─────────────────────────────────────────────────────── */}
+      <TutorialButton onClick={() => setShowTuto(true)} />
+      <TutorialOverlay
+        steps={evtSteps}
+        open={showTuto}
+        onClose={() => {
+          setShowTuto(false)
+          setShowForm(false)
+          setComposeModal({ show: false, event: null })
+          setCollectivitesModal(false)
+        }}
+      />
     </div>
   )
 }
