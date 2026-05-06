@@ -47,6 +47,19 @@ export default function Parametres() {
   const previewCanvasRef = useRef(null)
   const fileInputRef = useRef(null)
 
+  // Redessiner le canvas à chaque changement de templateForm ou previewImg
+  useEffect(() => {
+    if (previewCanvasRef.current && previewImg) {
+      drawPreviewCanvas(previewCanvasRef.current, templateForm, previewImg)
+    }
+  }, [
+    templateForm.font_family, templateForm.font_size, templateForm.color, templateForm.text_align,
+    templateForm.font_family2, templateForm.font_size2, templateForm.color2, templateForm.text_align2,
+    templateForm.x1, templateForm.y1, templateForm.w1, templateForm.h1,
+    templateForm.x2, templateForm.y2, templateForm.w2, templateForm.h2,
+    previewImg
+  ])
+
   const [confirmModal, setConfirmModal] = useState({ show: false, title: '', message: '' })
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, id: null })
 
@@ -207,7 +220,7 @@ export default function Parametres() {
     setDragStart(null); setDragCurrent(null)
   }
 
-  const drawZoneRect = (ctx, x, y, w, h, color, label, textColor, font, fontSize, sampleText) => {
+  const drawZoneRect = (ctx, x, y, w, h, color, label, textColor, font, fontSize, sampleText, textAlign = 'center') => {
     // Rectangle semi-transparent
     ctx.fillStyle = color + '22'
     ctx.fillRect(x, y, w, h)
@@ -224,11 +237,14 @@ export default function Parametres() {
     ctx.font = 'bold 14px sans-serif'
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
     ctx.fillText(label, x + 14, y + 14)
-    // Texte exemple dans la zone — taille réelle
+    // Texte exemple dans la zone — taille réelle avec alignement
     ctx.fillStyle = textColor || '#000000'
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+    ctx.textAlign = textAlign
+    ctx.textBaseline = 'middle'
     const fs = parseFloat(fontSize) || 38
     ctx.font = `${fs}px ${font || 'sans-serif'}`
+    // Ancrage X selon alignement
+    const anchorX = textAlign === 'left' ? x + 10 : textAlign === 'right' ? x + w - 10 : x + w / 2
     // Wrapping simple pour l'aperçu
     const words = sampleText.split(' ')
     const lh = fs * 1.3
@@ -243,7 +259,7 @@ export default function Parametres() {
     if (line) wrappedLines.push(line)
     const totalH = (wrappedLines.length - 1) * lh
     const startY = y + h / 2 - totalH / 2
-    wrappedLines.forEach((l, i) => ctx.fillText(l, x + w / 2, startY + i * lh))
+    wrappedLines.forEach((l, i) => ctx.fillText(l, anchorX, startY + i * lh))
   }
 
   const drawPreviewCanvas = (canvas, tf, imgUrl) => {
@@ -255,9 +271,9 @@ export default function Parametres() {
       ctx.clearRect(0, 0, 794, 1123)
       ctx.drawImage(img, 0, 0, 794, 1123)
       if (tf.x1 != null && tf.w1 > 0)
-        drawZoneRect(ctx, tf.x1, tf.y1, tf.w1, tf.h1, '#e38154', '1', tf.color, tf.font_family, tf.font_size, 'Samedi 14 juin 2025')
+        drawZoneRect(ctx, tf.x1, tf.y1, tf.w1, tf.h1, '#e38154', '1', tf.color, tf.font_family, tf.font_size, 'Samedi 14 juin 2025', tf.text_align || 'center')
       if (tf.x2 != null && tf.w2 > 0)
-        drawZoneRect(ctx, tf.x2, tf.y2, tf.w2, tf.h2, '#1a5f7a', '2', tf.color2, tf.font_family2, tf.font_size2, 'Salle des fêtes de Coligny')
+        drawZoneRect(ctx, tf.x2, tf.y2, tf.w2, tf.h2, '#1a5f7a', '2', tf.color2, tf.font_family2, tf.font_size2, 'Salle des fêtes de Coligny', tf.text_align2 || 'center')
     }
     img.src = imgUrl
   }

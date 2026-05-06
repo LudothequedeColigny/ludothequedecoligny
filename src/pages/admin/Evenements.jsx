@@ -5,7 +5,7 @@ import { supabase } from '../../services/supabaseClient'
 import { sendEmail } from '../../services/emailService'
 import { 
   Calendar, MapPin, Plus, Trash2, Clock, ImageIcon, 
-  Upload, X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2, Users, ChevronDown, ChevronUp, PlusCircle, Paperclip, GripVertical, Building2, Trash
+  Upload, X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2, Users, ChevronDown, ChevronUp, PlusCircle, Paperclip, GripVertical, Building2, Trash, Share2
 } from 'lucide-react'
 
 export default function Evenements() {
@@ -24,6 +24,11 @@ export default function Evenements() {
   const [loadingRecipients, setLoadingRecipients] = useState(false)
   const [sendingMail, setSendingMail] = useState(false)
   const [successModal, setSuccessModal] = useState({ show: false, count: 0 })
+  // Modale publication Facebook/Instagram
+  const [fbModal, setFbModal] = useState({ show: false, event: null })
+  const [fbText, setFbText] = useState('')
+  const [publishingFb, setPublishingFb] = useState(false)
+  const [fbSuccess, setFbSuccess] = useState(false)
   const [showMairies, setShowMairies] = useState(true)
   const [showAdherents, setShowAdherents] = useState(true)
   const [selectedEvents, setSelectedEvents] = useState([])
@@ -369,7 +374,81 @@ L'équipe de la Ludothèque de Coligny
     }
   }
 
+  const openFbModal = (event) => {
+    const start = new Date(event.date)
+    const dateFormatee = start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+    const heureDebut = start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    const plageHoraire = event.end_time
+      ? `de ${heureDebut} à ${event.end_time.replace(':', 'h')}`
+      : `à partir de ${heureDebut}`
+    const text = `🎲 ${event.title}
+
+📅 Le ${dateFormatee} — ${plageHoraire}
+📍 ${event.location || ''}
+
+${event.description || ''}
+
+Ludothèque de Coligny 🎯
+www.ludothequedecoligny.fr`
+    setFbText(text)
+    setFbModal({ show: true, event })
+    setFbSuccess(false)
+  }
+
+  const handlePublishFb = async () => {
+    if (!fbModal.event) return
+    setPublishingFb(true)
+    try {
+      let image_url = fbModal.event.image_url || null
+
+      // Si dataURL → upload avec nom basé sur le titre (upsert pour éviter les doublons)
+      // Si déjà URL publique Supabase → réutiliser directement sans créer de nouveau fichier
+      if (image_url && image_url.startsWith('data:')) {
+        const fetchRes = await fetch(image_url)
+        const blob = await fetchRes.blob()
+        const safeName = (fbModal.event.title || 'affiche')
+          .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').substring(0, 50)
+        const fileName = safeName + '.png'
+        const { error: uploadError } = await supabase.storage
+          .from('event-images').upload(fileName, blob, { contentType: 'image/png', upsert: true })
+        if (!uploadError) {
+          const { data } = supabase.storage.from('event-images').getPublicUrl(fileName)
+          image_url = data.publicUrl
+          await supabase.from('events').update({ image_url }).eq('id', fbModal.event.id)
+        }
+      }
+
+            console.log('📤 Envoi à Make - message:', fbText.substring(0, 50), '| image_url:', image_url?.substring(0, 80))
+      const res = await fetch('https://hook.eu1.make.com/f67dbu4u19znh05m9tmkak3wx5hqeqf9', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: fbText,
+          image_url,
+          event_title: fbModal.event.title || '',
+          event_date: fbModal.event.date || '',
+          event_location: fbModal.event.location || '',
+        }),
+      })
+      console.log('📬 Réponse Make:', res.status, res.ok)
+      if (!res.ok) throw new Error('Erreur Make: ' + res.status)
+      setFbSuccess(true)
+    } catch (err) {
+      console.error('❌ Erreur publication Facebook:', err)
+      alert("Erreur lors de la publication. Vérifiez la console.")
+    } finally {
+      setPublishingFb(false)
+    }
+  }
+
   const confirmDelete = async () => {
+    // Supprimer l'image associée dans Storage si elle existe
+    const eventToDelete = events.find(e => e.id === deleteModal.id)
+    if (eventToDelete?.image_url && eventToDelete.image_url.includes('event-images')) {
+      const path = eventToDelete.image_url.split('/event-images/')[1]?.split('?')[0]
+      if (path) await supabase.storage.from('event-images').remove([decodeURIComponent(path)])
+    }
     await supabase.from('events').delete().eq('id', deleteModal.id)
     setDeleteModal({ show: false, id: null, title: '' })
     fetchEvents()
@@ -448,6 +527,12 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
     id: 'evt-action-mail',
     title: `Envoyer un email de communication`,
     description: `L'icône enveloppe ouvre la fenêtre de composition d'email — nous allons l'explorer ensemble à l'étape suivante.`,
+    action: () => { closeForm(); openCompose(false); openCollectivites(false) },
+  },
+  {
+    id: 'evt-action-share',
+    title: `Publier sur Facebook & Instagram`,
+    description: `L'icône de partage ouvre une fenêtre permettant de publier l'événement directement sur la Page Facebook et le compte Instagram de la ludothèque. Le texte du post est pré-rempli et modifiable avant publication. L'affiche est jointe automatiquement si elle existe.`,
     action: () => { closeForm(); openCompose(false); openCollectivites(false) },
   },
   {
@@ -608,6 +693,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 <div className="evt-card-actions absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button data-tutorial="evt-action-edit" onClick={() => startEdit(event)} className="p-2.5 bg-white text-slate-400 rounded-xl shadow-lg hover:bg-[#1a5f7a] hover:text-white transition-all"><Edit2 size={16} /></button>
                   <button data-tutorial="evt-action-mail" onClick={() => openComposeModal(event)} className="p-2.5 bg-white text-amber-500 rounded-xl shadow-lg hover:bg-amber-500 hover:text-white transition-all"><Mail size={16} /></button>
+                  <button data-tutorial="evt-action-share" onClick={() => openFbModal(event)} title="Publier sur Facebook & Instagram" className="p-2.5 bg-white text-blue-500 rounded-xl shadow-lg hover:bg-blue-500 hover:text-white transition-all"><Share2 size={16} /></button>
                   <button onClick={() => setDeleteModal({show: true, id: event.id, title: event.title})} className="p-2.5 bg-white text-slate-400 rounded-xl shadow-lg hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={16} /></button>
                 </div>
                 {event.mail_sent_at && (
@@ -1089,6 +1175,84 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
           setCollectivitesModal(false)
         }}
       />
+
+      {/* MODALE PUBLICATION FACEBOOK & INSTAGRAM */}
+      {fbModal.show && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+
+            {/* Header */}
+            <div className="sticky top-0 bg-white rounded-t-[2.5rem] p-8 pb-4 border-b border-slate-100 flex items-center justify-between z-10">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-blue-50 text-blue-500 rounded-xl"><Share2 size={20} /></div>
+                <div>
+                  <h3 className="text-base font-black uppercase text-slate-900">Publier sur Facebook & Instagram</h3>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{fbModal.event?.title}</p>
+                </div>
+              </div>
+              <button onClick={() => setFbModal({ show: false, event: null })}
+                className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-all">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-8 space-y-6 flex-1">
+
+              {/* Aperçu affiche */}
+              {fbModal.event?.image_url && (
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Affiche jointe</label>
+                  <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-2xl border border-blue-100">
+                    <img src={fbModal.event.image_url} alt="Affiche" className="w-12 h-16 object-cover rounded-lg shadow-sm" />
+                    <div>
+                      <p className="text-xs font-bold text-blue-800">Image publiée automatiquement</p>
+                      <p className="text-[9px] text-blue-400 mt-0.5">Format JPEG requis par Instagram</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!fbModal.event?.image_url && (
+                <div className="p-3 bg-amber-50 rounded-2xl border border-amber-100">
+                  <p className="text-[9px] font-black text-amber-600 uppercase tracking-wide">⚠️ Aucune affiche — publication texte uniquement</p>
+                  <p className="text-[9px] text-amber-500 mt-1">Instagram requiert une image. Sans affiche, seul Facebook sera publié.</p>
+                </div>
+              )}
+
+              {/* Texte du post */}
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Texte du post</label>
+                <textarea
+                  rows={10}
+                  className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-blue-400 resize-y"
+                  value={fbText}
+                  onChange={e => setFbText(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="sticky bottom-0 bg-white rounded-b-[2.5rem] p-8 pt-4 border-t border-slate-100 flex gap-3">
+              <button onClick={() => setFbModal({ show: false, event: null })}
+                className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-colors">
+                Annuler
+              </button>
+              {fbSuccess ? (
+                <div className="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2">
+                  <CheckCircle2 size={14} /> Publié avec succès !
+                </div>
+              ) : (
+                <button onClick={handlePublishFb} disabled={publishingFb || !fbText}
+                  className={'flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all ' +
+                    (publishingFb || !fbText ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600')}>
+                  {publishingFb ? <><Loader2 size={14} className="animate-spin" /> Publication...</> : <><Share2 size={14} /> Publier</>}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
