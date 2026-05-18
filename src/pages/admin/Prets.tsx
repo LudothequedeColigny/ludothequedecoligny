@@ -245,7 +245,7 @@ export default function Prets() {
               if (barcodes.length > 0) {
                 clearInterval(intervalRef.current)
                 const barcode = barcodes[0].rawValue
-                stopCamera()  // arrête la caméra sans fermer la modale
+                stopCamera()
                 await handleSmartScan(barcode)
               }
             } catch (e) {
@@ -268,7 +268,7 @@ export default function Prets() {
           async (result, error) => {
             if (result) {
               const barcode = result.getText()
-              stopCamera()  // arrête la caméra sans fermer la modale
+              stopCamera()
               await handleSmartScan(barcode)
             }
             // NotFoundException n'est plus exportée dans les versions récentes de @zxing/browser
@@ -289,9 +289,6 @@ export default function Prets() {
     }
   }, [showScanner])
 
-  // stopCamera : arrête uniquement le flux caméra, sans fermer la modale.
-  // Appelée AVANT handleSmartScan pour éviter que setShowScanner(false)
-  // n'interrompe la fonction async via le cleanup du useEffect.
   const stopCamera = () => {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null }
@@ -301,8 +298,6 @@ export default function Prets() {
     }
   }
 
-  // stopScanner : arrête la caméra ET ferme la modale.
-  // À utiliser uniquement sur le bouton "Annuler" ou après traitement complet.
   const stopScanner = () => {
     stopCamera()
     setShowScanner(false)
@@ -414,7 +409,6 @@ export default function Prets() {
     const { data: game } = await supabase.from('games').select('*').eq('barcode', barcode).single()
 
     if (!game) {
-      // Code-barres inconnu : on referme proprement
       stopScanner()
       return
     }
@@ -424,10 +418,9 @@ export default function Prets() {
         if (prev.find(g => g.id === game.id)) return prev
         return [...prev, game]
       })
-      // Jeu ajouté : ré-ouvrir le scanner pour en scanner un autre
+      // Ré-ouvrir le scanner pour en scanner un autre
       setShowScanner(true)
     } else {
-      // Jeu non disponible → proposer le retour, puis fermer la modale scanner
       const { data: activeLoan } = await supabase
         .from('loans')
         .select('*, members(*), games(*)')
@@ -877,7 +870,29 @@ www.ludothequedecoligny.fr`
           <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl">
             <CheckCircle className="mx-auto text-emerald-500 mb-6" size={40} />
             <h3 className="text-lg font-black uppercase mb-2">Confirmer le retour ?</h3>
-            <p className="text-xs text-slate-500 mb-8 italic">"{scanReturnConfirm.games?.name}" ramené par {scanReturnConfirm.members?.first_name} {scanReturnConfirm.members?.last_name}</p>
+            <p className="text-xs text-slate-500 mb-4 italic">
+              "{scanReturnConfirm.games?.name}" ramené par {scanReturnConfirm.members?.first_name} {scanReturnConfirm.members?.last_name}
+            </p>
+
+            {/* Alerte observations si le jeu en avait au moment du prêt */}
+            {scanReturnConfirm.games?.observations ? (
+              <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-left">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle size={14} className="text-amber-500 shrink-0" />
+                  <span className="text-[9px] font-black uppercase text-amber-600 tracking-widest">Observations avant prêt</span>
+                </div>
+                <p className="text-xs font-medium text-amber-800 leading-relaxed">{scanReturnConfirm.games.observations}</p>
+              </div>
+            ) : (
+              <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-left">
+                <div className="flex items-center gap-2">
+                  <CheckCircle size={14} className="text-emerald-500 shrink-0" />
+                  <span className="text-[9px] font-black uppercase text-emerald-600 tracking-widest">Aucune observation enregistrée</span>
+                </div>
+                <p className="text-[10px] text-emerald-700 mt-1">Le jeu était en bon état au départ — tout composant manquant est imputable à l'emprunteur.</p>
+              </div>
+            )}
+
             <div className="flex flex-col gap-3">
               <button onClick={confirmScanReturn} className="w-full py-5 bg-emerald-500 text-white rounded-2xl font-black uppercase text-[10px] shadow-lg">Valider le retour</button>
               <button onClick={() => setScanReturnConfirm(null)} className="w-full py-5 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase text-[10px]">Annuler</button>
@@ -1091,7 +1106,29 @@ www.ludothequedecoligny.fr`
             <h3 className="text-xl font-black uppercase mb-2">
               {confirmAction.type === 'return' ? 'Confirmer le retour de ce jeu' : "Autoriser l'allongement du délai d'emprunt de 14 jours"}
             </h3>
-            <p className="text-[10px] font-black uppercase text-slate-500 mb-8">Voulez-vous valider cette action ?</p>
+            <p className="text-[10px] font-black uppercase text-slate-500 mb-4">Voulez-vous valider cette action ?</p>
+
+            {/* Alerte observations uniquement sur les retours */}
+            {confirmAction.type === 'return' && (
+              confirmAction.loan.games?.observations ? (
+                <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-left">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle size={14} className="text-amber-500 shrink-0" />
+                    <span className="text-[9px] font-black uppercase text-amber-600 tracking-widest">Observations avant prêt</span>
+                  </div>
+                  <p className="text-xs font-medium text-amber-800 leading-relaxed">{confirmAction.loan.games.observations}</p>
+                </div>
+              ) : (
+                <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-left">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle size={14} className="text-emerald-500 shrink-0" />
+                    <span className="text-[9px] font-black uppercase text-emerald-600 tracking-widest">Aucune observation enregistrée</span>
+                  </div>
+                  <p className="text-[10px] text-emerald-700 mt-1">Le jeu était en bon état au départ — tout composant manquant est imputable à l'emprunteur.</p>
+                </div>
+              )
+            )}
+
             <div className="flex flex-col gap-3">
               <button
                 onClick={processConfirmAction}
