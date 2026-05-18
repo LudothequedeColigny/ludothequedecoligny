@@ -68,12 +68,19 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
   const isLast  = current === steps.length - 1
 
   // ── Centre-écran fallback ─────────────────────────────────────────────────
+  const isMobile = () => window.innerWidth < 640
+
   const centerTip = useCallback(() => {
     const MARGIN = 16
     const TW = Math.min(320, window.innerWidth - MARGIN * 2)
     const left = Math.max(MARGIN, window.innerWidth / 2 - TW / 2)
     setSpots([])
-    setTipPos({ top: Math.max(20, window.innerHeight / 2 - 145), left, width: TW, placement: 'center' })
+    if (isMobile()) {
+      // Sur mobile : bulle ancrée en bas
+      setTipPos({ top: window.innerHeight - 220, left: MARGIN, width: window.innerWidth - MARGIN * 2, placement: 'bottom-fixed' })
+    } else {
+      setTipPos({ top: Math.max(20, window.innerHeight / 2 - 145), left, width: TW, placement: 'center' })
+    }
   }, [])
 
   // ── Mesure 1 ou 2 éléments et calcule spotlight(s) + tooltip ─────────────
@@ -113,7 +120,14 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
       }
 
       // Scroll vers le premier élément
-      scrollToElement(els[0])
+      // Sur mobile : positionner dans le tiers supérieur pour laisser la bulle visible en bas
+      if (isMobile()) {
+        const r = els[0].getBoundingClientRect()
+        const targetY = window.scrollY + r.top + r.height / 2 - window.innerHeight * 0.3
+        window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' })
+      } else {
+        scrollToElement(els[0])
+      }
 
       setTimeout(() => {
         const newSpots = els.map(el => {
@@ -132,35 +146,45 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
         // Calcul position tooltip
         const primary = getViewportRect(els[0])
         const MARGIN  = 16
-        const TW      = Math.min(320, window.innerWidth - MARGIN * 2)
-        const TH      = 290
-        const GAP     = 14
+        const mobile  = isMobile()
 
-        const below = window.innerHeight - primary.bottom
-        const above = primary.top
-        let pl = 'bottom'
-        if (below < TH + GAP && above > TH + GAP) pl = 'top'
-        else if (below < TH + GAP && above < TH + GAP) pl = 'center'
-
-        const anchorR = getViewportRect(els[els.length - 1])
-
-        let top, left
-        if (pl === 'center') {
-          top  = window.innerHeight / 2 - TH / 2
-          left = MARGIN
-        } else if (pl === 'bottom') {
-          top  = anchorR.bottom + GAP
-          left = primary.left + primary.width / 2 - TW / 2
+        if (mobile) {
+          // Sur mobile : bulle toujours ancrée en bas, pleine largeur
+          // Le spotlight est dans le tiers supérieur/central
+          const TW = window.innerWidth - MARGIN * 2
+          const TH = 200 // hauteur compacte mobile
+          const top = window.innerHeight - TH - MARGIN
+          setTipPos({ top, left: MARGIN, width: TW, placement: 'bottom-fixed' })
         } else {
-          top  = primary.top - TH - GAP
-          left = primary.left + primary.width / 2 - TW / 2
+          const TW      = Math.min(320, window.innerWidth - MARGIN * 2)
+          const TH      = 290
+          const GAP     = 14
+
+          const below = window.innerHeight - primary.bottom
+          const above = primary.top
+          let pl = 'bottom'
+          if (below < TH + GAP && above > TH + GAP) pl = 'top'
+          else if (below < TH + GAP && above < TH + GAP) pl = 'center'
+
+          const anchorR = getViewportRect(els[els.length - 1])
+
+          let top, left
+          if (pl === 'center') {
+            top  = window.innerHeight / 2 - TH / 2
+            left = MARGIN
+          } else if (pl === 'bottom') {
+            top  = anchorR.bottom + GAP
+            left = primary.left + primary.width / 2 - TW / 2
+          } else {
+            top  = primary.top - TH - GAP
+            left = primary.left + primary.width / 2 - TW / 2
+          }
+
+          left = Math.max(MARGIN, Math.min(left, window.innerWidth - TW - MARGIN))
+          top  = Math.max(MARGIN, Math.min(top,  window.innerHeight - TH - MARGIN))
+
+          setTipPos({ top, left, width: TW, placement: pl })
         }
-
-        // Clamp strict des deux côtés
-        left = Math.max(MARGIN, Math.min(left, window.innerWidth - TW - MARGIN))
-        top  = Math.max(MARGIN, Math.min(top,  window.innerHeight - TH - MARGIN))
-
-        setTipPos({ top, left, width: TW, placement: pl })
       }, 450)
 
     }, totalDelay)
@@ -271,7 +295,7 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
 
           <div style={{ background: white, borderRadius: 18, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.40)' }}>
             {/* En-tête */}
-            <div style={{ background: dark, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ background: dark, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <BookOpen size={13} color="rgba(255,255,255,0.6)" strokeWidth={2.5} />
                 <span style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.18em', color: 'rgba(255,255,255,0.6)' }}>
@@ -288,11 +312,13 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
               <div style={{ height: '100%', background: orange, width: `${(current + 1) / steps.length * 100}%`, transition: 'width 0.35s ease' }} />
             </div>
 
-            {/* Contenu */}
-            <div style={{ padding: '14px 16px 10px' }}>
-              <p style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', margin: '0 0 6px', lineHeight: 1.3 }}>{step.title}</p>
-              <p style={{ fontSize: 13, color: '#64748b', margin: 0, lineHeight: 1.6, fontWeight: 500 }}>{step.description}</p>
-              {step.tip && (
+            {/* Contenu — compact sur mobile */}
+            <div style={{ padding: tipPos?.placement === 'bottom-fixed' ? '10px 14px 6px' : '14px 16px 10px' }}>
+              <p style={{ fontSize: tipPos?.placement === 'bottom-fixed' ? 13 : 14, fontWeight: 800, color: '#0f172a', margin: '0 0 4px', lineHeight: 1.3 }}>{step.title}</p>
+              <p style={{ fontSize: 12, color: '#64748b', margin: 0, lineHeight: 1.5, fontWeight: 500,
+                display: '-webkit-box', WebkitLineClamp: tipPos?.placement === 'bottom-fixed' ? 3 : 10, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+              }}>{step.description}</p>
+              {step.tip && tipPos?.placement !== 'bottom-fixed' && (
                 <div style={{ marginTop: 10, padding: '8px 11px', background: '#fffbeb', borderRadius: 9, border: '1px solid #fde68a', display: 'flex', gap: 7 }}>
                   <span style={{ fontSize: 13 }}>💡</span>
                   <p style={{ fontSize: 12, color: '#92400e', margin: 0, lineHeight: 1.5, fontWeight: 500 }}>{step.tip}</p>
@@ -301,7 +327,7 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
             </div>
 
             {/* Navigation */}
-            <div style={{ padding: '0 16px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <div style={{ padding: tipPos?.placement === 'bottom-fixed' ? '0 12px 10px' : '0 16px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <button
                 onClick={() => goTo(current - 1)} disabled={isFirst}
                 style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 3, padding: '7px 11px', background: isFirst ? '#f8fafc' : '#f1f5f9', color: isFirst ? '#cbd5e1' : '#475569', border: 'none', borderRadius: 9, cursor: isFirst ? 'not-allowed' : 'pointer', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}

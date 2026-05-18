@@ -245,7 +245,7 @@ export default function Prets() {
               if (barcodes.length > 0) {
                 clearInterval(intervalRef.current)
                 const barcode = barcodes[0].rawValue
-                stopScanner()
+                stopCamera()  // arrête la caméra sans fermer la modale
                 await handleSmartScan(barcode)
               }
             } catch (e) {
@@ -268,7 +268,7 @@ export default function Prets() {
           async (result, error) => {
             if (result) {
               const barcode = result.getText()
-              stopScanner()
+              stopCamera()  // arrête la caméra sans fermer la modale
               await handleSmartScan(barcode)
             }
             // NotFoundException n'est plus exportée dans les versions récentes de @zxing/browser
@@ -289,13 +289,22 @@ export default function Prets() {
     }
   }, [showScanner])
 
-  const stopScanner = () => {
+  // stopCamera : arrête uniquement le flux caméra, sans fermer la modale.
+  // Appelée AVANT handleSmartScan pour éviter que setShowScanner(false)
+  // n'interrompe la fonction async via le cleanup du useEffect.
+  const stopCamera = () => {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null }
     if (codeReaderRef.current) {
       try { import('@zxing/browser').then(({ BrowserMultiFormatReader: R }) => R.releaseAllStreams()) } catch (e) { /* silencieux */ }
       codeReaderRef.current = null
     }
+  }
+
+  // stopScanner : arrête la caméra ET ferme la modale.
+  // À utiliser uniquement sur le bouton "Annuler" ou après traitement complet.
+  const stopScanner = () => {
+    stopCamera()
     setShowScanner(false)
   }
 
@@ -403,23 +412,22 @@ export default function Prets() {
   // --- SCAN INTELLIGENT ---
   async function handleSmartScan(barcode) {
     const { data: game } = await supabase.from('games').select('*').eq('barcode', barcode).single()
-    if (!game) return
+
+    if (!game) {
+      // Code-barres inconnu : on referme proprement
+      stopScanner()
+      return
+    }
 
     if (game.is_available) {
       setScannedGamesForLoan(prev => {
-        // Éviter les doublons
-        if (prev.find(g => g.id === game.id)) {
-          // Jeu déjà scanné : on rouvre quand même le scanner
-          setShowScanner(true)
-          return prev
-        }
-        const updated = [...prev, game]
-        // Ré-ouvrir le scanner pour permettre de scanner un jeu supplémentaire
-        setShowScanner(true)
-        return updated
+        if (prev.find(g => g.id === game.id)) return prev
+        return [...prev, game]
       })
+      // Jeu ajouté : ré-ouvrir le scanner pour en scanner un autre
+      setShowScanner(true)
     } else {
-      // Jeu non disponible → proposer le retour
+      // Jeu non disponible → proposer le retour, puis fermer la modale scanner
       const { data: activeLoan } = await supabase
         .from('loans')
         .select('*, members(*), games(*)')
@@ -427,6 +435,7 @@ export default function Prets() {
         .single()
 
       if (activeLoan) setScanReturnConfirm(activeLoan)
+      stopScanner()
     }
   }
 
