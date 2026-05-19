@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
+import * as XLSX from 'xlsx'
 import { supabase } from '../../services/supabaseClient'
 import { useRef, useState as useStateRef } from 'react'
 import { 
   Settings, UserPlus, Save, Loader2, UserCheck, Ban, Euro, 
-  ShieldCheck, X, ChevronRight, Users, CreditCard, Info, Mail, Lock, ShieldAlert, CheckCircle2, User, Hash, Trash2, Phone, Wallet, Clock, MapPin, Image, Plus, Edit2, Target, Eye
+  ShieldCheck, X, ChevronRight, Users, CreditCard, Info, Mail, Lock, ShieldAlert, CheckCircle2, User, Hash, Trash2, Phone, Wallet, Clock, MapPin, Image, Plus, Edit2, Target, Eye, Download, CheckCircle
 } from 'lucide-react'
 
 export default function Parametres() {
@@ -62,6 +63,21 @@ export default function Parametres() {
 
   const [confirmModal, setConfirmModal] = useState({ show: false, title: '', message: '' })
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, id: null })
+  const [exportLoading, setExportLoading] = useState(false)
+  const [exportProgress, setExportProgress] = useState({ current: 0, total: 0, label: '' })
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [exportSelection, setExportSelection] = useState({
+    members: true,
+    games: true,
+    loans: true,
+    loan_history: true,
+    financial_transactions: true,
+    events: true,
+    collectivites: true,
+    profiles: true,
+    settings: false,
+    affiche_templates: false,
+  })
 
   const [prices, setPrices] = useState({
     prix_particulier: 24,
@@ -397,6 +413,98 @@ export default function Parametres() {
     }
   }
 
+  const EXCEL_MAX_CHARS = 32767
+
+  const sanitizeCell = (v) => {
+    if (v === null || v === undefined) return ''
+    if (typeof v === 'object') v = JSON.stringify(v)
+    if (typeof v === 'string' && v.length > EXCEL_MAX_CHARS) return v.slice(0, EXCEL_MAX_CHARS - 3) + '...'
+    return v
+  }
+
+  const handleExportExcel = async (selection) => {
+    setShowExportModal(false)
+    setExportLoading(true)
+
+    const allTables = [
+      { name: 'Adhérents', table: 'members', key: 'members' },
+      { name: 'Jeux', table: 'games', key: 'games' },
+      { name: 'Prêts en cours', table: 'loans', key: 'loans' },
+      { name: 'Historique prêts', table: 'loan_history', key: 'loan_history' },
+      { name: 'Transactions', table: 'financial_transactions', key: 'financial_transactions' },
+      { name: 'Événements', table: 'events', key: 'events' },
+      { name: 'Collectivités', table: 'collectivites', key: 'collectivites' },
+      { name: 'Bénévoles', table: 'profiles', key: 'profiles' },
+      { name: 'Paramètres', table: 'settings', key: 'settings' },
+      { name: 'Modèles affiches', table: 'affiche_templates', key: 'affiche_templates' },
+    ]
+
+    const tables = allTables.filter(t => selection[t.key])
+
+    try {
+      const wb = XLSX.utils.book_new()
+      const dateExport = new Date().toLocaleString('fr-FR')
+      const summaryData = [
+        ['EXPORT SAUVEGARDE — LUDOTHÈQUE'],
+        [`Généré le : ${dateExport}`],
+        [],
+        ['Table', 'Nombre de lignes'],
+      ]
+      const counts = []
+
+      for (let i = 0; i < tables.length; i++) {
+        const { name, table } = tables[i]
+        setExportProgress({ current: i + 1, total: tables.length, label: name })
+
+        const { data, error } = await supabase.from(table).select('*')
+        if (error) { console.warn(`Erreur table ${table}:`, error); counts.push([name, 'Erreur']); continue }
+
+        const rows = data || []
+        counts.push([name, rows.length])
+
+        if (rows.length === 0) {
+          const ws = XLSX.utils.aoa_to_sheet([['Aucune donnée']])
+          XLSX.utils.book_append_sheet(wb, ws, name)
+          continue
+        }
+
+        const flatRows = rows.map(row => {
+          const flat = {}
+          for (const [k, v] of Object.entries(row)) {
+            flat[k] = sanitizeCell(v)
+          }
+          return flat
+        })
+
+        const ws = XLSX.utils.json_to_sheet(flatRows)
+        const cols = Object.keys(flatRows[0])
+        ws['!cols'] = cols.map(c => ({ wch: Math.max(c.length + 2, 14) }))
+        XLSX.utils.book_append_sheet(wb, ws, name)
+      }
+
+      summaryData.push(...counts)
+      const wsSummary = XLSX.utils.aoa_to_sheet(summaryData)
+      wsSummary['!cols'] = [{ wch: 25 }, { wch: 18 }]
+      XLSX.utils.book_append_sheet(wb, wsSummary, 'Résumé')
+      wb.SheetNames = ['Résumé', ...wb.SheetNames.filter(s => s !== 'Résumé')]
+
+      const dateStr = new Date().toISOString().slice(0, 10)
+      XLSX.writeFile(wb, `sauvegarde-ludotheque-${dateStr}.xlsx`)
+
+      setConfirmModal({
+        show: true,
+        title: 'Export réussi !',
+        message: `Le fichier sauvegarde-ludotheque-${dateStr}.xlsx a été téléchargé avec ${tables.length} onglet(s).`
+      })
+    } catch (err) {
+      console.error('Erreur export:', err)
+      alert("Erreur lors de l'export : " + err.message)
+    } finally {
+      setExportLoading(false)
+      setExportProgress({ current: 0, total: 0, label: '' })
+    }
+  }
+
   const HelpBox = ({ text, color = "blue" }) => (
     <div className={`flex gap-3 p-4 rounded-[1.5rem] text-[10px] font-bold leading-tight ${color === "blue" ? 'bg-blue-50 text-blue-700' : 'bg-orange-50 text-orange-700'}`}>
       <span className="shrink-0"><Info size={16} /></span>
@@ -472,7 +580,102 @@ export default function Parametres() {
           <p className="text-slate-400 font-bold text-[11px] mb-6 uppercase tracking-tight">Modèles du générateur</p>
           <div className="flex items-center gap-2 text-purple-500 font-black text-[10px] uppercase tracking-widest">Gérer <ChevronRight size={14} /></div>
         </button>
+
+        {/* BOUTON EXPORT EXCEL */}
+        <button
+          onClick={() => setShowExportModal(true)}
+          disabled={exportLoading}
+          className="group relative p-6 md:p-8 bg-white border border-slate-50 rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/40 hover:translate-y-[-4px] transition-all text-left overflow-hidden disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+        >
+          <div className="w-12 h-12 bg-teal-50 rounded-2xl flex items-center justify-center text-teal-600 mb-6 group-hover:bg-teal-600 group-hover:text-white transition-all">
+            {exportLoading ? <Loader2 size={24} className="animate-spin" /> : <Download size={24} />}
+          </div>
+          <h3 className="font-black text-lg text-slate-900 mb-1 uppercase tracking-tighter">Sauvegarde</h3>
+          <p className="text-slate-400 font-bold text-[11px] mb-6 uppercase tracking-tight">Export Excel complet</p>
+          {exportLoading && exportProgress.total > 0 ? (
+            <div className="space-y-2">
+              <div className="w-full bg-slate-100 rounded-full h-1.5">
+                <div
+                  className="bg-teal-500 h-1.5 rounded-full transition-all duration-300"
+                  style={{ width: `${(exportProgress.current / exportProgress.total) * 100}%` }}
+                />
+              </div>
+              <p className="text-teal-600 font-black text-[9px] uppercase tracking-widest truncate">
+                {exportProgress.label}… ({exportProgress.current}/{exportProgress.total})
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-teal-600 font-black text-[10px] uppercase tracking-widest">
+              Choisir & Exporter <ChevronRight size={14} />
+            </div>
+          )}
+        </button>
       </div>
+
+      {/* MODALE EXPORT EXCEL */}
+      {showExportModal && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-20 md:pt-4 md:items-center bg-[#1a5f7a]/60 backdrop-blur-md">
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 max-h-[85vh]">
+            <div className="p-8 border-b border-slate-50 flex justify-between items-center sticky top-0 bg-white z-10">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-teal-600 text-white rounded-2xl"><Download size={20}/></div>
+                <div>
+                  <h3 className="font-black text-xl text-slate-900 uppercase tracking-tighter">Export Excel</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Sélectionnez les données à exporter</p>
+                </div>
+              </div>
+              <button onClick={() => setShowExportModal(false)} className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400"><X size={24} /></button>
+            </div>
+            <div className="p-8 overflow-y-auto space-y-3">
+              <HelpBox text="Chaque table sélectionnée sera exportée dans un onglet séparé du fichier Excel." color="blue" />
+              <div className="pt-2 space-y-2">
+                {[
+                  { key: 'members', label: 'Adhérents', desc: 'Fiches, contacts, cotisations' },
+                  { key: 'games', label: 'Jeux', desc: 'Catalogue complet' },
+                  { key: 'loans', label: 'Prêts en cours', desc: 'Emprunts actifs' },
+                  { key: 'loan_history', label: 'Historique des prêts', desc: 'Tous les prêts passés' },
+                  { key: 'financial_transactions', label: 'Transactions', desc: 'Suivi financier' },
+                  { key: 'events', label: 'Événements', desc: 'Agenda et sorties' },
+                  { key: 'collectivites', label: 'Collectivités', desc: 'Structures partenaires' },
+                  { key: 'profiles', label: 'Bénévoles', desc: 'Comptes et accès' },
+                  { key: 'settings', label: 'Paramètres', desc: 'Configuration du site' },
+                  { key: 'affiche_templates', label: 'Modèles affiches', desc: 'Templates du générateur' },
+                ].map(({ key, label, desc }) => (
+                  <label key={key} className="flex items-center justify-between p-4 bg-slate-50 hover:bg-teal-50 rounded-2xl cursor-pointer transition-all group">
+                    <div>
+                      <p className="font-black text-slate-800 text-sm uppercase tracking-tight">{label}</p>
+                      <p className="text-[10px] font-bold text-slate-400">{desc}</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      className="w-6 h-6 accent-teal-600 rounded-lg shrink-0"
+                      checked={exportSelection[key]}
+                      onChange={e => setExportSelection(prev => ({ ...prev, [key]: e.target.checked }))}
+                    />
+                  </label>
+                ))}
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setExportSelection(Object.fromEntries(Object.keys(exportSelection).map(k => [k, true])))}
+                  className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all"
+                >Tout cocher</button>
+                <button
+                  onClick={() => setExportSelection(Object.fromEntries(Object.keys(exportSelection).map(k => [k, false])))}
+                  className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all"
+                >Tout décocher</button>
+              </div>
+              <button
+                onClick={() => handleExportExcel(exportSelection)}
+                disabled={!Object.values(exportSelection).some(Boolean)}
+                className="w-full py-5 bg-teal-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Download size={18} /> Lancer l'export
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODALE MOYENS DE PAIEMENT */}
       {showPaymentModal && (
