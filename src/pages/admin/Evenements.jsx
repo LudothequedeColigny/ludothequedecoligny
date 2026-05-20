@@ -141,7 +141,6 @@ export default function Evenements() {
     if (error) {
         alert("Erreur d'enregistrement : " + error.message)
     } else {
-        if (!editingId && savedEvent) setMailModal({ show: true, event: savedEvent })
         cancelEdit()
         fetchEvents()
     }
