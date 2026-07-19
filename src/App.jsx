@@ -9,6 +9,7 @@ import AdminLayout from './components/AdminLayout'
 import Home from './pages/Home'
 import Catalogue from './pages/Catalogue'
 import Evenements from './pages/Evenements'
+import VieAssociation from './pages/VieAssociation'
 import Login from './pages/Login'
 import HowToBorrow from './pages/HowToBorrow.jsx'
 import InscriptionPermanence from './pages/InscriptionPermanence'
@@ -63,6 +64,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/catalogue" element={<Catalogue />} />
         <Route path="/evenements" element={<Evenements />} />
+        <Route path="/vie-association" element={<VieAssociation />} />
         <Route path="/comment-emprunter" element={<HowToBorrow />} />
         <Route path="/login" element={<Login />} />
         <Route path="/inscription-permanence" element={<InscriptionPermanence />} /> 

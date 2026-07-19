@@ -3,8 +3,45 @@ import { supabase } from '../../services/supabaseClient'
 import {
   Lightbulb, Dices, Wrench, MessageSquarePlus, Send, CheckCircle2,
   Loader2, Sparkles, CalendarDays, AlertTriangle, Link2, Megaphone,
-  MoreHorizontal, Plus, Trash2, Check, X, ChevronDown
+  MoreHorizontal, Plus, Trash2, Check, X, ChevronDown, Search, Pencil,
+  Euro, PiggyBank, HelpCircle, Edit2, FileDown
 } from 'lucide-react'
+
+// ─── Helpers MyLudo (via Edge Function Supabase bgg-proxy) ──
+const BGG_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bgg-proxy`
+
+async function bggCall(endpoint, params) {
+  const qs = new URLSearchParams({ endpoint, ...params }).toString()
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+  const res = await fetch(`${BGG_FUNCTION_URL}?${qs}`, {
+    headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` },
+    signal: AbortSignal.timeout(10000)
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json()
+}
+
+async function bggSearchGames(query) {
+  const data = await bggCall('search', { query })
+  if (!Array.isArray(data)) return []
+  return data
+    .map(item => ({ id: String(item.id), name: item.name, year: item.year || '' }))
+    .filter(i => i.name && i.id)
+}
+
+async function bggGameDetails(id) {
+  const item = await bggCall('thing', { id })
+  if (!item) return null
+  return { image: item.image || '', price: item.price ?? null }
+}
+
+const formatPrice = (p) => `${Number(p).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+
+const escapeHtml = (str) => (str || '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
 
 const CATEGORIES = [
   { id: 'jeu_acheter',    icon: <Dices size={16} />,          label: 'Jeu à acheter',               color: '#1a5f7a',  bg: 'bg-cyan-50',    text: 'text-[#1a5f7a]',   border: 'border-cyan-100' },
@@ -55,6 +92,14 @@ export default function Suggestions() {
   const [showCatDropdown, setShowCatDropdown] = useState(false)
   const [filterCats, setFilterCats]         = useState([]) // tableau de catégories sélectionnées
 
+  // Prix des suggestions
+  const [priceSearchFor, setPriceSearchFor]         = useState(null) // id de la suggestion dont le popover est ouvert
+  const [priceSearchResults, setPriceSearchResults] = useState([])
+  const [priceSearchLoading, setPriceSearchLoading] = useState(false)
+  const [savingPriceId, setSavingPriceId]           = useState(null)
+  const [editingPriceId, setEditingPriceId]         = useState(null) // saisie manuelle inline
+  const [editingPriceValue, setEditingPriceValue]   = useState('')
+
   // Formulaire
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [message, setMessage]   = useState('')
@@ -62,6 +107,16 @@ export default function Suggestions() {
   const [sending, setSending]   = useState(false)
   const [success, setSuccess]   = useState(false)
   const [error, setError]       = useState('')
+
+  // Modale d'édition
+  const [editModal, setEditModal]       = useState({ show: false, id: null })
+  const [editCategory, setEditCategory] = useState(null)
+  const [editMessage, setEditMessage]   = useState('')
+  const [editAuthor, setEditAuthor]     = useState('')
+  const [editPrice, setEditPrice]       = useState('')
+  const [showEditCatDropdown, setShowEditCatDropdown] = useState(false)
+  const [editSaving, setEditSaving]     = useState(false)
+  const [editError, setEditError]       = useState('')
 
   useEffect(() => { fetchSuggestions() }, [])
 
@@ -106,9 +161,21 @@ export default function Suggestions() {
 
   async function toggleDone(s) {
     setTogglingId(s.id)
-    await supabase.from('suggestions').update({ done: !s.done }).eq('id', s.id)
-    setSuggestions(prev => prev.map(x => x.id === s.id ? { ...x, done: !x.done } : x))
-    setTogglingId(null)
+    try {
+      const newDone = !s.done
+      const { data, error } = await supabase.from('suggestions').update({ done: newDone }).eq('id', s.id).select()
+      if (error) {
+        console.error('Erreur mise à jour statut:', error)
+      } else if (!data || data.length === 0) {
+        console.error('Erreur mise à jour statut : aucune ligne mise à jour (vérifiez les policies RLS UPDATE sur la table suggestions)')
+      } else {
+        setSuggestions(prev => prev.map(x => x.id === s.id ? { ...x, done: newDone } : x))
+      }
+    } catch (err) {
+      console.error('Erreur mise à jour statut:', err)
+    } finally {
+      setTogglingId(null)
+    }
   }
 
   async function deleteSuggestion(id) {
@@ -125,6 +192,213 @@ export default function Suggestions() {
     setDeletingId(null)
   }
 
+  // ── Prix ─────────────────────────────────────────────────────────────────
+  // NB : .select() est indispensable ici — sans lui, une UPDATE bloquée par une
+  // policy RLS renvoie { error: null } avec 0 ligne modifiée, ce qui donnerait
+  // l'illusion d'un succès alors que rien n'a été persisté en base.
+  async function savePrice(suggestionId, price) {
+    setSavingPriceId(suggestionId)
+    try {
+      const { data, error } = await supabase.from('suggestions').update({ price }).eq('id', suggestionId).select()
+      if (error) {
+        console.error('Erreur sauvegarde prix:', error)
+      } else if (!data || data.length === 0) {
+        console.error('Erreur sauvegarde prix : aucune ligne mise à jour (vérifiez les policies RLS UPDATE sur la table suggestions)')
+      } else {
+        setSuggestions(prev => prev.map(x => x.id === suggestionId ? { ...x, price } : x))
+      }
+    } catch (err) {
+      console.error('Erreur sauvegarde prix:', err)
+    } finally {
+      setSavingPriceId(null)
+    }
+  }
+
+  async function searchGamePrice(suggestion) {
+    setPriceSearchFor(suggestion.id)
+    setPriceSearchResults([])
+    setPriceSearchLoading(true)
+    try {
+      const results = await bggSearchGames(suggestion.message.trim())
+      const enriched = await Promise.all(results.map(async r => {
+        try {
+          const details = await bggGameDetails(r.id)
+          return { ...r, image: details?.image || '', price: details?.price ?? null }
+        } catch {
+          return { ...r, image: '', price: null }
+        }
+      }))
+      setPriceSearchResults(enriched)
+    } catch (e) {
+      console.warn('Erreur recherche prix MyLudo:', e)
+    } finally {
+      setPriceSearchLoading(false)
+    }
+  }
+
+  async function selectPriceResult(suggestion, result) {
+    setPriceSearchFor(null)
+    setPriceSearchResults([])
+    if (result.price != null) {
+      await savePrice(suggestion.id, result.price)
+    } else {
+      startEditPrice(suggestion)
+    }
+  }
+
+  function startEditPrice(s) {
+    setEditingPriceId(s.id)
+    setEditingPriceValue(s.price != null ? String(s.price) : '')
+  }
+
+  async function commitManualPrice(s) {
+    const raw = editingPriceValue.trim().replace(',', '.')
+    setEditingPriceId(null)
+    if (raw === '') {
+      if (s.price !== null) await savePrice(s.id, null)
+      return
+    }
+    const value = parseFloat(raw)
+    const finalValue = (!isNaN(value) && value >= 0) ? value : null
+    if (finalValue !== s.price) await savePrice(s.id, finalValue)
+  }
+
+  // ── Édition ──────────────────────────────────────────────────────────────
+  function openEditModal(s) {
+    setEditModal({ show: true, id: s.id })
+    setEditCategory(s.category)
+    setEditMessage(s.message)
+    setEditAuthor(s.author || '')
+    setEditPrice(s.price != null ? String(s.price) : '')
+    setShowEditCatDropdown(false)
+    setEditError('')
+  }
+
+  function closeEditModal() {
+    setEditModal({ show: false, id: null })
+  }
+
+  async function saveEdit() {
+    if (!editCategory || !editMessage.trim()) {
+      setEditError('Merci de choisir une catégorie et de rédiger la suggestion.')
+      return
+    }
+    setEditError('')
+    setEditSaving(true)
+    try {
+      const rawPrice = editPrice.trim().replace(',', '.')
+      const parsed = rawPrice === '' ? null : parseFloat(rawPrice)
+      const priceValue = (parsed != null && !isNaN(parsed) && parsed >= 0) ? parsed : null
+      const updated = {
+        category: editCategory,
+        message:  editMessage.trim(),
+        author:   editAuthor.trim() || 'Anonyme',
+        price:    priceValue,
+      }
+      const { data, error: dbError } = await supabase.from('suggestions').update(updated).eq('id', editModal.id).select()
+      if (dbError) throw dbError
+      if (!data || data.length === 0) throw new Error('Aucune ligne mise à jour (vérifiez les policies RLS UPDATE sur la table suggestions)')
+      setSuggestions(prev => prev.map(x => x.id === editModal.id ? { ...x, ...updated } : x))
+      closeEditModal()
+    } catch (err) {
+      console.error('Erreur sauvegarde édition:', err)
+      setEditError('Une erreur est survenue. Vérifiez votre connexion.')
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  // ── Export PDF (window.print() via iframe masqué, sans dépendance externe) ─
+  function exportPdf() {
+    const jeuxSuggestions = suggestions.filter(s => s.category === 'jeu_acheter')
+    if (jeuxSuggestions.length === 0) return
+
+    const todayStr = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+    const withPrice = jeuxSuggestions.filter(s => s.price != null)
+    const withoutPriceCount = jeuxSuggestions.length - withPrice.length
+    const total = withPrice.reduce((sum, s) => sum + Number(s.price), 0)
+
+    const rowsHtml = jeuxSuggestions.map(s => `
+      <div class="row">
+        <span class="checkbox">☐</span>
+        <span class="name">${escapeHtml(s.message)}</span>
+        <span class="price">${s.price != null ? formatPrice(s.price) : ''}</span>
+        <div class="suggested-by">Suggéré par ${escapeHtml(s.author || 'Anonyme')}</div>
+      </div>
+    `).join('')
+
+    const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Liste des jeux à commander</title>
+<style>
+  @page { margin: 20mm 15mm; }
+  * { box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; padding: 0; }
+  .header { text-align: center; margin-bottom: 24px; }
+  .logo { font-size: 28px; font-weight: 900; color: #1a5f7a; letter-spacing: -0.5px; }
+  .subtitle { font-size: 13px; color: #555; margin-top: 6px; }
+  .hr { border: none; border-top: 2px solid #1a5f7a; margin: 16px 0 24px 0; }
+  .row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; padding: 10px 0; border-bottom: 1px solid #ddd; page-break-inside: avoid; }
+  .checkbox { font-size: 16px; }
+  .name { font-weight: 700; font-size: 14px; flex: 1; }
+  .price { font-weight: 700; font-size: 13px; text-align: right; white-space: nowrap; }
+  .suggested-by { width: 100%; font-size: 10px; color: #777; padding-left: 24px; }
+  .footer { margin-top: 28px; padding-top: 14px; border-top: 2px solid #1a5f7a; font-size: 12px; }
+  .footer .totals { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 4px; }
+  .footer .assoc { text-align: center; color: #888; margin-top: 14px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">Ludothèque de Coligny</div>
+    <div class="subtitle">Liste des jeux à commander — ${todayStr}</div>
+  </div>
+  <hr class="hr" />
+  <div class="list">
+    ${rowsHtml}
+  </div>
+  <div class="footer">
+    <div class="totals">
+      <span>Total estimé</span>
+      <span>${formatPrice(total)}</span>
+    </div>
+    ${withoutPriceCount > 0 ? `<div>${withoutPriceCount} jeu${withoutPriceCount > 1 ? 'x' : ''} sans prix renseigné</div>` : ''}
+    <div class="assoc">Association PACTES — Ludothèque de Coligny</div>
+  </div>
+</body>
+</html>`
+
+    const iframe = document.createElement('iframe')
+    iframe.style.position = 'fixed'
+    iframe.style.right = '0'
+    iframe.style.bottom = '0'
+    iframe.style.width = '0'
+    iframe.style.height = '0'
+    iframe.style.border = '0'
+    document.body.appendChild(iframe)
+
+    const doc = iframe.contentWindow.document
+    doc.open()
+    doc.write(html)
+    doc.close()
+
+    const cleanup = () => {
+      if (iframe.parentNode) document.body.removeChild(iframe)
+    }
+    iframe.contentWindow.onafterprint = cleanup
+    setTimeout(cleanup, 60000) // filet de sécurité si l'évènement afterprint ne se déclenche pas
+
+    setTimeout(() => {
+      iframe.contentWindow.focus()
+      iframe.contentWindow.print()
+    }, 200)
+  }
+
   const toggleFilterCat = (id) => setFilterCats(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
 
   const filtered = suggestions.filter(s => {
@@ -136,6 +410,11 @@ export default function Suggestions() {
 
   const pendingCount = suggestions.filter(s => !s.done).length
   const doneCount    = suggestions.filter(s => s.done).length
+
+  const totalToProvide = suggestions.filter(s => !s.done && s.price != null).reduce((sum, s) => sum + Number(s.price), 0)
+  const totalSaved     = suggestions.filter(s => s.done && s.price != null).reduce((sum, s) => sum + Number(s.price), 0)
+  const uncostedCount  = suggestions.filter(s => s.price == null).length
+  const jeuxACheterCount = suggestions.filter(s => s.category === 'jeu_acheter').length
 
   return (
     <div className="p-4 md:p-10 bg-[#fdfaf6] min-h-screen font-sans text-slate-900">
@@ -149,13 +428,50 @@ export default function Suggestions() {
             </div>
             <span>Vos <span className="text-[#1a5f7a]">Suggestions</span></span>
           </h1>
-          <button
-            onClick={() => { setShowModal(true); setSuccess(false); setError('') }}
-            className="flex items-center gap-2 px-6 py-4 bg-[#e38154] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-[#d16f43] active:scale-95 transition-all whitespace-nowrap"
-          >
-            <Plus size={16} strokeWidth={3} /> Nouvelle suggestion
-          </button>
+          <div className="flex items-center gap-3 flex-wrap">
+            {jeuxACheterCount > 0 && (
+              <button
+                onClick={exportPdf}
+                className="flex items-center gap-2 px-5 py-4 bg-white border-2 border-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:border-[#1a5f7a] hover:text-[#1a5f7a] transition-all whitespace-nowrap"
+              >
+                <FileDown size={16} /> Exporter en PDF
+              </button>
+            )}
+            <button
+              onClick={() => { setShowModal(true); setSuccess(false); setError('') }}
+              className="flex items-center gap-2 px-6 py-4 bg-[#e38154] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-[#d16f43] active:scale-95 transition-all whitespace-nowrap"
+            >
+              <Plus size={16} strokeWidth={3} /> Nouvelle suggestion
+            </button>
+          </div>
         </div>
+
+        {/* RÉCAPITULATIF DES ACHATS À PRÉVOIR */}
+        {suggestions.length > 0 && (
+          <div className="mb-6 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-orange-50 rounded-xl text-[#e38154] shrink-0"><Euro size={18} /></div>
+              <div className="min-w-0">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total à prévoir</p>
+                <p className="text-lg font-black text-[#e38154] truncate">{formatPrice(totalToProvide)}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-50 rounded-xl text-emerald-600 shrink-0"><PiggyBank size={18} /></div>
+              <div className="min-w-0">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Économisé</p>
+                <p className="text-lg font-black text-emerald-600 truncate">{formatPrice(totalSaved)}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-slate-50 rounded-xl text-slate-400 shrink-0"><HelpCircle size={18} /></div>
+              <div className="min-w-0">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Non chiffré</p>
+                <p className="text-lg font-black text-slate-500 truncate">{uncostedCount} suggestion{uncostedCount > 1 ? 's' : ''}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* BARRE FILTRES */}
         <div className="flex items-center gap-3 mb-6">
@@ -278,6 +594,82 @@ export default function Suggestions() {
                     <p className={`text-sm font-medium leading-relaxed ${s.done ? 'line-through text-slate-400' : 'text-slate-700'}`}>
                       {s.message}
                     </p>
+
+                    {/* Prix */}
+                    <div className="flex items-center gap-2 mt-2">
+                      {editingPriceId === s.id ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number" step="0.01" min="0" autoFocus
+                            value={editingPriceValue}
+                            onChange={e => setEditingPriceValue(e.target.value)}
+                            onBlur={() => commitManualPrice(s)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') e.currentTarget.blur()
+                              if (e.key === 'Escape') setEditingPriceId(null)
+                            }}
+                            placeholder="0.00"
+                            className="w-20 px-2 py-1 rounded-lg border-2 border-[#1a5f7a] text-xs font-black text-[#1a5f7a] outline-none"
+                          />
+                          <span className="text-[10px] font-black text-slate-400">€</span>
+                        </div>
+                      ) : savingPriceId === s.id ? (
+                        <Loader2 size={12} className="animate-spin text-slate-300" />
+                      ) : s.price != null ? (
+                        <button onClick={() => startEditPrice(s)}
+                          className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black hover:bg-emerald-100 transition-colors">
+                          {formatPrice(s.price)} <Pencil size={9} className="opacity-50" />
+                        </button>
+                      ) : (
+                        <button onClick={() => startEditPrice(s)}
+                          className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 text-slate-400 rounded-full text-[10px] font-bold hover:bg-slate-100 transition-colors">
+                          <Pencil size={9} /> Ajouter un prix
+                        </button>
+                      )}
+
+                      {s.category === 'jeu_acheter' && (
+                        <div className="relative">
+                          <button onClick={() => searchGamePrice(s)}
+                            title="Chercher le prix sur MyLudo"
+                            className="p-1.5 text-slate-300 hover:text-[#1a5f7a] hover:bg-slate-50 rounded-lg transition-colors">
+                            <Search size={12} />
+                          </button>
+
+                          {priceSearchFor === s.id && (
+                            <>
+                              <div className="fixed inset-0 z-10" onClick={() => setPriceSearchFor(null)} />
+                              <div className="absolute left-0 top-full mt-1 z-20 bg-white rounded-2xl shadow-2xl border border-slate-100 w-64 max-h-64 overflow-y-auto">
+                                {priceSearchLoading ? (
+                                  <div className="flex items-center justify-center gap-2 p-4 text-slate-400 text-xs">
+                                    <Loader2 size={14} className="animate-spin" /> Recherche...
+                                  </div>
+                                ) : priceSearchResults.length === 0 ? (
+                                  <p className="text-center text-[10px] text-slate-400 py-4">Aucun résultat</p>
+                                ) : (
+                                  priceSearchResults.map(r => (
+                                    <button key={r.id} onClick={() => selectPriceResult(s, r)}
+                                      className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-slate-50 transition-colors text-left border-b border-slate-50 last:border-0">
+                                      <div className="w-8 h-8 rounded-lg bg-slate-100 overflow-hidden flex items-center justify-center shrink-0">
+                                        {r.image ? <img src={r.image} alt="" className="w-full h-full object-cover" /> : <Dices size={14} className="text-slate-300" />}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-[11px] font-bold text-slate-800 truncate">{r.name}</p>
+                                        {r.year && <p className="text-[9px] text-slate-400">{r.year}</p>}
+                                      </div>
+                                      {r.price != null ? (
+                                        <span className="text-[10px] font-black text-emerald-600 shrink-0">{formatPrice(r.price)}</span>
+                                      ) : (
+                                        <span className="text-[9px] text-slate-300 shrink-0 italic">n/a</span>
+                                      )}
+                                    </button>
+                                  ))
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Actions */}
@@ -297,6 +689,14 @@ export default function Suggestions() {
                         ? <Loader2 size={12} className="animate-spin text-slate-400" />
                         : <Check size={14} strokeWidth={3} />
                       }
+                    </button>
+                    {/* Modifier */}
+                    <button
+                      onClick={() => openEditModal(s)}
+                      title="Modifier"
+                      className="w-8 h-8 rounded-xl border-2 border-slate-100 flex items-center justify-center text-slate-300 hover:border-[#1a5f7a]/40 hover:text-[#1a5f7a] hover:bg-[#1a5f7a]/5 transition-all active:scale-95"
+                    >
+                      <Edit2 size={13} />
                     </button>
                     {/* Poubelle */}
                     <button
@@ -458,6 +858,142 @@ export default function Suggestions() {
                     : 'bg-[#1a5f7a] text-white shadow-lg shadow-cyan-900/20 hover:bg-[#154f67]'
                 }`}>
                 {sending ? <><Loader2 size={14} className="animate-spin" /> Enregistrement…</> : <><Check size={14} /> Enregistrer</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE ÉDITION */}
+      {editModal.show && (
+        <div className="fixed inset-0 z-[200] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] w-full max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col animate-in slide-in-from-bottom md:zoom-in-95 duration-200">
+
+            {/* Header modale */}
+            <div className="sticky top-0 bg-white rounded-t-[2.5rem] p-6 pb-4 border-b border-slate-100 flex items-center justify-between z-10">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-[#1a5f7a]/10 text-[#1a5f7a] rounded-xl"><Edit2 size={18} /></div>
+                <h3 className="text-base font-black uppercase tracking-tight text-slate-900">Modifier la suggestion</h3>
+              </div>
+              <button onClick={closeEditModal} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-all">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6 flex-1">
+
+              {/* Catégorie — dropdown */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">
+                  Catégorie
+                </label>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowEditCatDropdown(v => !v)}
+                    className={`w-full flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left ${
+                      editCategory
+                        ? `${getCat(editCategory).bg} ${getCat(editCategory).border}`
+                        : 'border-slate-100 bg-slate-50 hover:border-slate-200'
+                    }`}
+                  >
+                    <div className="p-1.5 rounded-lg shrink-0"
+                      style={{ color: editCategory ? getCat(editCategory).color : '#cbd5e1', background: editCategory ? `${getCat(editCategory).color}18` : '#f1f5f9' }}>
+                      {editCategory ? getCat(editCategory).icon : <MoreHorizontal size={16} />}
+                    </div>
+                    <span className="flex-1 font-black text-xs uppercase tracking-tight"
+                      style={{ color: editCategory ? getCat(editCategory).color : '#94a3b8' }}>
+                      {editCategory ? getCat(editCategory).label : 'Choisir une catégorie…'}
+                    </span>
+                    <ChevronDown size={14} strokeWidth={3}
+                      className={`shrink-0 transition-transform ${showEditCatDropdown ? 'rotate-180' : ''}`}
+                      style={{ color: editCategory ? getCat(editCategory).color : '#cbd5e1' }} />
+                  </button>
+
+                  {showEditCatDropdown && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setShowEditCatDropdown(false)} />
+                      <div className="absolute left-0 right-0 top-full mt-2 z-20 bg-white rounded-[1.5rem] shadow-2xl border border-slate-100 p-2 animate-in zoom-in-95 duration-150 max-h-64 overflow-y-auto">
+                        {CATEGORIES.map(c => (
+                          <button key={c.id}
+                            onClick={() => { setEditCategory(c.id); setShowEditCatDropdown(false) }}
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${
+                              editCategory === c.id ? c.bg : 'hover:bg-slate-50'
+                            }`}
+                          >
+                            <div className="shrink-0" style={{ color: editCategory === c.id ? c.color : '#cbd5e1' }}>
+                              {c.icon}
+                            </div>
+                            <p className="flex-1 font-black text-[10px] uppercase tracking-tight"
+                              style={{ color: editCategory === c.id ? c.color : '#94a3b8' }}>
+                              {c.label}
+                            </p>
+                            {editCategory === c.id && (
+                              <Check size={14} strokeWidth={3} style={{ color: c.color }} className="shrink-0" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Message */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">
+                  Suggestion
+                </label>
+                <textarea rows={4} value={editMessage} onChange={e => setEditMessage(e.target.value)}
+                  className="w-full p-4 bg-slate-50 rounded-2xl font-medium text-sm text-slate-700 placeholder:text-slate-300 outline-none border-2 border-transparent focus:border-[#1a5f7a]/30 resize-none transition-all"
+                />
+              </div>
+
+              {/* Auteur */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">
+                  Suggéré par
+                </label>
+                <input type="text" value={editAuthor} onChange={e => setEditAuthor(e.target.value)}
+                  placeholder="Laissez vide pour rester anonyme"
+                  className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-sm text-slate-700 placeholder:text-slate-300 outline-none border-2 border-transparent focus:border-[#1a5f7a]/30 transition-all"
+                />
+              </div>
+
+              {/* Prix */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">
+                  Prix <span className="normal-case font-medium text-slate-300">(optionnel)</span>
+                </label>
+                <div className="relative">
+                  <input type="number" step="0.01" min="0" value={editPrice} onChange={e => setEditPrice(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full p-4 pr-12 bg-slate-50 rounded-2xl font-bold text-sm text-slate-700 placeholder:text-slate-300 outline-none border-2 border-transparent focus:border-[#1a5f7a]/30 transition-all"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">€</span>
+                </div>
+              </div>
+
+              {/* Erreur */}
+              {editError && (
+                <div className="flex items-center gap-3 p-4 bg-rose-50 text-rose-600 rounded-2xl font-bold text-xs border border-rose-100">
+                  {editError}
+                </div>
+              )}
+            </div>
+
+            {/* Footer sticky */}
+            <div className="sticky bottom-0 bg-white rounded-b-[2.5rem] p-6 pt-4 border-t border-slate-100 flex gap-3">
+              <button onClick={closeEditModal}
+                className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-colors">
+                Annuler
+              </button>
+              <button onClick={saveEdit} disabled={editSaving || !editCategory || !editMessage.trim()}
+                className={`flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 ${
+                  editSaving || !editCategory || !editMessage.trim()
+                    ? 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none'
+                    : 'bg-[#1a5f7a] text-white shadow-lg shadow-cyan-900/20 hover:bg-[#154f67]'
+                }`}>
+                {editSaving ? <><Loader2 size={14} className="animate-spin" /> Enregistrement…</> : <><Check size={14} /> Enregistrer</>}
               </button>
             </div>
           </div>

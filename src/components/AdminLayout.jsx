@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
-  LayoutDashboard, Dices, Users, Calendar, LogOut, 
+  LayoutDashboard, Dices, Users, Megaphone, LogOut,
   X, Menu, ChevronRight, ClipboardCheck, Share2,
   Settings, Lightbulb, TrendingUp
 } from 'lucide-react';
@@ -16,7 +16,7 @@ export default function AdminLayout({ children }) {
     { path: '/admin', icon: <LayoutDashboard size={20} />, label: 'Tableau de bord' },
     { path: '/admin/jeux', icon: <Dices size={20} />, label: 'Jeux' },
     { path: '/admin/adherents', icon: <Users size={20} />, label: 'Adhérents' },
-    { path: '/admin/evenements', icon: <Calendar size={20} />, label: 'Événements' },
+    { path: '/admin/evenements', icon: <Megaphone size={20} />, label: 'Communication' },
   ];
 
   const pretPath = '/admin/prets';

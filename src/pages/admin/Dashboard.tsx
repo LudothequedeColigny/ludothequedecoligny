@@ -1,7 +1,97 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../services/supabaseClient'
-import { LayoutDashboard, Users, LogOut, Loader2, ClipboardList, Calendar, Dice5, Download, Smartphone } from 'lucide-react'
+import { LayoutDashboard, Users, LogOut, Loader2, ClipboardList, Calendar, Dice5, Download, Smartphone, Eye, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
+
+interface WeekBucket {
+  label: string
+  count: number
+}
+
+interface PageViewStats {
+  thisWeek: number
+  lastWeek: number
+  thisMonth: number
+  lastMonth: number
+  weeks: WeekBucket[] // 4 dernières semaines, de la plus ancienne à la plus récente
+}
+
+const emptyPageViewStats: PageViewStats = {
+  thisWeek: 0,
+  lastWeek: 0,
+  thisMonth: 0,
+  lastMonth: 0,
+  weeks: [],
+}
+
+function pctChange(current: number, previous: number): number {
+  if (previous === 0) return current > 0 ? 100 : 0
+  return Math.round(((current - previous) / previous) * 100)
+}
+
+function StatComparisonBlock({ label, current, previous, previousLabel }: {
+  label: string
+  current: number
+  previous: number
+  previousLabel: string
+}) {
+  const diff = pctChange(current, previous)
+  const isFlat = diff === 0
+  const isUp = diff > 0
+  return (
+    <div className="bg-slate-50 rounded-[1.75rem] p-6">
+      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{label}</p>
+      <div className="flex items-baseline gap-3 mb-3">
+        <span className="text-4xl font-black text-slate-900 tracking-tighter">{current}</span>
+        <span className={`inline-flex items-center gap-1 text-xs font-black ${isFlat ? 'text-slate-400' : isUp ? 'text-emerald-500' : 'text-rose-500'}`}>
+          {isFlat ? <Minus size={14} /> : isUp ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+          {Math.abs(diff)}%
+        </span>
+      </div>
+      <p className="text-[10px] text-slate-400 font-medium">
+        {previousLabel} : <span className="font-black text-slate-600">{previous}</span>
+      </p>
+    </div>
+  )
+}
+
+function MiniBarChart({ data }: { data: WeekBucket[] }) {
+  const max = Math.max(1, ...data.map(d => d.count))
+  const barWidth = 44
+  const gap = 20
+  const chartHeight = 90
+  const width = data.length * barWidth + (data.length - 1) * gap
+
+  return (
+    <div className="bg-slate-50 rounded-[1.75rem] p-6 flex justify-center">
+      <svg width="100%" viewBox={`0 0 ${width} ${chartHeight + 26}`} className="max-w-sm">
+        {data.map((d, i) => {
+          const h = (d.count / max) * chartHeight
+          const x = i * (barWidth + gap)
+          const isLast = i === data.length - 1
+          const labelY = Math.max(10, chartHeight - h - 6)
+          return (
+            <g key={i}>
+              <rect
+                x={x} y={chartHeight - h}
+                width={barWidth} height={Math.max(h, 2)}
+                rx={10}
+                fill={isLast ? '#e38154' : '#1a5f7a'}
+                opacity={isLast ? 1 : 0.55}
+              />
+              <text x={x + barWidth / 2} y={labelY} textAnchor="middle" fontSize="11" fontWeight="900" fill={isLast ? '#e38154' : '#1a5f7a'}>
+                {d.count}
+              </text>
+              <text x={x + barWidth / 2} y={chartHeight + 18} textAnchor="middle" fontSize="9" fontWeight="900" fill="#94a3b8">
+                {d.label}
+              </text>
+            </g>
+          )
+        })}
+      </svg>
+    </div>
+  )
+}
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -12,6 +102,8 @@ export default function Dashboard() {
     totalEvents: 0
   })
   const [loading, setLoading] = useState(true)
+  const [pageViewStats, setPageViewStats] = useState<PageViewStats>(emptyPageViewStats)
+  const [loadingViews, setLoadingViews] = useState(true)
 
   useEffect(() => {
     async function fetchStats() {
@@ -59,6 +151,74 @@ export default function Dashboard() {
       }
     }
     fetchStats()
+  }, [])
+
+  useEffect(() => {
+    async function fetchPageViewStats() {
+      setLoadingViews(true)
+      try {
+        const startOfWeek = (d: Date) => {
+          const date = new Date(d)
+          date.setHours(0, 0, 0, 0)
+          const day = date.getDay()
+          const diff = day === 0 ? -6 : 1 - day // ramène au lundi
+          date.setDate(date.getDate() + diff)
+          return date
+        }
+
+        const countBetween = async (start: Date, end: Date) => {
+          const { count } = await supabase
+            .from('page_views')
+            .select('*', { count: 'exact', head: true })
+            .gte('visited_at', start.toISOString())
+            .lt('visited_at', end.toISOString())
+          return count || 0
+        }
+
+        const now = new Date()
+        const thisWeekStart = startOfWeek(now)
+
+        // 4 dernières semaines (de la plus ancienne à l'actuelle)
+        const weekStarts = [3, 2, 1, 0].map(i => {
+          const d = new Date(thisWeekStart)
+          d.setDate(d.getDate() - i * 7)
+          return d
+        })
+        const weekEnds = weekStarts.map(start => {
+          const e = new Date(start)
+          e.setDate(e.getDate() + 7)
+          return e
+        })
+
+        const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+        const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+        const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+
+        const [weekCounts, thisMonth, lastMonth] = await Promise.all([
+          Promise.all(weekStarts.map((start, i) => countBetween(start, weekEnds[i]))),
+          countBetween(thisMonthStart, nextMonthStart),
+          countBetween(lastMonthStart, thisMonthStart),
+        ])
+
+        const weeks: WeekBucket[] = weekStarts.map((start, i) => ({
+          label: start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+          count: weekCounts[i],
+        }))
+
+        setPageViewStats({
+          thisWeek: weekCounts[3],
+          lastWeek: weekCounts[2],
+          thisMonth,
+          lastMonth,
+          weeks,
+        })
+      } catch (error) {
+        console.error("Erreur stats visites:", error)
+      } finally {
+        setLoadingViews(false)
+      }
+    }
+    fetchPageViewStats()
   }, [])
 
   const handleLogout = async () => {
@@ -147,6 +307,46 @@ export default function Dashboard() {
                   </div>
                 </Link>
               ))}
+            </div>
+
+            {/* CARTE VISITES DU SITE */}
+            <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 p-8 md:p-10">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="p-3 rounded-2xl bg-[#f0f7f9] text-[#1a5f7a]">
+                  <Eye size={22} />
+                </div>
+                <div>
+                  <h3 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tight">Visites du site</h3>
+                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5">Suivi de la fréquentation publique</p>
+                </div>
+              </div>
+
+              {loadingViews ? (
+                <div className="flex items-center justify-center py-16 text-[#1a5f7a]">
+                  <Loader2 className="animate-spin" size={28} />
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+                    <StatComparisonBlock
+                      label="Cette semaine"
+                      current={pageViewStats.thisWeek}
+                      previous={pageViewStats.lastWeek}
+                      previousLabel="Semaine dernière"
+                    />
+                    <StatComparisonBlock
+                      label="Ce mois-ci"
+                      current={pageViewStats.thisMonth}
+                      previous={pageViewStats.lastMonth}
+                      previousLabel="Mois dernier"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4 ml-2">4 dernières semaines</p>
+                    <MiniBarChart data={pageViewStats.weeks} />
+                  </div>
+                </>
+              )}
             </div>
 
             {/* BLOC INSTALLATION APPLICATION */}

@@ -9,8 +9,9 @@ const BGG_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bgg-
 
 async function bggCall(endpoint: string, params: Record<string, string>): Promise<any> {
   const qs = new URLSearchParams({ endpoint, ...params }).toString()
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
   const res = await fetch(`${BGG_FUNCTION_URL}?${qs}`, {
-    headers: { 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY },
+    headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
     signal: AbortSignal.timeout(10000)
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -377,7 +378,8 @@ export default function Jeux() {
       setBggLoading(true)
       try {
         const qs = new URLSearchParams({ endpoint: 'search-by-barcode', barcode }).toString()
-        const res = await fetch(`${BGG_FUNCTION_URL}?${qs}`, { headers: { 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY } })
+        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+        const res = await fetch(`${BGG_FUNCTION_URL}?${qs}`, { headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` } })
         const details = await res.json()
         if (details) {
           setNewGame(prev => ({
@@ -563,7 +565,8 @@ export default function Jeux() {
       if (finalImageUrl && finalImageUrl.includes('myludo.fr')) {
         try {
           const qs = new URLSearchParams({ endpoint: 'upload-image', imageUrl: finalImageUrl }).toString()
-          const res = await fetch(`${BGG_FUNCTION_URL}?${qs}`, { headers: { 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY } })
+          const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+          const res = await fetch(`${BGG_FUNCTION_URL}?${qs}`, { headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` } })
           if (res.ok) { const data = await res.json(); finalImageUrl = data.url || finalImageUrl }
         } catch (e) { console.warn('Image upload skipped:', e) }
       }

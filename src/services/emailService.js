@@ -6,9 +6,9 @@ import { supabase } from './supabaseClient'
  * @param {string} subject - Objet du mail
  * @param {string} html - Corps du mail en HTML
  */
-export async function sendEmail({ to, subject, html, image_url = null, image_urls = null }) {
+export async function sendEmail({ to, subject, html, image_url = null, image_urls = null, calendar_events = null }) {
   const { data, error } = await supabase.functions.invoke('send-email', {
-    body: { to, subject, html, image_url, image_urls },
+    body: { to, subject, html, image_url, image_urls, calendar_events },
   })
 
   if (error) throw error

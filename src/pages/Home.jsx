@@ -184,15 +184,16 @@ export default function Home() {
           setPlayerCount(total)
         }
 
-        // Supprimer les événements de plus de 3 mois
+        // Supprimer les événements de plus de 3 mois (les événements archivés sont préservés)
         const threeMonthsAgo = new Date()
         threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
-        await supabase.from('events').delete().lt('date', threeMonthsAgo.toISOString())
+        await supabase.from('events').delete().lt('date', threeMonthsAgo.toISOString()).is('archived_at', null)
 
-        // Charger tous les événements restants
+        // Charger tous les événements restants (hors événements archivés)
         const { data: eventData } = await supabase
           .from('events')
           .select('*')
+          .is('archived_at', null)
           .order('date', { ascending: true })
 
         const now = new Date()
@@ -206,6 +207,17 @@ export default function Home() {
       }
     }
     fetchHomeData()
+  }, [])
+
+  // Tracking des visites de la page d'accueil
+  useEffect(() => {
+    supabase.from('page_views').insert({
+      page: 'home',
+      user_agent: navigator.userAgent,
+      referrer: document.referrer || null
+    }).then(({ error }) => {
+      if (error) console.error("Erreur tracking page_views:", error.message)
+    })
   }, [])
 
   const formatEventDuration = (dateIso, endTime) => {
@@ -296,7 +308,16 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="py-24 bg-white">
+      <div className="bg-white pt-16 pb-4 flex justify-center px-4">
+        <button
+          onClick={() => navigate('/vie-association')}
+          className="px-8 py-4 rounded-2xl bg-white text-[#1a5f7a] border-2 border-[#1a5f7a]/20 font-black flex items-center gap-3 hover:border-[#1a5f7a] hover:scale-105 transition-all uppercase tracking-widest text-sm shadow-sm"
+        >
+          La vie de la ludothèque 🎲
+        </button>
+      </div>
+
+      <section className="pt-8 pb-24 bg-white">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-16">
             <span className="text-[#e38154] font-black uppercase tracking-[0.3em] text-xs">À ne pas manquer</span>

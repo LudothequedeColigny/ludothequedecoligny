@@ -239,6 +239,12 @@ async function getGameDetails(id: string) {
     ...Object.values(themes.mecanisme || {}) as string[]
   ].slice(0, 5)
 
+  // Prix conseillé — info.offer est la version numérique propre (ex: '89.9'),
+  // info.price est une chaîne HTML formatée (ex: '89<span class="tiny">,90</span>€') donc inutilisable telle quelle.
+  // Une valeur de '0' ou absente signifie qu'aucun prix n'est renseigné sur MyLudo.
+  const offerNum = parseFloat(info.offer)
+  const price = (offerNum && offerNum > 0) ? offerNum : null
+
   return {
     name:        game.title || '',
     description,
@@ -248,7 +254,8 @@ async function getGameDetails(id: string) {
     duration:    parseInt(game.duration)    || 0,
     image,
     categories,
-    barcode: (info.barcodes && info.barcodes.length > 0) ? String(info.barcodes[0]) : ''
+    barcode: (info.barcodes && info.barcodes.length > 0) ? String(info.barcodes[0]) : '',
+    price,
   }
 }
 

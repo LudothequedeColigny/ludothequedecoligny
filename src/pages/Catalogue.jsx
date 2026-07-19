@@ -132,6 +132,17 @@ function Catalogue() {
     fetchJeux()
   }, [])
 
+  // Tracking des visites de la page catalogue
+  useEffect(() => {
+    supabase.from('page_views').insert({
+      page: 'catalogue',
+      user_agent: navigator.userAgent,
+      referrer: document.referrer || null
+    }).then(({ error }) => {
+      if (error) console.error("Erreur tracking page_views:", error.message)
+    })
+  }, [])
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (suggestionRef.current && !suggestionRef.current.contains(event.target)) {
