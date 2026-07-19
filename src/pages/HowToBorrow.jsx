@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../services/supabaseClient' 
+import { supabase } from '../services/supabaseClient'
 import { ArrowLeft, User, Building2, Calendar, CheckCircle2, Info, Mail, Phone, Landmark, ShieldCheck, FileText, Download } from 'lucide-react'
+import TitrePactes from '../components/TitrePactes'
 
 export default function HowToBorrow() {
   const navigate = useNavigate()
@@ -65,8 +66,11 @@ export default function HowToBorrow() {
     <div className="min-h-screen bg-[#fdfaf6] font-sans pb-10 text-slate-900">
       <header className="bg-white border-b border-slate-100 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-20 flex items-center justify-between">
-          <div className="flex-1">
-            <button 
+          <div className="flex-1 flex items-center gap-4">
+            <button onClick={() => navigate('/')} className="shrink-0">
+              <img src="/logo-feuille.svg" alt="Ludothèque de Coligny" className="h-10" />
+            </button>
+            <button
               onClick={() => navigate('/')}
               className="flex items-center gap-2 text-slate-400 hover:text-[#1a5f7a] font-bold transition-colors text-[9px] sm:text-[10px] md:text-xs uppercase tracking-widest"
             >
@@ -92,7 +96,7 @@ export default function HowToBorrow() {
               <span className="font-black uppercase tracking-widest text-sm">Étape préalable</span>
             </div>
             <p className="text-slate-600 leading-relaxed font-medium">
-              Pour profiter de la ludothèque, il faut d'abord être <span className="text-slate-900 font-bold">adhérent à l'Association PACTES</span> (contribution annuelle de <span className="text-[#e38154] font-black">10€</span>). 
+              Pour profiter de la ludothèque, il faut d'abord être <span className="text-slate-900 font-bold">adhérent à l'Association <TitrePactes className="text-base align-middle" /></span> (contribution annuelle de <span className="text-[#e38154] font-black">10€</span>).
               Une fois membre, vous pouvez adhérer à la ludothèque selon les tarifs ci-dessous.
             </p>
           </div>

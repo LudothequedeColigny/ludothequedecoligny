@@ -140,9 +140,14 @@ export default function VieAssociation() {
 
       <header className="bg-white border-b border-slate-100 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-20 flex items-center justify-between">
-          <button onClick={() => navigate('/')} className="flex items-center gap-2 text-slate-400 hover:text-[#1a5f7a] font-bold transition-colors text-xs uppercase tracking-widest">
-            <ArrowLeft size={16} /> <span>Retour à la page d'accueil</span>
-          </button>
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigate('/')} className="shrink-0">
+              <img src="/logo-feuille.svg" alt="Ludothèque de Coligny" className="h-10" />
+            </button>
+            <button onClick={() => navigate('/')} className="flex items-center gap-2 text-slate-400 hover:text-[#1a5f7a] font-bold transition-colors text-xs uppercase tracking-widest">
+              <ArrowLeft size={16} /> <span>Retour à la page d'accueil</span>
+            </button>
+          </div>
           <div className="w-10 md:w-20"></div>
         </div>
       </header>

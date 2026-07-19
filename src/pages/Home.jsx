@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useState, memo } from 'react'
 import { supabase } from '../services/supabaseClient'
+import TitrePactes from '../components/TitrePactes'
 import { 
   Dice5, 
   Calendar, 
@@ -239,9 +240,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-[#1a5f7a] flex items-center justify-center shadow-lg shadow-cyan-100 shrink-0">
-                <Dice5 className="w-7 h-7 text-white" />
-              </div>
+              <img src="/logo-feuille.svg" alt="Ludothèque de Coligny" className="h-12 shrink-0" />
               <div>
                 <h1 className="font-black text-xl tracking-tight text-slate-900 leading-none">Ludothèque de Coligny</h1>
                 <p className="text-[10px] uppercase font-bold text-[#e38154] tracking-widest mt-1">Un service de l'association PACTES</p>
@@ -272,7 +271,7 @@ export default function Home() {
             </span>
           </h2>
           <p className="mt-4 text-xl text-slate-500 max-w-2xl mx-auto leading-relaxed font-medium mb-10">
-            Portée par l'association <span className="text-slate-900 font-bold">PACTES</span>, notre ludothèque est un espace de rencontre et de partage.
+            Portée par l'association <TitrePactes className="text-xl align-middle" />, notre ludothèque est un espace de rencontre et de partage.
           </p>
           
           <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-16">
@@ -516,10 +515,10 @@ export default function Home() {
             <Facebook size={14} /> Rejoignez-nous sur Facebook
           </a>
         </div>
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <Facebook size={20} fill="#e38154" className="text-[#e38154]" />
-          <a href={facebookUrl1} target="_blank" rel="noopener noreferrer" className="font-black uppercase tracking-widest text-xs text-slate-600 hover:text-[#1a5f7a] transition-colors">Association PACTES</a>
-        </div>
+        <a href={facebookUrl1} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-3 mb-4 hover:opacity-80 transition-opacity">
+          <img src="/logo-pactes.svg" className="h-16" alt="Logo PACTES" />
+          <TitrePactes className="text-3xl" />
+        </a>
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em]">Ludothèque de Coligny — Le plaisir du jeu ensemble</p>
       </footer>
     </div>

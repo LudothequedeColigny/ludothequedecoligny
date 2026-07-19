@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Titre" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 838.68 113.67">
+  <defs>
+    <style>
+      .cls-1 {
+        font-family: Poppins-ExtraBold, Poppins;
+        font-size: 117px;
+        font-weight: 700;
+      }
+
+      .cls-2 {
+        fill: #cd1a1e;
+      }
+
+      .cls-3 {
+        fill: #772d87;
+      }
+
+      .cls-4 {
+        fill: #ac1b59;
+      }
+
+      .cls-5 {
+        fill: #2762a1;
+      }
+
+      .cls-6 {
+        fill: #e75a19;
+      }
+
+      .cls-7 {
+        fill: #12653c;
+      }
+    </style>
+  </defs>
+  <text class="cls-1" transform="translate(198.15 95.25)"><tspan class="cls-7" x="0" y="0">P</tspan><tspan class="cls-5" x="74.41" y="0">A</tspan><tspan class="cls-6" x="162.74" y="0">C</tspan><tspan class="cls-3" x="251.43" y="0">T</tspan><tspan class="cls-4" x="322.1" y="0">E</tspan><tspan class="cls-2" x="386.21" y="0">S</tspan></text>
+</svg>
