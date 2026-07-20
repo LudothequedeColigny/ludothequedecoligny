@@ -16,26 +16,25 @@ export default defineConfig({
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
       },
-      includeAssets: ['favicon.png', 'logo192.png', 'logo512.png'],
+      includeAssets: ['logo-feuille.svg'],
       manifest: {
         name: 'Ludothèque de Coligny',
         short_name: 'LudoColigny',
         description: 'Application de gestion de ludothèque associative',
-        theme_color: '#1a5f7a',
-        background_color: '#fdfaf6',
+        theme_color: '#0f3d4f',
+        background_color: '#0f3d4f',
         display: 'standalone',
         icons: [
-          {
-            src: 'logo192.png',
-            sizes: '192x192',
-            type: 'image/png'
-          },
-          {
-            src: 'logo512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable'
-          }
+          { src: '/icon-72.png', sizes: '72x72', type: 'image/png' },
+          { src: '/icon-96.png', sizes: '96x96', type: 'image/png' },
+          { src: '/icon-128.png', sizes: '128x128', type: 'image/png' },
+          { src: '/icon-144.png', sizes: '144x144', type: 'image/png' },
+          { src: '/icon-152.png', sizes: '152x152', type: 'image/png' },
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icon-384.png', sizes: '384x384', type: 'image/png' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/icon-maskable-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+          { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ]
       }
     })
