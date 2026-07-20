@@ -302,7 +302,7 @@ export default function VieAssociation() {
                             icon={<Dices size={16} />}
                             iconBg="bg-[#e38154]/10"
                             iconColor="text-[#e38154]"
-                            label="Les jeux auxquels nous avons joué"
+                            label="Jeux joués"
                             isOpen={!!sectionOpen[event.id]?.games}
                             onClick={() => toggleSection(event.id, 'games')}
                             widthClass={toggleWidthClass}

@@ -240,7 +240,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center gap-4">
-              <img src="/logo-feuille.svg" alt="Ludothèque de Coligny" className="h-12 shrink-0" />
+              <img data-app-logo="header" src="/logo-feuille.svg" alt="Ludothèque de Coligny" className="h-12 shrink-0" />
               <div>
                 <h1 className="font-black text-xl tracking-tight text-slate-900 leading-none">Ludothèque de Coligny</h1>
                 <p className="text-[10px] uppercase font-bold text-[#e38154] tracking-widest mt-1">Un service de l'association PACTES</p>
