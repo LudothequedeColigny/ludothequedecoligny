@@ -50,6 +50,7 @@ async function bggGetDetails(id: string) {
 const JEUX_TUTORIAL_STEPS = (openForm, cancelForm) => [
   { id: 'jeux-header', noSpotlight: true, title: 'Bienvenue sur la page Jeux', description: `Cette page centralise tout le catalogue de la ludothèque : ajouter, modifier, supprimer des jeux et suivre leur disponibilité.`, action: () => cancelForm() },
   { id: 'jeux-scanner-btn', title: 'Scanner un jeu par code-barres', description: `Ce bouton ouvre la caméra pour scanner le code-barres d'une boîte. Si le jeu est reconnu dans la base de données en ligne, la fiche est pré-remplie automatiquement.`, action: () => cancelForm() },
+  { id: 'jeux-etiquettes-btn', title: 'Générer des étiquettes QR', description: `Ce bouton ouvre le générateur d'étiquettes à coller sur les boîtes des jeux ayant une vidéo de règles renseignée : un QR code renvoie directement vers la vidéo YouTube. Imprimable en A3, 3 étiquettes par page.`, action: () => cancelForm(), tip: `Ce bouton est masqué sur smartphone — la génération d'étiquettes se fait depuis un ordinateur.` },
   { id: 'jeux-add-btn', title: 'Ajouter un jeu manuellement', description: `Cliquez ici pour ouvrir le formulaire de création. Le numéro d'inventaire est pré-rempli automatiquement.`, action: () => cancelForm() },
   { id: 'jeux-form-modal', title: `Formulaire d'ajout d'un jeu`, description: `Ce formulaire permet de saisir toutes les informations d'un jeu.`, action: () => openForm(), actionDelay: 350 },
   { id: 'jeux-form-numero', title: `Numéro d'inventaire et code-barres`, description: `Le numéro d'inventaire identifie le jeu de façon unique. Le code-barres peut être scanné via la caméra ou saisi manuellement.`, action: () => openForm(), actionDelay: 350 },
@@ -654,6 +655,7 @@ export default function Jeux() {
           {/* BOUTON ÉTIQUETTES QR — masqué sur mobile */}
           {!isMobile && (
             <button
+              data-tutorial="jeux-etiquettes-btn"
               onClick={() => setShowEtiquettes(true)}
               title={`Générer des étiquettes QR (${nbJeuxAvecVideo} jeu${nbJeuxAvecVideo > 1 ? 'x' : ''} avec vidéo)`}
               className="relative px-5 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95 bg-white border border-slate-200 text-[#1a5f7a] hover:bg-[#1a5f7a] hover:text-white hover:border-[#1a5f7a] flex items-center gap-2"

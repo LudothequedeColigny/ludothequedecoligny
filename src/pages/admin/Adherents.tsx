@@ -53,6 +53,14 @@ const ADHERENTS_TUTORIAL_STEPS = (openForm, closeForm, openRelance, openRenewal)
     actionDelay: 400,
   },
   {
+    id: 'adherents-payment-info-btn',
+    title: `Modalités de paiement`,
+    description: `Ce bouton affiche les moyens de paiement acceptés par l'association (CB, espèces, chèque, virement) avec, le cas échéant, les coordonnées bancaires complètes — pratique à montrer à l'adhérent au moment de l'inscription.`,
+    action: () => { openForm(); openRelance(false); openRenewal(false) },
+    actionDelay: 400,
+    tip: `Les moyens de paiement affichés se configurent dans la page Paramètres.`,
+  },
+  {
     id: 'adherents-form-submit',
     title: `Enregistrer l'adhérent`,
     description: `Ce bouton enregistre le nouvel adhérent. Si un email est renseigné, vous pouvez cocher l'option pour lui envoyer automatiquement un email de bienvenue.`,
@@ -578,7 +586,7 @@ www.ludothequedecoligny.fr`
                     <span className="text-3xl font-black text-slate-900 block mb-3">{newMember.fee_amount}€</span>
                     
                     {/* BOUTON MODALITÉS DE PAIEMENT */}
-                    <button type="button" onClick={() => setShowPaymentInfoModal(true)} className="mb-4 flex items-center gap-2 mx-auto px-4 py-2 bg-white rounded-xl border border-slate-100 text-[9px] font-black uppercase text-[#1a5f7a] hover:bg-slate-50 transition-all">
+                    <button data-tutorial="adherents-payment-info-btn" type="button" onClick={() => setShowPaymentInfoModal(true)} className="mb-4 flex items-center gap-2 mx-auto px-4 py-2 bg-white rounded-xl border border-slate-100 text-[9px] font-black uppercase text-[#1a5f7a] hover:bg-slate-50 transition-all">
                       <Info size={14} /> Modalités de paiement
                     </button>
 

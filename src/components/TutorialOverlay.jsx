@@ -1,7 +1,10 @@
-// TutorialOverlay.jsx — v7
-// - Spotlight correct dans les modales fixed (scroll interne)
-// - Support double spotlight via id2
-// - Tooltip toujours dans le viewport
+// TutorialOverlay.jsx — v8
+// - Overlay position: fixed, coordonnées viewport (getBoundingClientRect) directement
+// - Scroll natif via scrollIntoView (gère seul le scroll interne des modales)
+// - Tooltip mobile ancré en bas via CSS fixed (bottom/left/right), jamais recalculé en px
+// - Boutons mobile min 44px de hauteur (cible tactile)
+// - Support double spotlight via id2, support noSpotlight pour les étapes de bienvenue
+// - Fallback : tooltip centré sans spotlight si l'élément data-tutorial est introuvable
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, ChevronLeft, ChevronRight, BookOpen } from 'lucide-react'
@@ -19,7 +22,8 @@ export function TutorialButton({ onClick }) {
   )
 }
 
-// ── Utilitaire : getBoundingClientRect fiable même dans une modale scrollable ──
+// ── Utilitaire : getBoundingClientRect — coordonnées viewport, directement
+// utilisables par un overlay position: fixed (même repère que le SVG fixed) ──
 function getViewportRect(el) {
   const r = el.getBoundingClientRect()
   return {
@@ -32,33 +36,12 @@ function getViewportRect(el) {
   }
 }
 
-// ── Scroll l'élément dans son conteneur scrollable le plus proche ─────────────
-function scrollToElement(el) {
-  // Cherche le premier ancêtre avec overflow scroll/auto
-  let parent = el.parentElement
-  while (parent && parent !== document.body) {
-    const style = window.getComputedStyle(parent)
-    const overflow = style.overflow + style.overflowY
-    if (/auto|scroll/.test(overflow)) {
-      const parentRect = parent.getBoundingClientRect()
-      const elRect     = el.getBoundingClientRect()
-      const targetTop  = elRect.top - parentRect.top + parent.scrollTop - parent.clientHeight / 2 + elRect.height / 2
-      parent.scrollTo({ top: targetTop, behavior: 'smooth' })
-      return
-    }
-    parent = parent.parentElement
-  }
-  // Fallback : scroll global via window — fonctionne pour les éléments en bas de page
-  const r = el.getBoundingClientRect()
-  const targetY = window.scrollY + r.top + r.height / 2 - window.innerHeight / 2
-  window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' })
-}
-
 export default function TutorialOverlay({ steps = [], open, onClose }) {
   const [current,    setCurrent]    = useState(0)
   const [spots,      setSpots]      = useState([])   // array de { top, left, width, height }
   const [tipPos,     setTipPos]     = useState(null)
   const timerRef   = useRef(null)
+  const scrollTimerRef = useRef(null)
   const currentRef = useRef(0)
 
   useEffect(() => { currentRef.current = current }, [current])
@@ -72,13 +55,13 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
 
   const centerTip = useCallback(() => {
     const MARGIN = 16
-    const TW = Math.min(320, window.innerWidth - MARGIN * 2)
-    const left = Math.max(MARGIN, window.innerWidth / 2 - TW / 2)
     setSpots([])
     if (isMobile()) {
-      // Sur mobile : bulle ancrée en bas
-      setTipPos({ top: window.innerHeight - 220, left: MARGIN, width: window.innerWidth - MARGIN * 2, placement: 'bottom-fixed' })
+      // Sur mobile : bulle toujours ancrée en bas via CSS fixed (jamais de top calculé en px)
+      setTipPos({ placement: 'bottom-fixed' })
     } else {
+      const TW = Math.min(320, window.innerWidth - MARGIN * 2)
+      const left = Math.max(MARGIN, window.innerWidth / 2 - TW / 2)
       setTipPos({ top: Math.max(20, window.innerHeight / 2 - 145), left, width: TW, placement: 'center' })
     }
   }, [])
@@ -86,12 +69,16 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
   // ── Mesure 1 ou 2 éléments et calcule spotlight(s) + tooltip ─────────────
   const measureStep = useCallback((stepObj, extraDelay = 0) => {
     clearTimeout(timerRef.current)
+    clearTimeout(scrollTimerRef.current)
     setTipPos(null)
     setSpots([])
 
-    const totalDelay = (stepObj?.actionDelay ?? 150) + extraDelay
-
+    // extraDelay laisse le temps à l'action() de l'étape (ex: ouvrir une modale)
+    // de rendre le DOM avant qu'on ne cherche l'élément data-tutorial.
     timerRef.current = setTimeout(() => {
+      // Étape de bienvenue sans ciblage : tooltip centré immédiatement, pas de recherche DOM.
+      if (stepObj?.noSpotlight) { centerTip(); return }
+
       const ids = [stepObj?.id, stepObj?.id2].filter(Boolean)
       if (!ids.length) { centerTip(); return }
 
@@ -113,23 +100,14 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
         return
       }
 
-      // Si l'étape demande pas de spotlight → tooltip centré
-      if (stepObj.noSpotlight) {
-        centerTip()
-        return
-      }
+      // Scroll natif — gère seul le scroll interne des modales/conteneurs scrollables
+      // (overflow: auto/scroll), pas besoin de chercher l'ancêtre scrollable à la main.
+      els[0].scrollIntoView({ behavior: 'smooth', block: 'center' })
 
-      // Scroll vers le premier élément
-      // Sur mobile : positionner dans le tiers supérieur pour laisser la bulle visible en bas
-      if (isMobile()) {
-        const r = els[0].getBoundingClientRect()
-        const targetY = window.scrollY + r.top + r.height / 2 - window.innerHeight * 0.3
-        window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' })
-      } else {
-        scrollToElement(els[0])
-      }
-
-      setTimeout(() => {
+      // Attend que le scroll (et l'éventuelle animation d'ouverture) se stabilise
+      // avant de mesurer les positions finales. Configurable par étape (actionDelay), défaut 150ms.
+      const settleDelay = stepObj?.actionDelay ?? 150
+      scrollTimerRef.current = setTimeout(() => {
         const newSpots = els.map(el => {
           const r = getViewportRect(el)
           // PAD réduit pour les petits éléments (boutons icônes < 60px)
@@ -149,12 +127,10 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
         const mobile  = isMobile()
 
         if (mobile) {
-          // Sur mobile : bulle toujours ancrée en bas, pleine largeur
-          // Le spotlight est dans le tiers supérieur/central
-          const TW = window.innerWidth - MARGIN * 2
-          const TH = 200 // hauteur compacte mobile
-          const top = window.innerHeight - TH - MARGIN
-          setTipPos({ top, left: MARGIN, width: TW, placement: 'bottom-fixed' })
+          // Sur mobile : bulle toujours ancrée en bas via CSS fixed (bottom/left/right),
+          // jamais un `top` recalculé en px — robuste au resize (barre d'adresse mobile)
+          // et à la hauteur réelle du contenu.
+          setTipPos({ placement: 'bottom-fixed' })
         } else {
           const TW      = Math.min(320, window.innerWidth - MARGIN * 2)
           const TH      = 290
@@ -185,9 +161,9 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
 
           setTipPos({ top, left, width: TW, placement: pl })
         }
-      }, 450)
+      }, settleDelay)
 
-    }, totalDelay)
+    }, extraDelay)
   }, [centerTip])
 
   // ── Navigation ────────────────────────────────────────────────────────────
@@ -208,6 +184,7 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
   useEffect(() => {
     if (!open) {
       clearTimeout(timerRef.current)
+      clearTimeout(scrollTimerRef.current)
       setTipPos(null)
       setSpots([])
       setCurrent(0)
@@ -225,7 +202,7 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
     if (!open) return
     const fn = () => measureStep(steps[currentRef.current], 0)
     window.addEventListener('resize', fn)
-    return () => { window.removeEventListener('resize', fn); clearTimeout(timerRef.current) }
+    return () => { window.removeEventListener('resize', fn); clearTimeout(timerRef.current); clearTimeout(scrollTimerRef.current) }
   }, [open, measureStep, steps])
 
   // ── Clavier ───────────────────────────────────────────────────────────────
@@ -243,6 +220,7 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
   if (!open || !step) return null
 
   const dark = '#1a5f7a', orange = '#e38154', green = '#10b981', white = '#fff'
+  const isMobileTip = tipPos?.placement === 'bottom-fixed'
 
   // ── SVG mask : on perce un trou pour chaque spotlight ────────────────────
   const renderOverlay = () => {
@@ -267,6 +245,23 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
     )
   }
 
+  // Style du conteneur tooltip : fixed, coordonnées viewport directes (desktop)
+  // ou ancrage CSS bottom/left/right (mobile), jamais un top mobile recalculé en px.
+  const tipContainerStyle = isMobileTip
+    ? { position: 'fixed', bottom: 16, left: 16, right: 16, width: 'calc(100vw - 32px)', zIndex: 960, boxSizing: 'border-box' }
+    : { position: 'fixed', top: tipPos?.top, left: tipPos?.left, width: tipPos?.width, maxWidth: 'calc(100vw - 32px)', zIndex: 960, boxSizing: 'border-box' }
+
+  // Cible tactile min 44px sur mobile pour les boutons de navigation
+  const navBtnStyle = (extra = {}) => ({
+    flexShrink: 0, display: 'flex', alignItems: 'center', gap: 3,
+    padding: isMobileTip ? '10px 14px' : '7px 11px',
+    minHeight: isMobileTip ? 44 : undefined,
+    borderRadius: 9, cursor: 'pointer', fontSize: 10, fontWeight: 900,
+    textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap',
+    border: 'none',
+    ...extra,
+  })
+
   return (
     <>
       {/* Fond sombre + spotlight(s) */}
@@ -279,12 +274,9 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
 
       {/* Tooltip */}
       {tipPos && (
-        <div
-          style={{ position: 'fixed', top: tipPos.top, left: tipPos.left, width: tipPos.width, maxWidth: 'calc(100vw - 32px)', zIndex: 960, boxSizing: 'border-box' }}
-          onClick={e => e.stopPropagation()}
-        >
-          {/* Flèche */}
-          {spots.length > 0 && tipPos.placement !== 'center' && (
+        <div style={tipContainerStyle} onClick={e => e.stopPropagation()}>
+          {/* Flèche (desktop uniquement — la bulle mobile est ancrée en bas, sans flèche) */}
+          {spots.length > 0 && !isMobileTip && tipPos.placement !== 'center' && (
             <div style={{
               position: 'absolute', left: '50%', transform: 'translateX(-50%)', width: 0, height: 0,
               ...(tipPos.placement === 'bottom'
@@ -313,12 +305,12 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
             </div>
 
             {/* Contenu — compact sur mobile */}
-            <div style={{ padding: tipPos?.placement === 'bottom-fixed' ? '10px 14px 6px' : '14px 16px 10px' }}>
-              <p style={{ fontSize: tipPos?.placement === 'bottom-fixed' ? 13 : 14, fontWeight: 800, color: '#0f172a', margin: '0 0 4px', lineHeight: 1.3 }}>{step.title}</p>
+            <div style={{ padding: isMobileTip ? '10px 14px 6px' : '14px 16px 10px' }}>
+              <p style={{ fontSize: isMobileTip ? 13 : 14, fontWeight: 800, color: '#0f172a', margin: '0 0 4px', lineHeight: 1.3 }}>{step.title}</p>
               <p style={{ fontSize: 12, color: '#64748b', margin: 0, lineHeight: 1.5, fontWeight: 500,
-                display: '-webkit-box', WebkitLineClamp: tipPos?.placement === 'bottom-fixed' ? 3 : 10, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+                display: '-webkit-box', WebkitLineClamp: isMobileTip ? 3 : 10, WebkitBoxOrient: 'vertical', overflow: 'hidden'
               }}>{step.description}</p>
-              {step.tip && tipPos?.placement !== 'bottom-fixed' && (
+              {step.tip && !isMobileTip && (
                 <div style={{ marginTop: 10, padding: '8px 11px', background: '#fffbeb', borderRadius: 9, border: '1px solid #fde68a', display: 'flex', gap: 7 }}>
                   <span style={{ fontSize: 13 }}>💡</span>
                   <p style={{ fontSize: 12, color: '#92400e', margin: 0, lineHeight: 1.5, fontWeight: 500 }}>{step.tip}</p>
@@ -327,10 +319,10 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
             </div>
 
             {/* Navigation */}
-            <div style={{ padding: tipPos?.placement === 'bottom-fixed' ? '0 12px 10px' : '0 16px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <div style={{ padding: isMobileTip ? '0 12px 10px' : '0 16px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <button
                 onClick={() => goTo(current - 1)} disabled={isFirst}
-                style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 3, padding: '7px 11px', background: isFirst ? '#f8fafc' : '#f1f5f9', color: isFirst ? '#cbd5e1' : '#475569', border: 'none', borderRadius: 9, cursor: isFirst ? 'not-allowed' : 'pointer', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}
+                style={navBtnStyle({ background: isFirst ? '#f8fafc' : '#f1f5f9', color: isFirst ? '#cbd5e1' : '#475569', cursor: isFirst ? 'not-allowed' : 'pointer' })}
               >
                 <ChevronLeft size={12} strokeWidth={3} /> Préc.
               </button>
@@ -341,13 +333,13 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
 
               {isLast ? (
                 <button onClick={onClose}
-                  style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 3, padding: '7px 11px', background: green, color: white, border: 'none', borderRadius: 9, cursor: 'pointer', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap', boxShadow: '0 3px 10px rgba(16,185,129,0.3)' }}
+                  style={navBtnStyle({ background: green, color: white, boxShadow: '0 3px 10px rgba(16,185,129,0.3)' })}
                 >
                   Terminer ✓
                 </button>
               ) : (
                 <button onClick={() => goTo(current + 1)}
-                  style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 3, padding: '7px 11px', background: dark, color: white, border: 'none', borderRadius: 9, cursor: 'pointer', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap', boxShadow: '0 3px 10px rgba(26,95,122,0.25)' }}
+                  style={navBtnStyle({ background: dark, color: white, boxShadow: '0 3px 10px rgba(26,95,122,0.25)' })}
                 >
                   Suiv. <ChevronRight size={12} strokeWidth={3} />
                 </button>

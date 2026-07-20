@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../services/supabaseClient'
+import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
 import {
   Lightbulb, Dices, Wrench, MessageSquarePlus, Send, CheckCircle2,
   Loader2, Sparkles, CalendarDays, AlertTriangle, Link2, Megaphone,
@@ -81,10 +82,61 @@ const FORM_CATEGORIES = CATEGORIES.map(c => ({
 
 const getCat = (id) => CATEGORIES.find(c => c.id === id) || CATEGORIES[CATEGORIES.length - 1]
 
+const SUGGESTIONS_TUTORIAL_STEPS = (openForm, closeForm) => [
+  {
+    id: 'sugg-header',
+    noSpotlight: true,
+    title: `Bienvenue sur la page Suggestions`,
+    description: `Cette page centralise les idées et suggestions des adhérents et bénévoles : jeux à acheter, événements à organiser, améliorations diverses… Vous pouvez les classer, les chiffrer et suivre leur traitement.`,
+    action: () => closeForm(),
+  },
+  {
+    id: 'sugg-budget',
+    title: `Récapitulatif budget`,
+    description: `Ce bandeau résume le budget lié aux suggestions de jeux à acheter : le total à prévoir (suggestions en attente avec un prix renseigné), le montant déjà économisé (suggestions traitées) et le nombre de suggestions sans prix renseigné.`,
+    action: () => closeForm(),
+  },
+  {
+    id: 'sugg-add-btn',
+    title: `Ajouter une nouvelle suggestion`,
+    description: `Ce bouton ouvre le formulaire de saisie d'une suggestion. Nous allons le parcourir ensemble.`,
+    action: () => closeForm(),
+  },
+  {
+    id: 'sugg-form',
+    title: `Formulaire de suggestion`,
+    description: `Choisissez une catégorie (jeu à acheter, événement, amélioration de l'application…), rédigez votre suggestion et indiquez votre prénom si vous le souhaitez — le formulaire reste utilisable de façon anonyme.`,
+    action: () => openForm(),
+    actionDelay: 400,
+  },
+  {
+    id: 'sugg-card1',
+    id2: 'sugg-card2',
+    title: `Une suggestion de la liste`,
+    description: `Chaque carte affiche la catégorie, l'auteur, la date et le message. Pour les jeux à acheter, un badge de prix apparaît (ou un bouton "Ajouter un prix" si non renseigné) — cliquez dessus pour le modifier manuellement à tout moment. L'icône crayon modifie toute la suggestion, et la case à cocher la marque comme traitée.`,
+    action: () => closeForm(),
+  },
+  {
+    id: 'sugg-price-search',
+    title: `Rechercher le prix sur MyLudo`,
+    description: `Sur les suggestions de jeu à acheter, cette loupe recherche le jeu sur MyLudo et propose son prix pour le renseigner en un clic. Si le prix n'est pas disponible, vous pouvez toujours le saisir manuellement.`,
+    action: () => closeForm(),
+    tip: `Cette icône n'apparaît que sur les suggestions de catégorie "Jeu à acheter".`,
+  },
+  {
+    id: 'sugg-export-pdf',
+    title: `Exporter la liste en PDF`,
+    description: `Ce bouton génère un document récapitulant tous les jeux suggérés à acheter, avec leur prix et le total estimé — pratique pour une réunion ou une demande de subvention.`,
+    action: () => closeForm(),
+    tip: `Ce bouton n'apparaît que s'il existe au moins une suggestion de catégorie "Jeu à acheter".`,
+  },
+]
+
 export default function Suggestions() {
   const [suggestions, setSuggestions]     = useState([])
   const [loading, setLoading]             = useState(true)
   const [showModal, setShowModal]         = useState(false)
+  const [showTuto, setShowTuto]           = useState(false)
   const [filterDone, setFilterDone]       = useState('all') // 'all' | 'pending' | 'done'
   const [deletingId, setDeletingId]       = useState(null)
   const [togglingId, setTogglingId]       = useState(null)
@@ -416,13 +468,18 @@ export default function Suggestions() {
   const uncostedCount  = suggestions.filter(s => s.price == null).length
   const jeuxACheterCount = suggestions.filter(s => s.category === 'jeu_acheter').length
 
+  const suggSteps = useMemo(() => SUGGESTIONS_TUTORIAL_STEPS(
+    () => setShowModal(true),
+    () => setShowModal(false)
+  ), []) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="p-4 md:p-10 bg-[#fdfaf6] min-h-screen font-sans text-slate-900">
       <div className="max-w-3xl mx-auto">
 
         {/* HEADER — aligné sur les autres pages admin */}
         <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <h1 className="text-xl md:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+          <h1 data-tutorial="sugg-header" className="text-xl md:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-3">
             <div className="p-2.5 bg-[#1a5f7a] rounded-xl shadow-lg text-white">
               <Lightbulb size={24} />
             </div>
@@ -431,6 +488,7 @@ export default function Suggestions() {
           <div className="flex items-center gap-3 flex-wrap">
             {jeuxACheterCount > 0 && (
               <button
+                data-tutorial="sugg-export-pdf"
                 onClick={exportPdf}
                 className="flex items-center gap-2 px-5 py-4 bg-white border-2 border-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:border-[#1a5f7a] hover:text-[#1a5f7a] transition-all whitespace-nowrap"
               >
@@ -438,6 +496,7 @@ export default function Suggestions() {
               </button>
             )}
             <button
+              data-tutorial="sugg-add-btn"
               onClick={() => { setShowModal(true); setSuccess(false); setError('') }}
               className="flex items-center gap-2 px-6 py-4 bg-[#e38154] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-[#d16f43] active:scale-95 transition-all whitespace-nowrap"
             >
@@ -448,7 +507,7 @@ export default function Suggestions() {
 
         {/* RÉCAPITULATIF DES ACHATS À PRÉVOIR */}
         {suggestions.length > 0 && (
-          <div className="mb-6 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div data-tutorial="sugg-budget" className="mb-6 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-orange-50 rounded-xl text-[#e38154] shrink-0"><Euro size={18} /></div>
               <div className="min-w-0">
@@ -569,10 +628,11 @@ export default function Suggestions() {
           </div>
         ) : (
           <div className="space-y-3">
-            {filtered.map(s => {
+            {filtered.map((s, idx) => {
               const cat = getCat(s.category)
+              const cardTutoAttr = idx === 0 ? { 'data-tutorial': 'sugg-card1' } : idx === 1 ? { 'data-tutorial': 'sugg-card2' } : {}
               return (
-                <div key={s.id} className={`bg-white rounded-[2rem] border p-5 flex items-start gap-4 transition-all ${
+                <div key={s.id} {...cardTutoAttr} className={`bg-white rounded-[2rem] border p-5 flex items-start gap-4 transition-all ${
                   s.done ? 'opacity-50 border-slate-100' : 'border-slate-100 hover:border-slate-200 shadow-sm'
                 }`}>
                   {/* Badge catégorie */}
@@ -629,7 +689,7 @@ export default function Suggestions() {
 
                       {s.category === 'jeu_acheter' && (
                         <div className="relative">
-                          <button onClick={() => searchGamePrice(s)}
+                          <button data-tutorial="sugg-price-search" onClick={() => searchGamePrice(s)}
                             title="Chercher le prix sur MyLudo"
                             className="p-1.5 text-slate-300 hover:text-[#1a5f7a] hover:bg-slate-50 rounded-lg transition-colors">
                             <Search size={12} />
@@ -731,7 +791,7 @@ export default function Suggestions() {
       {/* MODALE FORMULAIRE */}
       {showModal && (
         <div className="fixed inset-0 z-[200] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] w-full max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col animate-in slide-in-from-bottom md:zoom-in-95 duration-200">
+          <div data-tutorial="sugg-form" className="bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] w-full max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col animate-in slide-in-from-bottom md:zoom-in-95 duration-200">
 
             {/* Header modale */}
             <div className="sticky top-0 bg-white rounded-t-[2.5rem] p-6 pb-4 border-b border-slate-100 flex items-center justify-between z-10">
@@ -999,6 +1059,14 @@ export default function Suggestions() {
           </div>
         </div>
       )}
+
+      {/* ── TUTORIEL ─────────────────────────────────────────────────────── */}
+      <TutorialButton onClick={() => setShowTuto(true)} />
+      <TutorialOverlay
+        steps={suggSteps}
+        open={showTuto}
+        onClose={() => { setShowTuto(false); setShowModal(false) }}
+      />
     </div>
   )
 }

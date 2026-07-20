@@ -1147,6 +1147,25 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
     action: () => { closeForm(); openCompose(false); openCollectivites(false) },
   },
   {
+    id: 'evt-action-bilan',
+    title: `Bilan de l'événement`,
+    description: `Sur un événement passé, cette icône ouvre la fenêtre de bilan : nombre de participants, ajout de photos (avec floutage des visages), jeux joués et publication d'un résumé sur les réseaux sociaux.`,
+    action: () => { closeForm(); openCompose(false); openCollectivites(false) },
+    tip: `Cette icône n'apparaît que sur les événements dont la date est passée.`,
+  },
+  {
+    id: 'evt-view-toggle',
+    title: `Vue grille ou liste`,
+    description: `Basculez l'affichage des événements entre une vue en grille (cartes avec affiche) et une vue en liste (plus compacte). Votre choix est mémorisé pour vos prochaines visites.`,
+    action: () => { closeForm(); openCompose(false); openCollectivites(false) },
+  },
+  {
+    id: 'evt-archived',
+    title: `Événements archivés`,
+    description: `Un événement passé avec un bilan complété peut être archivé plutôt que supprimé : il quitte la liste principale mais reste consultable ici, avec la possibilité de le désarchiver ou de le supprimer définitivement.`,
+    action: () => { closeForm(); openCompose(false); openCollectivites(false) },
+  },
+  {
     id: 'evt-compose-modal',
     title: `Fenêtre de composition email`,
     description: `Cette fenêtre permet de composer et envoyer un email à vos contacts. Elle contient l'objet, le corps du message (différent selon les destinataires), les événements à inclure et la liste des destinataires.`,
@@ -1363,7 +1382,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
         )}
 
         <div className="flex justify-end mb-6">
-          <div className="flex bg-slate-100 rounded-2xl p-1 gap-1">
+          <div data-tutorial="evt-view-toggle" className="flex bg-slate-100 rounded-2xl p-1 gap-1">
             <button onClick={() => setViewMode('grid')} title="Vue grille"
               className={"p-3 rounded-xl transition-all " + (viewMode === 'grid' ? 'bg-white text-[#1a5f7a] shadow-sm' : 'text-slate-400 hover:text-slate-600')}>
               <LayoutGrid size={16} />
@@ -1378,15 +1397,20 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
         {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {events.map((event, idx) => (
-            <div key={event.id} {...(idx === 0 ? {"data-tutorial": "evt-list-card1"} : idx === 1 ? {"data-tutorial": "evt-list-card2"} : {})} className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden flex flex-col group hover:shadow-xl transition-all">
+            <div key={event.id} {...(idx === 0 ? {"data-tutorial": "evt-list-card1"} : idx === 1 ? {"data-tutorial": "evt-list-card2"} : {})} className={"bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden flex flex-col group hover:shadow-xl transition-all " + (isPastEvent(event) ? "grayscale-[60%] opacity-75 hover:grayscale-[20%] hover:opacity-90" : "")}>
               <div className="h-48 bg-slate-50 relative flex items-center justify-center p-4">
                 {event.image_url ? <img src={event.image_url} className="max-w-full max-h-full object-contain" alt="" /> : <ImageIcon size={48} className="text-slate-200" />}
+                {isPastEvent(event) && (
+                  <div className="absolute top-4 left-4 bg-slate-500/70 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full">
+                    Passé
+                  </div>
+                )}
                 <div className="evt-card-actions absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button data-tutorial="evt-action-edit" onClick={() => startEdit(event)} className="p-2.5 bg-white text-slate-400 rounded-xl shadow-lg hover:bg-[#1a5f7a] hover:text-white transition-all"><Edit2 size={16} /></button>
                   <button data-tutorial="evt-action-mail" onClick={() => openComposeModal(event)} className="p-2.5 bg-white text-amber-500 rounded-xl shadow-lg hover:bg-amber-500 hover:text-white transition-all"><Mail size={16} /></button>
                   <button data-tutorial="evt-action-share" onClick={() => openFbModal(event)} title="Publier sur Facebook & Instagram" className="p-2.5 bg-white text-blue-500 rounded-xl shadow-lg hover:bg-blue-500 hover:text-white transition-all"><Share2 size={16} /></button>
                   {isPastEvent(event) && (
-                    <button onClick={() => openBilanModal(event)} title="Bilan de l'événement" className="p-2.5 bg-white text-emerald-500 rounded-xl shadow-lg hover:bg-emerald-500 hover:text-white transition-all"><BarChart2 size={16} /></button>
+                    <button data-tutorial="evt-action-bilan" onClick={() => openBilanModal(event)} title="Bilan de l'événement" className="p-2.5 bg-white text-emerald-500 rounded-xl shadow-lg hover:bg-emerald-500 hover:text-white transition-all"><BarChart2 size={16} /></button>
                   )}
                   {isPastEvent(event) && hasBilan(event) ? (
                     <button onClick={() => archiveEvent(event.id)} title="Archiver" className="p-2.5 bg-white text-amber-500 rounded-xl shadow-lg hover:bg-amber-500 hover:text-white transition-all"><Archive size={16} /></button>
@@ -1419,9 +1443,14 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
         ) : (
         <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 divide-y divide-slate-100 overflow-hidden">
           {events.map((event) => (
-            <div key={event.id} className="flex items-center gap-4 p-4 md:p-5">
-              <div className="w-16 h-16 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden shrink-0">
+            <div key={event.id} className={"flex items-center gap-4 p-4 md:p-5 group transition-all " + (isPastEvent(event) ? "grayscale-[60%] opacity-75 hover:grayscale-[20%] hover:opacity-90" : "")}>
+              <div className="w-16 h-16 rounded-xl bg-slate-50 relative flex items-center justify-center overflow-hidden shrink-0">
                 {event.image_url ? <img src={event.image_url} className="w-full h-full object-cover" alt="" /> : <ImageIcon size={20} className="text-slate-200" />}
+                {isPastEvent(event) && (
+                  <div className="absolute top-0.5 left-0.5 bg-slate-500/70 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full">
+                    Passé
+                  </div>
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1799,7 +1828,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
       </div>
 
       {/* SECTION ÉVÉNEMENTS ARCHIVÉS */}
-      <div className="max-w-7xl mx-auto mt-6 mb-10 px-4 md:px-0">
+      <div data-tutorial="evt-archived" className="max-w-7xl mx-auto mt-6 mb-10 px-4 md:px-0">
         <button
           onClick={() => setArchivedOpen(v => !v)}
           className="w-full flex items-center justify-between p-5 bg-white rounded-2xl shadow-sm border border-slate-100 hover:border-amber-200 transition-colors">
