@@ -10,6 +10,12 @@ export default defineConfig({
     // Activation de la Progressive Web App
     VitePWA({
       registerType: 'autoUpdate',
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+      },
       includeAssets: ['favicon.png', 'logo192.png', 'logo512.png'],
       manifest: {
         name: 'Ludothèque de Coligny',
@@ -31,10 +37,6 @@ export default defineConfig({
             purpose: 'any maskable'
           }
         ]
-      },
-      workbox: {
-        // Cette option permet de mettre en cache tous les fichiers JS/CSS générés
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}']
       }
     })
   ],

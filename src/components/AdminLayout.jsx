@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
+import {
   LayoutDashboard, Dices, Users, Megaphone, LogOut,
   X, Menu, ChevronRight, ClipboardCheck, Share2,
-  Settings, Lightbulb, TrendingUp
+  Settings, Lightbulb, TrendingUp, Bell, BellOff
 } from 'lucide-react';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 export default function AdminLayout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { isSupported: isPushSupported, isSubscribed, subscribe, unsubscribe } = usePushNotifications();
 
   const menuItems = [
     { path: '/admin', icon: <LayoutDashboard size={20} />, label: 'Tableau de bord' },
@@ -197,6 +199,17 @@ export default function AdminLayout({ children }) {
 
           {/* FOOTER SIDEBAR */}
           <div className="mt-auto py-8 border-t border-slate-50">
+            {isPushSupported && (
+              <button
+                onClick={isSubscribed ? unsubscribe : subscribe}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-50 hover:text-[#1a5f7a] transition-all group w-full text-left"
+              >
+                {isSubscribed ? <BellOff size={18} /> : <Bell size={18} />}
+                <span className="font-black uppercase text-[10px] tracking-widest">
+                  {isSubscribed ? 'Désactiver les notifications' : 'Activer les notifications'}
+                </span>
+              </button>
+            )}
             <button
               onClick={() => { setShowExitConfirm(true); closeMobileMenu(); }}
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-rose-400 hover:bg-rose-50 transition-all group w-full text-left"
