@@ -1,6 +1,8 @@
 // Génère les icônes PWA (public/icon-*.png) à partir de public/logo-feuille.svg :
 // fond teal foncé, feuille centrée, ombre portée, coins arrondis (sauf variantes "maskable").
-import { createCanvas, loadImage } from 'canvas'
+// Rastérisation via sharp/librsvg (rendu vectoriel net à chaque résolution cible,
+// contrairement à canvas qui redimensionnait un bitmap basse résolution -> flou/pixelisé).
+import sharp from 'sharp'
 import { readFileSync, writeFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import path from 'path'
@@ -9,8 +11,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PUBLIC_DIR = path.resolve(__dirname, '../public')
 const SVG_PATH = path.join(PUBLIC_DIR, 'logo-feuille.svg')
 
-const BACKGROUND_COLOR = '#0f3d4f'
+const BACKGROUND_COLOR = { r: 0x0f, g: 0x3d, b: 0x4f, alpha: 1 }
 const LOGO_RATIO = 0.65 // La feuille occupe ~65% de la surface de l'icône
+const SHADOW_OPACITY = 0.4
 
 const ICONS = [
   { name: 'icon-72.png', size: 72, maskable: false },
@@ -25,62 +28,96 @@ const ICONS = [
   { name: 'icon-maskable-512.png', size: 512, maskable: true },
 ]
 
-function loadLogoSvg() {
-  let svg = readFileSync(SVG_PATH, 'utf8')
-  const rootTagStart = svg.indexOf('<svg')
-  const rootTagEnd = svg.indexOf('>', rootTagStart)
-  const rootTag = svg.slice(rootTagStart, rootTagEnd)
-  const viewBoxMatch = rootTag.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/)
-  if (!/\swidth=/.test(rootTag) && viewBoxMatch) {
-    const [, w, h] = viewBoxMatch
-    svg = svg.replace('<svg ', `<svg width="${w}" height="${h}" `)
-  }
-  return loadImage(Buffer.from(svg))
+function getSvgNaturalSize() {
+  const svg = readFileSync(SVG_PATH, 'utf8')
+  const match = svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/)
+  return match ? parseFloat(match[1]) : 212.6
 }
 
-function drawRoundedRectPath(ctx, x, y, width, height, radius) {
-  ctx.beginPath()
-  ctx.moveTo(x + radius, y)
-  ctx.arcTo(x + width, y, x + width, y + height, radius)
-  ctx.arcTo(x + width, y + height, x, y + height, radius)
-  ctx.arcTo(x, y + height, x, y, radius)
-  ctx.arcTo(x, y, x + width, y, radius)
-  ctx.closePath()
+// Rastérise le SVG directement à logoSize px : la densité (DPI) est calculée pour
+// que librsvg produise le rendu vectoriel exact à cette résolution, sans upscale flou.
+async function rasterizeLogo(logoSize, naturalSize) {
+  const density = Math.round(72 * (logoSize / naturalSize))
+  return sharp(SVG_PATH, { density })
+    .resize(logoSize, logoSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toBuffer()
 }
 
-async function generateIcon(logo, { name, size, maskable }) {
-  const canvas = createCanvas(size, size)
-  const ctx = canvas.getContext('2d')
+// Silhouette noire semi-transparente du logo, placée dans un calque transparent à la
+// taille finale de l'icône puis floutée : le flou dissipe ainsi ses bords dans la marge
+// de l'icône au lieu d'être coupé net au bord d'un calque plus petit (artefact visible).
+async function buildShadowLayer(logoBuffer, logoSize, iconSize, logoX, shadowTop, blurSigma) {
+  const alpha = await sharp(logoBuffer)
+    .ensureAlpha()
+    .extractChannel(3)
+    .linear(SHADOW_OPACITY, 0)
+    .raw()
+    .toBuffer()
 
-  // Masque de coins arrondis pour les icônes "classiques" (pas les maskable, fond plein requis)
+  const blackRgb = await sharp({
+    create: { width: logoSize, height: logoSize, channels: 3, background: { r: 0, g: 0, b: 0 } },
+  })
+    .raw()
+    .toBuffer()
+
+  const shadowShape = await sharp(blackRgb, { raw: { width: logoSize, height: logoSize, channels: 3 } })
+    .joinChannel(alpha, { raw: { width: logoSize, height: logoSize, channels: 1 } })
+    .png()
+    .toBuffer()
+
+  return sharp({
+    create: { width: iconSize, height: iconSize, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  })
+    .composite([{ input: shadowShape, left: logoX, top: shadowTop }])
+    .blur(blurSigma)
+    .png()
+    .toBuffer()
+}
+
+function roundedRectMask(size, radius) {
+  return Buffer.from(
+    `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+      <rect x="0" y="0" width="${size}" height="${size}" rx="${radius}" ry="${radius}" fill="#fff"/>
+    </svg>`
+  )
+}
+
+async function generateIcon({ name, size, maskable }, naturalSize) {
+  const logoSize = Math.round(size * LOGO_RATIO)
+  const logoX = Math.round((size - logoSize) / 2)
+  const logoY = Math.round((size - logoSize) / 2)
+  const shadowBlur = Math.max(1, size * 0.08)
+  const shadowOffsetY = Math.round(size * 0.04)
+
+  const logoBuffer = await rasterizeLogo(logoSize, naturalSize)
+  const shadowLayer = await buildShadowLayer(logoBuffer, logoSize, size, logoX, logoY + shadowOffsetY, shadowBlur)
+
+  let icon = sharp({
+    create: { width: size, height: size, channels: 4, background: BACKGROUND_COLOR },
+  }).composite([
+    { input: shadowLayer, left: 0, top: 0 },
+    { input: logoBuffer, left: logoX, top: logoY },
+  ])
+
+  let buffer = await icon.png().toBuffer()
+
   if (!maskable) {
-    drawRoundedRectPath(ctx, 0, 0, size, size, size * 0.2)
-    ctx.clip()
+    const mask = roundedRectMask(size, size * 0.2)
+    buffer = await sharp(buffer)
+      .composite([{ input: mask, blend: 'dest-in' }])
+      .png()
+      .toBuffer()
   }
 
-  ctx.fillStyle = BACKGROUND_COLOR
-  ctx.fillRect(0, 0, size, size)
-
-  const logoSize = size * LOGO_RATIO
-  const logoX = (size - logoSize) / 2
-  const logoY = (size - logoSize) / 2
-
-  ctx.save()
-  ctx.shadowColor = 'rgba(0,0,0,0.4)'
-  ctx.shadowBlur = size * 0.08
-  ctx.shadowOffsetY = size * 0.04
-  ctx.drawImage(logo, logoX, logoY, logoSize, logoSize)
-  ctx.restore()
-
-  const outPath = path.join(PUBLIC_DIR, name)
-  writeFileSync(outPath, canvas.toBuffer('image/png'))
+  writeFileSync(path.join(PUBLIC_DIR, name), buffer)
   console.log(`✓ ${name} (${size}x${size}${maskable ? ', maskable' : ''})`)
 }
 
 async function main() {
-  const logo = await loadLogoSvg()
+  const naturalSize = getSvgNaturalSize()
   for (const icon of ICONS) {
-    await generateIcon(logo, icon)
+    await generateIcon(icon, naturalSize)
   }
   console.log(`\n${ICONS.length} icônes générées dans public/.`)
 }
