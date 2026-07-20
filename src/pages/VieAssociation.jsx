@@ -6,8 +6,12 @@ import {
   Calendar,
   Users,
   Dice5,
+  Dices,
+  Camera,
   ImageIcon,
   X,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -37,6 +41,27 @@ const CHART_CONFIG = [
   { key: 'permanence', label: 'Permanences', color: '#2d8ba1' },
 ]
 
+// Bouton toggle uniforme pour les sections repliables (photos / jeux) d'une carte événement
+function AccordionToggle({ icon, iconBg, iconColor, label, isOpen, onClick, widthClass }) {
+  return (
+    <div className={widthClass}>
+      <button
+        onClick={onClick}
+        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 transition-all shadow-sm font-bold text-sm text-slate-700"
+      >
+        <div className={`p-1.5 rounded-lg ${iconBg} ${iconColor}`}>
+          {icon}
+        </div>
+        <span>{label}</span>
+        {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </button>
+      {!isOpen && (
+        <p className="text-[10px] text-slate-400 mt-1 ml-1">Cliquez pour afficher</p>
+      )}
+    </div>
+  )
+}
+
 export default function VieAssociation() {
   const navigate = useNavigate()
   const [pastEvents, setPastEvents] = useState([])
@@ -44,6 +69,12 @@ export default function VieAssociation() {
   const [gamesPlayed, setGamesPlayed] = useState([])
   const [loading, setLoading] = useState(true)
   const [lightboxPhoto, setLightboxPhoto] = useState(null)
+  const [sectionOpen, setSectionOpen] = useState({}) // { [eventId]: { photos: boolean, games: boolean } } — accordéons indépendants par carte
+
+  const toggleSection = (eventId, section) => setSectionOpen(prev => ({
+    ...prev,
+    [eventId]: { ...prev[eventId], [section]: !prev[eventId]?.[section] }
+  }))
 
   useEffect(() => {
     async function fetchData() {
@@ -119,6 +150,7 @@ export default function VieAssociation() {
       .forEach(e => {
         const type = getEventType(e.title)
         byType[type].push({
+          id: e.id,
           date: new Date(e.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
           participants: Number(e.participants_count) || 0,
         })
@@ -154,7 +186,7 @@ export default function VieAssociation() {
 
       <section className="relative pt-16 pb-12 md:pt-24 md:pb-16 text-center overflow-hidden bg-[#fdfaf6]">
         <div className="relative max-w-4xl mx-auto px-4 z-10">
-          <h2 className="text-4xl md:text-6xl font-black text-slate-900 leading-[1.1] mb-6">
+          <h2 className="text-3xl sm:text-4xl md:text-6xl font-black text-slate-900 leading-[1.1] mb-6">
             La vie de <br className="md:hidden" />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1a5f7a] to-[#2d8ba1]">la ludothèque</span>
           </h2>
@@ -185,7 +217,28 @@ export default function VieAssociation() {
                         contentStyle={{ borderRadius: 16, border: '1px solid #f1f5f9', fontSize: 12, fontWeight: 700, boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}
                         labelStyle={{ color: '#1a5f7a', fontWeight: 900 }}
                       />
-                      <Line type="monotone" dataKey="participants" name="Participants" stroke={cfg.color} strokeWidth={3} dot={{ r: 4, fill: cfg.color }} activeDot={{ r: 6 }} />
+                      <Line
+                        type="monotone"
+                        dataKey="participants"
+                        name="Participants"
+                        stroke={cfg.color}
+                        strokeWidth={3}
+                        dot={(props) => {
+                          const { cx, cy, payload } = props
+                          return (
+                            <circle
+                              key={payload.id}
+                              cx={cx} cy={cy} r={6}
+                              fill={cfg.color} stroke="white" strokeWidth={2}
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => {
+                                document.getElementById(`event-${payload.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                              }}
+                            />
+                          )
+                        }}
+                        activeDot={{ r: 9, strokeWidth: 2 }}
+                      />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -209,17 +262,20 @@ export default function VieAssociation() {
             </div>
           ) : (
             <div className="space-y-10">
-              {enrichedEvents.map(event => {
+              {enrichedEvents.map((event, eventIndex) => {
                 const evPhotos = photosByEvent[event.id] || []
                 const evGames = gamesByEvent[event.id] || []
+                const hasPhotos = evPhotos.length > 0
+                const hasGames = evGames.length > 0
+                const toggleWidthClass = hasPhotos && hasGames ? 'flex-1' : 'w-full'
                 return (
-                  <div key={event.id} className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 p-8 md:p-10">
+                  <div key={event.id} id={`event-${event.id}`} className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 p-4 md:p-8">
                     <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
                       <div>
                         <p className="text-[#e38154] font-bold text-xs uppercase tracking-widest mb-2 flex items-center gap-2">
                           <Calendar size={14} /> {new Date(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
                         </p>
-                        <h4 className="text-2xl font-black text-slate-900">{event.title}</h4>
+                        <h4 className="text-xl md:text-2xl font-black text-slate-900">{event.title}</h4>
                       </div>
                       {Number(event.participants_count) > 0 && (
                         <div className="flex items-center gap-2 px-4 py-2 bg-[#1a5f7a] text-white rounded-full font-black text-xs uppercase tracking-widest shrink-0">
@@ -228,26 +284,58 @@ export default function VieAssociation() {
                       )}
                     </div>
 
+                    {(hasPhotos || hasGames) && (
+                      <div className="flex flex-row gap-3 w-full mb-8">
+                        {hasPhotos && (
+                          <AccordionToggle
+                            icon={<Camera size={16} />}
+                            iconBg="bg-[#1a5f7a]/10"
+                            iconColor="text-[#1a5f7a]"
+                            label="Photos de la soirée"
+                            isOpen={!!sectionOpen[event.id]?.photos}
+                            onClick={() => toggleSection(event.id, 'photos')}
+                            widthClass={toggleWidthClass}
+                          />
+                        )}
+                        {hasGames && (
+                          <AccordionToggle
+                            icon={<Dices size={16} />}
+                            iconBg="bg-[#e38154]/10"
+                            iconColor="text-[#e38154]"
+                            label="Les jeux auxquels nous avons joué"
+                            isOpen={!!sectionOpen[event.id]?.games}
+                            onClick={() => toggleSection(event.id, 'games')}
+                            widthClass={toggleWidthClass}
+                          />
+                        )}
+                      </div>
+                    )}
+
                     {evPhotos.length > 0 && (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-8">
-                        {evPhotos.map(photo => (
-                          <button
-                            key={photo.id}
-                            onClick={() => setLightboxPhoto(photo.url)}
-                            className="aspect-square rounded-2xl overflow-hidden bg-slate-100 group"
-                          >
-                            <img src={photo.url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                          </button>
-                        ))}
+                      <div className={`overflow-hidden transition-all duration-300 mb-8 ${sectionOpen[event.id]?.photos ? 'max-h-[2000px]' : 'max-h-0'}`}>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {evPhotos.map((photo, index) => {
+                            const rotation = ((index * 7 + eventIndex * 13) % 9) - 4
+                            return (
+                              <button
+                                key={photo.id}
+                                onClick={() => setLightboxPhoto(photo.url)}
+                                className="aspect-square rounded-2xl overflow-hidden bg-white shadow-md p-1 group"
+                                style={{ transform: `rotate(${rotation}deg)` }}
+                              >
+                                <div className="w-full h-full rounded-xl overflow-hidden">
+                                  <img src={photo.url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                </div>
+                              </button>
+                            )
+                          })}
+                        </div>
                       </div>
                     )}
 
                     {evGames.length > 0 && (
-                      <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                          <Dice5 size={12} /> Jeux joués
-                        </p>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      <div className={`overflow-hidden transition-all duration-300 ${sectionOpen[event.id]?.games ? 'max-h-[2000px]' : 'max-h-0'}`}>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                           {evGames.map(game => {
                             const Wrapper = game.external_url ? 'a' : 'div'
                             const wrapperProps = game.external_url
@@ -257,18 +345,18 @@ export default function VieAssociation() {
                               <Wrapper
                                 key={game.id}
                                 {...wrapperProps}
-                                className="relative rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 p-3 flex flex-col items-center text-center"
+                                className="rounded-2xl border border-slate-100 bg-slate-50 p-3 flex flex-col items-center text-center"
                               >
-                                <div className="w-full aspect-square rounded-xl overflow-hidden bg-white flex items-center justify-center mb-2">
+                                <div className="w-full bg-white rounded-xl flex items-center justify-center p-2">
                                   {game.image_url ? (
-                                    <img src={game.image_url} alt={game.name} className="w-full h-full object-contain" />
+                                    <img src={game.image_url} alt={game.name} className="w-full aspect-square object-contain max-h-32" />
                                   ) : (
-                                    <Dice5 size={32} className="text-slate-200" />
+                                    <Dice5 size={32} className="text-slate-200 my-6" />
                                   )}
                                 </div>
-                                <p className="text-[10px] font-bold text-slate-700 line-clamp-2">{game.name}</p>
+                                <p className="text-xs font-bold mt-2 leading-tight whitespace-normal">{game.name}</p>
                                 {game.in_catalogue && (
-                                  <span className="absolute top-2 left-2 bg-emerald-500 text-white text-[7px] font-black uppercase px-2 py-1 rounded-full shadow-sm">
+                                  <span className="mt-1 bg-emerald-500 text-white text-[9px] font-black uppercase px-2 py-1 rounded-full shadow-sm">
                                     Dispo à la ludothèque
                                   </span>
                                 )}

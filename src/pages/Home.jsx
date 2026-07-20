@@ -310,9 +310,12 @@ export default function Home() {
       <div className="bg-white pt-16 pb-4 flex justify-center px-4">
         <button
           onClick={() => navigate('/vie-association')}
-          className="px-8 py-4 rounded-2xl bg-white text-[#1a5f7a] border-2 border-[#1a5f7a]/20 font-black flex items-center gap-3 hover:border-[#1a5f7a] hover:scale-105 transition-all uppercase tracking-widest text-sm shadow-sm"
+          className="flex items-center gap-3 px-5 py-3 bg-white border border-slate-200 rounded-2xl hover:shadow-md transition-all"
         >
-          La vie de la ludothèque 🎲
+          <div className="p-2 bg-[#1a5f7a]/10 text-[#1a5f7a] rounded-xl">
+            <Heart size={18} />
+          </div>
+          <span className="font-black uppercase text-[10px] tracking-widest text-slate-700">La vie de la ludothèque</span>
         </button>
       </div>
 

@@ -13,6 +13,7 @@ import VieAssociation from './pages/VieAssociation'
 import Login from './pages/Login'
 import HowToBorrow from './pages/HowToBorrow.jsx'
 import InscriptionPermanence from './pages/InscriptionPermanence'
+import NotFound from './pages/NotFound'
 
 // Pages Admin
 import Dashboard from './pages/admin/Dashboard'
@@ -82,8 +83,8 @@ function App() {
         <Route path="/admin/suggestions" element={<ProtectedRoute><AdminLayout><Suggestions /></AdminLayout></ProtectedRoute>} />
         <Route path="/admin/suivi-financier" element={<ProtectedRoute><AdminLayout><SuiviFinancier /></AdminLayout></ProtectedRoute>} />
         
-        {/* Redirection automatique vers l'accueil si la route n'existe pas */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Page 404 personnalisée pour toute route inexistante */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </div>
   )
