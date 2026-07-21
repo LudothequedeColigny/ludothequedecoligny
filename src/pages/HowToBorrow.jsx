@@ -74,7 +74,7 @@ export default function HowToBorrow() {
             </button>
             <button
               onClick={() => navigate('/')}
-              className="flex items-center gap-2 text-slate-400 hover:text-[#1a5f7a] font-bold transition-colors text-[9px] sm:text-[10px] md:text-xs uppercase tracking-widest"
+              className="flex items-center gap-2 text-slate-400 hover:text-[#1a5f7a] font-bold transition-colors text-xs uppercase tracking-widest"
             >
               <ArrowLeft size={16} />
               <span>Retour à la page d'accueil</span>
@@ -89,9 +89,9 @@ export default function HowToBorrow() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 pt-12">
+      <main className="max-w-6xl mx-auto px-4 md:px-8 pt-12">
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-6">Comment emprunter un jeu ?</h2>
+          <h2 className="font-black text-3xl md:text-4xl text-slate-900 mb-6">Comment emprunter un jeu ?</h2>
           <div className="max-w-3xl mx-auto bg-white border border-[#e38154]/20 rounded-[2rem] p-8 shadow-sm">
             <div className="flex items-center justify-center gap-3 mb-4 text-[#e38154]">
               <Landmark size={24} />

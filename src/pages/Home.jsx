@@ -225,11 +225,11 @@ export default function Home() {
   return (
     <div className={`min-h-screen bg-white text-slate-900 font-sans ${selectedEvent ? 'overflow-hidden' : ''}`}>
       
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-100">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-50 bg-white border-b border-slate-100">
+        <div className="max-w-6xl mx-auto px-4 md:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center gap-4">
-              <img data-app-logo="header" src="/logo-feuille.svg" alt="Ludothèque de Coligny" className="h-12 shrink-0" />
+              <img data-app-logo="header" src="/logo-feuille.svg" alt="Ludothèque de Coligny" className="h-10 shrink-0" />
               <div>
                 <h1 className="font-black text-xl tracking-tight text-slate-900 leading-none">Ludothèque de Coligny</h1>
                 <p className="text-[10px] uppercase font-bold text-[#e38154] tracking-widest mt-1">Un service de l'association PACTES</p>
@@ -252,7 +252,7 @@ export default function Home() {
       <section className="relative pt-16 pb-12 md:pt-24 md:pb-16 text-center overflow-hidden bg-[#fdfaf6]">
         <FloatingIcons />
 
-        <div className="relative max-w-6xl mx-auto px-4 z-10">
+        <div className="relative max-w-6xl mx-auto px-4 md:px-8 z-10">
           <h2 className="text-4xl md:text-7xl font-black text-slate-900 leading-[1.1] mb-8">
             Le jeu pour tous, <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1a5f7a] to-[#2d8ba1]">
@@ -309,7 +309,7 @@ export default function Home() {
       </div>
 
       <section className="pt-8 pb-24 bg-white">
-        <div className="max-w-6xl mx-auto px-4">
+        <div className="max-w-6xl mx-auto px-4 md:px-8">
           <div className="text-center mb-16">
             <span className="text-[#e38154] font-black uppercase tracking-[0.3em] text-xs">À ne pas manquer</span>
             <h3 className="text-4xl font-black text-slate-900 mt-2 mb-4">Nos prochains rendez-vous</h3>
@@ -449,7 +449,7 @@ export default function Home() {
       <section className="py-24 bg-[#1a5f7a] text-white relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32"></div>
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-black/5 rounded-full -ml-48 -mb-48"></div>
-        <div className="max-w-6xl mx-auto px-4 relative z-10">
+        <div className="max-w-6xl mx-auto px-4 md:px-8 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
               <h3 className="text-3xl md:text-4xl font-black mb-8 leading-tight">Nous vous attendons au <br/><span className="text-[#e38154]">{adresseComplete}</span></h3>
@@ -480,7 +480,7 @@ export default function Home() {
       </section>
 
       <section className="py-20 bg-white border-t border-slate-100">
-        <div className="max-w-6xl mx-auto px-4">
+        <div className="max-w-6xl mx-auto px-4 md:px-8">
           <div className="flex flex-col items-center">
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 mb-8 text-center">Une question spécifique ?</p>
             <button onClick={() => setShowContact(true)}

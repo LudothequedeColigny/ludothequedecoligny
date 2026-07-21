@@ -243,10 +243,10 @@ function Catalogue() {
         </div>
       </header>
 
-      <main className="p-4 md:p-12 max-w-7xl mx-auto">
+      <main className="max-w-6xl mx-auto px-4 md:px-8 py-4 md:py-12">
         <div className="text-center mb-10">
           {/* Titre modifié en "Notre Collection" */}
-          <h2 className="text-4xl md:text-6xl font-black text-slate-900 mb-8 tracking-tight uppercase">Notre Collection</h2>
+          <h2 className="font-black text-3xl md:text-4xl text-slate-900 mb-8 tracking-tight uppercase">Notre Collection</h2>
           
           <div className="max-w-2xl mx-auto mb-8 relative">
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300" />
@@ -422,14 +422,14 @@ function Catalogue() {
             <button onClick={() => setSelectedJeu(null)} className="absolute top-6 right-6 p-2 bg-slate-50 text-[#1a5f7a] hover:bg-[#e38154] hover:text-white rounded-full z-30 transition-all"><X size={20} /></button>
 
             {/* Zone image modale — pas de lazy (prioritaire après clic) */}
-            <div className="md:w-1/2 bg-slate-50 flex items-center justify-center p-8 md:p-12 min-h-[300px]">
+            <div className="md:w-1/2 bg-white flex items-center justify-center p-8 md:p-12 min-h-[300px]">
               {selectedJeu.image_url ? (
                 <img
                   src={selectedJeu.image_url}
                   alt={selectedJeu.name}
                   decoding="async"
                   onLoad={e => e.currentTarget.classList.add('opacity-100')}
-                  className="max-w-full max-h-[40vh] object-contain drop-shadow-xl transition-opacity duration-500 opacity-0"
+                  className="object-contain max-h-72 w-auto transition-opacity duration-500 opacity-0"
                 />
               ) : ( <Dice5 size={80} className="text-slate-100" /> )}
             </div>
