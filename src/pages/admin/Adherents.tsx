@@ -627,7 +627,7 @@ www.ludothequedecoligny.fr`
         {!showForm && (
           <div className="space-y-4">
             {/* VUE TABLEAU (VISIBLE UNIQUEMENT SUR DESKTOP) */}
-            <div className="hidden md:block bg-white rounded-[2.5rem] shadow-sm border border-slate-50 overflow-hidden">
+            <div className="hidden md:block bg-white rounded-[2.5rem] shadow-sm border border-slate-50 overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-slate-50 text-[10px] uppercase text-slate-400 font-black">
                   <tr>
@@ -701,16 +701,16 @@ www.ludothequedecoligny.fr`
                       </span>
                     </div>
                     
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-50">
+                    <div className="flex items-center flex-wrap gap-2 justify-between pt-2 border-t border-slate-50">
                        <div className="flex gap-2">
-                        <button onClick={() => setViewMember(m)} className="p-3 bg-slate-50 text-slate-400 rounded-xl"><Eye size={18}/></button>
-                        <button onClick={() => { setNewMember({...m, family_members: m.family_members || []}); setEditingId(m.id); setShowForm(true); }} className="p-3 bg-slate-50 text-slate-400 rounded-xl"><Edit2 size={18}/></button>
-                        <button onClick={() => setDeleteConfirm(m)} className="p-3 bg-rose-50 text-rose-400 rounded-xl"><Trash2 size={18}/></button>
+                        <button onClick={() => setViewMember(m)} className="min-h-11 min-w-11 flex items-center justify-center bg-slate-50 text-slate-400 rounded-xl"><Eye size={18}/></button>
+                        <button onClick={() => { setNewMember({...m, family_members: m.family_members || []}); setEditingId(m.id); setShowForm(true); }} className="min-h-11 min-w-11 flex items-center justify-center bg-slate-50 text-slate-400 rounded-xl"><Edit2 size={18}/></button>
+                        <button onClick={() => setDeleteConfirm(m)} className="min-h-11 min-w-11 flex items-center justify-center bg-rose-50 text-rose-400 rounded-xl"><Trash2 size={18}/></button>
                        </div>
                        {status.expired && (
-                         <div className="flex gap-2">
-                           <button onClick={() => openRenewalModal(m)} className="px-4 py-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2"><RefreshCw size={14}/> Renouveler</button>
-                           <button onClick={() => setRenewalAction(m)} className="p-3 bg-amber-50 text-amber-600 rounded-xl"><Send size={16}/></button>
+                         <div className="flex gap-2 flex-wrap">
+                           <button onClick={() => openRenewalModal(m)} className="min-h-11 px-4 py-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2"><RefreshCw size={14}/> Renouveler</button>
+                           <button onClick={() => setRenewalAction(m)} className="min-h-11 min-w-11 flex items-center justify-center bg-amber-50 text-amber-600 rounded-xl"><Send size={16}/></button>
                          </div>
                        )}
                     </div>

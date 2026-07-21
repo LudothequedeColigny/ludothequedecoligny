@@ -2,11 +2,12 @@ import { useNavigate } from 'react-router-dom'
 import { useEffect, useState, memo } from 'react'
 import { supabase } from '../services/supabaseClient'
 import TitrePactes from '../components/TitrePactes'
-import { 
-  Dice5, 
-  Calendar, 
-  ArrowRight, 
-  MapPin, 
+import ContactModal from '../components/ContactModal'
+import {
+  Dice5,
+  Calendar,
+  ArrowRight,
+  MapPin,
   Loader2,
   User,
   Heart,
@@ -14,7 +15,6 @@ import {
   ImageIcon,
   HelpCircle,
   X,
-  Phone,
   Mail,
   Facebook
 } from 'lucide-react'
@@ -91,13 +91,7 @@ export default function Home() {
   const [playerCount, setPlayerCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [selectedEvent, setSelectedEvent] = useState(null)
-  
-  // AJOUT : État pour le contact dynamique
-  const [contact, setContact] = useState({
-    nom: 'Victor Guyon',
-    tel: '06 71 41 56 96',
-    email: 'victor.guyon@hotmail.fr'
-  })
+  const [showContact, setShowContact] = useState(false)
 
   // État pour les horaires dynamiques
   const [horaires, setHoraires] = useState({
@@ -143,13 +137,9 @@ export default function Home() {
         // 1. Fetch Contact Settings (Nouveau)
         const { data: settingsData } = await supabase.from('settings').select('*')
         if (settingsData) {
-          const c = { ...contact }
           const h = { ...horaires }
           const a = { ...adresse }
           settingsData.forEach(s => {
-            if (s.id === 'contact_nom') c.nom = s.value
-            if (s.id === 'contact_tel') c.tel = s.value
-            if (s.id === 'contact_email') c.email = s.value
             if (s.id === 'horaire_1_jour') h.horaire_1_jour = s.value
             if (s.id === 'horaire_1_rang') h.horaire_1_rang = s.value
             if (s.id === 'horaire_1_debut') h.horaire_1_debut = s.value
@@ -163,7 +153,6 @@ export default function Home() {
             if (s.id === 'adresse_ville') a.ville = s.value
             if (s.id === 'adresse_code_postal') a.code_postal = s.value
           })
-          setContact(c)
           setHoraires(h)
           setAdresse(a)
         }
@@ -494,20 +483,11 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex flex-col items-center">
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 mb-8 text-center">Une question spécifique ?</p>
-            <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16">
-              <div className="flex items-center gap-4 group">
-                <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-[#1a5f7a] transition-colors"><User size={16} /></div>
-                <span className="text-sm font-bold text-slate-600">{contact.nom}</span>
-              </div>
-              <div className="flex items-center gap-4 group">
-                <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-[#e38154] transition-colors"><Phone size={16} /></div>
-                <span className="text-sm font-medium text-slate-400">{contact.tel}</span>
-              </div>
-              <div className="flex items-center gap-4 group">
-                <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-[#1a5f7a] transition-colors"><Mail size={16} /></div>
-                <span className="text-sm font-medium text-slate-400">{contact.email}</span>
-              </div>
-            </div>
+            <button onClick={() => setShowContact(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 transition-all shadow-sm font-black text-[10px] uppercase tracking-widest text-[#1a5f7a]">
+              <Mail size={14} />
+              Nous contacter
+            </button>
           </div>
         </div>
       </section>
@@ -524,6 +504,8 @@ export default function Home() {
         </a>
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em]">Ludothèque de Coligny — Le plaisir du jeu ensemble</p>
       </footer>
+
+      <ContactModal open={showContact} onClose={() => setShowContact(false)} />
     </div>
   )
 }

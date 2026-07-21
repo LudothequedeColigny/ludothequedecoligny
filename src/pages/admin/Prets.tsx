@@ -740,7 +740,7 @@ www.ludothequedecoligny.fr`
         </div>
 
         {/* VERSION ORDINATEUR */}
-        <div className="hidden md:block bg-white rounded-[2.5rem] shadow-sm border border-slate-50 overflow-hidden">
+        <div className="hidden md:block bg-white rounded-[2.5rem] shadow-sm border border-slate-50 overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-[10px] uppercase text-slate-400 font-black">
               <tr>

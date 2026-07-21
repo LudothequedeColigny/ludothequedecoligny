@@ -265,7 +265,7 @@ const PERMANENCES_TUTORIAL_STEPS = (openFormFn, closeFormFn, openLinkFn) => [
         </div>
 
         {/* --- LISTE VERSION PC --- */}
-        <div className="hidden md:block bg-white rounded-[2.5rem] border border-slate-50 shadow-sm overflow-hidden">
+        <div className="hidden md:block bg-white rounded-[2.5rem] border border-slate-50 shadow-sm overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400">
               <tr>
@@ -327,8 +327,8 @@ const PERMANENCES_TUTORIAL_STEPS = (openFormFn, closeFormFn, openLinkFn) => [
                   {new Date(shift.date).toLocaleDateString('fr-FR', { month: 'short' })}
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => openForm(shift)} className="p-2 text-slate-300"><Edit2 size={18}/></button>
-                  <button onClick={() => navigator.onLine ? setConfirmDelete(shift.id) : alert('Action impossible hors-ligne')} className="p-2 text-slate-300"><Trash2 size={18}/></button>
+                  <button onClick={() => openForm(shift)} className="min-h-11 min-w-11 flex items-center justify-center text-slate-300"><Edit2 size={18}/></button>
+                  <button onClick={() => navigator.onLine ? setConfirmDelete(shift.id) : alert('Action impossible hors-ligne')} className="min-h-11 min-w-11 flex items-center justify-center text-slate-300"><Trash2 size={18}/></button>
                 </div>
               </div>
               <div className="font-black text-slate-900 uppercase text-sm mb-1">

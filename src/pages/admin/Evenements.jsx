@@ -5,7 +5,7 @@ import { supabase } from '../../services/supabaseClient'
 import { sendEmail } from '../../services/emailService'
 import {
   Calendar, MapPin, Plus, Trash2, Clock, ImageIcon,
-  Upload, X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2, Users, ChevronDown, ChevronUp, PlusCircle, Paperclip, GripVertical, Building2, Trash, Share2, Megaphone, BarChart2, Search, Dice5, Facebook, Instagram, Archive, ArchiveRestore, LayoutGrid, List
+  Upload, X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2, Users, ChevronDown, ChevronUp, PlusCircle, Paperclip, GripVertical, Building2, Trash, Share2, Megaphone, BarChart2, Search, Dice5, Facebook, Instagram, Archive, ArchiveRestore, LayoutGrid, List, ImagePlus
 } from 'lucide-react'
 
 const VIEW_MODE_STORAGE_KEY = 'evenements_view_mode'
@@ -1239,36 +1239,59 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
   return (
     <div className="p-4 md:p-10 bg-[#fdfaf6] min-h-screen font-sans text-slate-900">
       
-      <div className="max-w-7xl mx-auto mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="max-w-7xl mx-auto mb-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <h1 data-tutorial="evt-header" className="text-2xl md:text-4xl font-black text-slate-900 flex items-center gap-4">
           <div className="p-3 bg-[#1a5f7a] rounded-[1.2rem] shadow-lg text-white"><Megaphone size={28} /></div>
           <span>Gestion de la <span className="text-[#1a5f7a]">Communication</span></span>
         </h1>
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Tabs */}
-          <div data-tutorial="evt-tabs" className="flex bg-slate-100 rounded-2xl p-1 gap-1">
-            <button
-              onClick={() => setActiveTab('events')}
-              className={"px-5 py-3 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all " + (activeTab === 'events' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600')}>
-              Événements
-            </button>
-            <button
-              onClick={() => setActiveTab('affiche')}
-              className={"px-5 py-3 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all " + (activeTab === 'affiche' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600')}>
-              🎨 Affiches
-            </button>
-            <button
-              onClick={() => setActiveTab('posts')}
-              className={"px-5 py-3 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all " + (activeTab === 'posts' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600')}>
-              📢 Posts
-            </button>
+        {activeTab === 'events' && (
+          <button data-tutorial="evt-add-btn" onClick={editingId ? cancelEdit : () => setShowForm(!showForm)} className={"px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl whitespace-nowrap " + (showForm ? 'bg-slate-800 text-white' : 'bg-[#e38154] text-white')}>
+            {showForm ? "Fermer" : "Nouvel Événement"}
+          </button>
+        )}
+      </div>
+
+      {/* Onglets pleine largeur, style carte dashboard */}
+      <div data-tutorial="evt-tabs" className="max-w-7xl mx-auto flex gap-3 w-full mb-8">
+        <button
+          onClick={() => setActiveTab('events')}
+          className={"flex-1 flex flex-col items-center gap-3 py-6 rounded-[2rem] border-2 border-b-4 transition-all " +
+            (activeTab === 'events'
+              ? 'bg-[#1a5f7a]/10 border-slate-100 border-b-[#1a5f7a] shadow-sm'
+              : 'bg-white border-slate-100 border-b-transparent hover:bg-slate-50')}>
+          <div className="p-3 rounded-2xl bg-[#1a5f7a]/10 text-[#1a5f7a]">
+            <Calendar size={22} />
           </div>
-          {activeTab === 'events' && (
-            <button data-tutorial="evt-add-btn" onClick={editingId ? cancelEdit : () => setShowForm(!showForm)} className={"px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl whitespace-nowrap " + (showForm ? 'bg-slate-800 text-white' : 'bg-[#e38154] text-white')}>
-              {showForm ? "Fermer" : "Nouvel Événement"}
-            </button>
-          )}
-        </div>
+          <span className={"font-black uppercase text-[10px] tracking-widest " + (activeTab === 'events' ? 'text-[#1a5f7a]' : 'text-slate-500')}>
+            Événements
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab('affiche')}
+          className={"flex-1 flex flex-col items-center gap-3 py-6 rounded-[2rem] border-2 border-b-4 transition-all " +
+            (activeTab === 'affiche'
+              ? 'bg-[#e38154]/10 border-slate-100 border-b-[#e38154] shadow-sm'
+              : 'bg-white border-slate-100 border-b-transparent hover:bg-slate-50')}>
+          <div className="p-3 rounded-2xl bg-[#e38154]/10 text-[#e38154]">
+            <ImagePlus size={22} />
+          </div>
+          <span className={"font-black uppercase text-[10px] tracking-widest " + (activeTab === 'affiche' ? 'text-[#e38154]' : 'text-slate-500')}>
+            Générateur d'affiches
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab('posts')}
+          className={"flex-1 flex flex-col items-center gap-3 py-6 rounded-[2rem] border-2 border-b-4 transition-all " +
+            (activeTab === 'posts'
+              ? 'bg-emerald-500/10 border-slate-100 border-b-emerald-500 shadow-sm'
+              : 'bg-white border-slate-100 border-b-transparent hover:bg-slate-50')}>
+          <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-600">
+            <Megaphone size={22} />
+          </div>
+          <span className={"font-black uppercase text-[10px] tracking-widest " + (activeTab === 'posts' ? 'text-emerald-600' : 'text-slate-500')}>
+            Posts
+          </span>
+        </button>
       </div>
 
       <main className="max-w-7xl mx-auto">
@@ -1443,7 +1466,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
         ) : (
         <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 divide-y divide-slate-100 overflow-hidden">
           {events.map((event) => (
-            <div key={event.id} className={"flex items-center gap-4 p-4 md:p-5 group transition-all " + (isPastEvent(event) ? "grayscale-[60%] opacity-75 hover:grayscale-[20%] hover:opacity-90" : "")}>
+            <div key={event.id} className={"flex items-center flex-wrap gap-4 p-4 md:p-5 group transition-all " + (isPastEvent(event) ? "grayscale-[60%] opacity-75 hover:grayscale-[20%] hover:opacity-90" : "")}>
               <div className="w-16 h-16 rounded-xl bg-slate-50 relative flex items-center justify-center overflow-hidden shrink-0">
                 {event.image_url ? <img src={event.image_url} className="w-full h-full object-cover" alt="" /> : <ImageIcon size={20} className="text-slate-200" />}
                 {isPastEvent(event) && (
@@ -1469,17 +1492,17 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                   <span className="flex items-center gap-1.5"><MapPin size={11} className="text-[#e38154]" /> {event.location}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button onClick={() => startEdit(event)} className="p-2 text-slate-400 rounded-lg hover:bg-[#1a5f7a] hover:text-white transition-all"><Edit2 size={15} /></button>
-                <button onClick={() => openComposeModal(event)} className="p-2 text-amber-500 rounded-lg hover:bg-amber-500 hover:text-white transition-all"><Mail size={15} /></button>
-                <button onClick={() => openFbModal(event)} title="Publier sur Facebook & Instagram" className="p-2 text-blue-500 rounded-lg hover:bg-blue-500 hover:text-white transition-all"><Share2 size={15} /></button>
+              <div className="flex items-center flex-wrap gap-1.5 shrink-0">
+                <button onClick={() => startEdit(event)} className="min-h-11 min-w-11 flex items-center justify-center p-2 text-slate-400 rounded-lg hover:bg-[#1a5f7a] hover:text-white transition-all"><Edit2 size={15} /></button>
+                <button onClick={() => openComposeModal(event)} className="min-h-11 min-w-11 flex items-center justify-center p-2 text-amber-500 rounded-lg hover:bg-amber-500 hover:text-white transition-all"><Mail size={15} /></button>
+                <button onClick={() => openFbModal(event)} title="Publier sur Facebook & Instagram" className="min-h-11 min-w-11 flex items-center justify-center p-2 text-blue-500 rounded-lg hover:bg-blue-500 hover:text-white transition-all"><Share2 size={15} /></button>
                 {isPastEvent(event) && (
-                  <button onClick={() => openBilanModal(event)} title="Bilan de l'événement" className="p-2 text-emerald-500 rounded-lg hover:bg-emerald-500 hover:text-white transition-all"><BarChart2 size={15} /></button>
+                  <button onClick={() => openBilanModal(event)} title="Bilan de l'événement" className="min-h-11 min-w-11 flex items-center justify-center p-2 text-emerald-500 rounded-lg hover:bg-emerald-500 hover:text-white transition-all"><BarChart2 size={15} /></button>
                 )}
                 {isPastEvent(event) && hasBilan(event) ? (
-                  <button onClick={() => archiveEvent(event.id)} title="Archiver" className="p-2 text-amber-500 rounded-lg hover:bg-amber-500 hover:text-white transition-all"><Archive size={15} /></button>
+                  <button onClick={() => archiveEvent(event.id)} title="Archiver" className="min-h-11 min-w-11 flex items-center justify-center p-2 text-amber-500 rounded-lg hover:bg-amber-500 hover:text-white transition-all"><Archive size={15} /></button>
                 ) : (
-                  <button onClick={() => setDeleteModal({show: true, id: event.id, title: event.title})} className="p-2 text-slate-400 rounded-lg hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={15} /></button>
+                  <button onClick={() => setDeleteModal({show: true, id: event.id, title: event.title})} className="min-h-11 min-w-11 flex items-center justify-center p-2 text-slate-400 rounded-lg hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={15} /></button>
                 )}
               </div>
             </div>
@@ -1845,7 +1868,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
               <p className="text-center text-[10px] text-slate-400 py-6">Aucun événement archivé</p>
             ) : (
               archivedEvents.map(event => (
-                <div key={event.id} className="flex items-center gap-4 bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+                <div key={event.id} className="flex items-center flex-wrap gap-4 bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
                   <div className="w-16 h-16 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden shrink-0">
                     {event.image_url ? <img src={event.image_url} className="w-full h-full object-cover" alt="" /> : <ImageIcon size={20} className="text-slate-200" />}
                   </div>
@@ -1855,10 +1878,10 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                       {new Date(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })} · {event.location}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button onClick={() => openBilanModal(event)} title="Bilan de l'événement" className="p-2.5 bg-slate-50 text-emerald-500 rounded-xl hover:bg-emerald-500 hover:text-white transition-all"><BarChart2 size={16} /></button>
-                    <button onClick={() => unarchiveEvent(event.id)} title="Désarchiver" className="p-2.5 bg-slate-50 text-amber-500 rounded-xl hover:bg-amber-500 hover:text-white transition-all"><ArchiveRestore size={16} /></button>
-                    <button onClick={() => setDeleteModal({show: true, id: event.id, title: event.title})} title="Supprimer définitivement" className="p-2.5 bg-slate-50 text-slate-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={16} /></button>
+                  <div className="flex items-center flex-wrap gap-1.5 shrink-0">
+                    <button onClick={() => openBilanModal(event)} title="Bilan de l'événement" className="min-h-11 min-w-11 flex items-center justify-center p-2.5 bg-slate-50 text-emerald-500 rounded-xl hover:bg-emerald-500 hover:text-white transition-all"><BarChart2 size={16} /></button>
+                    <button onClick={() => unarchiveEvent(event.id)} title="Désarchiver" className="min-h-11 min-w-11 flex items-center justify-center p-2.5 bg-slate-50 text-amber-500 rounded-xl hover:bg-amber-500 hover:text-white transition-all"><ArchiveRestore size={16} /></button>
+                    <button onClick={() => setDeleteModal({show: true, id: event.id, title: event.title})} title="Supprimer définitivement" className="min-h-11 min-w-11 flex items-center justify-center p-2.5 bg-slate-50 text-slate-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={16} /></button>
                   </div>
                 </div>
               ))
