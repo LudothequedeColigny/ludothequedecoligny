@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useEffect, useState, memo } from 'react'
 import { supabase } from '../services/supabaseClient'
 import TitrePactes from '../components/TitrePactes'
-import ContactModal from '../components/ContactModal'
+import Footer from '../components/Footer'
 import {
   Dice5,
   Calendar,
@@ -15,7 +15,6 @@ import {
   ImageIcon,
   HelpCircle,
   X,
-  Mail,
   Facebook
 } from 'lucide-react'
 
@@ -91,7 +90,6 @@ export default function Home() {
   const [playerCount, setPlayerCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [selectedEvent, setSelectedEvent] = useState(null)
-  const [showContact, setShowContact] = useState(false)
 
   // État pour les horaires dynamiques
   const [horaires, setHoraires] = useState({
@@ -113,7 +111,6 @@ export default function Home() {
     code_postal: '01270'
   })
 
-  const facebookUrl1 = "https://www.facebook.com/groups/2677832192298067"
   const facebookUrl = "https://www.facebook.com/groups/ludothequedecoligny?locale=fr_FR"
 
   // Adresse dynamique pour Google Maps
@@ -479,33 +476,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="py-20 bg-white border-t border-slate-100">
-        <div className="max-w-6xl mx-auto px-4 md:px-8">
-          <div className="flex flex-col items-center">
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 mb-8 text-center">Une question spécifique ?</p>
-            <button onClick={() => setShowContact(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 transition-all shadow-sm font-black text-[10px] uppercase tracking-widest text-[#1a5f7a]">
-              <Mail size={14} />
-              Nous contacter
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <footer className="py-12 bg-slate-50 text-center">
-        <div className="mb-6">
-          <a href={facebookUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-slate-400 hover:text-[#1a5f7a] transition-all text-[9px] font-black uppercase tracking-[0.2em] border border-slate-200 px-4 py-2 rounded-full hover:bg-white">
-            <Facebook size={14} /> Rejoignez-nous sur Facebook
-          </a>
-        </div>
-        <a href={facebookUrl1} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-3 mb-4 hover:opacity-80 transition-opacity">
-          <img src="/logo-pactes.svg" className="h-16" alt="Logo PACTES" />
-          <TitrePactes className="text-3xl" />
-        </a>
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em]">Ludothèque de Coligny — Le plaisir du jeu ensemble</p>
-      </footer>
-
-      <ContactModal open={showContact} onClose={() => setShowContact(false)} />
+      <Footer />
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabaseClient'
 import { SkeletonCard } from '../components/Skeleton'
+import Footer from '../components/Footer'
 import {
   X,
   Users,
@@ -614,6 +615,8 @@ function Catalogue() {
           </div>
         </div>
       )}
+
+      <Footer />
     </div>
   )
 }

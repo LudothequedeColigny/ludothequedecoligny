@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Home as HomeIcon, Dice5 } from 'lucide-react'
+import Footer from '../components/Footer'
 
 const DIGIT_COLORS = ['#1a5f7a', '#e38154', '#1a5f7a']
 
@@ -59,6 +60,10 @@ export default function NotFound() {
       </div>
 
       <TiltedDiceIllustration />
+
+      <div className="w-full mt-14">
+        <Footer />
+      </div>
     </div>
   )
 }

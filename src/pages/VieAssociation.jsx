@@ -22,6 +22,7 @@ import {
   CartesianGrid,
   Tooltip,
 } from 'recharts'
+import Footer from '../components/Footer'
 
 // Détecte le type d'un événement à partir de son titre (insensible aux accents/casse)
 // Plage Unicode des signes diacritiques combinants (0x0300-0x036f), construite
@@ -400,6 +401,8 @@ export default function VieAssociation() {
           />
         </div>
       )}
+
+      <Footer />
     </div>
   )
 }

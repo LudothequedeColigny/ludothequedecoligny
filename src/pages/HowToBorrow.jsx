@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabaseClient'
-import { ArrowLeft, User, Building2, Calendar, CheckCircle2, Info, Mail, Landmark, ShieldCheck, FileText, Download } from 'lucide-react'
+import { ArrowLeft, User, Building2, Calendar, CheckCircle2, Info, Landmark, ShieldCheck, FileText, Download } from 'lucide-react'
 import TitrePactes from '../components/TitrePactes'
-import ContactModal from '../components/ContactModal'
+import Footer from '../components/Footer'
 
 export default function HowToBorrow() {
   const navigate = useNavigate()
-  const [showContact, setShowContact] = useState(false)
   const [appSettings, setAppSettings] = useState({
     prix_particulier: 0,
     degressivite_mensuelle: 0,
@@ -243,20 +242,9 @@ export default function HowToBorrow() {
           </div>
         </div>
 
-        {/* SECTION CONTACT */}
-        <div className="mt-20 py-10 border-t border-slate-100">
-            <div className="flex flex-col items-center">
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 mb-8">Une question spécifique ?</p>
-                <button onClick={() => setShowContact(true)}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 transition-all shadow-sm font-black text-[10px] uppercase tracking-widest text-[#1a5f7a]">
-                  <Mail size={14} />
-                  Nous contacter
-                </button>
-            </div>
-        </div>
       </main>
 
-      <ContactModal open={showContact} onClose={() => setShowContact(false)} />
+      <Footer />
     </div>
   )
 }
