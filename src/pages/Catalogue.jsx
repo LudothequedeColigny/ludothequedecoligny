@@ -2,20 +2,21 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabaseClient'
 import { SkeletonCard } from '../components/Skeleton'
-import { 
-  X, 
-  Users, 
-  Clock, 
-  Dice5, 
-  Search, 
-  ChevronDown, 
+import {
+  X,
+  Users,
+  Clock,
+  Dice5,
+  Search,
+  ChevronDown,
   ChevronUp,
-  Baby, 
+  Baby,
   ArrowLeft,
   PlayCircle,
   CheckCircle2,
   AlertCircle,
-  Tag
+  Tag,
+  SlidersHorizontal
 } from 'lucide-react'
 
 // Composant curseur — défini HORS de Catalogue pour éviter les re-montages au render
@@ -101,6 +102,8 @@ function Catalogue() {
   const [editingValue, setEditingValue] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
   const suggestionRef = useRef(null)
+  const drawerSuggestionRef = useRef(null)
+  const [showFilters, setShowFilters] = useState(false)
 
   useEffect(() => {
     async function fetchJeux() {
@@ -146,7 +149,9 @@ function Catalogue() {
 
   useEffect(() => {
     function handleClickOutside(event) {
-      if (suggestionRef.current && !suggestionRef.current.contains(event.target)) {
+      const insideDesktop = suggestionRef.current && suggestionRef.current.contains(event.target)
+      const insideDrawer = drawerSuggestionRef.current && drawerSuggestionRef.current.contains(event.target)
+      if (!insideDesktop && !insideDrawer) {
         setShowSuggestions(false)
       }
     }
@@ -174,6 +179,21 @@ function Catalogue() {
   const maxAge        = Math.max(0, ...jeux.map(j => parseInt(j.min_age)     || 0))
   const maxMinPlayers = Math.max(0, ...jeux.map(j => parseInt(j.min_players) || 0))
   const maxMaxPlayers = Math.max(0, ...jeux.map(j => parseInt(j.max_players) || 0))
+
+  const activeFiltersCount = selectedCategories.length +
+    (selectedAge > 0 ? 1 : 0) +
+    (selectedMinPlayers > 0 ? 1 : 0) +
+    (selectedMaxPlayers > 0 ? 1 : 0)
+
+  const resetFilters = () => {
+    setSelectedCategories([])
+    setSelectedAge(0)
+    setSelectedMinPlayers(0)
+    setSelectedMaxPlayers(0)
+    setCategoryInput('')
+    setEditingFilter(null)
+    setEditingValue('')
+  }
 
   const filteredJeux = jeux.filter((jeu) => {
     const matchesSearch = !searchTerm || jeu.name?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -253,7 +273,7 @@ function Catalogue() {
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 bg-white p-6 md:p-8 rounded-[2.5rem] shadow-xl border border-slate-50">
+          <div className="hidden md:grid md:grid-cols-2 xl:grid-cols-4 gap-6 bg-white p-6 md:p-8 rounded-[2.5rem] shadow-xl border border-slate-50">
 
             {/* Catégories — inchangé */}
             <div className="relative text-left md:col-span-2 xl:col-span-1" ref={suggestionRef}>
@@ -330,6 +350,106 @@ function Catalogue() {
               box-shadow: 0 2px 6px rgba(26,95,122,0.2); cursor: pointer;
             }
           `}</style>
+        </div>
+
+        {/* BOUTON FILTRES — MOBILE UNIQUEMENT */}
+        <button onClick={() => setShowFilters(true)}
+          className="md:hidden fixed bottom-6 right-6 z-40 flex items-center gap-2 px-5 py-3.5 bg-[#1a5f7a] text-white rounded-full shadow-2xl font-black uppercase text-[10px] tracking-widest">
+          <SlidersHorizontal size={16} />
+          Filtres
+          {activeFiltersCount > 0 && (
+            <span className="bg-[#e38154] text-white rounded-full w-5 h-5 flex items-center justify-center text-[9px] font-black">
+              {activeFiltersCount}
+            </span>
+          )}
+        </button>
+
+        {/* DRAWER FILTRES — MOBILE UNIQUEMENT */}
+        <div className={`md:hidden fixed inset-0 z-50 transition-opacity duration-300 ${showFilters ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowFilters(false)} />
+          {/* Drawer */}
+          <div className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-[2.5rem] max-h-[85vh] overflow-y-auto transition-transform duration-300 ${showFilters ? 'translate-y-0' : 'translate-y-full'}`}>
+            {/* Handle */}
+            <div className="flex justify-center pt-3 pb-2">
+              <div className="w-10 h-1 bg-slate-200 rounded-full" />
+            </div>
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 pb-4">
+              <h3 className="font-black text-lg text-slate-900">Filtres</h3>
+              <button onClick={() => setShowFilters(false)}><X size={20} /></button>
+            </div>
+
+            {/* Contenu filtres — mêmes composants que desktop */}
+            <div className="px-6 pb-6 space-y-6">
+              {/* Catégories */}
+              <div className="relative text-left" ref={drawerSuggestionRef}>
+                <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#e38154] mb-2 ml-2"><Tag size={14} /> Catégories</label>
+                <input
+                  type="text"
+                  placeholder="Ex: Stratégie..."
+                  value={categoryInput}
+                  onFocus={() => setShowSuggestions(true)}
+                  onChange={(e) => setCategoryInput(e.target.value)}
+                  className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl outline-none font-bold text-sm"
+                />
+                {showSuggestions && suggestions.length > 0 && (
+                  <div className="relative z-[60] mt-2 w-full bg-white rounded-2xl shadow-2xl border border-slate-100 max-h-48 overflow-y-auto p-2">
+                    {suggestions.map(cat => (
+                      <button key={cat} onClick={() => addCategory(cat)} className="w-full text-left px-4 py-3 hover:bg-[#fdf2ee] hover:text-[#e38154] rounded-xl font-bold text-xs">{cat}</button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {selectedCategories.map(cat => (
+                    <span key={cat} className="flex items-center gap-2 px-3 py-1.5 bg-[#1a5f7a] text-white rounded-full text-[9px] font-black uppercase">
+                      {cat} <X size={12} className="cursor-pointer" onClick={() => removeCategory(cat)} />
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <SliderFilter
+                filterKey="age"
+                icon={<><Baby size={14} /><span>Âge minimum</span></>}
+                value={selectedAge} setter={setSelectedAge}
+                max={maxAge || 18} unit="ans" accentColor="#1a5f7a"
+                editingFilter={editingFilter} editingValue={editingValue}
+                setEditingValue={setEditingValue}
+                onStartEditing={startEditing} onCommit={commitEditingValue} onCancelEditing={() => { setEditingFilter(null); setEditingValue('') }}
+              />
+              <SliderFilter
+                filterKey="minPlayers"
+                icon={<><Users size={14} className="text-[#1a5f7a]/60" /><span>Joueurs min</span></>}
+                value={selectedMinPlayers} setter={setSelectedMinPlayers}
+                max={maxMinPlayers || 8} unit="j." accentColor="#1a5f7a"
+                editingFilter={editingFilter} editingValue={editingValue}
+                setEditingValue={setEditingValue}
+                onStartEditing={startEditing} onCommit={commitEditingValue} onCancelEditing={() => { setEditingFilter(null); setEditingValue('') }}
+              />
+              <SliderFilter
+                filterKey="maxPlayers"
+                icon={<><Users size={14} className="text-[#e38154]/60" /><span>Joueurs max</span></>}
+                value={selectedMaxPlayers} setter={setSelectedMaxPlayers}
+                max={maxMaxPlayers || 10} unit="j." accentColor="#e38154"
+                editingFilter={editingFilter} editingValue={editingValue}
+                setEditingValue={setEditingValue}
+                onStartEditing={startEditing} onCommit={commitEditingValue} onCancelEditing={() => { setEditingFilter(null); setEditingValue('') }}
+              />
+            </div>
+
+            {/* Footer avec boutons */}
+            <div className="sticky bottom-0 bg-white p-6 border-t border-slate-100 flex gap-3">
+              <button onClick={resetFilters}
+                className="flex-1 py-3.5 bg-slate-100 rounded-2xl font-black uppercase text-[10px] tracking-widest text-slate-500">
+                Réinitialiser
+              </button>
+              <button onClick={() => setShowFilters(false)}
+                className="flex-1 py-3.5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest">
+                Voir les résultats ({filteredJeux.length})
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* SÉPARATEUR NOUVEAUTÉS */}
