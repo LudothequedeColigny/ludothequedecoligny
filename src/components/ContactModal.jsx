@@ -4,7 +4,7 @@ import { supabase } from '../services/supabaseClient'
 import { sendEmail } from '../services/emailService'
 
 export default function ContactModal({ open, onClose }) {
-  const [contact, setContact] = useState({ nom: '', tel: '' })
+  const [contact, setContact] = useState({ nom: '', tel: '', email: '' })
   const [nom, setNom] = useState('')
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
@@ -16,7 +16,7 @@ export default function ContactModal({ open, onClose }) {
       if (data) {
         const obj = {}
         data.forEach(s => { obj[s.id] = s.value })
-        setContact({ nom: obj.contact_nom || '', tel: obj.contact_tel || '' })
+        setContact({ nom: obj.contact_nom || '', tel: obj.contact_tel || '', email: obj.contact_email || '' })
       }
     }
     loadContact()
@@ -29,8 +29,12 @@ export default function ContactModal({ open, onClose }) {
     if (!nom.trim() || !email.trim() || !message.trim()) return
     setStatus('loading')
     try {
+      const recipients = ['ludothequedecoligny@outlook.fr']
+      if (contact.email && contact.email !== 'ludothequedecoligny@outlook.fr') {
+        recipients.push(contact.email)
+      }
       await sendEmail({
-        to: ['ludothequedecoligny@outlook.fr'],
+        to: recipients,
         subject: `Message de ${nom} via le site`,
         html: `
           <p><strong>De :</strong> ${nom} (${email})</p>
