@@ -55,6 +55,24 @@ function StatComparisonBlock({ label, current, previous, previousLabel }: {
   )
 }
 
+function TrendBadge({ value }: { value: number }) {
+  if (value === 0) return (
+    <span className="text-[10px] font-black text-slate-400 flex items-center gap-0.5">
+      → stable
+    </span>
+  )
+  if (value > 0) return (
+    <span className="text-[10px] font-black text-emerald-500 flex items-center gap-0.5">
+      <TrendingUp size={11} /> +{value} ce mois
+    </span>
+  )
+  return (
+    <span className="text-[10px] font-black text-rose-400 flex items-center gap-0.5">
+      <TrendingDown size={11} /> {value} ce mois
+    </span>
+  )
+}
+
 function MiniBarChart({ data }: { data: WeekBucket[] }) {
   const max = Math.max(1, ...data.map(d => d.count))
   const barWidth = 44
@@ -99,7 +117,11 @@ export default function Dashboard() {
     totalGames: 0,
     totalMembers: 0, // Sera le nombre d'adhérents à jour
     activeLoans: 0,
-    totalEvents: 0
+    totalEvents: 0,
+    newGamesThisMonth: 0,
+    newMembersThisMonth: 0,
+    newLoansThisMonth: 0,
+    newEventsThisMonth: 0,
   })
   const [loading, setLoading] = useState(true)
   const [pageViewStats, setPageViewStats] = useState<PageViewStats>(emptyPageViewStats)
@@ -110,22 +132,32 @@ export default function Dashboard() {
       setLoading(true)
       
       try {
-        const [games, available, membersData, events] = await Promise.all([
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfMonthDateStr = startOfMonth.toISOString().split('T')[0];
+        const thirtyDaysAgo = new Date(now);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const thirtyDaysAgoDateStr = thirtyDaysAgo.toISOString().split('T')[0];
+
+        const [games, available, membersData, events, newGames, newMembers, newLoans, newEvents] = await Promise.all([
           supabase.from('games').select('*', { count: 'exact', head: true }),
           supabase.from('games').select('*', { count: 'exact', head: true }).eq('is_available', true),
           supabase.from('members').select('type, membership_date, has_paid'), // On récupère les infos pour calculer le statut
-          supabase.from('events').select('*', { count: 'exact', head: true })
+          supabase.from('events').select('*', { count: 'exact', head: true }),
+          supabase.from('games').select('*', { count: 'exact', head: true }).gte('created_at', startOfMonth.toISOString()),
+          supabase.from('members').select('*', { count: 'exact', head: true }).gte('membership_date', startOfMonthDateStr),
+          supabase.from('loans').select('*', { count: 'exact', head: true }).gte('loan_date', thirtyDaysAgoDateStr),
+          supabase.from('events').select('*', { count: 'exact', head: true }).gte('created_at', startOfMonth.toISOString()),
         ])
 
         // --- LOGIQUE DE CALCUL IDENTIQUE À LA PAGE ADHÉRENTS ---
-        const now = new Date();
         const currentYear = now.getFullYear();
-        
+
         const activeMembersCount = (membersData.data || []).filter(member => {
           if (!member.has_paid) return false;
-          
+
           const dateAdhesion = new Date(member.membership_date);
-          
+
           if (member.type === 'Particulier') {
             // Un particulier est à jour si son adhésion est de l'année civile en cours
             return dateAdhesion.getFullYear() >= currentYear;
@@ -142,7 +174,11 @@ export default function Dashboard() {
           totalGames: games.count || 0,
           totalMembers: activeMembersCount,
           activeLoans: (games.count || 0) - (available.count || 0),
-          totalEvents: events.count || 0
+          totalEvents: events.count || 0,
+          newGamesThisMonth: newGames.count || 0,
+          newMembersThisMonth: newMembers.count || 0,
+          newLoansThisMonth: newLoans.count || 0,
+          newEventsThisMonth: newEvents.count || 0,
         })
       } catch (error) {
         console.error("Erreur stats:", error);
@@ -227,10 +263,10 @@ export default function Dashboard() {
   }
 
   const cards = [
-    { title: 'Jeux', value: stats.totalGames, icon: <Dice5 size={22} />, link: '/admin/jeux', lightColor: 'bg-[#f0f7f9]', textColor: 'text-[#1a5f7a]' },
-    { title: 'Adhérents à jour', value: stats.totalMembers, icon: <Users size={22} />, link: '/admin/adherents', lightColor: 'bg-[#fdf2ee]', textColor: 'text-[#e38154]' },
-    { title: 'Prêts', value: stats.activeLoans, icon: <ClipboardList size={22} />, link: '/admin/prets', lightColor: 'bg-slate-100', textColor: 'text-slate-600' },
-    { title: 'Événements', value: stats.totalEvents, icon: <Calendar size={22} />, link: '/admin/evenements', lightColor: 'bg-emerald-50', textColor: 'text-emerald-600' },
+    { title: 'Jeux', value: stats.totalGames, trend: stats.newGamesThisMonth, icon: <Dice5 size={22} />, link: '/admin/jeux', lightColor: 'bg-[#f0f7f9]', textColor: 'text-[#1a5f7a]' },
+    { title: 'Adhérents à jour', value: stats.totalMembers, trend: stats.newMembersThisMonth, icon: <Users size={22} />, link: '/admin/adherents', lightColor: 'bg-[#fdf2ee]', textColor: 'text-[#e38154]' },
+    { title: 'Prêts', value: stats.activeLoans, trend: stats.newLoansThisMonth, icon: <ClipboardList size={22} />, link: '/admin/prets', lightColor: 'bg-slate-100', textColor: 'text-slate-600' },
+    { title: 'Événements', value: stats.totalEvents, trend: stats.newEventsThisMonth, icon: <Calendar size={22} />, link: '/admin/evenements', lightColor: 'bg-emerald-50', textColor: 'text-emerald-600' },
   ]
 
   return (
@@ -301,6 +337,9 @@ export default function Dashboard() {
                   </div>
                   <div className="text-3xl md:text-5xl font-black text-slate-900 tracking-tighter mb-1">
                     {card.value}
+                  </div>
+                  <div className="mb-2">
+                    <TrendBadge value={card.trend} />
                   </div>
                   <div className="text-[9px] md:text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">
                     {card.title}
