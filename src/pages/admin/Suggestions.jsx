@@ -45,6 +45,25 @@ const escapeHtml = (str) => (str || '')
   .replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;')
 
+// ─── Helpers export PDF : logos & images en base64 (nécessaire pour l'iframe de print) ──
+async function svgToBase64(path) {
+  try {
+    const res = await fetch(window.location.origin + path)
+    const text = await res.text()
+    return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(text)))
+  } catch { return null }
+}
+
+// Carré coloré + initiale, utilisé quand un jeu n'a pas d'image renseignée
+const AVATAR_COLORS = ['#1a5f7a', '#e38154', '#7c5cbf', '#0891b2', '#059669', '#dc2626', '#d97706']
+function initialAvatar(name) {
+  const clean = (name || '?').trim()
+  const initial = (clean.charAt(0) || '?').toUpperCase()
+  let hash = 0
+  for (let i = 0; i < clean.length; i++) hash = clean.charCodeAt(i) + ((hash << 5) - hash)
+  return { initial, color: AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length] }
+}
+
 const CATEGORIES = [
   { id: 'jeu_acheter',    icon: <Dices size={16} />,          label: 'Jeu à acheter',               color: '#1a5f7a',  bg: 'bg-cyan-50',    text: 'text-[#1a5f7a]',   border: 'border-cyan-100' },
   { id: 'jeu_retirer',    icon: <AlertTriangle size={16} />,  label: 'Jeu à retirer',               color: '#dc2626',  bg: 'bg-rose-50',    text: 'text-rose-600',    border: 'border-rose-100' },
@@ -145,6 +164,7 @@ export default function Suggestions() {
   const [showFilterMenu, setShowFilterMenu] = useState(false)
   const [showCatDropdown, setShowCatDropdown] = useState(false)
   const [filterCats, setFilterCats]         = useState([]) // tableau de catégories sélectionnées
+  const [exportingPdf, setExportingPdf]     = useState(false)
 
   // Prix des suggestions
   const [priceSearchFor, setPriceSearchFor]         = useState(null) // id de la suggestion dont le popover est ouvert
@@ -253,10 +273,11 @@ export default function Suggestions() {
   // NB : .select() est indispensable ici — sans lui, une UPDATE bloquée par une
   // policy RLS renvoie { error: null } avec 0 ligne modifiée, ce qui donnerait
   // l'illusion d'un succès alors que rien n'a été persisté en base.
-  async function savePrice(suggestionId, price) {
+  async function savePrice(suggestionId, price, imageUrl) {
     setSavingPriceId(suggestionId)
     try {
-      const { data, error } = await supabase.from('suggestions').update({ price }).eq('id', suggestionId).select()
+      const payload = imageUrl !== undefined ? { price, image_url: imageUrl } : { price }
+      const { data, error } = await supabase.from('suggestions').update(payload).eq('id', suggestionId).select()
       if (error) {
         console.error('Erreur sauvegarde prix:', error)
         addToast('Erreur lors de la sauvegarde du prix.', 'error')
@@ -264,7 +285,7 @@ export default function Suggestions() {
         console.error('Erreur sauvegarde prix : aucune ligne mise à jour (vérifiez les policies RLS UPDATE sur la table suggestions)')
         addToast('Erreur lors de la sauvegarde du prix.', 'error')
       } else {
-        setSuggestions(prev => prev.map(x => x.id === suggestionId ? { ...x, price } : x))
+        setSuggestions(prev => prev.map(x => x.id === suggestionId ? { ...x, ...payload } : x))
         addToast('Prix enregistré avec succès.', 'success')
       }
     } catch (err) {
@@ -300,7 +321,7 @@ export default function Suggestions() {
     setPriceSearchFor(null)
     setPriceSearchResults([])
     if (result.price != null) {
-      await savePrice(suggestion.id, result.price)
+      await savePrice(suggestion.id, result.price, result.image || null)
     } else {
       startEditPrice(suggestion)
     }
@@ -370,45 +391,75 @@ export default function Suggestions() {
   }
 
   // ── Export PDF (window.print() via iframe masqué, sans dépendance externe) ─
-  function exportPdf() {
+  async function exportPdf() {
     const jeuxSuggestions = suggestions.filter(s => s.category === 'jeu_acheter')
     if (jeuxSuggestions.length === 0) return
 
-    const todayStr = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-    const withPrice = jeuxSuggestions.filter(s => s.price != null)
-    const withoutPriceCount = jeuxSuggestions.length - withPrice.length
-    const total = withPrice.reduce((sum, s) => sum + Number(s.price), 0)
+    setExportingPdf(true)
+    try {
+      const [logoFeuille, logoPactes] = await Promise.all([
+        svgToBase64('/logo-feuille.svg'),
+        svgToBase64('/logo-pactes.svg'),
+      ])
 
-    const rowsHtml = jeuxSuggestions.map(s => `
-      <div class="row">
-        <span class="checkbox">☐</span>
+      const todayStr = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+      const withPrice = jeuxSuggestions.filter(s => s.price != null)
+      const total = withPrice.reduce((sum, s) => sum + Number(s.price), 0)
+
+      const rowsHtml = jeuxSuggestions.map(s => {
+        let imageHtml
+        if (s.image_url) {
+          imageHtml = `<img src="${escapeHtml(s.image_url)}" style="width:40px;height:40px;object-fit:contain;border-radius:6px;flex-shrink:0;" onerror="this.style.display='none'" alt="" />`
+        } else {
+          const { initial, color } = initialAvatar(s.message)
+          imageHtml = `<span class="game-avatar" style="background:${color};">${escapeHtml(initial)}</span>`
+        }
+        return `
+      <div class="game-row${s.done ? ' done' : ''}">
+        <span class="checkbox">${s.done ? '☑' : '☐'}</span>
+        ${imageHtml}
         <span class="name">${escapeHtml(s.message)}</span>
+        <span class="suggested-by">Suggéré par ${escapeHtml(s.author || 'Anonyme')}</span>
         <span class="price">${s.price != null ? formatPrice(s.price) : ''}</span>
-        <div class="suggested-by">Suggéré par ${escapeHtml(s.author || 'Anonyme')}</div>
       </div>
-    `).join('')
+    `
+      }).join('')
 
-    const html = `<!doctype html>
+      const html = `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
 <title>Liste des jeux à commander</title>
 <style>
-  @page { margin: 20mm 15mm; }
+  @page { size: A4 portrait; margin: 15mm 12mm; }
   * { box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; padding: 0; }
-  .header { text-align: center; margin-bottom: 24px; }
-  .logo { font-size: 28px; font-weight: 900; color: #1a5f7a; letter-spacing: -0.5px; }
-  .subtitle { font-size: 13px; color: #555; margin-top: 6px; }
-  .hr { border: none; border-top: 2px solid #1a5f7a; margin: 16px 0 24px 0; }
-  .row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; padding: 10px 0; border-bottom: 1px solid #ddd; page-break-inside: avoid; }
-  .checkbox { font-size: 16px; }
-  .name { font-weight: 700; font-size: 14px; flex: 1; }
-  .price { font-weight: 700; font-size: 13px; text-align: right; white-space: nowrap; }
-  .suggested-by { width: 100%; font-size: 10px; color: #777; padding-left: 24px; }
-  .footer { margin-top: 28px; padding-top: 14px; border-top: 2px solid #1a5f7a; font-size: 12px; }
-  .footer .totals { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 4px; }
-  .footer .assoc { text-align: center; color: #888; margin-top: 14px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; font-size: 11px; }
+
+  .header { background: #fff; padding: 4px 4px 14px; border-bottom: 3px solid #1a5f7a; display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .header-logo { height: 55px; }
+  .header-fallback-logo { font-size: 32px; line-height: 1; }
+  .header-pactes-logo { height: 50px; }
+  .header-title { color: #1a5f7a; font-size: 18px; font-weight: 900; }
+  .header-subtitle { color: #e38154; font-size: 11px; font-weight: 700; margin-top: 2px; }
+
+  .total-line { font-size: 13px; font-weight: 900; color: #1a5f7a; margin: 0 2px 14px; }
+
+  .game-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 6px; border-bottom: 1px solid #f0f0f0; page-break-inside: avoid; }
+  .game-row.done { opacity: 0.55; }
+  .checkbox { font-size: 14px; flex-shrink: 0; }
+  .game-image, .game-avatar { width: 40px; height: 40px; border-radius: 6px; flex-shrink: 0; }
+  .game-image { object-fit: contain; background: #fff; border: 1px solid #eee; }
+  .game-avatar { display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 15px; }
+  .name { font-weight: 700; flex: 1; }
+  .game-row.done .name { text-decoration: line-through; }
+  .suggested-by { font-size: 10px; color: #888; white-space: nowrap; }
+  .price { font-weight: 900; font-size: 13px; color: #1a5f7a; white-space: nowrap; min-width: 60px; text-align: right; }
+
+  .doc-footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #e2e8f0; text-align: center; }
+  .doc-footer-assoc { color: #1a5f7a; font-weight: 700; }
+  .doc-footer-date { color: #aaa; font-size: 10px; margin-top: 4px; }
+
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
@@ -416,48 +467,56 @@ export default function Suggestions() {
 </head>
 <body>
   <div class="header">
-    <div class="logo">Ludothèque de Coligny</div>
-    <div class="subtitle">Liste des jeux à commander — ${todayStr}</div>
+    <div class="header-left">
+      ${logoFeuille ? `<img class="header-logo" src="${logoFeuille}" alt="" />` : '<span class="header-fallback-logo">🎲</span>'}
+      <div>
+        <div class="header-title">Ludothèque de Coligny</div>
+        <div class="header-subtitle">Liste des jeux à commander — ${todayStr}</div>
+      </div>
+    </div>
+    ${logoPactes ? `<img class="header-pactes-logo" src="${logoPactes}" alt="" />` : ''}
   </div>
-  <hr class="hr" />
+
+  <div class="total-line">Total estimé : ${formatPrice(total)}</div>
+
   <div class="list">
     ${rowsHtml}
   </div>
-  <div class="footer">
-    <div class="totals">
-      <span>Total estimé</span>
-      <span>${formatPrice(total)}</span>
-    </div>
-    ${withoutPriceCount > 0 ? `<div>${withoutPriceCount} jeu${withoutPriceCount > 1 ? 'x' : ''} sans prix renseigné</div>` : ''}
-    <div class="assoc">Association PACTES — Ludothèque de Coligny</div>
+
+  <div class="doc-footer">
+    <div class="doc-footer-assoc">Association PACTES — Ludothèque de Coligny</div>
+    <div class="doc-footer-date">Document généré le ${todayStr}</div>
   </div>
 </body>
 </html>`
 
-    const iframe = document.createElement('iframe')
-    iframe.style.position = 'fixed'
-    iframe.style.right = '0'
-    iframe.style.bottom = '0'
-    iframe.style.width = '0'
-    iframe.style.height = '0'
-    iframe.style.border = '0'
-    document.body.appendChild(iframe)
+      const iframe = document.createElement('iframe')
+      iframe.style.position = 'fixed'
+      iframe.style.right = '0'
+      iframe.style.bottom = '0'
+      iframe.style.width = '0'
+      iframe.style.height = '0'
+      iframe.style.border = '0'
+      document.body.appendChild(iframe)
 
-    const doc = iframe.contentWindow.document
-    doc.open()
-    doc.write(html)
-    doc.close()
+      const doc = iframe.contentWindow.document
+      doc.open()
+      doc.write(html)
+      doc.close()
 
-    const cleanup = () => {
-      if (iframe.parentNode) document.body.removeChild(iframe)
+      const cleanup = () => {
+        if (iframe.parentNode) document.body.removeChild(iframe)
+      }
+      iframe.contentWindow.onafterprint = cleanup
+      setTimeout(cleanup, 60000) // filet de sécurité si l'évènement afterprint ne se déclenche pas
+
+      setTimeout(() => {
+        iframe.contentWindow.focus()
+        iframe.contentWindow.print()
+      }, 200)
+    } finally {
+      setExportingPdf(false)
     }
-    iframe.contentWindow.onafterprint = cleanup
-    setTimeout(cleanup, 60000) // filet de sécurité si l'évènement afterprint ne se déclenche pas
-
-    setTimeout(() => {
-      iframe.contentWindow.focus()
-      iframe.contentWindow.print()
-    }, 200)
   }
 
   const toggleFilterCat = (id) => setFilterCats(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -499,9 +558,16 @@ export default function Suggestions() {
               <button
                 data-tutorial="sugg-export-pdf"
                 onClick={exportPdf}
-                className="flex items-center gap-2 px-5 py-4 bg-white border-2 border-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:border-[#1a5f7a] hover:text-[#1a5f7a] transition-all whitespace-nowrap"
+                disabled={exportingPdf}
+                className={`flex items-center gap-2 px-5 py-4 bg-white border-2 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all whitespace-nowrap ${
+                  exportingPdf
+                    ? 'border-slate-100 text-slate-300 cursor-not-allowed'
+                    : 'border-slate-100 text-slate-500 hover:border-[#1a5f7a] hover:text-[#1a5f7a]'
+                }`}
               >
-                <FileDown size={16} /> Exporter en PDF
+                {exportingPdf
+                  ? <><Loader2 size={16} className="animate-spin" /> Génération...</>
+                  : <><FileDown size={16} /> Exporter en PDF</>}
               </button>
             )}
             <button
