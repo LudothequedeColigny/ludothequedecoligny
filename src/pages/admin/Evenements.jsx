@@ -149,8 +149,11 @@ function SocialPostPreview({ text, imageUrl, games }) {
 export default function Evenements() {
   const { addToast } = useToast()
   const [events, setEvents] = useState([])
-  const [activeTab, setActiveTab] = useState('events') // 'events' | 'affiche'
+  const [activeTab, setActiveTab] = useState('events') // 'events' | 'affiche' | 'posts'
   const [loading, setLoading] = useState(true)
+  // Compteurs des badges d'onglets
+  const [templatesCount, setTemplatesCount] = useState(0)
+  const [postsCount, setPostsCount] = useState(0)
   // Vue grille / liste des événements actifs — persistée en localStorage
   const [viewMode, setViewModeState] = useState(() => {
     if (typeof window === 'undefined') return 'grid'
@@ -244,6 +247,26 @@ export default function Evenements() {
     fetchEvents()
     fetchArchivedEvents()
     fetchPhotoEventIds()
+  }, [])
+
+  // ── Compteurs des badges d'onglets ──────────────────────────────────────────
+  useEffect(() => {
+    async function fetchCounters() {
+      const { count: tmplCount, error: tmplError } = await supabase
+        .from('affiche_templates')
+        .select('*', { count: 'exact', head: true })
+      if (!tmplError) setTemplatesCount(tmplCount || 0)
+
+      // Table "posts" facultative — si elle n'existe pas, on ignore silencieusement
+      // et le badge ne s'affiche simplement pas.
+      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
+      const { count: pCount, error: postsError } = await supabase
+        .from('posts')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', startOfMonth)
+      if (!postsError) setPostsCount(pCount || 0)
+    }
+    fetchCounters()
   }, [])
 
   async function fetchEvents() {
@@ -1278,6 +1301,9 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
     }
   ), [fakeEvent]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // `events` ne contient déjà que les événements non archivés (voir fetchEvents)
+  const upcomingEventsCount = events.filter(e => new Date(e.date) > new Date()).length
+
   return (
     <div className="p-4 md:p-10 bg-[#fdfaf6] min-h-screen font-sans text-slate-900">
       
@@ -1304,8 +1330,14 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
           <div className="p-3 rounded-2xl bg-[#1a5f7a]/10 text-[#1a5f7a]">
             <Calendar size={22} />
           </div>
-          <span className={"font-black uppercase text-[10px] tracking-widest " + (activeTab === 'events' ? 'text-[#1a5f7a]' : 'text-slate-500')}>
+          <span className={"font-black uppercase text-[10px] tracking-widest inline-flex items-center " + (activeTab === 'events' ? 'text-[#1a5f7a]' : 'text-slate-500')}>
             Événements
+            {upcomingEventsCount > 0 && (
+              <span className="ml-1.5 px-2 py-0.5 rounded-full text-white font-black text-[9px]"
+                style={{ backgroundColor: '#1a5f7a' }}>
+                {upcomingEventsCount}
+              </span>
+            )}
           </span>
         </button>
         <button
@@ -1317,8 +1349,14 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
           <div className="p-3 rounded-2xl bg-[#e38154]/10 text-[#e38154]">
             <ImagePlus size={22} />
           </div>
-          <span className={"font-black uppercase text-[10px] tracking-widest " + (activeTab === 'affiche' ? 'text-[#e38154]' : 'text-slate-500')}>
+          <span className={"font-black uppercase text-[10px] tracking-widest inline-flex items-center " + (activeTab === 'affiche' ? 'text-[#e38154]' : 'text-slate-500')}>
             Générateur d'affiches
+            {templatesCount > 0 && (
+              <span className="ml-1.5 px-2 py-0.5 rounded-full text-white font-black text-[9px]"
+                style={{ backgroundColor: '#e38154' }}>
+                {templatesCount}
+              </span>
+            )}
           </span>
         </button>
         <button
@@ -1330,8 +1368,14 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
           <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-600">
             <Megaphone size={22} />
           </div>
-          <span className={"font-black uppercase text-[10px] tracking-widest " + (activeTab === 'posts' ? 'text-emerald-600' : 'text-slate-500')}>
+          <span className={"font-black uppercase text-[10px] tracking-widest inline-flex items-center " + (activeTab === 'posts' ? 'text-emerald-600' : 'text-slate-500')}>
             Posts
+            {postsCount > 0 && (
+              <span className="ml-1.5 px-2 py-0.5 rounded-full text-white font-black text-[9px]"
+                style={{ backgroundColor: '#059669' }}>
+                {postsCount}
+              </span>
+            )}
           </span>
         </button>
       </div>
