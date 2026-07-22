@@ -26,16 +26,27 @@ export default function AdminLayout({ children }) {
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
+  const pageLabels = {
+    '/admin': 'Tableau de bord',
+    '/admin/jeux': 'Jeux',
+    '/admin/adherents': 'Adhérents',
+    '/admin/evenements': 'Communication',
+    '/admin/prets': 'Prêts',
+    '/admin/permanences': 'Permanences',
+    '/admin/suivi-financier': 'Suivi financier',
+    '/admin/parametres': 'Paramètres',
+    '/admin/suggestions': 'Suggestions',
+  };
+  const currentPageLabel = pageLabels[location.pathname] ?? 'Administration';
+
   return (
     <div className="flex min-h-screen bg-[#fdfaf6] flex-col md:flex-row font-sans">
       
       {/* --- HEADER MOBILE --- */}
       <div className="md:hidden bg-[#1a5f7a] text-white p-4 flex items-center justify-between sticky top-0 z-[60] shadow-lg">
         <div className="flex items-center gap-3">
-          <div className="p-1.5 bg-white/20 rounded-lg">
-            <Dices size={20} />
-          </div>
-          <h2 className="font-black text-[10px] uppercase tracking-[0.2em]">Ludothèque de Coligny</h2>
+          <img src="/logo-feuille.svg" className="h-7 brightness-0 invert" alt="Logo" />
+          <h2 className="font-black text-[11px] uppercase tracking-[0.2em]">{currentPageLabel}</h2>
         </div>
         <button 
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
