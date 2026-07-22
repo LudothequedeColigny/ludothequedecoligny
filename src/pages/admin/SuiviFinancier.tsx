@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../services/supabaseClient'
 import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
+import { useToast } from '../../components/ToastContext'
+import { SkeletonRow } from '../../components/Skeleton'
 import {
   TrendingUp, TrendingDown, Plus, Trash2, Loader2,
   Wallet, ShoppingCart, Landmark, PiggyBank, X, AlertTriangle, Euro, Edit2
@@ -48,6 +50,7 @@ const fmtDate = (d: string) =>
 // COMPOSANT PRINCIPAL
 // ─────────────────────────────────────────────────────────────────────────────
 export default function SuiviFinancier() {
+  const { addToast } = useToast()
   // ── State ──────────────────────────────────────────────────────────────────
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
@@ -170,16 +173,19 @@ export default function SuiviFinancier() {
     }
     setSaving(false)
 
-    if (error) { setFormError('Erreur lors de l\'enregistrement.'); return }
+    if (error) { setFormError('Erreur lors de l\'enregistrement.'); addToast('Erreur lors de l\'enregistrement.', 'error'); return }
 
+    const wasEditing = !!editingId
     closeModal()
     fetchTransactions()
+    addToast(wasEditing ? 'Entrée modifiée avec succès.' : 'Entrée ajoutée avec succès.', 'success')
   }
 
   async function handleDelete(t: Transaction) {
     await supabase.from('financial_transactions').delete().eq('id', t.id)
     setDeleteConfirm(null)
     fetchTransactions()
+    addToast('Entrée supprimée avec succès.', 'success')
   }
 
 
@@ -303,12 +309,7 @@ const FINANCIER_TUTORIAL_STEPS = (openForm, closeForm) => [
 
       <main className="max-w-5xl mx-auto px-4 md:px-10 pb-16 space-y-6 md:space-y-8">
 
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-32 text-[#1a5f7a] font-black uppercase text-[10px] tracking-[0.3em] gap-4">
-            <Loader2 className="animate-spin" size={32} />
-            Calcul de la trésorerie…
-          </div>
-        ) : (
+        {(
           <div className="animate-in fade-in slide-in-from-bottom-6 duration-700 space-y-6 md:space-y-8">
 
             {/* ── SOLDE PRINCIPAL ──────────────────────────────────────────── */}
@@ -415,12 +416,19 @@ const FINANCIER_TUTORIAL_STEPS = (openForm, closeForm) => [
 
               <div className="p-6 space-y-3">
                 {/* Transactions */}
-                {filteredTransactions.length === 0 && (
+                {loading && (
+                  <table className="w-full">
+                    <tbody>
+                      {Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={i} />)}
+                    </tbody>
+                  </table>
+                )}
+                {!loading && filteredTransactions.length === 0 && (
                   <div className="py-16 text-center text-slate-300 font-black uppercase text-[10px] tracking-widest">
                     Aucune opération enregistrée
                   </div>
                 )}
-                {(() => { let nonCotiCount = 0; return filteredTransactions.map((t, idx) => {
+                {!loading && (() => { let nonCotiCount = 0; return filteredTransactions.map((t, idx) => {
                   const isCotisation = t.category === 'Cotisation'
                   if (!isCotisation) nonCotiCount++
                   const tutoAttr = !isCotisation && nonCotiCount === 1 ? {"data-tutorial": "fin-list-row1"} :

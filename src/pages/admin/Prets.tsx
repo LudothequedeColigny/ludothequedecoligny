@@ -28,6 +28,8 @@ import {
 import { supabase } from '../../services/supabaseClient'
 import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
 import { sendEmail } from '../../services/emailService'
+import { useToast } from '../../components/ToastContext'
+import { SkeletonRow } from '../../components/Skeleton'
 
 
 const PRETS_TUTORIAL_STEPS = (openForm, closeForm, openRelance) => [
@@ -157,6 +159,7 @@ const PRETS_TUTORIAL_STEPS = (openForm, closeForm, openRelance) => [
 
 
 export default function Prets() {
+  const { addToast } = useToast()
   // --- ÉTATS ---
   const [loans, setLoans] = useState([])
   const [members, setMembers] = useState([])
@@ -169,7 +172,6 @@ export default function Prets() {
   const [composeModal, setComposeModal] = useState({ show: false, member: null, loans: [] })
   const [composeData, setComposeData] = useState({ subject: '', body: '' })
   const [sendingMail, setSendingMail] = useState(false)
-  const [successModal, setSuccessModal] = useState(false)
 
   // --- QUOTAS DYNAMIQUES ---
   const [quotas, setQuotas] = useState({ quota_particulier: 3, quota_association: 5 })
@@ -482,7 +484,7 @@ www.ludothequedecoligny.fr`
   }
 
   const handleSendLoanReminder = async () => {
-    if (!composeModal.member?.email) { alert("Email de l'adhérent introuvable."); return }
+    if (!composeModal.member?.email) { addToast("Email de l'adhérent introuvable.", 'error'); return }
     setSendingMail(true)
     try {
       const html = composeData.body
@@ -507,10 +509,10 @@ www.ludothequedecoligny.fr`
         composeModal.loans.find(cl => cl.id === l.id) ? { ...l, last_reminder_date: today } : l
       ))
       setComposeModal({ show: false, member: null, loans: [] })
-      setSuccessModal(true)
+      addToast('Email de relance envoyé avec succès.', 'success')
     } catch (err) {
       console.error('Erreur envoi relance:', err)
-      alert("Erreur lors de l'envoi. Vérifiez la console.")
+      addToast("Erreur lors de l'envoi. Vérifiez la console.", 'error')
     } finally {
       setSendingMail(false)
     }
@@ -541,9 +543,10 @@ www.ludothequedecoligny.fr`
     const alreadyBorrowed = getDatabaseLoansCount(selectedMember.id)
     const limit = getLoanLimit(selectedMember)
     if (alreadyBorrowed + selectedGames.length > limit) {
-      alert(
+      addToast(
         `Quota dépassé. Cet adhérent a déjà ${alreadyBorrowed} jeu(x) en cours et son quota est de ${limit}. ` +
-        `Veuillez retirer des jeux de la sélection.`
+        `Veuillez retirer des jeux de la sélection.`,
+        'warning'
       )
       return
     }
@@ -562,12 +565,13 @@ www.ludothequedecoligny.fr`
         setShowFormModal(false)
         setQuotaWarning(null)
         fetchInitialData()
+        addToast('Prêt créé avec succès.', 'success')
       }
     } else {
       const queue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]')
       entries.forEach(entry => queue.push({ table: 'loans', data: entry, timestamp: Date.now() }))
       localStorage.setItem('offline_sync_queue', JSON.stringify(queue))
-      alert("⚠️ Mode hors-ligne : Prêt enregistré localement.")
+      addToast("⚠️ Mode hors-ligne : Prêt enregistré localement.", 'warning')
       setShowFormModal(false)
       setQuotaWarning(null)
       fetchInitialData()
@@ -589,7 +593,7 @@ www.ludothequedecoligny.fr`
           await supabase.from('loans').delete().eq('id', loan.id)
           await supabase.from('games').update({ is_available: true }).eq('id', loan.game_id)
         } else {
-          alert("Erreur lors de l'archivage du prêt.")
+          addToast("Erreur lors de l'archivage du prêt.", 'error')
           return
         }
       } else if (type === 'extend') {
@@ -599,8 +603,9 @@ www.ludothequedecoligny.fr`
       }
       setConfirmAction(null)
       fetchInitialData()
+      addToast(type === 'return' ? 'Prêt retourné avec succès.' : 'Prêt prolongé avec succès.', 'success')
     } else {
-      alert("Action réseau requise pour cette opération.")
+      addToast("Action réseau requise pour cette opération.", 'warning')
       setConfirmAction(null)
     }
   }
@@ -631,13 +636,6 @@ www.ludothequedecoligny.fr`
       }
     }
   ), [fakeLoanForTuto]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (loading) return (
-    <div className="flex flex-col items-center justify-center h-screen bg-[#fdfaf6] text-[#1a5f7a] gap-4">
-      <Loader2 className="animate-spin" size={40} />
-      <span className="font-black uppercase text-xs tracking-widest animate-pulse">Chargement des prêts...</span>
-    </div>
-  )
 
   return (
     <div className="p-4 md:p-10 bg-[#fdfaf6] min-h-screen font-sans text-slate-900">
@@ -751,7 +749,7 @@ www.ludothequedecoligny.fr`
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filteredLoans.map((l, idx) => {
+              {loading ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />) : filteredLoans.map((l, idx) => {
                 const late = isOverdue(l.loan_date)
                 return (
                   <tr key={l.id} {...(idx === 0 ? {"data-tutorial": "prets-list-row1"} : idx === 1 ? {"data-tutorial": "prets-list-row2"} : {})} className={`transition-colors ${late ? 'bg-rose-50/40 hover:bg-rose-50/60' : 'hover:bg-slate-50/50'}`}>
@@ -1079,22 +1077,6 @@ www.ludothequedecoligny.fr`
         </div>
       )}
 
-      {/* MODALE SUCCÈS */}
-      {successModal && (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-[3rem] p-10 max-w-md w-full text-center shadow-2xl">
-            <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle size={40} />
-            </div>
-            <h3 className="text-xl font-black uppercase mb-4 text-slate-900">Relance envoyée !</h3>
-            <p className="text-[11px] font-medium text-slate-500 mb-8">L'email a été envoyé avec succès.</p>
-            <button onClick={() => setSuccessModal(false)}
-              className="w-full py-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg">
-              Fermer
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* MODALES CONFIRMATION */}
       {confirmAction && (

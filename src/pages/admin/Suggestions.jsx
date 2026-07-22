@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../services/supabaseClient'
 import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
+import { useToast } from '../../components/ToastContext'
 import {
   Lightbulb, Dices, Wrench, MessageSquarePlus, Send, CheckCircle2,
   Loader2, Sparkles, CalendarDays, AlertTriangle, Link2, Megaphone,
@@ -133,6 +134,7 @@ const SUGGESTIONS_TUTORIAL_STEPS = (openForm, closeForm) => [
 ]
 
 export default function Suggestions() {
+  const { addToast } = useToast()
   const [suggestions, setSuggestions]     = useState([])
   const [loading, setLoading]             = useState(true)
   const [showModal, setShowModal]         = useState(false)
@@ -203,6 +205,7 @@ export default function Suggestions() {
       setAuthor('')
       setSelectedCategory(null)
       fetchSuggestions()
+      addToast('Suggestion ajoutée avec succès.', 'success')
       setTimeout(() => { setSuccess(false); setShowModal(false) }, 2000)
     } catch {
       setError('Une erreur est survenue. Vérifiez votre connexion.')
@@ -238,8 +241,10 @@ export default function Suggestions() {
       .match({ id })
     if (error) {
       console.error('Erreur suppression:', error)
+      addToast('Erreur lors de la suppression.', 'error')
     } else {
       setSuggestions(prev => prev.filter(x => x.id !== id))
+      addToast('Suggestion supprimée avec succès.', 'success')
     }
     setDeletingId(null)
   }
@@ -254,10 +259,13 @@ export default function Suggestions() {
       const { data, error } = await supabase.from('suggestions').update({ price }).eq('id', suggestionId).select()
       if (error) {
         console.error('Erreur sauvegarde prix:', error)
+        addToast('Erreur lors de la sauvegarde du prix.', 'error')
       } else if (!data || data.length === 0) {
         console.error('Erreur sauvegarde prix : aucune ligne mise à jour (vérifiez les policies RLS UPDATE sur la table suggestions)')
+        addToast('Erreur lors de la sauvegarde du prix.', 'error')
       } else {
         setSuggestions(prev => prev.map(x => x.id === suggestionId ? { ...x, price } : x))
+        addToast('Prix enregistré avec succès.', 'success')
       }
     } catch (err) {
       console.error('Erreur sauvegarde prix:', err)
@@ -352,6 +360,7 @@ export default function Suggestions() {
       if (!data || data.length === 0) throw new Error('Aucune ligne mise à jour (vérifiez les policies RLS UPDATE sur la table suggestions)')
       setSuggestions(prev => prev.map(x => x.id === editModal.id ? { ...x, ...updated } : x))
       closeEditModal()
+      addToast('Suggestion modifiée avec succès.', 'success')
     } catch (err) {
       console.error('Erreur sauvegarde édition:', err)
       setEditError('Une erreur est survenue. Vérifiez votre connexion.')

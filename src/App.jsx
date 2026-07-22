@@ -5,6 +5,7 @@ import { supabase } from './services/supabaseClient'
 // Layouts
 import AdminLayout from './components/AdminLayout'
 import AppIntro from './components/AppIntro'
+import { ToastProvider } from './components/ToastContext'
 
 // Pages Publiques
 import Home from './pages/Home'
@@ -58,6 +59,7 @@ const ProtectedRoute = ({ children }) => {
 
 function App() {
   return (
+    <ToastProvider>
     <div className="min-h-screen bg-[#fdfaf6]">
       <AppIntro />
 
@@ -88,6 +90,7 @@ function App() {
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>
+    </ToastProvider>
   )
 }
 

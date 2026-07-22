@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { Dice5, Plus, Trash2, Edit2, X, Hash, AlertCircle, Search, CheckCircle, ImageIcon, Link as LinkIcon, Tag, ExternalLink, Users, PlayCircle, Clock, FileText, WifiOff, Eye, Loader2, Camera, ScanLine, Sparkles, QrCode, Printer } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
 import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
+import { useToast } from '../../components/ToastContext'
+import { SkeletonCard } from '../../components/Skeleton'
 
 // ─── Helpers MyLudo (via Edge Function Supabase) ──────────────────────────────
 
@@ -281,6 +283,7 @@ ${jeuxSelectionnes.map(jeu => `<div class="card">
 // ─── COMPOSANT PRINCIPAL ──────────────────────────────────────────────────────
 
 export default function Jeux() {
+  const { addToast } = useToast()
   const [jeux, setJeux] = useState([])
   const [loading, setLoading] = useState(true)
   const [showTuto, setShowTuto] = useState(false)
@@ -399,7 +402,7 @@ export default function Jeux() {
           setShowForm(true)
         } else {
           setShowForm(true)
-          alert(`Jeu non trouvé sur MyLudo pour le code-barres ${barcode}. Remplissez les informations manuellement.`)
+          addToast(`Jeu non trouvé sur MyLudo pour le code-barres ${barcode}. Remplissez les informations manuellement.`, 'warning')
         }
       } catch (e) { console.warn('Barcode search error:', e); setShowForm(true) }
       finally { setBggLoading(false); setScanToAdd(false) }
@@ -516,7 +519,7 @@ export default function Jeux() {
   )
 
   const startEdit = (jeu) => {
-    if (!navigator.onLine) { alert("La modification est désactivée en mode hors-ligne."); return }
+    if (!navigator.onLine) { addToast("La modification est désactivée en mode hors-ligne.", 'warning'); return }
     setNewGame(jeu); setEditingId(jeu.id); setShowForm(true); setBggFilled(false); setBggResults([])
   }
 
@@ -527,7 +530,7 @@ export default function Jeux() {
   const handleFileUpload = async (e) => {
     const file = e.target.files[0]
     if (!file) return
-    if (!navigator.onLine) { alert("Impossible d'uploader en mode hors-ligne."); return }
+    if (!navigator.onLine) { addToast("Impossible d'uploader en mode hors-ligne.", 'warning'); return }
     setUploading(true)
     try {
       const compressedFile = await new Promise((resolve) => {
@@ -554,7 +557,7 @@ export default function Jeux() {
       if (uploadError) throw uploadError
       const { data: { publicUrl } } = supabase.storage.from('game-images').getPublicUrl(fileName)
       setNewGame({ ...newGame, image_url: publicUrl })
-    } catch (error: any) { alert("Erreur lors de l'envoi : " + error.message) }
+    } catch (error: any) { addToast("Erreur lors de l'envoi : " + error.message, 'error') }
     finally { setUploading(false) }
   }
 
@@ -580,24 +583,25 @@ export default function Jeux() {
         youtube_url: newGame.youtube_url || '', is_available: newGame.is_available ?? true
       }
       let error
+      const wasEditing = !!editingId
       if (editingId) { const { error: e } = await supabase.from('games').update(gameData).eq('id', editingId); error = e }
       else { const { error: e } = await supabase.from('games').insert([gameData]); error = e }
-      if (!error) { cancelEdit(); fetchJeux() }
-      else alert("Erreur lors de l'enregistrement : " + error.message)
+      if (!error) { cancelEdit(); fetchJeux(); addToast(wasEditing ? 'Jeu modifié avec succès.' : 'Jeu ajouté avec succès.', 'success') }
+      else addToast("Erreur lors de l'enregistrement : " + error.message, 'error')
     } else {
-      alert("⚠️ Le réseau est coupé. Impossible d'ajouter ou modifier un jeu pour le moment.")
+      addToast("⚠️ Le réseau est coupé. Impossible d'ajouter ou modifier un jeu pour le moment.", 'warning')
     }
   }
 
   const openDeleteModal = (jeu) => {
-    if (!navigator.onLine) { alert("Action impossible hors-ligne."); return }
+    if (!navigator.onLine) { addToast("Action impossible hors-ligne.", 'warning'); return }
     setDeleteModal({ show: true, id: jeu.id, name: jeu.name })
   }
 
   const confirmDelete = async () => {
     const { error } = await supabase.from('games').delete().eq('id', deleteModal.id)
-    if (!error) { setDeleteModal({ show: false, id: null, name: '' }); fetchJeux() }
-    else alert("Erreur lors de la suppression")
+    if (!error) { setDeleteModal({ show: false, id: null, name: '' }); fetchJeux(); addToast('Jeu supprimé avec succès.', 'success') }
+    else addToast("Erreur lors de la suppression", 'error')
   }
 
   const jeuxSteps = useMemo(() => JEUX_TUTORIAL_STEPS(
@@ -607,13 +611,6 @@ export default function Jeux() {
     },
     () => { setShowForm(false); setEditingId(null) }
   ), []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (loading) return (
-    <div className="flex flex-col items-center justify-center h-screen bg-[#fdfaf6] text-[#1a5f7a] font-bold gap-4">
-      <Dice5 className="animate-bounce" size={40} />
-      <p className="tracking-widest uppercase text-xs">Mise à jour du catalogue...</p>
-    </div>
-  )
 
   const nbJeuxAvecVideo = jeux.filter(j => j.youtube_url?.trim()).length
 
@@ -832,8 +829,14 @@ export default function Jeux() {
           </div>
         )}
 
+        {loading && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
+        )}
+
         {/* TABLEAU DESKTOP */}
-        <div className="hidden md:block bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-x-auto">
+        {!loading && <div className="hidden md:block bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-[10px] uppercase text-slate-400 font-black">
               <tr>
@@ -889,10 +892,10 @@ export default function Jeux() {
               ))}
             </tbody>
           </table>
-        </div>
+        </div>}
 
         {/* CARDS MOBILE */}
-        <div className="md:hidden space-y-4">
+        {!loading && <div className="md:hidden space-y-4">
           {filteredJeux.map((jeu) => (
             <div key={jeu.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100">
               <div className="flex gap-4 mb-4">
@@ -916,7 +919,7 @@ export default function Jeux() {
               </div>
             </div>
           ))}
-        </div>
+        </div>}
       </main>
 
       {/* MODALE ÉTIQUETTES */}

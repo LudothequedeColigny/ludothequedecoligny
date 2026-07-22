@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Download, Eye, Palette, ArrowRight, Loader2 } from 'lucide-react'
+import { Download, Eye, Palette, ArrowRight, Loader2, X } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
 
 // Config chargée depuis Supabase (affiche_templates)
@@ -95,6 +95,8 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
   const [generating, setGenerating] = useState(false)
   const [readyToCreate, setReadyToCreate] = useState(false)
   const [uploadingToSupabase, setUploadingToSupabase] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState('')
   const canvasRef = useRef(null)
   const exportCanvasRef = useRef(null)
   const bgImageRef = useRef(null)
@@ -238,6 +240,13 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
     setGenerating(false)
   }
 
+  function handlePreview() {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    setPreviewUrl(canvas.toDataURL('image/png'))
+    setShowPreview(true)
+  }
+
   async function handleCreateEvent() {
     if (!exportCanvasRef.current) return
     setUploadingToSupabase(true)
@@ -358,6 +367,15 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
                 placeholder="la salle des fêtes de Coligny" />
             </div>
 
+          <button onClick={handlePreview} disabled={!canDownload}
+            className={'w-full py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all ' +
+              (canDownload
+                ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer'
+                : 'bg-slate-50 text-slate-300 cursor-not-allowed')}>
+            <Eye size={14} />
+            Prévisualiser
+          </button>
+
           <button onClick={handleDownload} disabled={!canDownload || generating}
             className={'w-full py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 transition-all shadow-lg ' +
               (canDownload && !generating
@@ -410,6 +428,46 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
 
       {/* Canvas haute résolution pour l'export (caché) */}
       <canvas ref={exportCanvasRef} width={A4_W} height={A4_H} style={{ display: 'none' }} />
+
+      {/* ── MODALE PRÉVISUALISATION PLEIN ÉCRAN ── */}
+      {showPreview && (
+        <div className="fixed inset-0 z-[300] flex flex-col bg-black/85 backdrop-blur-sm overflow-y-auto">
+          <div className="flex items-center justify-between p-4 sm:p-6 shrink-0">
+            <p className="text-white font-black uppercase text-xs sm:text-sm tracking-widest">
+              Aperçu final — qualité téléchargement
+            </p>
+            <button onClick={() => setShowPreview(false)}
+              className="p-2 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all shrink-0">
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="flex-1 flex flex-col items-center justify-center px-4 pb-4 gap-3">
+            {previewUrl && (
+              <img src={previewUrl} alt="Aperçu de l'affiche"
+                className="w-full sm:w-auto max-h-[85vh] sm:max-w-[85vw] object-contain rounded-lg shadow-2xl" />
+            )}
+            <p className="text-slate-300 text-[10px] font-bold uppercase tracking-widest">
+              Résolution : {A4_W} × {A4_H} px — Format A4
+            </p>
+          </div>
+
+          <div className="p-4 sm:p-6 flex gap-3 shrink-0 max-w-lg w-full mx-auto">
+            <button onClick={() => setShowPreview(false)}
+              className="flex-1 py-4 bg-white/10 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-white/20 transition-all">
+              Fermer
+            </button>
+            <button
+              onClick={async () => { await handleDownload(); setShowPreview(false) }}
+              disabled={generating}
+              className={'flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all ' +
+                (generating ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-[#e38154] text-white hover:bg-[#c96e3e]')}>
+              <Download size={14} />
+              Télécharger
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

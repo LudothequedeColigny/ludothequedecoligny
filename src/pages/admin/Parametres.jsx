@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import { supabase } from '../../services/supabaseClient'
+import { useToast } from '../../components/ToastContext'
 import { useRef, useState as useStateRef } from 'react'
 import { 
   Settings, UserPlus, Save, Loader2, UserCheck, Ban, Euro, 
@@ -8,6 +9,7 @@ import {
 } from 'lucide-react'
 
 export default function Parametres() {
+  const { addToast } = useToast()
   const [loading, setLoading] = useState(false)
   const [saveLoading, setSaveLoading] = useState(false)
   const [volunteers, setVolunteers] = useState([])
@@ -183,7 +185,7 @@ export default function Parametres() {
       setTemplateForm(prev => ({ ...prev, url: data.publicUrl }))
       setPreviewImg(data.publicUrl)
     } catch (e) {
-      alert('Erreur upload : ' + e.message)
+      addToast('Erreur upload : ' + e.message, 'error')
     } finally {
       setUploadingImage(false)
     }
@@ -295,7 +297,7 @@ export default function Parametres() {
   }
 
   const saveTemplate = async () => {
-    if (!templateForm.label || !templateForm.url) { alert('Label et image requis.'); return }
+    if (!templateForm.label || !templateForm.url) { addToast('Label et image requis.', 'warning'); return }
     setSavingTemplate(true)
     try {
       const payload = {
@@ -319,20 +321,22 @@ export default function Parametres() {
         color2: templateForm.color2 || '#000000',
         text_align2: templateForm.text_align2 || 'center',
       }
+      const wasEditing = !!editingTemplate
       if (editingTemplate) {
         const { error: updateError } = await supabase.from('affiche_templates').update(payload).eq('id', editingTemplate.id)
-        if (updateError) { console.error('UPDATE error:', updateError); alert('Erreur update: ' + JSON.stringify(updateError)); return }
+        if (updateError) { console.error('UPDATE error:', updateError); addToast('Erreur update: ' + JSON.stringify(updateError), 'error'); return }
       } else {
         const { error: insertError } = await supabase.from('affiche_templates').insert(payload)
-        if (insertError) { console.error('INSERT error:', insertError); alert('Erreur insert: ' + JSON.stringify(insertError)); return }
+        if (insertError) { console.error('INSERT error:', insertError); addToast('Erreur insert: ' + JSON.stringify(insertError), 'error'); return }
       }
       const updated = await fetchAffichesTemplates()
       console.log('Templates après save:', updated?.length, updated?.map(t => t.label))
       setEditingTemplate(null)
       setTemplateForm({ label: '', url: '', x1: null, y1: null, w1: null, h1: null, font_family: 'PersonaAura', font_size: 38.7, color: '#000000', layout: 'famille', text_align: 'center', x2: null, y2: null, w2: null, h2: null, font_family2: 'PersonaAura', font_size2: 28, color2: '#000000', text_align2: 'center' })
       setPreviewImg(null)
+      addToast(wasEditing ? 'Template modifié avec succès.' : 'Template ajouté avec succès.', 'success')
     } catch (e) {
-      alert('Erreur sauvegarde : ' + e.message)
+      addToast('Erreur sauvegarde : ' + e.message, 'error')
     } finally {
       setSavingTemplate(false)
     }
@@ -343,6 +347,7 @@ export default function Parametres() {
     await supabase.from('affiche_templates').delete().eq('id', id)
     fetchAffichesTemplates()
     setDeletingTemplate(null)
+    addToast('Template supprimé avec succès.', 'success')
   }
 
   const handleUpdatePrice = async (e) => {
@@ -382,9 +387,10 @@ export default function Parametres() {
       setShowPaymentModal(false)
       setShowHorairesModal(false)
       setShowAdresseModal(false)
+      addToast('Paramètres sauvegardés avec succès.', 'success')
     } catch (err) {
       console.error('Erreur sauvegarde settings:', err)
-      alert('Erreur lors de la sauvegarde : ' + err.message)
+      addToast('Erreur lors de la sauvegarde : ' + err.message, 'error')
     }
     setSaveLoading(false)
   }
@@ -402,7 +408,7 @@ export default function Parametres() {
       setConfirmModal({ show: true, title: "Bénévole ajouté", message: `Le compte de ${firstName} ${lastName} est opérationnel.` })
       setNewEmail(''); setNewPassword(''); setFirstName(''); setLastName('');
       fetchVolunteers()
-    } else { alert("Erreur : " + error.message) }
+    } else { addToast("Erreur : " + error.message, 'error') }
     setLoading(false)
   }
 
@@ -498,7 +504,7 @@ export default function Parametres() {
       })
     } catch (err) {
       console.error('Erreur export:', err)
-      alert("Erreur lors de l'export : " + err.message)
+      addToast("Erreur lors de l'export : " + err.message, 'error')
     } finally {
       setExportLoading(false)
       setExportProgress({ current: 0, total: 0, label: '' })

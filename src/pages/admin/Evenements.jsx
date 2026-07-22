@@ -3,9 +3,11 @@ import GenerateurAffiche from './GenerateurAffiche'
 import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
 import { supabase } from '../../services/supabaseClient'
 import { sendEmail } from '../../services/emailService'
+import { useToast } from '../../components/ToastContext'
+import { SkeletonCard } from '../../components/Skeleton'
 import {
   Calendar, MapPin, Plus, Trash2, Clock, ImageIcon,
-  Upload, X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2, Users, ChevronDown, ChevronUp, PlusCircle, Paperclip, GripVertical, Building2, Trash, Share2, Megaphone, BarChart2, Search, Dice5, Facebook, Instagram, Archive, ArchiveRestore, LayoutGrid, List, ImagePlus
+  Upload, X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2, Users, ChevronDown, ChevronUp, PlusCircle, Paperclip, GripVertical, Building2, Trash, Share2, Megaphone, BarChart2, Search, Dice5, Facebook, Instagram, Archive, ArchiveRestore, LayoutGrid, List, ImagePlus, Copy
 } from 'lucide-react'
 
 const VIEW_MODE_STORAGE_KEY = 'evenements_view_mode'
@@ -48,9 +50,10 @@ const getEventType = (title) => {
   return 'permanence'
 }
 
-const buildBilanFbText = (event) => {
+const buildBilanFbText = (event, participantsOverride) => {
   const moment = getEventType(event.title) === 'soiree' ? 'soirée' : 'après-midi'
-  const count = event.participants_count != null ? event.participants_count : 0
+  const raw = participantsOverride !== undefined ? participantsOverride : event.participants_count
+  const count = raw !== null && raw !== undefined && raw !== '' ? raw : 0
   return `🎲 ${event.title} — Retour sur notre dernière édition !
 
 👥 ${count} personnes nous ont rejoints pour cette ${moment}.
@@ -144,6 +147,7 @@ function SocialPostPreview({ text, imageUrl, games }) {
 }
 
 export default function Evenements() {
+  const { addToast } = useToast()
   const [events, setEvents] = useState([])
   const [activeTab, setActiveTab] = useState('events') // 'events' | 'affiche'
   const [loading, setLoading] = useState(true)
@@ -171,7 +175,6 @@ export default function Evenements() {
   const [activeMailTab, setActiveMailTab] = useState('collectivites') // 'collectivites' | 'adherents'
   const [loadingRecipients, setLoadingRecipients] = useState(false)
   const [sendingMail, setSendingMail] = useState(false)
-  const [successModal, setSuccessModal] = useState({ show: false, count: 0 })
   // Modale publication Facebook/Instagram
   const [fbModal, setFbModal] = useState({ show: false, event: null })
   const [fbText, setFbText] = useState('')
@@ -192,6 +195,9 @@ export default function Evenements() {
   const [newCollectivite, setNewCollectivite] = useState({ nom: '', email: '' })
   const [editingCollectivite, setEditingCollectivite] = useState(null)
   const [showTuto, setShowTuto] = useState(false)
+  // Import de description depuis un événement précédent
+  const [showImportDesc, setShowImportDesc] = useState(false)
+  const [importDescSearch, setImportDescSearch] = useState('')
 
   // Modale de bilan d'événement passé
   const [bilanModal, setBilanModal] = useState({ show: false, event: null })
@@ -217,6 +223,7 @@ export default function Evenements() {
   const gameSearchDebounceRef = useRef(null)
   // Publication du bilan sur Facebook & Instagram
   const [bilanFbText, setBilanFbText] = useState('')
+  const [bilanFbTextEdited, setBilanFbTextEdited] = useState(false)
   const [bilanSelectedPhotoUrl, setBilanSelectedPhotoUrl] = useState('')
   const [publishingBilanFb, setPublishingBilanFb] = useState(false)
   const [bilanFbSuccess, setBilanFbSuccess] = useState(false)
@@ -269,16 +276,38 @@ export default function Evenements() {
   const isPastEvent = (event) => new Date(event.date) < new Date()
   const hasBilan = (event) => Number(event.participants_count) > 0 || photoEventIds.has(event.id)
 
+  // Événements passés ou archivés ayant une description à importer — réutilise les listes déjà chargées
+  const importableEvents = useMemo(() => {
+    const now = new Date()
+    const seen = new Set()
+    return [...events, ...archivedEvents]
+      .filter(e => (new Date(e.date) < now || e.archived_at) && e.description && e.description.trim() !== '')
+      .filter(e => { if (seen.has(e.id)) return false; seen.add(e.id); return true })
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+  }, [events, archivedEvents])
+
+  const filteredImportableEvents = importableEvents.filter(e =>
+    !importDescSearch.trim() || e.title.toLowerCase().includes(importDescSearch.trim().toLowerCase())
+  )
+
+  const importDescriptionFrom = (event) => {
+    setNewEvent(prev => ({ ...prev, description: event.description }))
+    setShowImportDesc(false)
+    setImportDescSearch('')
+  }
+
   const archiveEvent = async (eventId) => {
     await supabase.from('events').update({ archived_at: new Date().toISOString() }).eq('id', eventId)
     fetchEvents()
     fetchArchivedEvents()
+    addToast('Événement archivé avec succès.', 'success')
   }
 
   const unarchiveEvent = async (eventId) => {
     await supabase.from('events').update({ archived_at: null }).eq('id', eventId)
     fetchEvents()
     fetchArchivedEvents()
+    addToast('Événement désarchivé avec succès.', 'success')
   }
 
   const startEdit = (event) => {
@@ -326,7 +355,7 @@ export default function Evenements() {
       const { data } = supabase.storage.from('event-images').getPublicUrl(fileName)
       setNewEvent({ ...newEvent, image_url: data.publicUrl })
     } catch (error) {
-      alert("Erreur upload")
+      addToast("Erreur upload", 'error')
     } finally {
       setUploading(false)
     }
@@ -342,7 +371,7 @@ export default function Evenements() {
       setPostUploading(false)
     }
     reader.onerror = () => {
-      alert("Erreur de lecture du fichier")
+      addToast("Erreur de lecture du fichier", 'error')
       setPostUploading(false)
     }
     reader.readAsDataURL(file)
@@ -373,10 +402,11 @@ export default function Evenements() {
     }
     
     if (error) {
-        alert("Erreur d'enregistrement : " + error.message)
+        addToast("Erreur d'enregistrement : " + error.message, 'error')
     } else {
         cancelEdit()
         fetchEvents()
+        addToast(editingId ? 'Événement modifié avec succès.' : 'Événement créé avec succès.', 'success')
     }
   }
 
@@ -538,8 +568,8 @@ L'équipe de la Ludothèque de Coligny
 
   const handleSendMail = async () => {
     const activeRecipients = composeData.recipients.filter(r => r.checked)
-    if (activeRecipients.length === 0) { alert('Aucun destinataire sélectionné.'); return }
-    if (selectedEvents.length === 0) { alert('Aucun événement sélectionné.'); return }
+    if (activeRecipients.length === 0) { addToast('Aucun destinataire sélectionné.', 'warning'); return }
+    if (selectedEvents.length === 0) { addToast('Aucun événement sélectionné.', 'warning'); return }
     setSendingMail(true)
     try {
       const { blocksHtml } = buildBodies(selectedEvents)
@@ -606,10 +636,10 @@ L'équipe de la Ludothèque de Coligny
       fetchEvents()
       setComposeModal({ show: false, event: null })
       setSelectedEvents([])
-      setSuccessModal({ show: true, count: activeRecipients.length })
+      addToast(`Email envoyé avec succès à ${activeRecipients.length} destinataire${activeRecipients.length > 1 ? 's' : ''}.`, 'success')
     } catch (err) {
       console.error('Erreur envoi:', err)
-      alert("Erreur lors de l'envoi. Vérifiez la console.")
+      addToast("Erreur lors de l'envoi. Vérifiez la console.", 'error')
     } finally {
       setSendingMail(false)
     }
@@ -675,9 +705,10 @@ www.ludothequedecoligny.fr`
       console.log('📬 Réponse Make:', res.status, res.ok)
       if (!res.ok) throw new Error('Erreur Make: ' + res.status)
       setFbSuccess(true)
+      addToast('Publication envoyée avec succès.', 'success')
     } catch (err) {
       console.error('❌ Erreur publication Facebook:', err)
-      alert("Erreur lors de la publication. Vérifiez la console.")
+      addToast("Erreur lors de la publication. Vérifiez la console.", 'error')
     } finally {
       setPublishingFb(false)
     }
@@ -712,9 +743,10 @@ www.ludothequedecoligny.fr`
       setPostSuccess(true)
       setPostText('')
       setPostImageUrl('')
+      addToast('Publication envoyée avec succès.', 'success')
     } catch (err) {
       console.error('Erreur publication post:', err)
-      alert("Erreur lors de la publication. Vérifiez la console.")
+      addToast("Erreur lors de la publication. Vérifiez la console.", 'error')
     } finally {
       if (tempBlobUrl) URL.revokeObjectURL(tempBlobUrl)
       setPublishingPost(false)
@@ -745,6 +777,7 @@ www.ludothequedecoligny.fr`
     fetchEvents()
     fetchArchivedEvents()
     fetchPhotoEventIds()
+    addToast('Événement supprimé avec succès.', 'success')
   }
 
   // ─── BILAN D'ÉVÉNEMENT ─────────────────────────────────────────────────────
@@ -766,6 +799,7 @@ www.ludothequedecoligny.fr`
     setGameSearchQuery('')
     setGameSearchResults([])
     setBilanFbText(buildBilanFbText(event))
+    setBilanFbTextEdited(false)
     setBilanSelectedPhotoUrl('')
     setBilanFbSuccess(false)
     setBilanFbError('')
@@ -773,6 +807,15 @@ www.ludothequedecoligny.fr`
     const [photos] = await Promise.all([fetchBilanPhotos(event.id), fetchBilanGames(event.id)])
     setBilanSelectedPhotoUrl(photos.length > 0 ? photos[0].url : '')
   }
+
+  // Regénère le texte de publication quand le nombre de participants change,
+  // sauf si l'utilisateur a déjà modifié le texte manuellement (ne pas écraser sa rédaction).
+  useEffect(() => {
+    if (!bilanFbTextEdited && bilanModal.event) {
+      setBilanFbText(buildBilanFbText(bilanModal.event, bilanParticipants))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bilanParticipants])
 
   const closeBilanModal = () => {
     setBilanModal({ show: false, event: null })
@@ -795,9 +838,10 @@ www.ludothequedecoligny.fr`
       const { error } = await supabase.from('events').update({ participants_count: count }).eq('id', bilanModal.event.id)
       if (error) throw error
       fetchEvents()
+      addToast('Nombre de participants enregistré.', 'success')
     } catch (err) {
       console.error('Erreur sauvegarde participants:', err)
-      alert("Erreur lors de l'enregistrement du nombre de participants.")
+      addToast("Erreur lors de l'enregistrement du nombre de participants.", 'error')
     } finally {
       setSavingParticipants(false)
     }
@@ -815,7 +859,7 @@ www.ludothequedecoligny.fr`
       fetchPhotoEventIds()
     } catch (err) {
       console.error('Erreur suppression photo:', err)
-      alert('Erreur lors de la suppression de la photo.')
+      addToast('Erreur lors de la suppression de la photo.', 'error')
     }
   }
 
@@ -961,7 +1005,7 @@ www.ludothequedecoligny.fr`
       fetchPhotoEventIds()
     } catch (err) {
       console.error('Erreur upload photos bilan:', err)
-      alert("Erreur lors de l'upload des photos.")
+      addToast("Erreur lors de l'upload des photos.", 'error')
     } finally {
       setUploadingBilanPhotos(false)
       cancelPhotoQueue()
@@ -1025,7 +1069,7 @@ www.ludothequedecoligny.fr`
       setGameSearchResults(prev => prev.filter(r => r.id !== result.id))
     } catch (err) {
       console.error('Erreur ajout jeu:', err)
-      alert("Erreur lors de l'ajout du jeu.")
+      addToast("Erreur lors de l'ajout du jeu.", 'error')
     } finally {
       setAddingGameId(null)
     }
@@ -1234,8 +1278,6 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
     }
   ), [fakeEvent]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (loading) return <div className="flex items-center justify-center h-screen bg-[#fdfaf6] text-[#1a5f7a] font-black uppercase text-xs tracking-widest">Chargement...</div>
-
   return (
     <div className="p-4 md:p-10 bg-[#fdfaf6] min-h-screen font-sans text-slate-900">
       
@@ -1396,6 +1438,11 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
               <div data-tutorial="evt-form-description" className="space-y-6 flex flex-col">
                 <h3 className="text-[10px] font-black text-[#e38154] uppercase tracking-widest flex items-center gap-2"><AlignLeft size={16} /> Description</h3>
                 <textarea data-tutorial="evt-form-description" placeholder="Détails..." className="w-full p-6 rounded-[2rem] bg-slate-50 font-medium text-sm outline-none flex-1 min-h-[200px]" value={newEvent.description} onChange={e => setNewEvent({...newEvent, description: e.target.value})} />
+                <button type="button" onClick={() => setShowImportDesc(true)}
+                  className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-[#1a5f7a] transition-colors mt-2">
+                  <Copy size={11} />
+                  Importer depuis un événement précédent
+                </button>
                 <button data-tutorial="evt-form-submit" type="submit" disabled={uploading} className="w-full py-6 mt-6 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl bg-[#1a5f7a] text-white">
                   Enregistrer l'événement
                 </button>
@@ -1417,7 +1464,11 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
           </div>
         </div>
 
-        {viewMode === 'grid' ? (
+        {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
+        </div>
+        ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {events.map((event, idx) => (
             <div key={event.id} {...(idx === 0 ? {"data-tutorial": "evt-list-card1"} : idx === 1 ? {"data-tutorial": "evt-list-card2"} : {})} className={"bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden flex flex-col group hover:shadow-xl transition-all " + (isPastEvent(event) ? "grayscale-[60%] opacity-75 hover:grayscale-[20%] hover:opacity-90" : "")}>
@@ -1811,24 +1862,6 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
         </div>
       )}
 
-      {/* MODALE SUCCÈS */}
-      {successModal.show && (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-[3rem] p-10 max-w-md w-full text-center shadow-2xl">
-            <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle2 size={40} />
-            </div>
-            <h3 className="text-xl font-black uppercase mb-4 text-slate-900">Emails envoyés !</h3>
-            <p className="text-[11px] font-medium text-slate-500 mb-8 leading-relaxed">
-              <strong>{successModal.count} destinataire{successModal.count > 1 ? 's' : ''}</strong> ont reçu votre email avec succès.
-            </p>
-            <button onClick={() => setSuccessModal({ show: false, count: 0 })}
-              className="w-full py-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg">
-              Fermer
-            </button>
-          </div>
-        </div>
-      )}
 
       {deleteModal.show && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60">
@@ -1836,6 +1869,56 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
              <h3 className="text-xl font-black uppercase mb-8">Supprimer l'événement ?</h3>
              <button onClick={confirmDelete} className="w-full py-5 bg-rose-500 text-white rounded-2xl font-black mb-3 uppercase text-[10px]">Confirmer</button>
              <button onClick={() => setDeleteModal({show: false})} className="w-full py-5 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase text-[10px]">Annuler</button>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE IMPORT DESCRIPTION DEPUIS UN ÉVÉNEMENT PRÉCÉDENT */}
+      {showImportDesc && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-lg max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <h3 className="text-base font-black uppercase tracking-tight text-slate-900">Choisir un événement</h3>
+              <button onClick={() => { setShowImportDesc(false); setImportDescSearch('') }} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-all">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 pb-3 shrink-0">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                <input
+                  type="text"
+                  placeholder="Rechercher par titre..."
+                  value={importDescSearch}
+                  onChange={e => setImportDescSearch(e.target.value)}
+                  className="w-full pl-11 pr-4 py-3 bg-slate-50 rounded-2xl font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]/20 transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="overflow-y-auto px-6 pb-6 space-y-2 flex-1">
+              {filteredImportableEvents.length === 0 ? (
+                <p className="text-center text-[10px] text-slate-400 py-8 uppercase font-bold">Aucun événement trouvé</p>
+              ) : (
+                filteredImportableEvents.map(event => (
+                  <button
+                    key={event.id}
+                    type="button"
+                    onClick={() => importDescriptionFrom(event)}
+                    className="w-full text-left p-4 bg-slate-50 hover:bg-[#1a5f7a]/5 rounded-2xl transition-all border border-transparent hover:border-[#1a5f7a]/20"
+                  >
+                    <p className="font-black text-sm text-slate-900 uppercase truncate">{event.title}</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 mb-1.5">
+                      {new Date(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </p>
+                    <p className="text-xs text-slate-500 italic truncate">
+                      {event.description.length > 50 ? event.description.slice(0, 50) + '…' : event.description}
+                    </p>
+                  </button>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -2262,7 +2345,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                   rows={8}
                   className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-blue-400 resize-y"
                   value={bilanFbText}
-                  onChange={e => setBilanFbText(e.target.value)}
+                  onChange={e => { setBilanFbText(e.target.value); setBilanFbTextEdited(true) }}
                 />
 
                 <div className="space-y-2">

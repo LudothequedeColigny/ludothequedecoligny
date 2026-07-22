@@ -8,6 +8,8 @@ import {
 } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
 import { sendEmail } from '../../services/emailService'
+import { useToast } from '../../components/ToastContext'
+import { SkeletonRow } from '../../components/Skeleton'
 
 
 const ADHERENTS_TUTORIAL_STEPS = (openForm, closeForm, openRelance, openRenewal) => [
@@ -131,6 +133,7 @@ const ADHERENTS_TUTORIAL_STEPS = (openForm, closeForm, openRelance, openRenewal)
 
 
 export default function Adherents() {
+  const { addToast } = useToast()
   const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -143,8 +146,6 @@ export default function Adherents() {
   const [composeModal, setComposeModal] = useState({ show: false, member: null })
   const [composeData, setComposeData] = useState({ subject: '', body: '' })
   const [sendingMail, setSendingMail] = useState(false)
-  const [successModal, setSuccessModal] = useState(false)
-  const [successModalMessage, setSuccessModalMessage] = useState('')
   const [showPaymentInfoModal, setShowPaymentInfoModal] = useState(false)
   const [showTuto, setShowTuto] = useState(false)
 
@@ -351,11 +352,10 @@ www.ludothequedecoligny.fr`
 
       fetchMembers()
       setRenewalModal({ show: false, member: null })
-      setSuccessModalMessage(renewalForm.sendEmail && member.email ? 'Adhésion renouvelée et email de confirmation envoyé !' : 'Adhésion renouvelée avec succès !')
-      setSuccessModal(true)
+      addToast(renewalForm.sendEmail && member.email ? 'Adhésion renouvelée et email de confirmation envoyé !' : 'Adhésion renouvelée avec succès !', 'success')
     } catch (err) {
       console.error('Erreur renouvellement:', err)
-      alert("Erreur lors du renouvellement. Vérifiez la console.")
+      addToast("Erreur lors du renouvellement. Vérifiez la console.", 'error')
     } finally {
       setSavingRenewal(false)
     }
@@ -382,7 +382,7 @@ www.ludothequedecoligny.fr`
   }
 
   const handleSendRenewal = async () => {
-    if (!composeModal.member?.email) { alert("Email de l'adhérent introuvable."); return }
+    if (!composeModal.member?.email) { addToast("Email de l'adhérent introuvable.", 'error'); return }
     setSendingMail(true)
     try {
       await sendEmail({ to: composeModal.member.email, subject: composeData.subject, html: buildEmailHtml(composeData.body) })
@@ -390,11 +390,10 @@ www.ludothequedecoligny.fr`
       await supabase.from('members').update({ last_reminder_date: today }).eq('id', composeModal.member.id)
       fetchMembers()
       setComposeModal({ show: false, member: null })
-      setSuccessModalMessage('La relance a été envoyée avec succès à l\'adhérent.')
-      setSuccessModal(true)
+      addToast('Email de relance envoyé avec succès.', 'success')
     } catch (err) {
       console.error('Erreur envoi relance:', err)
-      alert("Erreur lors de l'envoi. Vérifiez la console.")
+      addToast("Erreur lors de l'envoi. Vérifiez la console.", 'error')
     } finally {
       setSendingMail(false)
     }
@@ -438,6 +437,7 @@ www.ludothequedecoligny.fr`
         }
 
         setShowForm(false); setNewMember(initialFormState); fetchMembers(); setEditingId(null)
+        addToast('Adhérent modifié avec succès.', 'success')
       }
     } else {
       // ── CRÉATION ──────────────────────────────────────────────────────────
@@ -482,6 +482,7 @@ www.ludothequedecoligny.fr`
         }
 
         setShowForm(false); setNewMember(initialFormState); fetchMembers(); setEditingId(null)
+        addToast('Adhérent ajouté avec succès.', 'success')
       }
     }
   }
@@ -509,8 +510,6 @@ www.ludothequedecoligny.fr`
       else setRenewalModal({ show: false, member: null })
     }
   ), [fakeExpiredMember]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (loading) return <div className="flex items-center justify-center h-screen bg-[#fdfaf6] text-[#1a5f7a] font-black uppercase text-xs tracking-widest animate-pulse">Chargement...</div>
 
   return (
     <div className="p-4 md:p-10 bg-[#fdfaf6] min-h-screen font-sans text-slate-900">
@@ -639,7 +638,7 @@ www.ludothequedecoligny.fr`
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {filteredMembers.map((m, idx) => {
+                  {loading ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />) : filteredMembers.map((m, idx) => {
                     const status = getExpirationStatus(m);
                     const isCautionActive = (m.type === 'Particulier' && appSettings.active_caution_particulier === "true") || (m.type === 'Association' && appSettings.active_caution_association === "true");
                     return (
@@ -867,6 +866,7 @@ www.ludothequedecoligny.fr`
                 const today = new Date().toISOString().split('T')[0];
                 await supabase.from('members').update({ last_reminder_date: today }).eq('id', renewalAction.id);
                 fetchMembers(); setRenewalAction(null);
+                addToast('Relance marquée comme effectuée.', 'success')
             }} className="w-full mt-4 py-3 bg-amber-50 text-amber-600 rounded-xl font-black uppercase text-[9px] tracking-widest">Marquer comme relancé aujourd'hui</button>
             <button onClick={() => setRenewalAction(null)} className="w-full mt-2 py-3 text-slate-400 font-bold text-[10px] uppercase">Annuler</button>
           </div>
@@ -913,7 +913,7 @@ www.ludothequedecoligny.fr`
              <h3 className="text-xl font-black uppercase text-slate-900 mb-2">Supprimer ?</h3>
              <p className="text-xs text-slate-500 mb-8 italic">"{deleteConfirm.last_name} {deleteConfirm.first_name}"</p>
              <div className="flex flex-col gap-3">
-               <button onClick={async () => { await supabase.from('members').delete().eq('id', deleteConfirm.id); setDeleteConfirm(null); fetchMembers(); }} className="w-full py-5 bg-rose-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg">Confirmer</button>
+               <button onClick={async () => { await supabase.from('members').delete().eq('id', deleteConfirm.id); setDeleteConfirm(null); fetchMembers(); addToast('Adhérent supprimé avec succès.', 'success') }} className="w-full py-5 bg-rose-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg">Confirmer</button>
                <button onClick={() => setDeleteConfirm(null)} className="w-full py-5 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase text-[10px]">Annuler</button>
              </div>
           </div>
@@ -963,20 +963,6 @@ www.ludothequedecoligny.fr`
           <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl">
             <Loader2 className="animate-spin mx-auto text-[#1a5f7a] mb-6" size={40} />
             <h3 className="text-lg font-black uppercase text-slate-900">Envoi en cours...</h3>
-          </div>
-        </div>
-      )}
-
-      {successModal && (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-[3rem] p-10 max-w-md w-full text-center shadow-2xl">
-            <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle2 size={40} />
-            </div>
-            <h3 className="text-xl font-black uppercase mb-4 text-slate-900">Succès !</h3>
-            <p className="text-[11px] font-medium text-slate-500 mb-8">{successModalMessage}</p>
-            <button onClick={() => setSuccessModal(false)}
-              className="w-full py-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg">Fermer</button>
           </div>
         </div>
       )}

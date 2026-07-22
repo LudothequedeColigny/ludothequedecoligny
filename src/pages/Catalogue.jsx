@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabaseClient'
+import { SkeletonCard } from '../components/Skeleton'
 import { 
   X, 
   Users, 
@@ -218,13 +219,6 @@ function Catalogue() {
   unMoisAvant.setMonth(unMoisAvant.getMonth() - 1)
   const isNouveau = (jeu) => jeu.created_at && new Date(jeu.created_at) > unMoisAvant
 
-  if (loading) return (
-    <div className="min-h-screen bg-[#fdfaf6] flex flex-col items-center justify-center gap-4 text-[#1a5f7a] font-black uppercase tracking-widest animate-pulse">
-      <Dice5 size={48} className="animate-bounce" />
-      <p>Chargement...</p>
-    </div>
-  )
-
   return (
     <div className="min-h-screen bg-[#fdfaf6] text-slate-900 font-sans">
       
@@ -350,7 +344,13 @@ function Catalogue() {
         )}
 
         {/* GRILLE */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+        {loading && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
+        )}
+
+        {!loading && <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
           {filteredJeux.map((jeu, index) => {
             // Détecter la transition nouveaux → anciens pour insérer un séparateur
             const prevJeu = filteredJeux[index - 1]
@@ -410,7 +410,7 @@ function Catalogue() {
               </>
             )
           })}
-        </div>
+        </div>}
       </main>
 
       {/* MODALE */}
