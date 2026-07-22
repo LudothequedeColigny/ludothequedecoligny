@@ -202,6 +202,8 @@ export default function Prets() {
   const codeReaderRef = useRef(null)
   const streamRef = useRef(null)
   const intervalRef = useRef(null)
+  const isProcessingRef = useRef(false)
+  const [scanFlash, setScanFlash] = useState(false)
 
   useEffect(() => {
     fetchInitialData()
@@ -217,6 +219,7 @@ export default function Prets() {
   // • iOS Safari + autres → @zxing/browser (compatible)
   useEffect(() => {
     if (!showScanner) return
+    isProcessingRef.current = false
 
     if (isIOS() && !isSafari()) {
       setIosWarning(true)
@@ -245,10 +248,15 @@ export default function Prets() {
             try {
               const barcodes = await detector.detect(videoRef.current)
               if (barcodes.length > 0) {
+                if (isProcessingRef.current) return
+                isProcessingRef.current = true
                 clearInterval(intervalRef.current)
                 const barcode = barcodes[0].rawValue
-                stopCamera()
+                setScanFlash(true)
+                setTimeout(() => setScanFlash(false), 300)
                 await handleSmartScan(barcode)
+                stopCamera()
+                setTimeout(() => { isProcessingRef.current = false }, 2000)
               }
             } catch (e) {
               // Frame vide ou erreur de détection silencieuse
@@ -269,9 +277,14 @@ export default function Prets() {
           videoRef.current,
           async (result, error) => {
             if (result) {
+              if (isProcessingRef.current) return
+              isProcessingRef.current = true
               const barcode = result.getText()
-              stopCamera()
+              setScanFlash(true)
+              setTimeout(() => setScanFlash(false), 300)
               await handleSmartScan(barcode)
+              stopCamera()
+              setTimeout(() => { isProcessingRef.current = false }, 2000)
             }
             // NotFoundException n'est plus exportée dans les versions récentes de @zxing/browser
             // On filtre les erreurs "pas de résultat" via le nom de l'erreur
@@ -411,6 +424,7 @@ export default function Prets() {
     const { data: game } = await supabase.from('games').select('*').eq('barcode', barcode).single()
 
     if (!game) {
+      addToast('Jeu non trouvé dans le catalogue', 'error')
       stopScanner()
       return
     }
@@ -829,7 +843,7 @@ www.ludothequedecoligny.fr`
 
             <video
               ref={videoRef}
-              className="w-full rounded-2xl overflow-hidden shadow-inner bg-slate-900 mb-6"
+              className={`w-full rounded-2xl overflow-hidden shadow-inner bg-slate-900 mb-6 transition-all ${scanFlash ? 'border-4 border-emerald-400' : 'border-4 border-transparent'}`}
               autoPlay
               muted
               playsInline

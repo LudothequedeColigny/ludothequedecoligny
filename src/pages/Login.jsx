@@ -1,17 +1,19 @@
 import { useState } from 'react'
 import { supabase } from '../services/supabaseClient'
 import { useNavigate } from 'react-router-dom'
-import { Dice5, Lock, Mail, ArrowLeft, Loader2, ShieldCheck } from 'lucide-react'
+import { Dice5, Lock, Mail, ArrowLeft, Loader2, ShieldCheck, AlertTriangle } from 'lucide-react'
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
   const navigate = useNavigate()
 
   const handleLogin = async (e) => {
     e.preventDefault()
     setLoading(true)
+    setErrorMsg('')
 
     const { error } = await supabase.auth.signInWithPassword({
       email: email,
@@ -19,9 +21,9 @@ export default function Login() {
     })
 
     if (error) {
-      alert("Erreur de connexion : " + error.message)
+      setErrorMsg("Email ou mot de passe incorrect. Veuillez réessayer.")
     } else {
-      navigate('/admin') 
+      navigate('/admin')
     }
     setLoading(false)
   }
@@ -93,6 +95,14 @@ export default function Login() {
                 />
               </div>
             </div>
+
+            {/* Message d'erreur */}
+            {errorMsg && (
+              <div className="flex items-center gap-3 bg-rose-50 border border-rose-100 rounded-2xl p-4 text-rose-600 text-xs font-bold">
+                <AlertTriangle size={18} className="shrink-0" />
+                {errorMsg}
+              </div>
+            )}
 
             {/* Bouton Submit */}
             <button 
