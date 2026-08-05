@@ -260,7 +260,7 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
         date: selectedDate,
         end_time: selectedEndTime,
         title: config?.label || '',
-        location: selectedType === 'soirees' ? selectedLocation : '',
+        location: config?.layout === 'soirees' ? selectedLocation : '',
         image_url: dataUrl,
       })
     } catch (e) {
@@ -269,7 +269,7 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
         date: selectedDate,
         end_time: selectedEndTime,
         title: config?.label || '',
-        location: selectedType === 'soirees' ? selectedLocation : '',
+        location: config?.layout === 'soirees' ? selectedLocation : '',
         image_url: '',
       })
     } finally {
