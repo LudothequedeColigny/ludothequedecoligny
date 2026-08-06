@@ -309,10 +309,13 @@ export default function VieAssociation() {
                       <div className={`w-0.5 flex-1 ${isLast ? 'bg-transparent' : 'bg-slate-200'}`}></div>
                     </div>
 
-                    {/* Carte événement — la photo de couverture est toujours rognée en carré (self-start empêche le stretch flex de l'étirer) */}
+                    {/* Carte événement — hauteur de base réduite pour approcher un cadrage carré (largeur = hauteur de la photo de couverture),
+                        mais la carte grandit librement quand l'accordéon photos/jeux est ouvert : pas de hauteur fixe ni d'overflow-hidden
+                        qui bloquerait l'agrandissement. La photo de couverture (stretch flex, largeur fixe) suit toujours la hauteur réelle
+                        de la carte, quitte à rogner davantage l'image quand la carte s'agrandit. */}
                     <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden mb-8 md:mb-10">
                       <div className="flex flex-col sm:flex-row">
-                        <div className="w-full aspect-square sm:w-56 sm:self-start shrink-0 bg-slate-50 overflow-hidden">
+                        <div className="w-full h-40 sm:w-56 sm:h-auto shrink-0 bg-slate-50 overflow-hidden">
                           {coverPhoto ? (
                             <img src={coverPhoto} alt="" className="w-full h-full object-cover" />
                           ) : (
@@ -321,7 +324,7 @@ export default function VieAssociation() {
                             </div>
                           )}
                         </div>
-                        <div className="flex-1 p-4 md:p-5 min-w-0">
+                        <div className="flex-1 sm:min-h-56 p-4 md:p-5 min-w-0">
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div>
                               <span
@@ -357,7 +360,7 @@ export default function VieAssociation() {
                                         <button
                                           key={photo.id}
                                           onClick={() => setLightboxPhoto(photo.url)}
-                                          className="w-full max-w-[120px] sm:max-w-none aspect-square shrink-0 rounded-2xl overflow-hidden bg-white shadow-md p-1 group"
+                                          className="w-full max-w-[84px] aspect-square shrink-0 rounded-2xl overflow-hidden bg-white shadow-md p-1 group"
                                           style={{ transform: `rotate(${rotation}deg)` }}
                                         >
                                           <div className="w-full h-full rounded-xl overflow-hidden">
@@ -376,7 +379,7 @@ export default function VieAssociation() {
                                             <button
                                               key={photo.id}
                                               onClick={() => setLightboxPhoto(photo.url)}
-                                              className="w-full max-w-[120px] sm:max-w-none aspect-square shrink-0 rounded-2xl overflow-hidden bg-white shadow-md p-1 group"
+                                              className="w-full max-w-[84px] aspect-square shrink-0 rounded-2xl overflow-hidden bg-white shadow-md p-1 group"
                                               style={{ transform: `rotate(${rotation}deg)` }}
                                             >
                                               <div className="w-full h-full rounded-xl overflow-hidden">
@@ -391,7 +394,7 @@ export default function VieAssociation() {
                                   {evPhotos.length > 3 && (
                                     <button
                                       onClick={() => toggleSection(event.id, 'photos')}
-                                      className="w-full flex flex-col items-center gap-0.5 mt-auto pt-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-[#1a5f7a] transition-colors"
+                                      className="w-full flex flex-row items-center justify-center gap-1 mt-auto pt-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-[#1a5f7a] transition-colors"
                                     >
                                       <span>{photosExpanded ? 'Réduire' : `Voir toutes les photos (${evPhotos.length})`}</span>
                                       {photosExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -413,7 +416,7 @@ export default function VieAssociation() {
                                         <Wrapper
                                           key={game.id}
                                           {...wrapperProps}
-                                          className="w-full max-w-[120px] sm:max-w-none shrink-0 flex flex-col items-center text-center"
+                                          className="w-full max-w-[84px] shrink-0 flex flex-col items-center text-center"
                                         >
                                           <div className="w-full aspect-square shrink-0 rounded-2xl overflow-hidden bg-white shadow-md p-1">
                                             <div className="w-full h-full rounded-xl overflow-hidden bg-slate-50 flex items-center justify-center">
@@ -446,9 +449,9 @@ export default function VieAssociation() {
                                             <Wrapper
                                               key={game.id}
                                               {...wrapperProps}
-                                              className="w-20 sm:w-24 shrink-0 flex flex-col items-center text-center"
+                                              className="w-full max-w-[84px] shrink-0 flex flex-col items-center text-center"
                                             >
-                                              <div className="w-20 h-20 sm:w-24 sm:h-24 shrink-0 rounded-2xl overflow-hidden bg-white shadow-md p-1">
+                                              <div className="w-full aspect-square shrink-0 rounded-2xl overflow-hidden bg-white shadow-md p-1">
                                                 <div className="w-full h-full rounded-xl overflow-hidden bg-slate-50 flex items-center justify-center">
                                                   {game.image_url ? (
                                                     <img src={game.image_url} alt={game.name} className="w-full h-full object-contain" />
@@ -472,7 +475,7 @@ export default function VieAssociation() {
                                   {evGames.length > 3 && (
                                     <button
                                       onClick={() => toggleSection(event.id, 'games')}
-                                      className="w-full flex flex-col items-center gap-0.5 mt-auto pt-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-[#1a5f7a] transition-colors"
+                                      className="w-full flex flex-row items-center justify-center gap-1 mt-auto pt-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-[#1a5f7a] transition-colors"
                                     >
                                       <span>{gamesExpanded ? 'Réduire' : `Voir tous les jeux (${evGames.length})`}</span>
                                       {gamesExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
