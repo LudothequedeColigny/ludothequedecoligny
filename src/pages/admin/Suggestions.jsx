@@ -549,7 +549,7 @@ export default function Suggestions() {
       <div className="mx-auto max-w-[860px]">
 
         <div data-tutorial="sugg-header">
-          <AdminPageHeader icon="03.svg" title="Vos" accent="Suggestions">
+          <AdminPageHeader icon="ludo-suggestions.svg" title="Vos" accent="Suggestions">
             <div className="flex w-full flex-wrap gap-2.5 md:w-auto">
               {jeuxACheterCount > 0 && (
                 <button

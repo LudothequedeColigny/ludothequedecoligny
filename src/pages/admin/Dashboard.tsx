@@ -273,7 +273,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-[#fdfaf6] p-5 font-body md:p-11">
       <div className="mx-auto max-w-[1240px]">
 
-        <AdminPageHeader icon="01.svg" title="Tableau de" accent="Bord" eyebrow="Administration">
+        <AdminPageHeader icon="ludo-dashboard.svg" iconSize={38} title="Tableau de" accent="Bord" eyebrow="Administration">
           <button
             onClick={handleLogout}
             className="rounded-[18px] border-2 border-[#0f172a] bg-white px-5 py-4 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#f43f5e] shadow-[4px_4px_0_#f43f5e] transition-[transform,box-shadow] duration-200 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#f43f5e]"

@@ -692,7 +692,7 @@ www.ludothequedecoligny.fr`
 
       {/* HEADER */}
       <div className="mx-auto max-w-7xl" data-tutorial="prets-header">
-        <AdminPageHeader icon="03.svg" title="Gestion des" accent="Prêts" eyebrow="Sorties et retours">
+        <AdminPageHeader icon="ludo-pret.svg" title="Gestion des" accent="Prêts" eyebrow="Sorties et retours">
           <div className="flex flex-wrap gap-2.5">
             <button
               data-tutorial="prets-scanner-btn"

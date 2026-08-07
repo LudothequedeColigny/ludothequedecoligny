@@ -288,7 +288,7 @@ const FINANCIER_TUTORIAL_STEPS = (openForm, closeForm) => [
       <div className="mx-auto max-w-[1080px]">
 
       <div data-tutorial="fin-header">
-        <AdminPageHeader icon="04.svg" title="Suivi" accent="Financier" eyebrow="Trésorerie">
+        <AdminPageHeader icon="ludo-finance.svg" title="Suivi" accent="Financier" eyebrow="Trésorerie">
           <button data-tutorial="fin-add-btn" onClick={() => openCreate()} className={`${BTN_TEAL} w-full md:w-auto`}>
             <Plus size={16} /> Nouvelle opération
           </button>

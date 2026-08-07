@@ -90,6 +90,28 @@ Polices : **Bricolage Grotesque** pour les titres (classe `font-display`),
 Les couleurs s'écrivent directement dans les classes (`bg-[#1a5f7a]`), comme partout
 ailleurs dans le projet.
 
+### Les icônes dessinées
+
+`public/icons/ludo-*.svg` sont les icônes dessinées à la main pour la ludothèque.
+Elles servent dans la barre latérale de l'espace de gestion et dans la pastille
+d'en-tête de chaque écran, via la brique `MaskIcon` qui les recolore.
+
+| Fichier | Écran |
+|---|---|
+| `ludo-dashboard.svg` | Tableau de bord |
+| `ludo-collection.svg` | Jeux |
+| `ludo-adherents.svg` | Adhérents |
+| `ludo-communication.svg` | Communication |
+| `ludo-benevoles.svg` | Permanences |
+| `ludo-finance.svg` | Suivi financier |
+| `ludo-parametres.svg` | Paramètres |
+| `ludo-suggestions.svg` | Suggestions |
+| `ludo-pret.svg` | Prêts et historique des prêts |
+| `ludo-notifications.svg` | bouton des notifications |
+
+Les fichiers `01.svg` à `07.svg` restent utilisés pour les petites vignettes de
+compteurs ; ce sont les icônes génériques d'origine.
+
 ---
 
 ## 4. Briques déjà écrites — à réutiliser, pas à réécrire

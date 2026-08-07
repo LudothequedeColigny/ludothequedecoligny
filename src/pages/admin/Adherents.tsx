@@ -532,7 +532,7 @@ www.ludothequedecoligny.fr`
 
       <div data-tutorial="adherents-header">
         <AdminPageHeader
-          icon="04.svg" title="Gestion des" accent="adhérents"
+          icon="ludo-adherents.svg" title="Gestion des" accent="adhérents"
           tileBg="#e38154" tileShadow="#1a5f7a" accentColor="#e38154"
         >
           <button

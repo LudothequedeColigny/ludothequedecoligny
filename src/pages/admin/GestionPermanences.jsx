@@ -242,7 +242,7 @@ const PERMANENCES_TUTORIAL_STEPS = (openFormFn, closeFormFn, openLinkFn) => [
       <div className="mx-auto max-w-[1240px]">
 
       <div data-tutorial="perm-header">
-        <AdminPageHeader icon="05.svg" title="Gestion des" accent="permanences">
+        <AdminPageHeader icon="ludo-benevoles.svg" title="Gestion des" accent="permanences">
           <div className="flex w-full flex-wrap gap-2.5 md:w-auto">
             <button data-tutorial="perm-link-btn" onClick={() => setShowLinkModal(true)} className={`${BTN_OUTLINE} flex-1 md:flex-none`}>
               <LinkIcon size={15} /> Lien public

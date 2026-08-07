@@ -1,22 +1,19 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import {
-  LayoutDashboard, Dices, Users, Megaphone, LogOut,
-  X, Menu, Share2, ClipboardCheck,
-  Settings, Lightbulb, TrendingUp, Bell, BellOff
-} from 'lucide-react';
+import { LogOut, X, Menu } from 'lucide-react';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import ConfirmModal from './admin/ConfirmModal';
+import MaskIcon from './site/MaskIcon';
 
 const MENU = [
-  { path: '/admin', icon: LayoutDashboard, label: 'Tableau de bord' },
-  { path: '/admin/jeux', icon: Dices, label: 'Jeux' },
-  { path: '/admin/adherents', icon: Users, label: 'Adhérents' },
-  { path: '/admin/evenements', icon: Megaphone, label: 'Communication' },
-  { path: '/admin/permanences', icon: ClipboardCheck, label: 'Permanences' },
-  { path: '/admin/suivi-financier', icon: TrendingUp, label: 'Suivi financier' },
-  { path: '/admin/parametres', icon: Settings, label: 'Paramètres' },
-  { path: '/admin/suggestions', icon: Lightbulb, label: 'Suggestions' },
+  { path: '/admin', icon: 'ludo-dashboard.svg', label: 'Tableau de bord' },
+  { path: '/admin/jeux', icon: 'ludo-collection.svg', label: 'Jeux' },
+  { path: '/admin/adherents', icon: 'ludo-adherents.svg', label: 'Adhérents' },
+  { path: '/admin/evenements', icon: 'ludo-communication.svg', label: 'Communication' },
+  { path: '/admin/permanences', icon: 'ludo-benevoles.svg', label: 'Permanences' },
+  { path: '/admin/suivi-financier', icon: 'ludo-finance.svg', label: 'Suivi financier' },
+  { path: '/admin/parametres', icon: 'ludo-parametres.svg', label: 'Paramètres' },
+  { path: '/admin/suggestions', icon: 'ludo-suggestions.svg', label: 'Suggestions' },
 ];
 
 const PAGE_LABELS = {
@@ -81,7 +78,7 @@ export default function AdminLayout({ children }) {
             isPretActive ? 'bg-[#1a5f7a] text-white shadow-[4px_4px_0_#0f172a]' : 'bg-white shadow-[4px_4px_0_#1a5f7a]'
           }`}
         >
-          <Share2 size={28} className={`shrink-0 ${isPretActive ? 'text-white' : 'text-[#1a5f7a]'}`} />
+          <MaskIcon file="ludo-pret.svg" size={34} color={isPretActive ? '#ffffff' : '#1a5f7a'} className="shrink-0" />
           <span className="flex min-w-0 flex-col gap-1.5">
             <span className="font-display text-[17px] font-extrabold uppercase leading-none tracking-[0.04em]">
               Prêts
@@ -97,7 +94,7 @@ export default function AdminLayout({ children }) {
         </div>
 
         <nav className="flex flex-col gap-1">
-          {MENU.map(({ path, icon: Icon, label }) => {
+          {MENU.map(({ path, icon, label }) => {
             const active = location.pathname === path;
             return (
               <Link
@@ -109,7 +106,7 @@ export default function AdminLayout({ children }) {
                   active ? 'bg-[#f0f7f9]' : 'hover:bg-slate-50'
                 }`}
               >
-                <Icon size={20} className={`shrink-0 ${active ? 'text-[#1a5f7a]' : 'text-slate-400'}`} />
+                <MaskIcon file={icon} size={24} color="#1a5f7a" className="shrink-0" />
                 <span className={`text-[10.5px] uppercase tracking-[0.14em] ${
                   active ? 'font-extrabold text-[#1a5f7a]' : 'font-bold text-slate-500'
                 }`}>
@@ -126,7 +123,7 @@ export default function AdminLayout({ children }) {
               onClick={isSubscribed ? unsubscribe : subscribe}
               className="flex w-full items-center gap-3 rounded-[16px] px-3.5 py-3 text-left text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-slate-400 transition-colors hover:bg-slate-50 hover:text-[#1a5f7a]"
             >
-              {isSubscribed ? <BellOff size={16} className="shrink-0" /> : <Bell size={16} className="shrink-0" />}
+              <MaskIcon file="ludo-notifications.svg" size={18} color="currentColor" className="shrink-0" />
               {isSubscribed ? 'Désactiver les notifications' : 'Activer les notifications'}
             </button>
           )}

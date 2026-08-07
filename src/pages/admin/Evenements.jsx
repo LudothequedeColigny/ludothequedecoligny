@@ -1343,7 +1343,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
       <div className="mx-auto max-w-[1240px]">
 
       <div data-tutorial="evt-header">
-        <AdminPageHeader icon="06.svg" title="Gestion de la" accent="Communication">
+        <AdminPageHeader icon="ludo-communication.svg" title="Gestion de la" accent="Communication">
           {activeTab === 'events' && (
             <button
               data-tutorial="evt-add-btn"

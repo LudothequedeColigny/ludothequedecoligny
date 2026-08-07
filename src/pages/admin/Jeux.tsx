@@ -640,7 +640,7 @@ export default function Jeux() {
 
       {/* HEADER */}
       <div data-tutorial="jeux-header">
-        <AdminPageHeader icon="02.svg" title="Gestion des" accent="Jeux">
+        <AdminPageHeader icon="ludo-collection.svg" title="Gestion des" accent="Jeux">
           <div className="flex w-full flex-wrap gap-2.5 md:w-auto">
             <button
               data-tutorial="jeux-add-btn"

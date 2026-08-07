@@ -527,7 +527,7 @@ export default function Parametres() {
     <div className="min-h-screen bg-[#fdfaf6] p-5 font-body text-[#0f172a] md:p-11">
       <div className="mx-auto max-w-[1080px]">
 
-      <AdminPageHeader icon="07.svg" title="Paramètres" accent="Système" />
+      <AdminPageHeader icon="ludo-parametres.svg" title="Paramètres" accent="Système" />
 
       {/* GRILLE PRINCIPALE */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

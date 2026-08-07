@@ -52,7 +52,7 @@ export default function HistoriquePrets() {
       
       <div className="mx-auto max-w-7xl">
         <AdminPageHeader
-          icon="03.svg"
+          icon="ludo-pret.svg"
           title="Historique des"
           accent="Prêts"
           eyebrow="Prêts déjà rendus"
