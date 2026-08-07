@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import { supabase } from '../../services/supabaseClient'
 import { useToast } from '../../components/ToastContext'
+import AdminPageHeader from '../../components/admin/AdminPageHeader'
+import IconButton from '../../components/admin/IconButton'
+import ConfirmModal from '../../components/admin/ConfirmModal'
+import FormModal, { FieldLabel, FIELD } from '../../components/admin/FormModal'
+import { BTN_TEAL, BTN_ORANGE } from '../../components/admin/buttons'
 import { useRef, useState as useStateRef } from 'react'
 import { 
   Settings, UserPlus, Save, Loader2, UserCheck, Ban, Euro, 
@@ -512,107 +517,77 @@ export default function Parametres() {
   }
 
   const HelpBox = ({ text, color = "blue" }) => (
-    <div className={`flex gap-3 p-4 rounded-[1.5rem] text-[10px] font-bold leading-tight ${color === "blue" ? 'bg-blue-50 text-blue-700' : 'bg-orange-50 text-orange-700'}`}>
+    <div className={`flex gap-3 rounded-[18px] border-2 p-4 text-[10px] font-bold leading-tight ${color === "blue" ? 'border-[#3b82f6] bg-[#eff6ff] text-[#1e40af]' : 'border-[#e38154] bg-[#fdf1ea] text-[#b45309]'}`}>
       <span className="shrink-0"><Info size={16} /></span>
       <p className="uppercase tracking-tight">{text}</p>
     </div>
   )
 
   return (
-    <div className="p-4 md:p-10 max-w-5xl mx-auto font-sans pb-20 md:pb-10">
-      {/* HEADER */}
-      <div className="max-w-7xl mx-auto mb-8 md:mb-10 text-center md:text-left">
-        <h1 className="text-2xl md:text-4xl font-black text-slate-900 flex flex-col md:flex-row items-center gap-3">
-          <div className="p-2.5 bg-[#1a5f7a] rounded-xl shadow-lg text-white mb-2 md:mb-0"><Settings size={24} /></div>
-          <span>Paramètres <span className="text-[#1a5f7a]">Système</span></span>
-        </h1>
-      </div>
+    <div className="min-h-screen bg-[#fdfaf6] p-5 font-body text-[#0f172a] md:p-11">
+      <div className="mx-auto max-w-[1080px]">
+
+      <AdminPageHeader icon="07.svg" title="Paramètres" accent="Système" />
 
       {/* GRILLE PRINCIPALE */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        <button onClick={() => setShowFinanceModal(true)} className="group relative p-6 md:p-8 bg-white border border-slate-50 rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/40 hover:translate-y-[-4px] transition-all text-left overflow-hidden">
-          <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-[#e38154] mb-6 group-hover:bg-[#e38154] group-hover:text-white transition-all"><CreditCard size={24} /></div>
-          <h3 className="font-black text-lg text-slate-900 mb-1 uppercase tracking-tighter">Finances</h3>
-          <p className="text-slate-400 font-bold text-[11px] mb-6 uppercase tracking-tight">Tarifs & Cautions</p>
-          <div className="flex items-center gap-2 text-[#e38154] font-black text-[10px] uppercase tracking-widest">Configurer <ChevronRight size={14} /></div>
-        </button>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {[
+          { onClick: () => setShowFinanceModal(true),   icon: <CreditCard size={21} />, color: '#e38154', tint: '#fdf1ea', title: 'Finances',  desc: 'Tarifs & cautions',            cta: 'Configurer' },
+          { onClick: () => setShowPaymentModal(true),   icon: <Wallet size={21} />,     color: '#10b981', tint: '#ecfdf5', title: 'Paiements', desc: 'Modes acceptés & RIB',         cta: 'Paramétrer' },
+          { onClick: () => setShowQuotaModal(true),     icon: <Hash size={21} />,       color: '#059669', tint: '#ecfdf5', title: 'Limites',   desc: "Quotas d'emprunt",             cta: 'Définir' },
+          { onClick: () => setShowContactModal(true),   icon: <User size={21} />,       color: '#3b82f6', tint: '#eff6ff', title: 'Contact',   desc: 'Référent public',              cta: 'Modifier' },
+          { onClick: () => setShowVolunteerModal(true), icon: <Users size={21} />,      color: '#1a5f7a', tint: '#f0f7f9', title: 'Équipe',    desc: 'Gestion des accès',            cta: 'Gérer' },
+          { onClick: () => setShowHorairesModal(true),  icon: <Clock size={21} />,      color: '#f59e0b', tint: '#fffbeb', title: 'Horaires',  desc: "Jours & heures d'ouverture",   cta: 'Modifier' },
+          { onClick: () => setShowAdresseModal(true),   icon: <MapPin size={21} />,     color: '#f43f5e', tint: '#fff1f2', title: 'Adresse',   desc: 'Localisation de la ludothèque', cta: 'Modifier' },
+          { onClick: openAffichesModal,                 icon: <Image size={21} />,      color: '#a855f7', tint: '#faf5ff', title: 'Affiches',  desc: 'Modèles du générateur',        cta: 'Gérer' },
+        ].map(card => (
+          <button
+            key={card.title}
+            onClick={card.onClick}
+            className="rounded-[34px] border-2 border-[#0f172a] bg-white p-6 text-left transition-[transform,box-shadow] duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a] md:p-7"
+            style={{ boxShadow: `5px 5px 0 ${card.color}` }}
+          >
+            <div
+              className="mb-5 flex h-12 w-12 items-center justify-center rounded-[16px] border-2 border-[#0f172a]"
+              style={{ background: card.tint, color: card.color }}
+            >
+              {card.icon}
+            </div>
+            <div className="font-display text-[19px] font-extrabold uppercase tracking-[-0.035em]">{card.title}</div>
+            <div className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.05em] text-slate-400">{card.desc}</div>
+            <div className="mt-6 flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.16em]" style={{ color: card.color }}>
+              {card.cta} <ChevronRight size={14} />
+            </div>
+          </button>
+        ))}
 
-        {/* NOUVEAU BOUTON MOYENS DE PAIEMENT */}
-        <button onClick={() => setShowPaymentModal(true)} className="group relative p-6 md:p-8 bg-white border border-slate-50 rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/40 hover:translate-y-[-4px] transition-all text-left overflow-hidden">
-          <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 mb-6 group-hover:bg-emerald-600 group-hover:text-white transition-all"><Wallet size={24} /></div>
-          <h3 className="font-black text-lg text-slate-900 mb-1 uppercase tracking-tighter">Paiements</h3>
-          <p className="text-slate-400 font-bold text-[11px] mb-6 uppercase tracking-tight">Modes acceptés & RIB</p>
-          <div className="flex items-center gap-2 text-emerald-600 font-black text-[10px] uppercase tracking-widest">Paramétrer <ChevronRight size={14} /></div>
-        </button>
-
-        <button onClick={() => setShowQuotaModal(true)} className="group relative p-6 md:p-8 bg-white border border-slate-50 rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/40 hover:translate-y-[-4px] transition-all text-left overflow-hidden">
-          <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-500 mb-6 group-hover:bg-emerald-500 group-hover:text-white transition-all"><Hash size={24} /></div>
-          <h3 className="font-black text-lg text-slate-900 mb-1 uppercase tracking-tighter">Limites</h3>
-          <p className="text-slate-400 font-bold text-[11px] mb-6 uppercase tracking-tight">Quotas d'emprunt</p>
-          <div className="flex items-center gap-2 text-emerald-500 font-black text-[10px] uppercase tracking-widest">Définir <ChevronRight size={14} /></div>
-        </button>
-
-        <button onClick={() => setShowContactModal(true)} className="group relative p-6 md:p-8 bg-white border border-slate-50 rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/40 hover:translate-y-[-4px] transition-all text-left overflow-hidden">
-          <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-500 mb-6 group-hover:bg-blue-500 group-hover:text-white transition-all"><User size={24} /></div>
-          <h3 className="font-black text-lg text-slate-900 mb-1 uppercase tracking-tighter">Contact</h3>
-          <p className="text-slate-400 font-bold text-[11px] mb-6 uppercase tracking-tight">Référent Public</p>
-          <div className="flex items-center gap-2 text-blue-500 font-black text-[10px] uppercase tracking-widest">Modifier <ChevronRight size={14} /></div>
-        </button>
-
-        <button onClick={() => setShowVolunteerModal(true)} className="group relative p-6 md:p-8 bg-white border border-slate-50 rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/40 hover:translate-y-[-4px] transition-all text-left overflow-hidden">
-          <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-[#1a5f7a] mb-6 group-hover:bg-[#1a5f7a] group-hover:text-white transition-all"><Users size={24} /></div>
-          <h3 className="font-black text-lg text-slate-900 mb-1 uppercase tracking-tighter">Équipe</h3>
-          <p className="text-slate-400 font-bold text-[11px] mb-6 uppercase tracking-tight">Gestion des accès</p>
-          <div className="flex items-center gap-2 text-[#1a5f7a] font-black text-[10px] uppercase tracking-widest">Gérer <ChevronRight size={14} /></div>
-        </button>
-
-        <button onClick={() => setShowHorairesModal(true)} className="group relative p-6 md:p-8 bg-white border border-slate-50 rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/40 hover:translate-y-[-4px] transition-all text-left overflow-hidden">
-          <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500 mb-6 group-hover:bg-amber-500 group-hover:text-white transition-all"><Clock size={24} /></div>
-          <h3 className="font-black text-lg text-slate-900 mb-1 uppercase tracking-tighter">Horaires</h3>
-          <p className="text-slate-400 font-bold text-[11px] mb-6 uppercase tracking-tight">Jours & Heures d'ouverture</p>
-          <div className="flex items-center gap-2 text-amber-500 font-black text-[10px] uppercase tracking-widest">Modifier <ChevronRight size={14} /></div>
-        </button>
-
-        <button onClick={() => setShowAdresseModal(true)} className="group relative p-6 md:p-8 bg-white border border-slate-50 rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/40 hover:translate-y-[-4px] transition-all text-left overflow-hidden">
-          <div className="w-12 h-12 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 mb-6 group-hover:bg-rose-500 group-hover:text-white transition-all"><MapPin size={24} /></div>
-          <h3 className="font-black text-lg text-slate-900 mb-1 uppercase tracking-tighter">Adresse</h3>
-          <p className="text-slate-400 font-bold text-[11px] mb-6 uppercase tracking-tight">Localisation de la ludothèque</p>
-          <div className="flex items-center gap-2 text-rose-500 font-black text-[10px] uppercase tracking-widest">Modifier <ChevronRight size={14} /></div>
-        </button>
-
-        <button onClick={openAffichesModal} className="group relative p-6 md:p-8 bg-white border border-slate-50 rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/40 hover:translate-y-[-4px] transition-all text-left overflow-hidden">
-          <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-500 mb-6 group-hover:bg-purple-500 group-hover:text-white transition-all"><Image size={24} /></div>
-          <h3 className="font-black text-lg text-slate-900 mb-1 uppercase tracking-tighter">Affiches</h3>
-          <p className="text-slate-400 font-bold text-[11px] mb-6 uppercase tracking-tight">Modèles du générateur</p>
-          <div className="flex items-center gap-2 text-purple-500 font-black text-[10px] uppercase tracking-widest">Gérer <ChevronRight size={14} /></div>
-        </button>
-
-        {/* BOUTON EXPORT EXCEL */}
+        {/* SAUVEGARDE — carte à part : elle affiche une progression pendant l'export */}
         <button
           onClick={() => setShowExportModal(true)}
           disabled={exportLoading}
-          className="group relative p-6 md:p-8 bg-white border border-slate-50 rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/40 hover:translate-y-[-4px] transition-all text-left overflow-hidden disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+          className="rounded-[34px] border-2 border-[#0f172a] bg-white p-6 text-left shadow-[5px_5px_0_#0d9488] transition-[transform,box-shadow] duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a] disabled:pointer-events-none disabled:opacity-60 md:p-7"
         >
-          <div className="w-12 h-12 bg-teal-50 rounded-2xl flex items-center justify-center text-teal-600 mb-6 group-hover:bg-teal-600 group-hover:text-white transition-all">
-            {exportLoading ? <Loader2 size={24} className="animate-spin" /> : <Download size={24} />}
+          <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#f0fdfa] text-[#0d9488]">
+            {exportLoading ? <Loader2 size={21} className="animate-spin" /> : <Download size={21} />}
           </div>
-          <h3 className="font-black text-lg text-slate-900 mb-1 uppercase tracking-tighter">Sauvegarde</h3>
-          <p className="text-slate-400 font-bold text-[11px] mb-6 uppercase tracking-tight">Export Excel complet</p>
+          <div className="font-display text-[19px] font-extrabold uppercase tracking-[-0.035em]">Sauvegarde</div>
+          <div className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.05em] text-slate-400">Export Excel complet</div>
+
           {exportLoading && exportProgress.total > 0 ? (
-            <div className="space-y-2">
-              <div className="w-full bg-slate-100 rounded-full h-1.5">
+            <div className="mt-6 space-y-2">
+              <div className="h-2.5 w-full overflow-hidden rounded-full border-2 border-[#0f172a] bg-slate-100">
                 <div
-                  className="bg-teal-500 h-1.5 rounded-full transition-all duration-300"
+                  className="h-full bg-[#0d9488] transition-all duration-300"
                   style={{ width: `${(exportProgress.current / exportProgress.total) * 100}%` }}
                 />
               </div>
-              <p className="text-teal-600 font-black text-[9px] uppercase tracking-widest truncate">
+              <p className="truncate text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#0d9488]">
                 {exportProgress.label}… ({exportProgress.current}/{exportProgress.total})
               </p>
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-teal-600 font-black text-[10px] uppercase tracking-widest">
-              Choisir & Exporter <ChevronRight size={14} />
+            <div className="mt-6 flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#0d9488]">
+              Choisir &amp; exporter <ChevronRight size={14} />
             </div>
           )}
         </button>
@@ -620,17 +595,17 @@ export default function Parametres() {
 
       {/* MODALE EXPORT EXCEL */}
       {showExportModal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-20 md:pt-4 md:items-center bg-[#1a5f7a]/60 backdrop-blur-md">
-          <div className="bg-white w-full max-w-md rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 max-h-[85vh]">
-            <div className="p-8 border-b border-slate-50 flex justify-between items-center sticky top-0 bg-white z-10">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 backdrop-blur-[6px] sm:p-[22px]" style={{ background: 'rgba(15,23,42,.7)' }}>
+          <div className="anim-modal-in flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a]">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-teal-600 text-white rounded-2xl"><Download size={20}/></div>
+                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] text-white bg-teal-600"><Download size={20}/></div>
                 <div>
-                  <h3 className="font-black text-xl text-slate-900 uppercase tracking-tighter">Export Excel</h3>
+                  <h3 className="font-display text-[21px] font-extrabold uppercase tracking-[-0.04em]">Export Excel</h3>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Sélectionnez les données à exporter</p>
                 </div>
               </div>
-              <button onClick={() => setShowExportModal(false)} className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400"><X size={24} /></button>
+              <button onClick={() => setShowExportModal(false)} className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"><X size={24} /></button>
             </div>
             <div className="p-8 overflow-y-auto space-y-3">
               <HelpBox text="Chaque table sélectionnée sera exportée dans un onglet séparé du fichier Excel." color="blue" />
@@ -647,7 +622,7 @@ export default function Parametres() {
                   { key: 'settings', label: 'Paramètres', desc: 'Configuration du site' },
                   { key: 'affiche_templates', label: 'Modèles affiches', desc: 'Templates du générateur' },
                 ].map(({ key, label, desc }) => (
-                  <label key={key} className="flex items-center justify-between p-4 bg-slate-50 hover:bg-teal-50 rounded-2xl cursor-pointer transition-all group">
+                  <label key={key} className="group flex cursor-pointer items-center justify-between rounded-[18px] border-2 border-slate-200 bg-[#fdfaf6] p-4 transition-colors hover:border-[#0f172a]">
                     <div>
                       <p className="font-black text-slate-800 text-sm uppercase tracking-tight">{label}</p>
                       <p className="text-[10px] font-bold text-slate-400">{desc}</p>
@@ -664,11 +639,11 @@ export default function Parametres() {
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => setExportSelection(Object.fromEntries(Object.keys(exportSelection).map(k => [k, true])))}
-                  className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all"
+                  className="flex-1 rounded-[16px] border-2 border-[#0f172a] bg-white py-3 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-600 transition-colors hover:bg-slate-100"
                 >Tout cocher</button>
                 <button
                   onClick={() => setExportSelection(Object.fromEntries(Object.keys(exportSelection).map(k => [k, false])))}
-                  className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all"
+                  className="flex-1 rounded-[16px] border-2 border-[#0f172a] bg-white py-3 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-600 transition-colors hover:bg-slate-100"
                 >Tout décocher</button>
               </div>
               <button
@@ -685,14 +660,14 @@ export default function Parametres() {
 
       {/* MODALE MOYENS DE PAIEMENT */}
       {showPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-20 md:pt-4 md:items-center bg-[#1a5f7a]/60 backdrop-blur-md">
-          <div className="bg-white w-full max-w-md rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 max-h-[85vh]">
-            <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-emerald-50/30 sticky top-0 bg-white z-10">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 backdrop-blur-[6px] sm:p-[22px]" style={{ background: 'rgba(15,23,42,.7)' }}>
+          <div className="anim-modal-in flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a]">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-emerald-600 text-white rounded-2xl"><Wallet size={20}/></div>
-                <h3 className="font-black text-xl text-slate-900 uppercase tracking-tighter">Modes de paiement</h3>
+                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] text-white bg-emerald-600"><Wallet size={20}/></div>
+                <h3 className="font-display text-[21px] font-extrabold uppercase tracking-[-0.04em]">Modes de paiement</h3>
               </div>
-              <button onClick={() => setShowPaymentModal(false)} className="p-3 hover:bg-white rounded-2xl transition-all text-slate-400"><X size={24} /></button>
+              <button onClick={() => setShowPaymentModal(false)} className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"><X size={24} /></button>
             </div>
             <form onSubmit={handleUpdatePrice} className="p-8 space-y-6 overflow-y-auto">
               <HelpBox text="Sélectionnez les moyens de paiement que vous acceptez à la Ludothèque." color="blue" />
@@ -704,7 +679,7 @@ export default function Parametres() {
                   { id: 'pay_cheque', label: 'Chèque' },
                   { id: 'pay_virement', label: 'Virement Bancaire' }
                 ].map((mode) => (
-                  <label key={mode.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-slate-100 transition-all">
+                  <label key={mode.id} className="flex cursor-pointer items-center justify-between rounded-[18px] border-2 border-slate-200 bg-[#fdfaf6] p-4 transition-colors hover:border-[#0f172a]">
                     <span className="font-bold text-slate-700 text-sm">{mode.label}</span>
                     <input 
                       type="checkbox" 
@@ -721,20 +696,20 @@ export default function Parametres() {
                   <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Informations de virement (RIB)</p>
                   <div>
                     <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-1 block">Titulaire du compte</label>
-                    <input type="text" className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none" value={prices.nom_compte} onChange={e => setPrices({...prices, nom_compte: e.target.value})} />
+                    <input type="text" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none focus:bg-white" value={prices.nom_compte} onChange={e => setPrices({...prices, nom_compte: e.target.value})} />
                   </div>
                   <div>
                     <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-1 block">IBAN</label>
-                    <input type="text" className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none" value={prices.iban} onChange={e => setPrices({...prices, iban: e.target.value})} />
+                    <input type="text" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none focus:bg-white" value={prices.iban} onChange={e => setPrices({...prices, iban: e.target.value})} />
                   </div>
                   <div>
                     <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-1 block">Code BIC</label>
-                    <input type="text" className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none" value={prices.bic} onChange={e => setPrices({...prices, bic: e.target.value})} />
+                    <input type="text" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none focus:bg-white" value={prices.bic} onChange={e => setPrices({...prices, bic: e.target.value})} />
                   </div>
                 </div>
               )}
 
-              <button type="submit" disabled={saveLoading} className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3">
+              <button type="submit" disabled={saveLoading} className="flex w-full items-center justify-center gap-2.5 rounded-[18px] border-2 border-[#0f172a] py-5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white shadow-[5px_5px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a]" style={{ background: '#059669' }}>
                 {saveLoading ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />} Enregistrer les modes
               </button>
             </form>
@@ -744,30 +719,30 @@ export default function Parametres() {
 
       {/* MODALE CONTACT */}
       {showContactModal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-20 md:pt-4 md:items-center bg-[#1a5f7a]/60 backdrop-blur-md">
-          <div className="bg-white w-full max-w-md rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 max-h-[85vh]">
-            <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-blue-50/30 sticky top-0 bg-white z-10">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 backdrop-blur-[6px] sm:p-[22px]" style={{ background: 'rgba(15,23,42,.7)' }}>
+          <div className="anim-modal-in flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a]">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-blue-500 text-white rounded-2xl"><User size={20}/></div>
-                <h3 className="font-black text-xl text-slate-900 uppercase tracking-tighter">Contact Référent</h3>
+                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] text-white bg-blue-500"><User size={20}/></div>
+                <h3 className="font-display text-[21px] font-extrabold uppercase tracking-[-0.04em]">Contact Référent</h3>
               </div>
-              <button onClick={() => setShowContactModal(false)} className="p-3 hover:bg-white rounded-2xl transition-all text-slate-400"><X size={24} /></button>
+              <button onClick={() => setShowContactModal(false)} className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"><X size={24} /></button>
             </div>
             <form onSubmit={handleUpdatePrice} className="p-8 space-y-6 overflow-y-auto">
               <HelpBox text="Ces informations sont affichées sur la page d'accueil pour les visiteurs." color="blue" />
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase ml-2 mb-2 block">Nom complet</label>
-                <input type="text" className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-blue-100" value={prices.contact_nom} onChange={e => setPrices({...prices, contact_nom: e.target.value})} />
+                <label className="mb-2 block text-[9px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Nom complet</label>
+                <input type="text" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none focus:bg-white" value={prices.contact_nom} onChange={e => setPrices({...prices, contact_nom: e.target.value})} />
               </div>
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase ml-2 mb-2 block">Téléphone</label>
-                <input type="text" className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-blue-100" value={prices.contact_tel} onChange={e => setPrices({...prices, contact_tel: e.target.value})} />
+                <label className="mb-2 block text-[9px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Téléphone</label>
+                <input type="text" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none focus:bg-white" value={prices.contact_tel} onChange={e => setPrices({...prices, contact_tel: e.target.value})} />
               </div>
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase ml-2 mb-2 block">Email</label>
-                <input type="email" className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-blue-100" value={prices.contact_email} onChange={e => setPrices({...prices, contact_email: e.target.value})} />
+                <label className="mb-2 block text-[9px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Email</label>
+                <input type="email" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none focus:bg-white" value={prices.contact_email} onChange={e => setPrices({...prices, contact_email: e.target.value})} />
               </div>
-              <button type="submit" disabled={saveLoading} className="w-full py-5 bg-blue-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3">
+              <button type="submit" disabled={saveLoading} className="flex w-full items-center justify-center gap-2.5 rounded-[18px] border-2 border-[#0f172a] py-5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white shadow-[5px_5px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a]" style={{ background: '#3b82f6' }}>
                 {saveLoading ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />} Enregistrer le contact
               </button>
             </form>
@@ -777,28 +752,28 @@ export default function Parametres() {
 
       {/* MODALE QUOTAS */}
       {showQuotaModal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-20 md:pt-4 md:items-center bg-[#1a5f7a]/60 backdrop-blur-md">
-          <div className="bg-white w-full max-w-md rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 max-h-[85vh]">
-            <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-emerald-50/30 sticky top-0 bg-white z-10">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 backdrop-blur-[6px] sm:p-[22px]" style={{ background: 'rgba(15,23,42,.7)' }}>
+          <div className="anim-modal-in flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a]">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-emerald-500 text-white rounded-2xl"><Hash size={20}/></div>
-                <h3 className="font-black text-xl text-slate-900 uppercase tracking-tighter">Quotas d'emprunt</h3>
+                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] text-white bg-emerald-500"><Hash size={20}/></div>
+                <h3 className="font-display text-[21px] font-extrabold uppercase tracking-[-0.04em]">Quotas d'emprunt</h3>
               </div>
-              <button onClick={() => setShowQuotaModal(false)} className="p-3 hover:bg-white rounded-2xl transition-all text-slate-400"><X size={24} /></button>
+              <button onClick={() => setShowQuotaModal(false)} className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"><X size={24} /></button>
             </div>
             <form onSubmit={handleUpdatePrice} className="p-8 space-y-8 overflow-y-auto">
               <HelpBox text="Déterminez le nombre maximum de jeux qu'un adhérent peut emprunter simultanément." color="blue" />
               <div className="space-y-6">
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase ml-2 mb-2 block">Particuliers (Jeux max)</label>
-                  <input type="number" className="w-full p-5 bg-slate-50 rounded-2xl font-black text-lg outline-none focus:ring-2 ring-emerald-100" value={prices.quota_particulier} onChange={e => setPrices({...prices, quota_particulier: e.target.value})} />
+                  <label className="mb-2 block text-[9px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Particuliers (Jeux max)</label>
+                  <input type="number" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 text-lg font-extrabold text-[#0f172a] outline-none focus:bg-white" value={prices.quota_particulier} onChange={e => setPrices({...prices, quota_particulier: e.target.value})} />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase ml-2 mb-2 block">Associations (Jeux max)</label>
-                  <input type="number" className="w-full p-5 bg-slate-50 rounded-2xl font-black text-lg outline-none focus:ring-2 ring-emerald-100" value={prices.quota_association} onChange={e => setPrices({...prices, quota_association: e.target.value})} />
+                  <label className="mb-2 block text-[9px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Associations (Jeux max)</label>
+                  <input type="number" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 text-lg font-extrabold text-[#0f172a] outline-none focus:bg-white" value={prices.quota_association} onChange={e => setPrices({...prices, quota_association: e.target.value})} />
                 </div>
               </div>
-              <button type="submit" disabled={saveLoading} className="w-full py-5 bg-emerald-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3">
+              <button type="submit" disabled={saveLoading} className="flex w-full items-center justify-center gap-2.5 rounded-[18px] border-2 border-[#0f172a] py-5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white shadow-[5px_5px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a]" style={{ background: '#10b981' }}>
                 {saveLoading ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />} Enregistrer les quotas
               </button>
             </form>
@@ -808,31 +783,31 @@ export default function Parametres() {
 
       {/* MODALE FINANCE */}
       {showFinanceModal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-20 md:pt-4 md:items-center bg-[#1a5f7a]/60 backdrop-blur-md">
-          <div className="bg-white w-full max-w-2xl rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
-            <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50 sticky top-0 bg-white z-10">
-              <h3 className="font-black text-2xl text-slate-900 uppercase tracking-tighter">Finance & Règles</h3>
-              <button onClick={() => setShowFinanceModal(false)} className="p-3 hover:bg-white rounded-2xl transition-all text-slate-400"><X size={24} /></button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 backdrop-blur-[6px] sm:p-[22px]" style={{ background: 'rgba(15,23,42,.7)' }}>
+          <div className="anim-modal-in flex max-h-[88vh] w-full flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a] max-w-2xl">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
+              <h3 className="font-display text-[21px] font-extrabold uppercase tracking-[-0.04em]">Finance & Règles</h3>
+              <button onClick={() => setShowFinanceModal(false)} className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"><X size={24} /></button>
             </div>
             <form onSubmit={handleUpdatePrice} className="p-8 overflow-y-auto space-y-10">
               {/* PARTIE PARTICULIERS */}
               <div className="space-y-6">
                 <div className="flex items-center gap-2 text-[#1a5f7a] font-black text-[11px] uppercase tracking-widest"><Euro size={18}/> Particuliers</div>
-                <div className="grid grid-cols-2 gap-2 bg-slate-100 p-2 rounded-2xl">
+                <div className="grid grid-cols-2 gap-2 rounded-[18px] border-2 border-[#0f172a] bg-slate-100 p-1.5">
                   <button type="button" onClick={() => setPrices({...prices, mode_adhesion_particulier: 'degressif'})} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${prices.mode_adhesion_particulier === 'degressif' ? 'bg-white shadow-md text-[#1a5f7a]' : 'text-slate-400'}`}>Dégressif</button>
                   <button type="button" onClick={() => setPrices({...prices, mode_adhesion_particulier: 'glissant'})} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${prices.mode_adhesion_particulier === 'glissant' ? 'bg-white shadow-md text-[#1a5f7a]' : 'text-slate-400'}`}>Année Glissante</button>
                 </div>
                 <HelpBox text={prices.mode_adhesion_particulier === 'degressif' ? "Le mode dégressif réduit le prix chaque mois automatiquement. L'adhésion s'arrête toujours au 31 décembre de l'année en cours." : "L'année glissante applique un tarif fixe. L'adhésion est valable 12 mois à partir de la date de paiement."} />
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div><label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-1 block">Prix Base</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none border-none" value={prices.prix_particulier} onChange={e => setPrices({...prices, prix_particulier: e.target.value})} /></div>
+                  <div><label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-1 block">Prix Base</label><input type="number" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-extrabold outline-none focus:bg-white" value={prices.prix_particulier} onChange={e => setPrices({...prices, prix_particulier: e.target.value})} /></div>
                   {prices.mode_adhesion_particulier === 'degressif' && (
                     <>
-                      <div><label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-1 block">Baisse/Mois</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none border-none" value={prices.degressivite_mensuelle} onChange={e => setPrices({...prices, degressivite_mensuelle: e.target.value})} /></div>
-                      <div><label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-1 block">Prix Min</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none border-none" value={prices.prix_minimum} onChange={e => setPrices({...prices, prix_minimum: e.target.value})} /></div>
+                      <div><label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-1 block">Baisse/Mois</label><input type="number" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-extrabold outline-none focus:bg-white" value={prices.degressivite_mensuelle} onChange={e => setPrices({...prices, degressivite_mensuelle: e.target.value})} /></div>
+                      <div><label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-1 block">Prix Min</label><input type="number" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-extrabold outline-none focus:bg-white" value={prices.prix_minimum} onChange={e => setPrices({...prices, prix_minimum: e.target.value})} /></div>
                     </>
                   )}
                 </div>
-                <div className={`p-6 rounded-[2.5rem] border-2 transition-all ${prices.active_caution_particulier === "true" ? 'bg-orange-50 border-orange-100' : 'bg-slate-50 border-transparent'}`}>
+                <div className={`rounded-[22px] border-2 border-[#0f172a] p-6 transition-colors ${prices.active_caution_particulier === "true" ? 'bg-orange-50 border-orange-100' : 'bg-slate-50 border-transparent'}`}>
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-[10px] font-black uppercase text-orange-800 tracking-widest flex items-center gap-2"><ShieldCheck size={16}/> Caution Particulier</span>
                     <input type="checkbox" className="w-6 h-6 accent-[#e38154] rounded-lg cursor-pointer" checked={prices.active_caution_particulier === "true"} onChange={e => setPrices({...prices, active_caution_particulier: e.target.checked ? "true" : "false"})} />
@@ -849,20 +824,20 @@ export default function Parametres() {
               {/* PARTIE ASSOCIATIONS */}
               <div className="space-y-6 pt-10 border-t border-slate-100">
                 <div className="flex items-center gap-2 text-[#e38154] font-black text-[11px] uppercase tracking-widest"><Users size={18}/> Associations</div>
-                <div className="grid grid-cols-2 gap-2 bg-slate-100 p-2 rounded-2xl">
+                <div className="grid grid-cols-2 gap-2 rounded-[18px] border-2 border-[#0f172a] bg-slate-100 p-1.5">
                   <button type="button" onClick={() => setPrices({...prices, mode_adhesion_association: 'degressif'})} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${prices.mode_adhesion_association === 'degressif' ? 'bg-white shadow-md text-[#e38154]' : 'text-slate-400'}`}>Dégressif</button>
                   <button type="button" onClick={() => setPrices({...prices, mode_adhesion_association: 'glissant'})} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${prices.mode_adhesion_association === 'glissant' ? 'bg-white shadow-md text-[#e38154]' : 'text-slate-400'}`}>Année Glissante</button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div><label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-1 block">Prix Base</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none border-none" value={prices.prix_association} onChange={e => setPrices({...prices, prix_association: e.target.value})} /></div>
+                  <div><label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-1 block">Prix Base</label><input type="number" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-extrabold outline-none focus:bg-white" value={prices.prix_association} onChange={e => setPrices({...prices, prix_association: e.target.value})} /></div>
                   {prices.mode_adhesion_association === 'degressif' && (
                     <>
-                      <div><label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-1 block">Baisse/Mois</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none border-none" value={prices.degressivite_association} onChange={e => setPrices({...prices, degressivite_association: e.target.value})} /></div>
-                      <div><label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-1 block">Prix Min</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl font-black outline-none border-none" value={prices.prix_minimum_asso} onChange={e => setPrices({...prices, prix_minimum_asso: e.target.value})} /></div>
+                      <div><label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-1 block">Baisse/Mois</label><input type="number" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-extrabold outline-none focus:bg-white" value={prices.degressivite_association} onChange={e => setPrices({...prices, degressivite_association: e.target.value})} /></div>
+                      <div><label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-1 block">Prix Min</label><input type="number" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-extrabold outline-none focus:bg-white" value={prices.prix_minimum_asso} onChange={e => setPrices({...prices, prix_minimum_asso: e.target.value})} /></div>
                     </>
                   )}
                 </div>
-                <div className={`p-6 rounded-[2.5rem] border-2 transition-all ${prices.active_caution_association === "true" ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-transparent'}`}>
+                <div className={`rounded-[22px] border-2 border-[#0f172a] p-6 transition-colors ${prices.active_caution_association === "true" ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-transparent'}`}>
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-[10px] font-black uppercase text-emerald-800 tracking-widest flex items-center gap-2"><ShieldCheck size={16}/> Caution Association</span>
                     <input type="checkbox" className="w-6 h-6 accent-emerald-500 rounded-lg cursor-pointer" checked={prices.active_caution_association === "true"} onChange={e => setPrices({...prices, active_caution_association: e.target.checked ? "true" : "false"})} />
@@ -885,22 +860,22 @@ export default function Parametres() {
 
       {/* MODALE BÉNÉVOLES */}
       {showVolunteerModal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-20 md:pt-4 md:items-center bg-[#1a5f7a]/60 backdrop-blur-md">
-          <div className="bg-white w-full max-w-2xl rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl overflow-hidden max-h-[85vh] flex flex-col animate-in slide-in-from-bottom-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 backdrop-blur-[6px] sm:p-[22px]" style={{ background: 'rgba(15,23,42,.7)' }}>
+          <div className="anim-modal-in flex max-h-[88vh] w-full flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a] max-w-2xl">
             <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-white sticky top-0 z-10">
-              <h3 className="font-black text-2xl text-slate-900 uppercase tracking-tighter">Équipe & Accès</h3>
-              <button onClick={() => setShowVolunteerModal(false)} className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400"><X size={24} /></button>
+              <h3 className="font-display text-[21px] font-extrabold uppercase tracking-[-0.04em]">Équipe & Accès</h3>
+              <button onClick={() => setShowVolunteerModal(false)} className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"><X size={24} /></button>
             </div>
             
             <div className="p-8 overflow-y-auto space-y-10">
-              <form onSubmit={handleAddVolunteer} className="space-y-6 bg-slate-50 p-8 rounded-[2.5rem]">
+              <form onSubmit={handleAddVolunteer} className="space-y-6 rounded-[26px] border-2 border-[#0f172a] bg-[#fdfaf6] p-6">
                 <div className="grid grid-cols-2 gap-4">
                   <input type="text" placeholder="Prénom" className="w-full p-4 rounded-2xl bg-white font-bold outline-none" value={firstName} onChange={e => setFirstName(e.target.value)} required />
                   <input type="text" placeholder="Nom" className="w-full p-4 rounded-2xl bg-white font-bold outline-none" value={lastName} onChange={e => setLastName(e.target.value)} required />
                 </div>
                 <input type="email" placeholder="Email" className="w-full p-4 rounded-2xl bg-white font-bold outline-none" value={newEmail} onChange={e => setNewEmail(e.target.value)} required />
                 <input type="password" placeholder="Mot de passe" className="w-full p-4 rounded-2xl bg-white font-bold outline-none" value={newPassword} onChange={e => setNewPassword(e.target.value)} required />
-                <button type="submit" disabled={loading} className="w-full py-4 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                <button type="submit" disabled={loading} className="flex w-full items-center justify-center gap-2.5 rounded-[18px] border-2 border-[#0f172a] py-5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white shadow-[5px_5px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a]" style={{ background: '#1a5f7a' }}>
                    {loading ? <Loader2 className="animate-spin" size={16} /> : <UserPlus size={16} />} Ajouter au système
                 </button>
               </form>
@@ -929,14 +904,14 @@ export default function Parametres() {
 
       {/* MODALE HORAIRES */}
       {showHorairesModal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-20 md:pt-4 md:items-center bg-[#1a5f7a]/60 backdrop-blur-md">
-          <div className="bg-white w-full max-w-lg rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 max-h-[85vh]">
-            <div className="p-8 border-b border-slate-50 flex justify-between items-center sticky top-0 bg-white z-10">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 backdrop-blur-[6px] sm:p-[22px]" style={{ background: 'rgba(15,23,42,.7)' }}>
+          <div className="anim-modal-in flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a]">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-amber-500 text-white rounded-2xl"><Clock size={20}/></div>
-                <h3 className="font-black text-xl text-slate-900 uppercase tracking-tighter">Horaires d'ouverture</h3>
+                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] text-white bg-amber-500"><Clock size={20}/></div>
+                <h3 className="font-display text-[21px] font-extrabold uppercase tracking-[-0.04em]">Horaires d'ouverture</h3>
               </div>
-              <button onClick={() => setShowHorairesModal(false)} className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400"><X size={24} /></button>
+              <button onClick={() => setShowHorairesModal(false)} className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"><X size={24} /></button>
             </div>
             <form onSubmit={handleUpdatePrice} className="p-8 space-y-8 overflow-y-auto">
               <HelpBox text="Ces horaires sont affichés sur la page d'accueil. La 2e plage horaire est optionnelle." color="blue" />
@@ -948,7 +923,7 @@ export default function Parametres() {
                   <div>
                     <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-2 block">Jour de la semaine</label>
                     <select
-                      className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-amber-100 cursor-pointer"
+                      className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none focus:bg-white cursor-pointer"
                       value={prices.horaire_1_jour}
                       onChange={e => setPrices({...prices, horaire_1_jour: e.target.value})}
                     >
@@ -960,7 +935,7 @@ export default function Parametres() {
                   <div>
                     <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-2 block">Quel {prices.horaire_1_jour || 'jour'} du mois ?</label>
                     <select
-                      className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-amber-100 cursor-pointer"
+                      className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none focus:bg-white cursor-pointer"
                       value={prices.horaire_1_rang}
                       onChange={e => setPrices({...prices, horaire_1_rang: e.target.value})}
                     >
@@ -975,11 +950,11 @@ export default function Parametres() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-2 block">Heure d'ouverture</label>
-                    <input type="time" className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-amber-100" value={prices.horaire_1_debut} onChange={e => setPrices({...prices, horaire_1_debut: e.target.value})} />
+                    <input type="time" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none focus:bg-white" value={prices.horaire_1_debut} onChange={e => setPrices({...prices, horaire_1_debut: e.target.value})} />
                   </div>
                   <div>
                     <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-2 block">Heure de fermeture</label>
-                    <input type="time" className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-amber-100" value={prices.horaire_1_fin} onChange={e => setPrices({...prices, horaire_1_fin: e.target.value})} />
+                    <input type="time" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none focus:bg-white" value={prices.horaire_1_fin} onChange={e => setPrices({...prices, horaire_1_fin: e.target.value})} />
                   </div>
                 </div>
               </div>
@@ -1001,7 +976,7 @@ export default function Parametres() {
                       <div>
                         <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-2 block">Jour de la semaine</label>
                         <select
-                          className="w-full p-4 bg-white rounded-2xl font-bold outline-none focus:ring-2 ring-amber-100 cursor-pointer"
+                          className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none focus:bg-white cursor-pointer"
                           value={prices.horaire_2_jour}
                           onChange={e => setPrices({...prices, horaire_2_jour: e.target.value})}
                         >
@@ -1013,7 +988,7 @@ export default function Parametres() {
                       <div>
                         <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-2 block">Quel {prices.horaire_2_jour || 'jour'} du mois ?</label>
                         <select
-                          className="w-full p-4 bg-white rounded-2xl font-bold outline-none focus:ring-2 ring-amber-100 cursor-pointer"
+                          className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none focus:bg-white cursor-pointer"
                           value={prices.horaire_2_rang}
                           onChange={e => setPrices({...prices, horaire_2_rang: e.target.value})}
                         >
@@ -1028,18 +1003,18 @@ export default function Parametres() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-2 block">Heure d'ouverture</label>
-                        <input type="time" className="w-full p-4 bg-white rounded-2xl font-bold outline-none focus:ring-2 ring-amber-100" value={prices.horaire_2_debut} onChange={e => setPrices({...prices, horaire_2_debut: e.target.value})} />
+                        <input type="time" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none focus:bg-white" value={prices.horaire_2_debut} onChange={e => setPrices({...prices, horaire_2_debut: e.target.value})} />
                       </div>
                       <div>
                         <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-2 block">Heure de fermeture</label>
-                        <input type="time" className="w-full p-4 bg-white rounded-2xl font-bold outline-none focus:ring-2 ring-amber-100" value={prices.horaire_2_fin} onChange={e => setPrices({...prices, horaire_2_fin: e.target.value})} />
+                        <input type="time" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none focus:bg-white" value={prices.horaire_2_fin} onChange={e => setPrices({...prices, horaire_2_fin: e.target.value})} />
                       </div>
                     </div>
                   </div>
                 )}
               </div>
 
-              <button type="submit" disabled={saveLoading} className="w-full py-5 bg-amber-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3">
+              <button type="submit" disabled={saveLoading} className="flex w-full items-center justify-center gap-2.5 rounded-[18px] border-2 border-[#0f172a] py-5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white shadow-[5px_5px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a]" style={{ background: '#f59e0b' }}>
                 {saveLoading ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />} Enregistrer les horaires
               </button>
             </form>
@@ -1049,36 +1024,36 @@ export default function Parametres() {
 
       {/* MODALE ADRESSE */}
       {showAdresseModal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-20 md:pt-4 md:items-center bg-[#1a5f7a]/60 backdrop-blur-md">
-          <div className="bg-white w-full max-w-md rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 max-h-[85vh]">
-            <div className="p-8 border-b border-slate-50 flex justify-between items-center sticky top-0 bg-white z-10">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 backdrop-blur-[6px] sm:p-[22px]" style={{ background: 'rgba(15,23,42,.7)' }}>
+          <div className="anim-modal-in flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a]">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-rose-500 text-white rounded-2xl"><MapPin size={20}/></div>
-                <h3 className="font-black text-xl text-slate-900 uppercase tracking-tighter">Adresse</h3>
+                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] text-white bg-rose-500"><MapPin size={20}/></div>
+                <h3 className="font-display text-[21px] font-extrabold uppercase tracking-[-0.04em]">Adresse</h3>
               </div>
-              <button onClick={() => setShowAdresseModal(false)} className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400"><X size={24} /></button>
+              <button onClick={() => setShowAdresseModal(false)} className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"><X size={24} /></button>
             </div>
             <form onSubmit={handleUpdatePrice} className="p-8 space-y-6 overflow-y-auto">
               <HelpBox text="Cette adresse est affichée sur la page d'accueil et utilisée pour le lien Google Maps." color="blue" />
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase ml-2 mb-2 block">Rue / Numéro</label>
-                <input type="text" placeholder="ex: 419 Grande Rue" className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-rose-100" value={prices.adresse_rue} onChange={e => setPrices({...prices, adresse_rue: e.target.value})} />
+                <label className="mb-2 block text-[9px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Rue / Numéro</label>
+                <input type="text" placeholder="ex: 419 Grande Rue" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none focus:bg-white" value={prices.adresse_rue} onChange={e => setPrices({...prices, adresse_rue: e.target.value})} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-2 block">Code postal</label>
-                  <input type="text" placeholder="01270" className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-rose-100" value={prices.adresse_code_postal} onChange={e => setPrices({...prices, adresse_code_postal: e.target.value})} />
+                  <input type="text" placeholder="01270" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none focus:bg-white" value={prices.adresse_code_postal} onChange={e => setPrices({...prices, adresse_code_postal: e.target.value})} />
                 </div>
                 <div>
                   <label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-2 block">Ville</label>
-                  <input type="text" placeholder="Coligny" className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-rose-100" value={prices.adresse_ville} onChange={e => setPrices({...prices, adresse_ville: e.target.value})} />
+                  <input type="text" placeholder="Coligny" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none focus:bg-white" value={prices.adresse_ville} onChange={e => setPrices({...prices, adresse_ville: e.target.value})} />
                 </div>
               </div>
-              <div className="p-4 bg-slate-50 rounded-2xl text-[10px] font-bold text-slate-500 flex items-center gap-2">
+              <div className="flex items-center gap-2 rounded-[18px] border-2 border-slate-200 bg-[#fdfaf6] p-4 text-[10px] font-bold text-slate-500">
                 <MapPin size={14} className="text-rose-400 shrink-0" />
                 Aperçu lien Maps : <span className="text-[#1a5f7a] ml-1">{prices.adresse_rue}, {prices.adresse_code_postal} {prices.adresse_ville}</span>
               </div>
-              <button type="submit" disabled={saveLoading} className="w-full py-5 bg-rose-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3">
+              <button type="submit" disabled={saveLoading} className="flex w-full items-center justify-center gap-2.5 rounded-[18px] border-2 border-[#0f172a] py-5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white shadow-[5px_5px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a]" style={{ background: '#f43f5e' }}>
                 {saveLoading ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />} Enregistrer l'adresse
               </button>
             </form>
@@ -1088,25 +1063,25 @@ export default function Parametres() {
 
       {/* CONFIRMATION */}
       {confirmModal.show && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[#1a5f7a]/80 backdrop-blur-md">
-          <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl border-b-8 border-emerald-500 animate-in zoom-in-95">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 backdrop-blur-[6px] sm:p-[22px]" style={{ background: 'rgba(15,23,42,.7)' }}>
+          <div className="anim-modal-in w-full max-w-[430px] rounded-[34px] border-2 border-[#0f172a] bg-white p-8 text-center shadow-[12px_12px_0_#10b981] md:p-9">
             <div className="mx-auto w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-6"><CheckCircle2 size={40} /></div>
             <h3 className="text-2xl font-black uppercase text-slate-900 mb-2">{confirmModal.title}</h3>
             <p className="text-[11px] font-bold text-slate-500 mb-8 italic leading-relaxed">{confirmModal.message}</p>
-            <button onClick={() => setConfirmModal({ ...confirmModal, show: false })} className="w-full py-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">Continuer</button>
+            <button onClick={() => setConfirmModal({ ...confirmModal, show: false })} className="flex w-full items-center justify-center gap-2.5 rounded-[18px] border-2 border-[#0f172a] py-5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white shadow-[5px_5px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a]" style={{ background: '#1a5f7a' }}>Continuer</button>
           </div>
         </div>
       )}
 
       {/* SUPPRESSION */}
       {deleteConfirm.show && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-[#1a5f7a]/80 backdrop-blur-md">
-          <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl border-b-8 border-rose-500 animate-in zoom-in-95">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 backdrop-blur-[6px] sm:p-[22px]" style={{ background: 'rgba(15,23,42,.7)' }}>
+          <div className="anim-modal-in w-full max-w-[430px] rounded-[34px] border-2 border-[#0f172a] bg-white p-8 text-center shadow-[12px_12px_0_#f43f5e] md:p-9">
              <div className="mx-auto w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mb-6 shadow-inner"><ShieldAlert size={40} /></div>
              <h3 className="text-2xl font-black uppercase text-slate-900 mb-2 tracking-tighter">Révoquer ?</h3>
              <p className="text-[11px] font-bold text-slate-500 mb-8 italic leading-relaxed px-2">Attention, ce bénévole n'aura plus aucun accès à l'administration.</p>
              <div className="flex flex-col gap-3">
-                <button onClick={handleRemoveVolunteer} className="w-full py-5 bg-rose-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">Confirmer</button>
+                <button onClick={handleRemoveVolunteer} className="flex w-full items-center justify-center gap-2.5 rounded-[18px] border-2 border-[#0f172a] py-5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white shadow-[5px_5px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a]" style={{ background: '#f43f5e' }}>Confirmer</button>
                 <button onClick={() => setDeleteConfirm({ show: false, id: null })} className="w-full py-5 bg-slate-50 text-slate-400 rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all">Annuler</button>
              </div>
           </div>
@@ -1117,19 +1092,19 @@ export default function Parametres() {
           MODALE GESTION DES MODÈLES D'AFFICHES
       ═══════════════════════════════════════════════════════ */}
       {showAffichesModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1a5f7a]/60 backdrop-blur-md">
-          <div className="bg-white w-full max-w-4xl rounded-[2.5rem] shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 backdrop-blur-[6px] sm:p-[22px]" style={{ background: 'rgba(15,23,42,.7)' }}>
+          <div className="anim-modal-in flex max-h-[88vh] w-full flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a] max-h-[92vh] max-w-4xl">
 
             {/* Header */}
             <div className="p-8 pb-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-purple-50 text-purple-500 rounded-xl"><Image size={20} /></div>
                 <div>
-                  <h3 className="font-black text-lg text-slate-900 uppercase tracking-tighter">Modèles d'affiches</h3>
+                  <h3 className="font-display text-[21px] font-extrabold uppercase tracking-[-0.04em]">Modèles d'affiches</h3>
                   <p className="text-[10px] text-slate-400">{affichesTemplates.length} modèle{affichesTemplates.length > 1 ? 's' : ''} enregistré{affichesTemplates.length > 1 ? 's' : ''}</p>
                 </div>
               </div>
-              <button onClick={() => setShowAffichesModal(false)} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100"><X size={20} /></button>
+              <button onClick={() => setShowAffichesModal(false)} className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"><X size={20} /></button>
             </div>
 
             <div className="overflow-y-auto flex-1">
@@ -1144,7 +1119,7 @@ export default function Parametres() {
                   {/* Label */}
                   <div className="space-y-1">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nom du modèle</label>
-                    <input className="w-full p-3 rounded-2xl bg-slate-50 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                    <input className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] p-3 text-sm font-bold outline-none focus:bg-white"
                       placeholder="ex: Soirée jeux adultes"
                       value={templateForm.label}
                       onChange={e => setTemplateForm(prev => ({ ...prev, label: e.target.value }))} />
@@ -1160,7 +1135,7 @@ export default function Parametres() {
                       {uploadingImage ? <><Loader2 size={16} className="animate-spin" /> Envoi...</> : <><Plus size={16} /> {previewImg ? "Changer l'image" : "Choisir une image"}</>}
                     </button>
                     {templateForm.url && !previewImg && (
-                      <input className="w-full p-3 rounded-2xl bg-slate-50 font-bold text-xs outline-none border-2 border-transparent focus:border-[#1a5f7a] mt-2"
+                      <input className="mt-2 w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] p-3 text-xs font-bold outline-none focus:bg-white"
                         placeholder="ou coller une URL directement"
                         value={templateForm.url}
                         onChange={e => { setTemplateForm(prev => ({ ...prev, url: e.target.value })); setPreviewImg(e.target.value) }} />
@@ -1170,7 +1145,7 @@ export default function Parametres() {
                   {/* Format du texte */}
                   <div className="space-y-1">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Format du texte (repère ①)</label>
-                    <select className="w-full p-3 rounded-2xl bg-slate-50 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                    <select className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] p-3 text-sm font-bold outline-none focus:bg-white"
                       value={templateForm.layout}
                       onChange={e => setTemplateForm(prev => ({ ...prev, layout: e.target.value }))}>
                       <option value="famille">Jour / Date / Heure</option>
@@ -1185,7 +1160,7 @@ export default function Parametres() {
                     </label>
 
                     {/* Sélecteur de repère actif */}
-                    <div className="flex bg-slate-100 rounded-2xl p-1 gap-1 w-fit">
+                    <div className="flex w-fit gap-1.5 rounded-[18px] border-2 border-[#0f172a] bg-slate-100 p-1.5">
                       <button onClick={() => setActiveZone(1)}
                         className={'px-4 py-2 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all flex items-center gap-1.5 ' +
                           (activeZone === 1 ? 'bg-[#e38154] text-white shadow-sm' : 'text-slate-400 hover:text-slate-600')}>
@@ -1216,7 +1191,7 @@ export default function Parametres() {
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Police</label>
-                            <select className="w-full mt-1 p-2 rounded-xl bg-white text-xs font-bold outline-none border border-transparent focus:border-[#e38154]"
+                            <select className="mt-1.5 w-full rounded-[12px] border-2 border-[#0f172a] bg-[#fdfaf6] p-2 text-xs font-bold outline-none focus:bg-white"
                               value={templateForm.font_family}
                               onChange={e => setTemplateForm(prev => ({ ...prev, font_family: e.target.value }))}>
                               <option value="PersonaAura">Persona Aura</option>
@@ -1228,7 +1203,7 @@ export default function Parametres() {
                           <div>
                             <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Taille (pt)</label>
                             <input type="number" min="8" max="120"
-                              className="w-full mt-1 p-2 rounded-xl bg-white text-xs font-bold outline-none border border-transparent focus:border-[#e38154]"
+                              className="mt-1.5 w-full rounded-[12px] border-2 border-[#0f172a] bg-[#fdfaf6] p-2 text-xs font-bold outline-none focus:bg-white"
                               value={templateForm.font_size}
                               onChange={e => setTemplateForm(prev => ({ ...prev, font_size: e.target.value }))} />
                           </div>
@@ -1274,7 +1249,7 @@ export default function Parametres() {
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Police</label>
-                            <select className="w-full mt-1 p-2 rounded-xl bg-white text-xs font-bold outline-none border border-transparent focus:border-[#1a5f7a]"
+                            <select className="mt-1.5 w-full rounded-[12px] border-2 border-[#0f172a] bg-[#fdfaf6] p-2 text-xs font-bold outline-none focus:bg-white"
                               value={templateForm.font_family2}
                               onChange={e => setTemplateForm(prev => ({ ...prev, font_family2: e.target.value }))}>
                               <option value="PersonaAura">Persona Aura</option>
@@ -1286,7 +1261,7 @@ export default function Parametres() {
                           <div>
                             <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Taille (pt)</label>
                             <input type="number" min="8" max="120"
-                              className="w-full mt-1 p-2 rounded-xl bg-white text-xs font-bold outline-none border border-transparent focus:border-[#1a5f7a]"
+                              className="mt-1.5 w-full rounded-[12px] border-2 border-[#0f172a] bg-[#fdfaf6] p-2 text-xs font-bold outline-none focus:bg-white"
                               value={templateForm.font_size2}
                               onChange={e => setTemplateForm(prev => ({ ...prev, font_size2: e.target.value }))} />
                           </div>
@@ -1326,7 +1301,7 @@ export default function Parametres() {
                     </button>
                     {editingTemplate && (
                       <button onClick={() => { setEditingTemplate(null); setTemplateForm({ label: '', url: '', cx: 0, cy: 0, font_family: 'PersonaAura', font_size: 38.7, color: '#000000', layout: 'famille' }); setPreviewImg(null) }}
-                        className="px-4 py-4 rounded-2xl font-black uppercase text-[9px] bg-slate-100 text-slate-500 hover:bg-slate-200">
+                        className="rounded-[16px] border-2 border-[#0f172a] bg-white px-4 py-4 text-[9px] font-extrabold uppercase tracking-[0.12em] text-slate-500 transition-colors hover:bg-slate-100">
                         Annuler
                       </button>
                     )}
@@ -1405,6 +1380,7 @@ export default function Parametres() {
         </div>
       )}
 
+      </div>
     </div>
   )
 }

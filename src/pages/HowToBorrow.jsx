@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { supabase } from '../services/supabaseClient'
-import { ArrowLeft, User, Building2, Calendar, CheckCircle2, Info, Landmark, ShieldCheck, FileText, Download } from 'lucide-react'
+import { ShieldCheck, Download } from 'lucide-react'
 import TitrePactes from '../components/TitrePactes'
-import Footer from '../components/Footer'
+import PublicLayout from '../components/site/PublicLayout'
+import Reveal from '../components/site/Reveal'
+import MaskIcon from '../components/site/MaskIcon'
 
 export default function HowToBorrow() {
-  const navigate = useNavigate()
   const [appSettings, setAppSettings] = useState({
     prix_particulier: 0,
     degressivite_mensuelle: 0,
@@ -22,14 +22,13 @@ export default function HowToBorrow() {
     montant_caution_association: 0,
     quota_particulier: 3,
     quota_association: 5,
-    // AJOUT : Variables de contact par défaut
     contact_nom: 'Victor Guyon',
     contact_tel: '06 71 41 56 96',
     contact_email: 'victor.guyon@hotmail.fr'
   })
 
   const now = new Date()
-  const currentMonth = now.getMonth() 
+  const currentMonth = now.getMonth()
   const currentYear = now.getFullYear()
   const monthName = new Intl.DateTimeFormat('fr-FR', { month: 'long' }).format(now)
 
@@ -63,188 +62,198 @@ export default function HowToBorrow() {
   const feeParticulier = calculateDisplayFee('Particulier');
   const feeAssociation = calculateDisplayFee('Association');
 
+  // Les deux offres partagent la même structure : on la décrit une fois, on la rend deux fois.
+  const OFFERS = [
+    {
+      key: 'particulier',
+      title: 'Particuliers',
+      intro: 'Une seule adhésion par foyer suffit pour que tout le monde puisse en profiter.',
+      icon: '04.svg',
+      accent: '#1a5f7a',
+      tint: '#f0f7f9',
+      counterTint: '#e38154',
+      reveal: 'left',
+      fee: feeParticulier,
+      period: appSettings.mode_adhesion_particulier === 'degressif' ? `pour ${currentYear}` : 'par an',
+      note: appSettings.mode_adhesion_particulier === 'degressif'
+        ? `Tarif dégressif • mois de ${monthName}`
+        : 'Tarif fixe • Année glissante',
+      perks: [
+        `Emprunt de ${appSettings.quota_particulier} jeux pour 1 mois maximum`,
+        'Valable pour tout le foyer',
+        appSettings.mode_adhesion_particulier === 'degressif' ? 'Expire le 31 décembre' : 'Valable 1 an de date à date',
+      ],
+      caution: appSettings.active_caution_particulier === 'true'
+        ? `Caution de ${appSettings.montant_caution_particulier}€ demandée`
+        : null,
+      footnote: appSettings.mode_adhesion_particulier === 'degressif'
+        ? `Cotisation de ${appSettings.prix_particulier}€ au 1er janv, dégressive de ${appSettings.degressivite_mensuelle}€/mois (min ${appSettings.prix_minimum}€).`
+        : `Cotisation fixe de ${appSettings.prix_particulier}€ valable 12 mois à partir du jour de l'inscription.`,
+    },
+    {
+      key: 'collectivite',
+      title: 'Collectivités',
+      intro: 'Pour les structures (associations, écoles, mairies) de Coligny et alentours.',
+      icon: '02.svg',
+      accent: '#e38154',
+      tint: '#fdf1ea',
+      counterTint: '#1a5f7a',
+      reveal: 'right',
+      fee: feeAssociation,
+      period: appSettings.mode_adhesion_association === 'degressif' ? `pour ${currentYear}` : 'par an',
+      note: appSettings.mode_adhesion_association === 'degressif'
+        ? `Tarif dégressif • mois de ${monthName}`
+        : 'Adhésion sur année glissante',
+      perks: [
+        `Emprunt de ${appSettings.quota_association} jeux pour 1 mois maximum`,
+        appSettings.mode_adhesion_association === 'degressif' ? 'Expire le 31 décembre' : 'Valable 1 an de date à date',
+        'Idéal pour les activités de groupe',
+      ],
+      caution: appSettings.active_caution_association === 'true'
+        ? `Caution de ${appSettings.montant_caution_association}€ demandée`
+        : null,
+      footnote: appSettings.mode_adhesion_association === 'glissant'
+        ? "Tarif fixe : l'adhésion expire à la date anniversaire l'année suivante."
+        : `Tarif dégressif sur base de ${appSettings.prix_association}€ (minimum ${appSettings.prix_minimum_asso}€).`,
+    },
+  ]
+
   return (
-    <div className="min-h-screen bg-[#fdfaf6] font-sans pb-10 text-slate-900">
-      <header className="bg-white border-b border-slate-100 sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 h-20 flex items-center justify-between">
-          <div className="flex-1 flex items-center gap-4">
-            <button onClick={() => navigate('/')} className="shrink-0">
-              <img src="/logo-feuille.svg" alt="Ludothèque de Coligny" className="h-10" />
-            </button>
-            <button
-              onClick={() => navigate('/')}
-              className="flex items-center gap-2 text-slate-400 hover:text-[#1a5f7a] font-bold transition-colors text-xs uppercase tracking-widest"
-            >
-              <ArrowLeft size={16} />
-              <span>Retour à la page d'accueil</span>
-            </button>
-          </div>
-          <div className="hidden md:flex flex-1 justify-center text-center">
-            <h1 className="text-xs font-black uppercase tracking-[0.2em] text-[#1a5f7a] whitespace-nowrap">
-              Modalités d'emprunt
+    <PublicLayout>
+      <main className="px-4 pb-16 pt-8 md:px-10 md:pb-24 md:pt-12">
+        <div className="mx-auto max-w-[1080px]">
+          <div className="mb-9 text-center md:mb-12">
+            <h1 className="anim-soft-in mb-6 font-display text-[26px] font-extrabold leading-[1.02] tracking-[-0.045em] sm:text-[32px] md:text-[54px]">
+              Comment emprunter <span className="text-[#1a5f7a]">un jeu ?</span>
             </h1>
-          </div>
-          <div className="hidden md:block flex-1"></div> 
-        </div>
-      </header>
 
-      <main className="max-w-6xl mx-auto px-4 md:px-8 pt-12">
-        <div className="text-center mb-16">
-          <h2 className="font-black text-3xl md:text-4xl text-slate-900 mb-6">Comment emprunter un jeu ?</h2>
-          <div className="max-w-3xl mx-auto bg-white border border-[#e38154]/20 rounded-[2rem] p-8 shadow-sm">
-            <div className="flex items-center justify-center gap-3 mb-4 text-[#e38154]">
-              <Landmark size={24} />
-              <span className="font-black uppercase tracking-widest text-sm">Étape préalable</span>
-            </div>
-            <p className="text-slate-600 leading-relaxed font-medium">
-              Pour profiter de la ludothèque, il faut d'abord être <span className="text-slate-900 font-bold">adhérent à l'Association <TitrePactes className="text-base align-middle" /></span> (contribution annuelle de <span className="text-[#e38154] font-black">10€</span>).
-              Une fois membre, vous pouvez adhérer à la ludothèque selon les tarifs ci-dessous.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="bg-white rounded-[2.5rem] p-10 shadow-sm border border-slate-100 flex flex-col hover:border-[#1a5f7a] transition-all">
-            <div className="w-16 h-16 bg-[#f0f7f9] text-[#1a5f7a] rounded-2xl flex items-center justify-center mb-6">
-              <User size={32} />
-            </div>
-            <h3 className="text-2xl font-black text-slate-900 mb-2">Particuliers</h3>
-            <p className="text-slate-500 text-sm mb-8 leading-relaxed">
-              Une seule adhésion par foyer suffit pour que tout le monde puisse en profiter.
-            </p>
-            <div className="bg-[#f0f7f9] rounded-2xl p-6 mb-8 border border-[#1a5f7a]/10">
-              <div className="flex items-baseline gap-1 mb-1">
-                <span className="text-4xl font-black text-[#1a5f7a]">{feeParticulier}€</span>
-                <span className="text-[#1a5f7a]/70 font-bold text-sm">
-                  {appSettings.mode_adhesion_particulier === 'degressif' ? `pour ${currentYear}` : 'par an'}
-                </span>
+            <Reveal
+              variant="scale"
+              className="mx-auto max-w-[760px] rounded-[32px] border-2 border-[#0f172a] bg-white p-6 shadow-[6px_6px_0_#e38154] md:p-9"
+            >
+              <div className="mb-4 inline-flex items-center gap-2.5 rounded-full bg-[#fdf1ea] px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#d06b42]">
+                Étape préalable
               </div>
-              <p className="text-[10px] font-black text-[#e38154] uppercase tracking-wider">
-                {appSettings.mode_adhesion_particulier === 'degressif' 
-                  ? `Tarif dégressif • mois de ${monthName}` 
-                  : 'Tarif fixe • Année glissante'}
+              <p className="text-[15.5px] font-medium leading-[1.68] text-slate-600">
+                Pour profiter de la ludothèque, il faut d'abord être{' '}
+                <strong className="text-[#0f172a]">adhérent à l'Association <TitrePactes className="align-middle text-base" /></strong>{' '}
+                (contribution annuelle de <strong className="text-[#e38154]">10€</strong>).
+                Une fois membre, vous pouvez adhérer à la ludothèque selon les tarifs ci-dessous.
               </p>
-            </div>
-            <ul className="space-y-4 mb-10 flex-grow">
-              <li className="flex gap-3 text-slate-700 font-medium">
-                <CheckCircle2 className="text-[#1a5f7a] flex-shrink-0" size={20} />
-                Emprunt de {appSettings.quota_particulier} jeux pour 1 mois maximum
-              </li>
-              <li className="flex gap-3 text-slate-700 font-medium">
-                <CheckCircle2 className="text-[#1a5f7a] flex-shrink-0" size={20} />
-                Valable pour tout le foyer
-              </li>
-              <li className="flex gap-3 text-slate-700 font-medium">
-                <CheckCircle2 className="text-[#1a5f7a] flex-shrink-0" size={20} />
-                {appSettings.mode_adhesion_particulier === 'degressif' ? "Expire le 31 décembre" : "Valable 1 an de date à date"}
-              </li>
-              {appSettings.active_caution_particulier === "true" && (
-                <li className="flex gap-3 text-orange-600 font-black text-sm uppercase italic">
-                  <ShieldCheck className="text-orange-500 flex-shrink-0" size={20} />
-                  Caution de {appSettings.montant_caution_particulier}€ demandée
-                </li>
-              )}
-            </ul>
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex gap-3 items-start">
-              <Info size={16} className="text-[#e38154] mt-0.5" />
-              <p className="text-[10px] text-slate-500 italic leading-tight">
-                {appSettings.mode_adhesion_particulier === 'degressif' 
-                  ? `Cotisation de ${appSettings.prix_particulier}€ au 1er janv, dégressive de ${appSettings.degressivite_mensuelle}€/mois (min ${appSettings.prix_minimum}€).`
-                  : `Cotisation fixe de ${appSettings.prix_particulier}€ valable 12 mois à partir du jour de l'inscription.`}
-              </p>
-            </div>
+            </Reveal>
           </div>
 
-          <div className="bg-white rounded-[2.5rem] p-10 shadow-sm border border-slate-100 flex flex-col hover:border-[#e38154] transition-all">
-            <div className="w-16 h-16 bg-[#fdf2ee] text-[#e38154] rounded-2xl flex items-center justify-center mb-6">
-              <Building2 size={32} />
-            </div>
-            <h3 className="text-2xl font-black text-slate-900 mb-2">Collectivités</h3>
-            <p className="text-slate-500 text-sm mb-8 leading-relaxed">
-              Pour les structures (associations, écoles, mairies) de Coligny et alentours.
-            </p>
-            <div className="bg-[#fdf2ee] rounded-2xl p-6 mb-8 border border-[#e38154]/10">
-              <div className="flex items-baseline gap-1 mb-1">
-                <span className="text-4xl font-black text-[#e38154]">{feeAssociation}€</span>
-                <span className="text-[#e38154]/70 font-bold text-sm">
-                   {appSettings.mode_adhesion_association === 'degressif' ? `pour ${currentYear}` : 'par an'}
-                </span>
-              </div>
-              <p className="text-[10px] font-black text-[#1a5f7a] uppercase tracking-wider">
-                {appSettings.mode_adhesion_association === 'degressif' 
-                  ? `Tarif dégressif • mois de ${monthName}` 
-                  : 'Adhésion sur année glissante'}
-              </p>
-            </div>
-            <ul className="space-y-4 mb-10 flex-grow">
-              <li className="flex gap-3 text-slate-700 font-medium">
-                <CheckCircle2 className="text-[#e38154] flex-shrink-0" size={20} />
-                Emprunt de {appSettings.quota_association} jeux pour 1 mois maximum
-              </li>
-              <li className="flex gap-3 text-slate-700 font-medium">
-                <CheckCircle2 className="text-[#e38154] flex-shrink-0" size={20} />
-                {appSettings.mode_adhesion_association === 'degressif' ? "Expire le 31 décembre" : "Valable 1 an de date à date"}
-              </li>
-              <li className="flex gap-3 text-slate-700 font-medium">
-                <CheckCircle2 className="text-[#e38154] flex-shrink-0" size={20} />
-                Idéal pour les activités de groupe
-              </li>
-              {appSettings.active_caution_association === "true" && (
-                <li className="flex gap-3 text-orange-600 font-black text-sm uppercase italic">
-                  <ShieldCheck className="text-orange-500 flex-shrink-0" size={20} />
-                  Caution de {appSettings.montant_caution_association}€ demandée
-                </li>
-              )}
-            </ul>
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex gap-3 items-start">
-              <Calendar size={16} className="text-[#1a5f7a] mt-0.5" />
-              <p className="text-[10px] text-slate-500 italic leading-tight">
-                {appSettings.mode_adhesion_association === 'glissant' 
-                  ? "Tarif fixe : l'adhésion expire à la date anniversaire l'année suivante."
-                  : `Tarif dégressif sur base de ${appSettings.prix_association}€ (minimum ${appSettings.prix_minimum_asso}€).`}
-              </p>
-            </div>
-          </div>
-        </div>
+          {/* ---------- TARIFS ---------- */}
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            {OFFERS.map(offer => (
+              <Reveal
+                key={offer.key}
+                variant={offer.reveal}
+                className="flex flex-col rounded-[34px] border-2 border-[#0f172a] bg-white p-7 md:p-10"
+                style={{ boxShadow: `7px 7px 0 ${offer.accent}` }}
+              >
+                <div
+                  className="mb-5 flex h-[58px] w-[58px] items-center justify-center rounded-[20px] border-2 border-[#0f172a]"
+                  style={{ background: offer.tint }}
+                >
+                  <MaskIcon file={offer.icon} size={26} color={offer.accent} />
+                </div>
 
-        {/* AJOUT : SECTION TÉLÉCHARGEMENT CHARTE */}
-        <div className="mt-16 flex flex-col items-center">
-          <div className="bg-white border-2 border-dashed border-slate-200 rounded-[2.5rem] p-8 md:p-12 w-full max-w-2xl flex flex-col md:flex-row items-center gap-8 shadow-sm">
-            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-[#1a5f7a]">
-              <FileText size={40} />
+                <h2 className="mb-2 font-display text-[24px] font-extrabold tracking-[-0.035em] md:text-[30px]">
+                  {offer.title}
+                </h2>
+                <p className="mb-6 text-sm leading-[1.6] text-slate-500">{offer.intro}</p>
+
+                <div
+                  className="mb-6 rounded-[24px] border-2 border-[#0f172a] p-5"
+                  style={{ background: offer.tint }}
+                >
+                  <div className="flex items-baseline gap-2">
+                    <span
+                      className="font-display text-[44px] font-extrabold leading-none tracking-[-0.05em]"
+                      style={{ color: offer.accent }}
+                    >
+                      {offer.fee}€
+                    </span>
+                    <span className="text-sm font-bold" style={{ color: offer.accent }}>{offer.period}</span>
+                  </div>
+                  <div
+                    className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.16em]"
+                    style={{ color: offer.counterTint }}
+                  >
+                    {offer.note}
+                  </div>
+                </div>
+
+                <div className="mb-6 flex flex-col gap-3.5">
+                  {offer.perks.map(perk => (
+                    <div key={perk} className="flex items-start gap-3">
+                      <span
+                        className="mt-1 h-[18px] w-[18px] shrink-0 rounded-full"
+                        style={{ background: offer.accent }}
+                      />
+                      <span className="text-[14.5px] font-medium text-slate-700">{perk}</span>
+                    </div>
+                  ))}
+                  {offer.caution && (
+                    <div className="flex items-start gap-3 text-orange-600">
+                      <ShieldCheck size={20} className="mt-0.5 shrink-0 text-orange-500" />
+                      <span className="text-sm font-extrabold uppercase italic">{offer.caution}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-auto rounded-[18px] border-2 border-dashed border-slate-200 bg-[#fdfaf6] p-4 text-[11px] italic leading-[1.55] text-slate-400">
+                  {offer.footnote}
+                </div>
+              </Reveal>
+            ))}
+          </div>
+
+          {/* ---------- CHARTE ---------- */}
+          <Reveal className="mt-9 flex flex-col items-center gap-6 rounded-[34px] border-2 border-dashed border-[#0f172a] bg-white p-7 text-center sm:flex-row sm:items-center sm:text-left md:mt-12 md:p-11">
+            <div className="flex h-[76px] w-[76px] shrink-0 items-center justify-center rounded-full border-2 border-[#0f172a] bg-[#fdfaf6]">
+              <MaskIcon file="07.svg" size={32} color="#1a5f7a" />
             </div>
-            <div className="flex-1 text-center md:text-left">
-              <h4 className="text-xl font-black text-slate-900 mb-2 uppercase">Charte de la ludothèque</h4>
-              <p className="text-slate-500 text-xs font-medium leading-relaxed mb-6">
-                Consultez les règles d'usage, de soin des jeux et de respect des permanences en téléchargeant notre charte officielle.
+            <div className="min-w-0 flex-1">
+              <h2 className="mb-2 font-display text-[22px] font-extrabold uppercase tracking-[-0.03em]">
+                Charte de la ludothèque
+              </h2>
+              <p className="mb-5 text-[13px] leading-[1.6] text-slate-500">
+                Consultez les règles d'usage, de soin des jeux et de respect des permanences
+                en téléchargeant notre charte officielle.
               </p>
-              <a 
-                href="/charte-de-pret-ludotheque.pdf" 
+              <a
+                href="/charte-de-pret-ludotheque.pdf"
                 download="charte-de-pret-ludotheque.pdf"
-                className="inline-flex items-center gap-3 px-8 py-4 bg-white border-2 border-[#1a5f7a] text-[#1a5f7a] hover:bg-[#1a5f7a] hover:text-white transition-all rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-md active:scale-95"
+                className="inline-flex max-w-full items-center justify-center gap-3 text-balance rounded-[18px] border-2 border-[#0f172a] bg-white px-5 py-4 text-[10px] font-extrabold uppercase leading-relaxed tracking-[0.14em] text-[#1a5f7a] shadow-[4px_4px_0_#1a5f7a] transition-colors hover:bg-[#1a5f7a] hover:text-white"
               >
                 <Download size={16} />
                 Télécharger la charte de la ludothèque
               </a>
             </div>
-          </div>
-        </div>
+          </Reveal>
 
-        <div className="mt-20 bg-[#1a5f7a] rounded-[3rem] p-12 text-white text-center relative overflow-hidden shadow-2xl">
-          <h3 className="text-3xl font-black mb-6 text-white">Prêt à jouer ?</h3>
-          <p className="text-cyan-100 max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
-            Passez nous voir au <span className="text-[#e38154] font-black">419 Grande Rue à Coligny</span> durant nos permanences. 
-            L'inscription se fait directement sur place.
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-4 text-[10px] font-black uppercase tracking-widest">
-            <div className="px-6 py-3 border border-white/20 rounded-xl bg-white/10 backdrop-blur-sm">1ers Samedis (10h-12h)</div>
-            <div className="px-6 py-3 border border-white/20 rounded-xl bg-white/10 backdrop-blur-sm">3es samedis (14h-16h)</div>
-          </div>
+          {/* ---------- APPEL À VENIR ---------- */}
+          <Reveal className="mt-9 rounded-[32px] border-2 border-[#0f172a] bg-[#1a5f7a] p-8 text-center text-white shadow-[10px_10px_0_#0f172a] md:mt-12 md:rounded-[52px] md:p-14">
+            <h2 className="mb-4 font-display text-[28px] font-extrabold tracking-[-0.04em] md:text-[42px]">
+              Prêt à jouer ?
+            </h2>
+            <p className="mx-auto mb-7 max-w-[34em] text-base font-medium leading-[1.65] text-white/80">
+              Passez nous voir au <strong className="text-[#e38154]">419 Grande Rue à Coligny</strong> durant
+              nos permanences. L'inscription se fait directement sur place.
+            </p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <div className="rounded-full border border-white/30 bg-white/10 px-5 py-3.5 text-[10px] font-extrabold uppercase tracking-[0.16em]">
+                1ers Samedis (10h-12h)
+              </div>
+              <div className="rounded-full border border-white/30 bg-white/10 px-5 py-3.5 text-[10px] font-extrabold uppercase tracking-[0.16em]">
+                3es Samedis (14h-16h)
+              </div>
+            </div>
+          </Reveal>
         </div>
-
       </main>
-
-      <Footer />
-    </div>
+    </PublicLayout>
   )
 }

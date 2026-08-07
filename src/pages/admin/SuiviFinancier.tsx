@@ -2,7 +2,12 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../services/supabaseClient'
 import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
 import { useToast } from '../../components/ToastContext'
-import { SkeletonRow } from '../../components/Skeleton'
+import AdminPageHeader from '../../components/admin/AdminPageHeader'
+import IconButton from '../../components/admin/IconButton'
+import ConfirmModal from '../../components/admin/ConfirmModal'
+import FormModal, { FieldLabel, FIELD } from '../../components/admin/FormModal'
+import { DataCard } from '../../components/admin/DataCard'
+import { BTN_TEAL } from '../../components/admin/buttons'
 import {
   TrendingUp, TrendingDown, Plus, Trash2, Loader2,
   Wallet, ShoppingCart, Landmark, PiggyBank, X, AlertTriangle, Euro, Edit2
@@ -279,367 +284,260 @@ const FINANCIER_TUTORIAL_STEPS = (openForm, closeForm) => [
 
   // ── Rendu ──────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#fdfaf6] font-sans">
+    <div className="min-h-screen bg-[#fdfaf6] p-5 font-body text-[#0f172a] md:p-11">
+      <div className="mx-auto max-w-[1080px]">
 
-      {/* EN-TÊTE */}
-      <header className="p-4 md:p-10 max-w-5xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <h1 data-tutorial="fin-header" className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-4">
-          <div className="p-3 bg-[#1a5f7a] rounded-[1.2rem] md:rounded-[1.5rem] shadow-lg shadow-cyan-900/20 text-white">
-            <Wallet size={28} />
-          </div>
-          <div className="flex flex-col md:flex-row md:items-baseline md:gap-3">
-            <span className="leading-none">
-              Suivi <span className="text-[#1a5f7a]">Financier</span>
-            </span>
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#e38154]">
-              Trésorerie
-            </span>
-          </div>
-        </h1>
+      <div data-tutorial="fin-header">
+        <AdminPageHeader icon="04.svg" title="Suivi" accent="Financier" eyebrow="Trésorerie">
+          <button data-tutorial="fin-add-btn" onClick={() => openCreate()} className={`${BTN_TEAL} w-full md:w-auto`}>
+            <Plus size={16} /> Nouvelle opération
+          </button>
+        </AdminPageHeader>
+      </div>
 
-        <button
-          data-tutorial="fin-add-btn"
-          onClick={() => openCreate()}
-          className="w-full md:w-auto inline-flex items-center justify-center gap-3 px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all bg-[#1a5f7a] text-white shadow-lg shadow-cyan-900/20 hover:bg-[#164f66] active:scale-95"
+      <main className="space-y-5">
+
+        {/* ── SOLDE PRINCIPAL ──────────────────────────────────────────── */}
+        <div
+          data-tutorial="fin-solde"
+          className="relative flex flex-wrap items-center justify-between gap-6 overflow-hidden rounded-[34px] border-2 border-[#0f172a] p-7 text-white shadow-[8px_8px_0_#0f172a] md:rounded-[44px] md:p-12"
+          style={{ background: solde >= 0 ? '#10b981' : '#f43f5e' }}
         >
-          <Plus size={16} />
-          Nouvelle opération
-        </button>
-      </header>
-
-      <main className="max-w-5xl mx-auto px-4 md:px-10 pb-16 space-y-6 md:space-y-8">
-
-        {(
-          <div className="animate-in fade-in slide-in-from-bottom-6 duration-700 space-y-6 md:space-y-8">
-
-            {/* ── SOLDE PRINCIPAL ──────────────────────────────────────────── */}
-            <div data-tutorial="fin-solde" className={`rounded-[2.5rem] md:rounded-[3.5rem] p-8 md:p-14 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl relative overflow-hidden ${solde >= 0 ? 'bg-emerald-600 shadow-emerald-900/20' : 'bg-rose-500 shadow-rose-900/20'}`}>
-              <div className="absolute -top-20 -right-20 w-56 h-56 bg-white/5 rounded-full pointer-events-none" />
-              <div className="relative z-10 text-center md:text-left">
-                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/60 mb-2">
-                  Solde disponible
-                </p>
-                <p className="text-4xl md:text-6xl font-black tracking-tighter tabular-nums">
-                  {fmt(solde)}
-                </p>
-              </div>
-              <div className="relative z-10 flex flex-col items-center md:items-end gap-2">
-                <div className="w-20 h-20 md:w-24 md:h-24 bg-white/15 rounded-[1.5rem] flex items-center justify-center backdrop-blur-sm">
-                  {solde >= 0
-                    ? <TrendingUp size={42} strokeWidth={2.5} />
-                    : <TrendingDown size={42} strokeWidth={2.5} />
-                  }
-                </div>
-                <span className="text-[9px] font-black uppercase tracking-widest text-white/50">
-                  {solde >= 0 ? 'Bilan positif' : 'Déficit'}
-                </span>
-              </div>
-            </div>
-
-            {/* ── COMPTEURS ────────────────────────────────────────────────── */}
-            <div data-tutorial="fin-compteurs" className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-
-              {/* Cotisations */}
-              <div className="bg-white rounded-[2.5rem] p-6 md:p-8 border border-slate-100 shadow-sm flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
-                    Cotisations encaissées
-                  </span>
-                  <div className="p-2 bg-[#f0f7f9] text-[#1a5f7a] rounded-xl">
-                    <Euro size={16} />
-                  </div>
-                </div>
-                <p className="text-3xl md:text-4xl font-black text-slate-900 tracking-tighter tabular-nums">
-                  {fmt(cotisationsTotal)}
-                </p>
-                <p className="text-[9px] text-slate-300 font-bold uppercase tracking-wider">
-                  Historique réel · toutes années
-                </p>
-              </div>
-
-              {/* Entrées manuelles */}
-              <div className="bg-white rounded-[2.5rem] p-6 md:p-8 border border-slate-100 shadow-sm flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
-                    Autres entrées
-                  </span>
-                  <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
-                    <TrendingUp size={16} />
-                  </div>
-                </div>
-                <p className="text-3xl md:text-4xl font-black text-emerald-600 tracking-tighter tabular-nums">
-                  {fmt(totalEntrees - cotisationsTotal)}
-                </p>
-                <p className="text-[9px] text-slate-300 font-bold uppercase tracking-wider">
-                  Subventions, dons, trésorerie…
-                </p>
-              </div>
-
-              {/* Sorties */}
-              <div className="bg-white rounded-[2.5rem] p-6 md:p-8 border border-slate-100 shadow-sm flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
-                    Total des sorties
-                  </span>
-                  <div className="p-2 bg-rose-50 text-rose-500 rounded-xl">
-                    <TrendingDown size={16} />
-                  </div>
-                </div>
-                <p className="text-3xl md:text-4xl font-black text-rose-500 tracking-tighter tabular-nums">
-                  {fmt(totalSorties)}
-                </p>
-                <p className="text-[9px] text-slate-300 font-bold uppercase tracking-wider">
-                  Achats, matériel, frais…
-                </p>
-              </div>
-            </div>
-
-            {/* ── HISTORIQUE ───────────────────────────────────────────────── */}
-            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
-
-              {/* Tabs */}
-              <div data-tutorial="fin-tabs" className="flex border-b border-slate-100 px-6 pt-6 gap-2">
-                {(['tout', 'entrees', 'sorties'] as const).map(tab => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`px-5 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all ${
-                      activeTab === tab
-                        ? 'bg-[#1a5f7a] text-white shadow'
-                        : 'text-slate-400 hover:bg-slate-50'
-                    }`}
-                  >
-                    {tab === 'tout' ? 'Tout' : tab === 'entrees' ? 'Entrées' : 'Sorties'}
-                  </button>
-                ))}
-              </div>
-
-              <div className="p-6 space-y-3">
-                {/* Transactions */}
-                {loading && (
-                  <table className="w-full">
-                    <tbody>
-                      {Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={i} />)}
-                    </tbody>
-                  </table>
-                )}
-                {!loading && filteredTransactions.length === 0 && (
-                  <div className="py-16 text-center text-slate-300 font-black uppercase text-[10px] tracking-widest">
-                    Aucune opération enregistrée
-                  </div>
-                )}
-                {!loading && (() => { let nonCotiCount = 0; return filteredTransactions.map((t, idx) => {
-                  const isCotisation = t.category === 'Cotisation'
-                  if (!isCotisation) nonCotiCount++
-                  const tutoAttr = !isCotisation && nonCotiCount === 1 ? {"data-tutorial": "fin-list-row1"} :
-                                   !isCotisation && nonCotiCount === 2 ? {"data-tutorial": "fin-list-row2"} :
-                                   idx === 0 ? {"data-tutorial": "fin-list-row1"} :
-                                   idx === 1 ? {"data-tutorial": "fin-list-row2"} : {}
-                  return (
-                  <div
-                    key={t.id}
-                    {...tutoAttr}
-                    className={`flex items-center justify-between p-4 md:p-5 rounded-2xl border group transition-all ${
-                      isCotisation
-                        ? 'bg-[#f0f7f9] border-[#1a5f7a]/10'
-                        : 'bg-slate-50 border-slate-100 hover:border-slate-200'
-                    }`}
-                  >
-                    <div className="flex items-center gap-4 min-w-0 flex-1">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                        isCotisation
-                          ? 'bg-[#1a5f7a]/10 text-[#1a5f7a]'
-                          : t.type === 'entree'
-                            ? 'bg-emerald-50 text-emerald-600'
-                            : 'bg-rose-50 text-rose-500'
-                      }`}>
-                        {CATEGORY_ICONS[t.category] || (
-                          t.type === 'entree' ? <TrendingUp size={14} /> : <TrendingDown size={14} />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-black text-sm text-slate-800 truncate">{t.label}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                            isCotisation
-                              ? 'bg-[#1a5f7a]/10 text-[#1a5f7a]'
-                              : t.type === 'entree'
-                                ? 'bg-emerald-100 text-emerald-600'
-                                : 'bg-rose-100 text-rose-500'
-                          }`}>
-                            {t.category}
-                          </span>
-                          <span className="text-[9px] text-slate-300 font-bold">
-                            {fmtDate(t.date)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0 ml-4">
-                      <span className={`font-black text-base tabular-nums ${
-                        isCotisation ? 'text-[#1a5f7a]' : t.type === 'entree' ? 'text-emerald-600' : 'text-rose-500'
-                      }`}>
-                        {t.type === 'entree' ? '+' : '−'}{fmt(t.amount)}
-                      </span>
-                      {!isCotisation && (
-                        <>
-                          <button
-                            data-tutorial="fin-action-edit"
-                            onClick={() => openEdit(t)}
-                            className={`p-2 bg-[#f0f7f9] text-[#1a5f7a] rounded-xl transition-all hover:bg-[#dceef4] active:scale-95 ${showTuto ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                          >
-                            <Edit2 size={14} />
-                          </button>
-                          <button
-                            data-tutorial="fin-action-delete"
-                            onClick={() => setDeleteConfirm(t)}
-                            className={`p-2 bg-rose-50 text-rose-400 rounded-xl transition-all hover:bg-rose-100 active:scale-95 ${showTuto ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  )
-                })})()}
-              </div>
-            </div>
-
+          <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-white/10" />
+          <div className="relative">
+            <p className="mb-2.5 text-[10px] font-extrabold uppercase tracking-[0.25em] text-white/65">
+              Solde disponible
+            </p>
+            <p className="font-display text-[40px] font-extrabold leading-[0.95] tracking-[-0.055em] tabular-nums md:text-[60px]">
+              {fmt(solde)}
+            </p>
           </div>
-        )}
-      </main>
-
-      {/* ── MODALE AJOUT OPÉRATION ────────────────────────────────────────────── */}
-      {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div data-tutorial="fin-modal" className="relative bg-white rounded-[2.5rem] p-8 md:p-10 w-full max-w-lg shadow-2xl animate-in slide-in-from-bottom-4 md:zoom-in-95 duration-200">
-
-            <button
-              onClick={closeModal}
-              className="absolute top-6 right-6 p-2 bg-slate-100 text-slate-400 rounded-xl hover:bg-slate-200 transition-all"
-            >
-              <X size={18} />
-            </button>
-
-            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-8">
-              {editingId ? 'Modifier l\'opération' : 'Nouvelle opération'}
-            </h3>
-
-            {/* Type entrée / sortie */}
-            <div data-tutorial="fin-form-type" className="flex gap-3 mb-6">
-              <button
-                onClick={() => handleTypeChange('entree')}
-                className={`flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center justify-center gap-2 ${
-                  form.type === 'entree'
-                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20'
-                    : 'bg-emerald-50 text-emerald-600'
-                }`}
-              >
-                <TrendingUp size={16} /> Entrée
-              </button>
-              <button
-                onClick={() => handleTypeChange('sortie')}
-                className={`flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center justify-center gap-2 ${
-                  form.type === 'sortie'
-                    ? 'bg-rose-500 text-white shadow-lg shadow-rose-900/20'
-                    : 'bg-rose-50 text-rose-500'
-                }`}
-              >
-                <TrendingDown size={16} /> Sortie
-              </button>
+          <div className="relative flex flex-col items-center gap-2.5">
+            <div className="flex h-[92px] w-[92px] items-center justify-center rounded-[26px] border-2 border-white/40 bg-white/20">
+              {solde >= 0 ? <TrendingUp size={42} strokeWidth={2.5} /> : <TrendingDown size={42} strokeWidth={2.5} />}
             </div>
-
-            <div data-tutorial="fin-form-fields" className="space-y-4">
-
-              {/* Catégorie */}
-              <div>
-                <label className="block text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">
-                  Catégorie
-                </label>
-                <select
-                  value={form.category}
-                  onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                  className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm text-slate-700 focus:outline-none focus:border-[#1a5f7a]/40 focus:ring-2 focus:ring-[#1a5f7a]/10"
-                >
-                  {(form.type === 'entree' ? ENTREE_CATEGORIES : SORTIE_CATEGORIES).map(c => (
-                    <option key={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Libellé */}
-              <div>
-                <label className="block text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">
-                  Libellé
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex : Achat Catan, Subvention mairie…"
-                  value={form.label}
-                  onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
-                  className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm text-slate-700 placeholder:text-slate-300 focus:outline-none focus:border-[#1a5f7a]/40 focus:ring-2 focus:ring-[#1a5f7a]/10"
-                />
-              </div>
-
-              {/* Montant + Date */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">
-                    Montant (€)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={form.amount}
-                    onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-black text-sm text-slate-700 placeholder:text-slate-300 focus:outline-none focus:border-[#1a5f7a]/40 focus:ring-2 focus:ring-[#1a5f7a]/10 tabular-nums"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    value={form.date}
-                    onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm text-slate-700 focus:outline-none focus:border-[#1a5f7a]/40 focus:ring-2 focus:ring-[#1a5f7a]/10"
-                  />
-                </div>
-              </div>
-
-              {/* Erreur */}
-              {formError && (
-                <div className="flex items-center gap-2 p-4 bg-rose-50 text-rose-600 rounded-2xl font-bold text-xs border border-rose-100">
-                  <AlertTriangle size={16} className="shrink-0" /> {formError}
-                </div>
-              )}
-
-              {/* Bouton */}
-              <button
-                data-tutorial="fin-form-submit"
-                onClick={handleSubmit}
-                disabled={saving}
-                className={`w-full py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${
-                  form.type === 'entree'
-                    ? 'bg-emerald-600 text-white shadow-emerald-900/20 hover:bg-emerald-700'
-                    : 'bg-rose-500 text-white shadow-rose-900/20 hover:bg-rose-600'
-                } disabled:opacity-60`}
-              >
-                {saving
-                  ? <><Loader2 size={16} className="animate-spin" /> Enregistrement…</>
-                  : editingId
-                    ? <><Edit2 size={16} /> Mettre à jour</>
-                    : <><Plus size={16} /> Enregistrer</>
-                }
-              </button>
-            </div>
+            <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-white/70">
+              {solde >= 0 ? 'Bilan positif' : 'Déficit'}
+            </span>
           </div>
         </div>
-      )}
+
+        {/* ── COMPTEURS ────────────────────────────────────────────────── */}
+        <div data-tutorial="fin-compteurs" className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {[
+            { label: 'Cotisations encaissées', value: fmt(cotisationsTotal), color: '#0f172a', shadow: '#1a5f7a', tint: '#f0f7f9', icon: <Euro size={15} />, iconColor: '#1a5f7a', hint: 'Historique réel · toutes années' },
+            { label: 'Autres entrées', value: fmt(totalEntrees - cotisationsTotal), color: '#10b981', shadow: '#10b981', tint: '#ecfdf5', icon: <TrendingUp size={15} />, iconColor: '#10b981', hint: 'Subventions, dons, trésorerie…' },
+            { label: 'Total des sorties', value: fmt(totalSorties), color: '#f43f5e', shadow: '#f43f5e', tint: '#fff1f2', icon: <TrendingDown size={15} />, iconColor: '#f43f5e', hint: 'Achats, matériel, frais…' },
+          ].map(card => (
+            <div
+              key={card.label}
+              className="rounded-[34px] border-2 border-[#0f172a] bg-white p-6 md:p-7"
+              style={{ boxShadow: `5px 5px 0 ${card.shadow}` }}
+            >
+              <div className="mb-3.5 flex items-start justify-between gap-3">
+                <span className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400">{card.label}</span>
+                <span
+                  className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[12px] border-2 border-[#0f172a]"
+                  style={{ background: card.tint, color: card.iconColor }}
+                >
+                  {card.icon}
+                </span>
+              </div>
+              <p className="font-display text-[32px] font-extrabold leading-none tracking-[-0.05em] tabular-nums md:text-[36px]" style={{ color: card.color }}>
+                {card.value}
+              </p>
+              <p className="mt-3 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-300">{card.hint}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* ── HISTORIQUE ───────────────────────────────────────────────── */}
+        <DataCard>
+          <div data-tutorial="fin-tabs" className="flex flex-wrap gap-2 border-b-2 border-[#0f172a] bg-[#fdfaf6] px-6 py-5">
+            {(['tout', 'entrees', 'sorties'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`rounded-[14px] border-2 px-5 py-3 text-[9px] font-extrabold uppercase tracking-[0.16em] transition-colors ${
+                  activeTab === tab
+                    ? 'border-[#0f172a] bg-[#1a5f7a] text-white'
+                    : 'border-transparent text-slate-400 hover:bg-white'
+                }`}
+              >
+                {tab === 'tout' ? 'Tout' : tab === 'entrees' ? 'Entrées' : 'Sorties'}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-3 p-6">
+            {loading && Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-[76px] animate-pulse rounded-[24px] border-2 border-slate-100 bg-slate-50" />
+            ))}
+
+            {!loading && filteredTransactions.length === 0 && (
+              <div className="py-16 text-center text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-300">
+                Aucune opération enregistrée
+              </div>
+            )}
+
+            {!loading && (() => { let nonCotiCount = 0; return filteredTransactions.map((t, idx) => {
+              const isCotisation = t.category === 'Cotisation'
+              if (!isCotisation) nonCotiCount++
+              const tutoAttr = !isCotisation && nonCotiCount === 1 ? {"data-tutorial": "fin-list-row1"} :
+                               !isCotisation && nonCotiCount === 2 ? {"data-tutorial": "fin-list-row2"} :
+                               idx === 0 ? {"data-tutorial": "fin-list-row1"} :
+                               idx === 1 ? {"data-tutorial": "fin-list-row2"} : {}
+              const accent = isCotisation ? '#1a5f7a' : t.type === 'entree' ? '#10b981' : '#f43f5e'
+              const tint   = isCotisation ? '#f0f7f9' : t.type === 'entree' ? '#ecfdf5' : '#fff1f2'
+              return (
+                <div
+                  key={t.id}
+                  {...tutoAttr}
+                  className="flex flex-wrap items-center justify-between gap-4 rounded-[24px] border-2 p-4 md:p-5"
+                  style={{ background: isCotisation ? '#f0f7f9' : '#fdfaf6', borderColor: isCotisation ? '#bae6fd' : '#e2e8f0' }}
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-4">
+                    <div
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a]"
+                      style={{ background: tint, color: accent }}
+                    >
+                      {CATEGORY_ICONS[t.category] || (t.type === 'entree' ? <TrendingUp size={15} /> : <TrendingDown size={15} />)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13.5px] font-extrabold text-slate-800">{t.label}</p>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
+                        <span
+                          className="rounded-full px-2.5 py-1 text-[8px] font-extrabold uppercase tracking-[0.1em]"
+                          style={{ background: tint, color: accent }}
+                        >
+                          {t.category}
+                        </span>
+                        <span className="text-[9.5px] font-bold text-slate-400">{fmtDate(t.date)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-3">
+                    <span className="font-display text-[18px] font-extrabold tracking-[-0.03em] tabular-nums" style={{ color: accent }}>
+                      {t.type === 'entree' ? '+' : '−'}{fmt(t.amount)}
+                    </span>
+                    {!isCotisation && (
+                      <span className="flex gap-2">
+                        <IconButton data-tutorial="fin-action-edit" title="Modifier" className="h-[38px] w-[38px] bg-[#f0f7f9]" onClick={() => openEdit(t)}>
+                          <Edit2 size={16} />
+                        </IconButton>
+                        <IconButton data-tutorial="fin-action-delete" tone="danger" title="Supprimer" className="h-[38px] w-[38px]" onClick={() => setDeleteConfirm(t)}>
+                          <Trash2 size={16} />
+                        </IconButton>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )
+            })})()}
+          </div>
+        </DataCard>
+      </main>
+      </div>
+
+
+      {/* ── MODALE AJOUT OPÉRATION ────────────────────────────────────────────── */}
+      <FormModal
+        open={showModal}
+        onClose={closeModal}
+        title={editingId ? "Modifier l'" : 'Nouvelle '}
+        titleAccent="opération"
+        subtitle={form.type === 'entree' ? 'Une entrée dans la trésorerie' : 'Une sortie de la trésorerie'}
+        accent={form.type === 'entree' ? '#10b981' : '#f43f5e'}
+        maxWidth={560}
+        footer={
+          <button
+            data-tutorial="fin-form-submit"
+            onClick={handleSubmit}
+            disabled={saving}
+            className="flex w-full items-center justify-center gap-2.5 rounded-[18px] border-2 border-[#0f172a] py-5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white shadow-[5px_5px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a] disabled:pointer-events-none disabled:opacity-50"
+            style={{ background: form.type === 'entree' ? '#10b981' : '#f43f5e' }}
+          >
+            {saving
+              ? <><Loader2 size={16} className="animate-spin" /> Enregistrement…</>
+              : editingId
+                ? <><Edit2 size={16} /> Mettre à jour</>
+                : <><Plus size={16} /> Enregistrer</>}
+          </button>
+        }
+      >
+        <div data-tutorial="fin-modal">
+          {/* Type entrée / sortie */}
+          <div data-tutorial="fin-form-type" className="mb-5 flex gap-3">
+            <button
+              onClick={() => handleTypeChange('entree')}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-[16px] border-2 border-[#0f172a] py-4 text-[10px] font-extrabold uppercase tracking-[0.14em] transition-colors ${
+                form.type === 'entree' ? 'bg-[#10b981] text-white' : 'bg-[#ecfdf5] text-[#047857]'
+              }`}
+            >
+              <TrendingUp size={16} /> Entrée
+            </button>
+            <button
+              onClick={() => handleTypeChange('sortie')}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-[16px] border-2 border-[#0f172a] py-4 text-[10px] font-extrabold uppercase tracking-[0.14em] transition-colors ${
+                form.type === 'sortie' ? 'bg-[#f43f5e] text-white' : 'bg-[#fff1f2] text-[#be123c]'
+              }`}
+            >
+              <TrendingDown size={16} /> Sortie
+            </button>
+          </div>
+
+          <div data-tutorial="fin-form-fields">
+            <FieldLabel>Catégorie</FieldLabel>
+            <select
+              value={form.category}
+              onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+              className={`${FIELD} mb-4`}
+            >
+              {(form.type === 'entree' ? ENTREE_CATEGORIES : SORTIE_CATEGORIES).map(c => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+
+            <FieldLabel>Libellé</FieldLabel>
+            <input
+              type="text"
+              placeholder="Ex : Achat Catan, Subvention mairie…"
+              value={form.label}
+              onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
+              className={`${FIELD} mb-4`}
+            />
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <FieldLabel>Montant (€)</FieldLabel>
+                <input
+                  type="number" min="0" step="0.01" placeholder="0.00"
+                  value={form.amount}
+                  onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+                  className={`${FIELD} tabular-nums`}
+                />
+              </div>
+              <div>
+                <FieldLabel>Date</FieldLabel>
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                  className={FIELD}
+                />
+              </div>
+            </div>
+
+            {formError && (
+              <div className="mt-4 flex items-center gap-2 rounded-[18px] border-2 border-rose-200 bg-rose-50 p-4 text-xs font-bold text-rose-600">
+                <AlertTriangle size={16} className="shrink-0" /> {formError}
+              </div>
+            )}
+          </div>
+        </div>
+      </FormModal>
+
 
       {/* ── TUTORIEL ─────────────────────────────────────────────────────── */}
       <TutorialButton onClick={() => setShowTuto(true)} />
@@ -650,34 +548,23 @@ const FINANCIER_TUTORIAL_STEPS = (openForm, closeForm) => [
       />
 
       {/* ── MODALE SUPPRESSION ───────────────────────────────────────────────── */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-[#1a5f7a]/80 backdrop-blur-md">
-          <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl border-b-8 border-rose-500 animate-in slide-in-from-bottom-4">
-            <div className="mx-auto w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mb-6">
-              <Trash2 size={28} />
-            </div>
-            <h3 className="text-xl font-black uppercase text-slate-900 mb-2">Supprimer ?</h3>
-            <p className="text-xs text-slate-500 mb-2 italic">"{deleteConfirm.label}"</p>
-            <p className="text-lg font-black text-slate-700 mb-8 tabular-nums">
-              {deleteConfirm.type === 'entree' ? '+' : '−'}{fmt(deleteConfirm.amount)}
-            </p>
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={() => handleDelete(deleteConfirm)}
-                className="w-full py-5 bg-rose-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all"
-              >
-                Confirmer la suppression
-              </button>
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="w-full py-5 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase text-[10px]"
-              >
-                Annuler
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => handleDelete(deleteConfirm)}
+        title="Supprimer ?"
+        message={deleteConfirm ? `« ${deleteConfirm.label} » sera définitivement retiré du suivi financier.` : ''}
+        confirmLabel="Oui, supprimer"
+        cancelLabel="Conserver"
+        tone="danger"
+        icon={<Trash2 size={26} />}
+      >
+        {deleteConfirm && (
+          <p className="mb-6 font-display text-[26px] font-extrabold tracking-[-0.04em] tabular-nums" style={{ color: deleteConfirm.type === 'entree' ? '#10b981' : '#f43f5e' }}>
+            {deleteConfirm.type === 'entree' ? '+' : '−'}{fmt(deleteConfirm.amount)}
+          </p>
+        )}
+      </ConfirmModal>
     </div>
   )
 }

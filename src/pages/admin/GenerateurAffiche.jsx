@@ -280,23 +280,23 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
   const canDownload = !!selectedDate && imgLoaded && fontLoaded
 
   return (
-    <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
-      <div className="p-8 pb-6 border-b border-slate-50 flex items-center gap-4">
-        <div className="p-3 bg-[#e38154]/10 rounded-2xl text-[#e38154]">
-          <Palette size={22} />
+    <div className="overflow-hidden rounded-[34px] border-2 border-[#0f172a] bg-white shadow-[6px_6px_0_#e38154]">
+      <div className="flex items-center gap-3.5 border-b-2 border-[#0f172a] px-6 py-5">
+        <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#fdf1ea] text-[#e38154]">
+          <Palette size={20} />
         </div>
         <div>
-          <h2 className="text-base font-black text-slate-900 uppercase tracking-wide">Générateur d'affiches</h2>
-          <p className="text-[10px] text-slate-400 font-medium mt-0.5">Choisissez un type, une date, téléchargez le PNG</p>
+          <h2 className="font-display text-[19px] font-extrabold uppercase tracking-[-0.03em]">Générateur d'affiches</h2>
+          <p className="mt-1 text-[11px] font-semibold text-slate-400">Choisissez un type, une date, téléchargez le PNG</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2">
         {/* ── Colonne paramètres ── */}
-        <div className="p-8 space-y-5 border-r border-slate-50">
+        <div className="space-y-5 border-b-2 border-slate-100 p-6 lg:border-b-0 lg:border-r-2 md:p-8">
 
           <div className="space-y-2">
-            <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest ml-1">Type d'affiche</label>
+            <label className="text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-[#1a5f7a]">Type d'affiche</label>
             {templates.length === 0 ? (
               <div className="flex items-center gap-2 text-slate-300 text-xs py-4">
                 <Loader2 size={14} className="animate-spin" /> Chargement des modèles...
@@ -332,20 +332,20 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
 
 
           <div className="space-y-2">
-            <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest ml-1">Date & heure de début</label>
+            <label className="text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-[#1a5f7a]">Date & heure de début</label>
             <input type="datetime-local"
-              className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+              className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
               value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
           </div>
 
           <div className="space-y-2">
-            <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest ml-1">
+            <label className="text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-[#1a5f7a]">
               Heure de fin
               <span className="text-slate-300 normal-case font-normal ml-2">optionnel</span>
             </label>
             <div className="flex gap-3 items-center">
               <input type="time"
-                className="flex-1 p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                className="flex-1 rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
                 value={selectedEndTime} onChange={e => setSelectedEndTime(e.target.value)} />
               {selectedEndTime && (
                 <button onClick={() => setSelectedEndTime('')}
@@ -360,9 +360,9 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
           </div>
 
           <div className="space-y-2">
-              <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest ml-1">Lieu</label>
+              <label className="text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-[#1a5f7a]">Lieu</label>
               <input type="text"
-                className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
                 value={selectedLocation} onChange={e => setSelectedLocation(e.target.value)}
                 placeholder="la salle des fêtes de Coligny" />
             </div>
@@ -405,16 +405,16 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
         </div>
 
         {/* ── Colonne aperçu ── */}
-        <div className="p-8 flex flex-col items-center justify-start bg-slate-50/40">
+        <div className="flex flex-col items-center justify-start bg-[#fdfaf6] p-6 md:p-8">
           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
             <Eye size={11} /> Aperçu temps réel
           </p>
           {!imgLoaded && (
-            <div className="flex items-center justify-center w-full aspect-[794/1123] max-w-[260px] rounded-2xl bg-slate-100 text-slate-300 text-xs font-bold">
+            <div className="flex aspect-[794/1123] w-full max-w-[260px] items-center justify-center rounded-[20px] border-2 border-slate-200 bg-slate-100 text-xs font-bold text-slate-300">
               Chargement...
             </div>
           )}
-          <div className={'w-full max-w-[260px] rounded-2xl overflow-hidden shadow-xl border border-slate-200 ' + (!imgLoaded ? 'hidden' : '')}>
+          <div className={'w-full max-w-[260px] overflow-hidden rounded-[20px] border-2 border-[#0f172a] shadow-[5px_5px_0_#1a5f7a] ' + (!imgLoaded ? 'hidden' : '')}>
             <canvas ref={canvasRef} width={A4_W} height={A4_H}
               style={{ width: '100%', height: 'auto', display: 'block' }} />
           </div>
@@ -437,7 +437,7 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
               Aperçu final — qualité téléchargement
             </p>
             <button onClick={() => setShowPreview(false)}
-              className="p-2 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all shrink-0">
+              className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-white/40 bg-white/10 text-white transition-colors hover:bg-white/25">
               <X size={20} />
             </button>
           </div>
@@ -445,7 +445,7 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
           <div className="flex-1 flex flex-col items-center justify-center px-4 pb-4 gap-3">
             {previewUrl && (
               <img src={previewUrl} alt="Aperçu de l'affiche"
-                className="w-full sm:w-auto max-h-[85vh] sm:max-w-[85vw] object-contain rounded-lg shadow-2xl" />
+                className="w-full rounded-[16px] border-2 border-[#0f172a] object-contain shadow-[8px_8px_0_rgba(255,255,255,.25)] sm:w-auto sm:max-w-[85vw] max-h-[85vh]" />
             )}
             <p className="text-slate-300 text-[10px] font-bold uppercase tracking-widest">
               Résolution : {A4_W} × {A4_H} px — Format A4
@@ -454,7 +454,7 @@ export default function GenerateurAffiche({ events = [], onCreateEvent }) {
 
           <div className="p-4 sm:p-6 flex gap-3 shrink-0 max-w-lg w-full mx-auto">
             <button onClick={() => setShowPreview(false)}
-              className="flex-1 py-4 bg-white/10 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-white/20 transition-all">
+              className="flex-1 rounded-[18px] border-2 border-white/40 bg-white/10 py-4 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white transition-colors hover:bg-white/25">
               Fermer
             </button>
             <button

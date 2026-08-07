@@ -1,7 +1,14 @@
 import { useState } from 'react'
 import { supabase } from '../services/supabaseClient'
 import { useNavigate } from 'react-router-dom'
-import { Dice5, Lock, Mail, ArrowLeft, Loader2, ShieldCheck, AlertTriangle } from 'lucide-react'
+import { Loader2, AlertTriangle } from 'lucide-react'
+import PublicLayout from '../components/site/PublicLayout'
+import FloatingIcons from '../components/site/FloatingIcons'
+import MaskIcon from '../components/site/MaskIcon'
+import Reveal from '../components/site/Reveal'
+import { BTN_TEAL, INPUT } from '../components/site/styles'
+
+const FIELD_LABEL = 'mb-2.5 block text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -29,104 +36,89 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fdfaf6] flex flex-col justify-center items-center p-4 font-sans relative overflow-hidden">
-      
-      {/* Éléments de décor discrets en arrière-plan */}
-      <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-[#1a5f7a]/5 rounded-full blur-3xl"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-[#e38154]/5 rounded-full blur-3xl"></div>
+    <PublicLayout>
+      <main className="relative overflow-hidden px-4 pb-16 pt-10 md:px-10 md:pb-24 md:pt-16">
+        <FloatingIcons />
 
-      {/* Bouton retour accueil */}
-      <button 
-        onClick={() => navigate('/')}
-        className="absolute top-8 left-8 flex items-center gap-2 text-slate-400 hover:text-[#1a5f7a] transition-colors text-[10px] font-black uppercase tracking-widest"
-      >
-        <ArrowLeft size={16} />
-        Retour au site
-      </button>
-
-      <div className="max-w-md w-full">
-        {/* Logo et Titre */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-[#1a5f7a] rounded-[2rem] shadow-xl shadow-cyan-100 text-white mb-6 transform -rotate-3 hover:rotate-0 transition-transform duration-500">
-            <Dice5 size={40} />
-          </div>
-          <h2 className="text-3xl font-black text-slate-900 leading-tight">Espace <span className="text-[#1a5f7a]">Bénévole</span></h2>
-          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-3 flex items-center justify-center gap-2">
-            <ShieldCheck size={14} className="text-[#e38154]" /> Accès sécurisé
-          </p>
-        </div>
-
-        {/* Carte du Formulaire */}
-        <div className="bg-white p-8 md:p-10 rounded-[3rem] shadow-2xl shadow-slate-200/50 border border-slate-50 relative z-10">
-          <form onSubmit={handleLogin} className="space-y-6">
-            
-            {/* Champ Email */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Email professionnel</label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-300 group-focus-within:text-[#1a5f7a] transition-colors">
-                  <Mail size={18} />
-                </div>
-                <input 
-                  type="email" 
-                  required 
-                  placeholder="votre@email.com"
-                  className="w-full bg-slate-50 border-2 border-transparent focus:border-[#1a5f7a]/10 focus:bg-white p-4 pl-12 rounded-2xl outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300"
-                  value={email} 
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Champ Mot de passe */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Mot de passe</label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-300 group-focus-within:text-[#1a5f7a] transition-colors">
-                  <Lock size={18} />
-                </div>
-                <input 
-                  type="password" 
-                  required 
-                  placeholder="••••••••"
-                  className="w-full bg-slate-50 border-2 border-transparent focus:border-[#1a5f7a]/10 focus:bg-white p-4 pl-12 rounded-2xl outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300"
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Message d'erreur */}
-            {errorMsg && (
-              <div className="flex items-center gap-3 bg-rose-50 border border-rose-100 rounded-2xl p-4 text-rose-600 text-xs font-bold">
-                <AlertTriangle size={18} className="shrink-0" />
-                {errorMsg}
-              </div>
-            )}
-
-            {/* Bouton Submit */}
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full bg-[#1a5f7a] text-white p-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] hover:bg-[#144a5f] active:scale-95 transition-all disabled:bg-slate-200 disabled:text-slate-400 disabled:transform-none shadow-xl shadow-cyan-100 flex items-center justify-center gap-3"
+        <div className="relative z-10 mx-auto max-w-[480px]">
+          <div className="mb-8 text-center">
+            <div
+              className="anim-die-drop mx-auto mb-5 flex h-20 w-20 -rotate-3 items-center justify-center rounded-[26px] border-2 border-[#0f172a] bg-[#1a5f7a] shadow-[5px_5px_0_#e38154]"
+              style={{ animationDelay: '0.1s' }}
             >
-              {loading ? (
-                <>
-                  <Loader2 className="animate-spin" size={18} />
-                  Vérification...
-                </>
-              ) : (
-                "Accéder au tableau de bord"
-              )}
-            </button>
-          </form>
-        </div>
+              <MaskIcon file="01.svg" size={36} color="#ffffff" />
+            </div>
+            <h1
+              className="anim-soft-in font-display text-[26px] font-extrabold leading-[1.05] tracking-[-0.045em] sm:text-[30px] md:text-[44px]"
+              style={{ animationDelay: '0.5s' }}
+            >
+              Espace <span className="text-[#1a5f7a]">Bénévole</span>
+            </h1>
+            <div
+              className="anim-soft-in mt-4 inline-flex items-center gap-2 rounded-full bg-[#fdf1ea] px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#d06b42]"
+              style={{ animationDelay: '0.65s' }}
+            >
+              <span className="h-[7px] w-[7px] rounded-full bg-[#e38154]" /> Accès sécurisé
+            </div>
+          </div>
 
-        {/* Footer de la page login */}
-        <p className="text-center mt-10 text-slate-400 text-[9px] font-bold uppercase tracking-[0.3em]">
-          Association PACTES — Coligny
-        </p>
-      </div>
-    </div>
+          <Reveal
+            variant="scale"
+            className="rounded-[34px] border-2 border-[#0f172a] bg-white p-7 shadow-[8px_8px_0_#1a5f7a] md:p-9"
+          >
+            <form onSubmit={handleLogin}>
+              <label className={FIELD_LABEL} htmlFor="login-email">Email</label>
+              <input
+                id="login-email"
+                type="email"
+                required
+                placeholder="votre@email.com"
+                className={`${INPUT} mb-5`}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+
+              <label className={FIELD_LABEL} htmlFor="login-password">Mot de passe</label>
+              <input
+                id="login-password"
+                type="password"
+                required
+                placeholder="••••••••"
+                className={`${INPUT} mb-6`}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+
+              {errorMsg && (
+                <div className="mb-5 flex items-center gap-3 rounded-[18px] border-2 border-rose-200 bg-rose-50 p-4 text-xs font-bold text-rose-600">
+                  <AlertTriangle size={18} className="shrink-0" />
+                  {errorMsg}
+                </div>
+              )}
+
+              <button type="submit" disabled={loading} className={`${BTN_TEAL} w-full`}>
+                {loading ? (
+                  <><Loader2 className="animate-spin" size={18} /> Vérification...</>
+                ) : (
+                  "Accéder au tableau de bord"
+                )}
+              </button>
+            </form>
+          </Reveal>
+
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => navigate('/inscription-permanence')}
+              className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500 transition-colors hover:text-[#e38154]"
+            >
+              Je viens seulement m'inscrire à une permanence →
+            </button>
+            <div className="mt-5 text-[9px] font-extrabold uppercase tracking-[0.3em] text-slate-300">
+              Association PACTES — Coligny
+            </div>
+          </div>
+        </div>
+      </main>
+    </PublicLayout>
   )
 }

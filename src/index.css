@@ -1,3 +1,154 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* ============================================================
+   SITE PUBLIC — animations et utilitaires partagés
+   Voir src/components/site/ pour les composants qui les utilisent.
+   ============================================================ */
+
+/* --- Révélation au défilement (composant <Reveal>) ---
+   Tout est conditionné à [data-anim], que <Reveal> pose sur la racine du document.
+   Si le JavaScript ne s'exécute pas, rien n'est masqué : on perd l'animation,
+   jamais le contenu. */
+[data-anim] [data-reveal] {
+  opacity: 0;
+  transition:
+    opacity 0.85s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+}
+[data-anim] [data-reveal='up'] { transform: translateY(30px); }
+[data-anim] [data-reveal='scale'] { transform: scale(0.94); }
+
+/* Sur petits écrans, les entrées latérales deviennent verticales : un décalage
+   horizontal dépasse de l'écran et provoque un défilement latéral parasite. */
+[data-anim] [data-reveal='left'],
+[data-anim] [data-reveal='right'] { transform: translateY(30px); }
+
+@media (min-width: 768px) {
+  [data-anim] [data-reveal='left'] { transform: translateX(-38px); }
+  [data-anim] [data-reveal='right'] { transform: translateX(38px); }
+}
+
+/* Plus spécifique que les règles ci-dessus : gagne quel que soit l'écran. */
+[data-anim] [data-reveal][data-in] { opacity: 1; transform: none; }
+
+/* --- Keyframes --- */
+@keyframes ludoFloat {
+  0% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  25% { transform: translate(60px, -40px) rotate(90deg) scale(1.1); }
+  50% { transform: translate(20px, -100px) rotate(180deg) scale(1); }
+  75% { transform: translate(-50px, -50px) rotate(270deg) scale(0.9); }
+  100% { transform: translate(0, 0) rotate(360deg) scale(1); }
+}
+@keyframes wordUp {
+  from { opacity: 0; transform: translateY(105%) rotate(3deg); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes softIn {
+  from { opacity: 0; transform: translateY(22px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes dieDrop {
+  0% { opacity: 0; transform: translateY(-220px) rotate(-160deg) scale(0.5); }
+  35% { opacity: 1; }
+  55% { transform: translateY(10px) rotate(200deg) scale(1.12); }
+  70% { transform: translateY(-14px) rotate(330deg) scale(0.96); }
+  85% { transform: translateY(4px) rotate(350deg) scale(1.04); }
+  100% { opacity: 1; transform: translateY(0) rotate(360deg) scale(1); }
+}
+@keyframes dieIdle {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-7px) rotate(4deg); }
+}
+@keyframes pipIn {
+  0% { opacity: 0; transform: scale(0) rotate(-90deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+@keyframes pulseRing {
+  0% { opacity: 0.55; transform: scale(0.85); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+@keyframes growBar {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(26px) scale(0.95); }
+  to { opacity: 1; transform: none; }
+}
+
+.anim-word-up { animation: wordUp 1.1s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.anim-soft-in { animation: softIn 1s ease both; }
+.anim-die-drop { animation: dieDrop 1.5s cubic-bezier(0.22, 1.1, 0.36, 1) both; }
+.anim-die-idle { animation: dieIdle 4.6s ease-in-out infinite; }
+.anim-pip-in { animation: pipIn 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.anim-pulse-ring { animation: pulseRing 1.8s ease-out infinite; }
+.anim-grow-bar { transform-origin: bottom; animation: growBar 0.9s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.anim-fade-in { animation: fadeIn 0.3s ease both; }
+.anim-modal-in { animation: modalIn 0.35s cubic-bezier(0.2, 1.2, 0.4, 1) both; }
+
+/* --- Curseurs de filtre du catalogue --- */
+.range-brut {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 14px;
+  border: 2px solid #0f172a;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.range-brut::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #0f172a;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.range-brut::-webkit-slider-thumb:hover { transform: scale(1.15); }
+.range-brut::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #0f172a;
+  cursor: pointer;
+}
+
+/* --- Divers --- */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Motif hachuré utilisé comme fond des visuels manquants */
+.hatch { background-image: repeating-linear-gradient(45deg, #e2e8f0 0 9px, #f1f5f9 9px 18px); }
+.hatch-light { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.35) 0 9px, rgba(255,255,255,0.15) 9px 18px); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  [data-anim] [data-reveal] { opacity: 1; transform: none; transition: none; }
+  .anim-word-up,
+  .anim-soft-in,
+  .anim-die-drop,
+  .anim-die-idle,
+  .anim-pip-in,
+  .anim-pulse-ring,
+  .anim-grow-bar,
+  .anim-fade-in,
+  .anim-modal-in {
+    animation: none;
+    transform: none;
+    opacity: 1;
+  }
+}

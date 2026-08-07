@@ -4,7 +4,24 @@ import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverla
 import { supabase } from '../../services/supabaseClient'
 import { sendEmail } from '../../services/emailService'
 import { useToast } from '../../components/ToastContext'
-import { SkeletonCard } from '../../components/Skeleton'
+import AdminPageHeader from '../../components/admin/AdminPageHeader'
+import IconButton from '../../components/admin/IconButton'
+import SearchField from '../../components/admin/SearchField'
+import ConfirmModal from '../../components/admin/ConfirmModal'
+import { DataCard } from '../../components/admin/DataCard'
+import { BTN_ORANGE, BTN_INK, BTN_TEAL } from '../../components/admin/buttons'
+
+// Styles des champs du formulaire d'événement, repris de la maquette
+const E_SECTION = 'mb-4 flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.18em]'
+const E_LABEL = 'mb-2 block text-[9px] font-extrabold uppercase italic tracking-[0.14em] text-slate-400'
+const E_INPUT = 'w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none placeholder:font-semibold placeholder:text-slate-300 focus:bg-white'
+
+// Les trois onglets de l'écran Communication
+const COMM_TABS = [
+  { id: 'events', label: 'Événements', shadow: '#1a5f7a' },
+  { id: 'affiche', label: "Générateur d'affiches", shadow: '#e38154' },
+  { id: 'posts', label: 'Posts', shadow: '#10b981' },
+]
 import {
   Calendar, MapPin, Plus, Trash2, Clock, ImageIcon,
   Upload, X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2, Users, ChevronDown, ChevronUp, PlusCircle, Paperclip, GripVertical, Building2, Trash, Share2, Megaphone, BarChart2, Search, Dice5, Facebook, Instagram, Archive, ArchiveRestore, LayoutGrid, List, ImagePlus, Copy
@@ -763,6 +780,23 @@ www.ludothequedecoligny.fr`
         }),
       })
       if (!res.ok) throw new Error('Erreur Make: ' + res.status)
+
+      // Trace de la publication — on n'enregistre JAMAIS l'image elle-même.
+      // Un fichier envoyé depuis l'ordinateur arrive ici sous forme de données
+      // brutes de plusieurs Mo : le garder gonflerait la base. On ne conserve
+      // donc que le lien s'il s'agit d'une vraie adresse web, sinon un simple
+      // indicateur « il y avait une image ».
+      const isWebLink = !!postImageUrl && /^https?:\/\//.test(postImageUrl)
+      const { error: postSaveError } = await supabase.from('posts').insert({
+        message: postText,
+        image_url: isWebLink ? postImageUrl : null,
+        has_image: !!postImageUrl,
+      })
+      // La table `posts` est facultative : si elle n'existe pas encore, la
+      // publication reste réussie, seul l'historique est manquant.
+      if (postSaveError) console.warn('Publication non enregistrée dans `posts` :', postSaveError.message)
+      else setPostsCount(c => c + 1)
+
       setPostSuccess(true)
       setPostText('')
       setPostImageUrl('')
@@ -1305,173 +1339,148 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
   const upcomingEventsCount = events.filter(e => new Date(e.date) > new Date()).length
 
   return (
-    <div className="p-4 md:p-10 bg-[#fdfaf6] min-h-screen font-sans text-slate-900">
-      
-      <div className="max-w-7xl mx-auto mb-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <h1 data-tutorial="evt-header" className="text-2xl md:text-4xl font-black text-slate-900 flex items-center gap-4">
-          <div className="p-3 bg-[#1a5f7a] rounded-[1.2rem] shadow-lg text-white"><Megaphone size={28} /></div>
-          <span>Gestion de la <span className="text-[#1a5f7a]">Communication</span></span>
-        </h1>
-        {activeTab === 'events' && (
-          <button data-tutorial="evt-add-btn" onClick={editingId ? cancelEdit : () => setShowForm(!showForm)} className={"px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl whitespace-nowrap " + (showForm ? 'bg-slate-800 text-white' : 'bg-[#e38154] text-white')}>
-            {showForm ? "Fermer" : "Nouvel Événement"}
-          </button>
-        )}
+    <div className="min-h-screen bg-[#fdfaf6] p-5 font-body text-[#0f172a] md:p-11">
+      <div className="mx-auto max-w-[1240px]">
+
+      <div data-tutorial="evt-header">
+        <AdminPageHeader icon="06.svg" title="Gestion de la" accent="Communication">
+          {activeTab === 'events' && (
+            <button
+              data-tutorial="evt-add-btn"
+              onClick={editingId ? cancelEdit : () => setShowForm(!showForm)}
+              className={`${showForm ? BTN_INK : BTN_ORANGE} w-full md:w-auto`}
+            >
+              {showForm ? <><X size={16} strokeWidth={3} /> Fermer</> : <><Plus size={16} strokeWidth={3} /> Nouvel événement</>}
+            </button>
+          )}
+        </AdminPageHeader>
       </div>
 
-      {/* Onglets pleine largeur, style carte dashboard */}
-      <div data-tutorial="evt-tabs" className="max-w-7xl mx-auto flex gap-3 w-full mb-8">
-        <button
-          onClick={() => setActiveTab('events')}
-          className={"flex-1 flex flex-col items-center gap-3 py-6 rounded-[2rem] border-2 border-b-4 transition-all " +
-            (activeTab === 'events'
-              ? 'bg-[#1a5f7a]/10 border-slate-100 border-b-[#1a5f7a] shadow-sm'
-              : 'bg-white border-slate-100 border-b-transparent hover:bg-slate-50')}>
-          <div className="p-3 rounded-2xl bg-[#1a5f7a]/10 text-[#1a5f7a]">
-            <Calendar size={22} />
-          </div>
-          <span className={"font-black uppercase text-[10px] tracking-widest inline-flex items-center " + (activeTab === 'events' ? 'text-[#1a5f7a]' : 'text-slate-500')}>
-            Événements
-            {upcomingEventsCount > 0 && (
-              <span className="ml-1.5 px-2 py-0.5 rounded-full text-white font-black text-[9px]"
-                style={{ backgroundColor: '#1a5f7a' }}>
-                {upcomingEventsCount}
+      {/* Onglets */}
+      <div data-tutorial="evt-tabs" className="mb-6 grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+        {COMM_TABS.map(tab => {
+          const active = activeTab === tab.id
+          const count = tab.id === 'events' ? upcomingEventsCount : tab.id === 'affiche' ? templatesCount : postsCount
+          const Icon = tab.id === 'events' ? Calendar : tab.id === 'affiche' ? ImagePlus : Megaphone
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className="flex flex-col items-center gap-3 rounded-[28px] border-2 border-[#0f172a] p-5 transition-[transform,box-shadow] duration-200 hover:translate-x-[2px] hover:translate-y-[2px]"
+              style={{
+                background: active ? `${tab.shadow}1a` : '#fff',
+                boxShadow: `${active ? 2 : 4}px ${active ? 2 : 4}px 0 ${tab.shadow}`,
+                transform: active ? 'translate(2px, 2px)' : undefined,
+              }}
+            >
+              <Icon size={26} style={{ color: active ? tab.shadow : '#94a3b8' }} />
+              <span className="inline-flex items-center gap-2 text-center text-[10px] font-extrabold uppercase tracking-[0.16em]" style={{ color: active ? '#0f172a' : '#64748b' }}>
+                {tab.label}
+                {count > 0 && (
+                  <span className="rounded-full px-2.5 py-0.5 text-[9px] font-extrabold text-white" style={{ background: tab.shadow }}>
+                    {count}
+                  </span>
+                )}
               </span>
-            )}
-          </span>
-        </button>
-        <button
-          onClick={() => setActiveTab('affiche')}
-          className={"flex-1 flex flex-col items-center gap-3 py-6 rounded-[2rem] border-2 border-b-4 transition-all " +
-            (activeTab === 'affiche'
-              ? 'bg-[#e38154]/10 border-slate-100 border-b-[#e38154] shadow-sm'
-              : 'bg-white border-slate-100 border-b-transparent hover:bg-slate-50')}>
-          <div className="p-3 rounded-2xl bg-[#e38154]/10 text-[#e38154]">
-            <ImagePlus size={22} />
-          </div>
-          <span className={"font-black uppercase text-[10px] tracking-widest inline-flex items-center " + (activeTab === 'affiche' ? 'text-[#e38154]' : 'text-slate-500')}>
-            Générateur d'affiches
-            {templatesCount > 0 && (
-              <span className="ml-1.5 px-2 py-0.5 rounded-full text-white font-black text-[9px]"
-                style={{ backgroundColor: '#e38154' }}>
-                {templatesCount}
-              </span>
-            )}
-          </span>
-        </button>
-        <button
-          onClick={() => setActiveTab('posts')}
-          className={"flex-1 flex flex-col items-center gap-3 py-6 rounded-[2rem] border-2 border-b-4 transition-all " +
-            (activeTab === 'posts'
-              ? 'bg-emerald-500/10 border-slate-100 border-b-emerald-500 shadow-sm'
-              : 'bg-white border-slate-100 border-b-transparent hover:bg-slate-50')}>
-          <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-600">
-            <Megaphone size={22} />
-          </div>
-          <span className={"font-black uppercase text-[10px] tracking-widest inline-flex items-center " + (activeTab === 'posts' ? 'text-emerald-600' : 'text-slate-500')}>
-            Posts
-            {postsCount > 0 && (
-              <span className="ml-1.5 px-2 py-0.5 rounded-full text-white font-black text-[9px]"
-                style={{ backgroundColor: '#059669' }}>
-                {postsCount}
-              </span>
-            )}
-          </span>
-        </button>
+            </button>
+          )
+        })}
       </div>
 
-      <main className="max-w-7xl mx-auto">
+      <main>
         {activeTab === 'affiche' && (
           <GenerateurAffiche events={events} onCreateEvent={handleCreateEventFromAffiche} />
         )}
+
         {activeTab === 'posts' && (
-          <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
-            <div className="p-8 pb-6 border-b border-slate-50 flex items-center gap-4">
-              <div className="p-3 bg-blue-50 rounded-2xl text-blue-500">
-                <Share2 size={22} />
+          <DataCard shadow="#10b981">
+            <div className="flex items-center gap-3.5 border-b-2 border-[#0f172a] px-6 py-5">
+              <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#ecfdf5] text-[#10b981]">
+                <Share2 size={20} />
               </div>
               <div>
-                <h2 className="text-base font-black text-slate-900 uppercase tracking-wide">Nouveau post</h2>
-                <p className="text-[10px] text-slate-400 font-medium mt-0.5">Publier directement sur Facebook & Instagram, sans lien avec un événement</p>
+                <h2 className="font-display text-[19px] font-extrabold uppercase tracking-[-0.03em]">Nouveau post</h2>
+                <p className="mt-1 text-[11px] font-semibold text-slate-400">Publier directement sur Facebook &amp; Instagram, sans lien avec un événement</p>
               </div>
             </div>
 
-            <div className="p-8 space-y-6 max-w-2xl">
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Message</label>
-                <textarea
-                  rows={8}
-                  placeholder="Rédigez votre publication..."
-                  className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a] resize-y"
-                  value={postText}
-                  onChange={e => setPostText(e.target.value)}
-                />
-              </div>
+            <div className="max-w-2xl p-6 md:p-8">
+              <div className={`${E_SECTION} text-[#1a5f7a]`}>Message</div>
+              <textarea
+                rows={8}
+                placeholder="Rédigez votre publication..."
+                className="mb-5 w-full resize-y rounded-[24px] border-2 border-[#0f172a] bg-[#fdfaf6] p-5 text-[13.5px] font-medium text-[#0f172a] outline-none placeholder:text-slate-300 focus:bg-white"
+                value={postText}
+                onChange={e => setPostText(e.target.value)}
+              />
 
-              <div className="space-y-4">
-                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Photo (optionnel)</label>
-                <input
-                  placeholder="Lien URL de l'image..."
-                  className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-[10px] outline-none"
-                  value={postImageUrl}
-                  onChange={e => setPostImageUrl(e.target.value)}
-                />
-                <div className="border-4 border-dashed border-slate-50 rounded-[2rem] p-8 flex flex-col items-center justify-center bg-slate-50/50">
-                  {postImageUrl && <img src={postImageUrl} className="h-32 object-contain mb-4" alt="Aperçu" />}
-                  <label className="cursor-pointer bg-white border-2 border-slate-100 px-6 py-3 rounded-2xl text-[10px] font-black uppercase text-[#1a5f7a]">
-                    {postUploading ? "Chargement..." : "Uploader un fichier"}
-                    <input type="file" accept="image/*" className="hidden" onChange={handlePostFileUpload} />
-                  </label>
-                </div>
+              <div className={`${E_SECTION} text-[#1a5f7a]`}>Photo (optionnel)</div>
+              <input
+                placeholder="Lien URL de l'image..."
+                className={`${E_INPUT} mb-3.5 text-[12.5px]`}
+                value={postImageUrl}
+                onChange={e => setPostImageUrl(e.target.value)}
+              />
+              <div className="mb-5 flex flex-col items-center gap-3.5 rounded-[24px] border-[3px] border-dashed border-slate-300 bg-[#fdfaf6] p-6">
+                {postImageUrl && <img src={postImageUrl} className="h-28 object-contain" alt="Aperçu" />}
+                <label className="cursor-pointer rounded-[16px] border-2 border-[#0f172a] bg-white px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#1a5f7a] transition-colors hover:bg-slate-100">
+                  {postUploading ? "Chargement..." : "Uploader un fichier"}
+                  <input type="file" accept="image/*" className="hidden" onChange={handlePostFileUpload} />
+                </label>
               </div>
 
               <SocialPostPreview text={postText} imageUrl={postImageUrl} />
 
               {postSuccess ? (
-                <div className="w-full py-5 bg-emerald-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2">
+                <div className="mt-5 flex w-full items-center justify-center gap-2 rounded-[18px] border-2 border-[#0f172a] bg-[#10b981] py-5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white">
                   <CheckCircle2 size={16} /> Publié avec succès !
                 </div>
               ) : (
                 <button
                   onClick={handlePublishPost}
                   disabled={publishingPost || !postText.trim()}
-                  className={'w-full py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 transition-all shadow-lg ' +
-                    (publishingPost || !postText.trim()
-                      ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
-                      : 'bg-[#e38154] text-white hover:bg-[#c96e3e] cursor-pointer')}>
+                  className={`mt-5 flex w-full items-center justify-center gap-2.5 rounded-[18px] border-2 border-[#0f172a] py-5 text-[11px] font-extrabold uppercase tracking-[0.16em] transition-[transform,box-shadow] duration-200 ${
+                    publishingPost || !postText.trim()
+                      ? 'cursor-not-allowed bg-slate-100 text-slate-300'
+                      : 'bg-[#e38154] text-white shadow-[5px_5px_0_#0f172a] hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a]'
+                  }`}
+                >
                   {publishingPost ? <><Loader2 size={16} className="animate-spin" /> Publication...</> : <><Share2 size={16} /> Publier</>}
                 </button>
               )}
             </div>
-          </div>
+          </DataCard>
         )}
+
         {activeTab === 'events' && (<>
         {showForm && (
-          <form data-tutorial="evt-form" onSubmit={handleSubmit} className="bg-white p-6 md:p-12 rounded-[2.5rem] shadow-xl border border-slate-50 mb-12">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-              <div data-tutorial="evt-form-details" className="space-y-6">
-                <h3 className="text-[10px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2"><Type size={16} /> Détails</h3>
-                <input required placeholder="Titre" className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none" value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} />
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2 italic">Date & Début</label>
-                    <input type="datetime-local" required className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-sm" value={newEvent.date} onChange={e => setNewEvent({...newEvent, date: e.target.value})} />
+          <form data-tutorial="evt-form" className="mb-6 rounded-[34px] border-2 border-[#0f172a] bg-white p-6 shadow-[6px_6px_0_#1a5f7a] md:p-10" onSubmit={handleSubmit}>
+            <div className="grid grid-cols-1 gap-7 lg:grid-cols-2 lg:gap-11">
+              <div data-tutorial="evt-form-details">
+                <div className={`${E_SECTION} text-[#1a5f7a]`}><Type size={15} /> Détails</div>
+                <input required placeholder="Titre" className={`${E_INPUT} mb-3.5`} value={newEvent.title} onChange={e => setNewEvent({ ...newEvent, title: e.target.value })} />
+
+                <div className="mb-3.5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className={E_LABEL}>Date &amp; début</label>
+                    <input type="datetime-local" required className={E_INPUT} value={newEvent.date} onChange={e => setNewEvent({ ...newEvent, date: e.target.value })} />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2 italic">Heure de fin (Optionnel)</label>
-                    <input type="time" className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-sm" value={newEvent.end_time} onChange={e => setNewEvent({...newEvent, end_time: e.target.value})} />
+                  <div>
+                    <label className={E_LABEL}>Heure de fin (optionnel)</label>
+                    <input type="time" className={E_INPUT} value={newEvent.end_time} onChange={e => setNewEvent({ ...newEvent, end_time: e.target.value })} />
                   </div>
                 </div>
 
-                <input required placeholder="Lieu" className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-sm" value={newEvent.location} onChange={e => setNewEvent({...newEvent, location: e.target.value})} />
-                
-                <div data-tutorial="evt-form-affiche" className="space-y-4">
-                  <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Affiche</label>
-                  <input placeholder="Lien URL de l'image..." className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-[10px] outline-none" value={newEvent.image_url} onChange={e => setNewEvent({...newEvent, image_url: e.target.value})} />
-                  <div className="border-4 border-dashed border-slate-50 rounded-[2rem] p-8 flex flex-col items-center justify-center bg-slate-50/50">
-                    {newEvent.image_url && <img src={newEvent.image_url} className="h-32 object-contain mb-4" alt="Aperçu" />}
-                    <label className="cursor-pointer bg-white border-2 border-slate-100 px-6 py-3 rounded-2xl text-[10px] font-black uppercase text-[#1a5f7a]">
+                <input required placeholder="Lieu" className={`${E_INPUT} mb-4`} value={newEvent.location} onChange={e => setNewEvent({ ...newEvent, location: e.target.value })} />
+
+                <div data-tutorial="evt-form-affiche">
+                  <label className={E_LABEL}>Affiche</label>
+                  <input placeholder="Lien URL de l'image..." className={`${E_INPUT} mb-3.5 text-[12.5px]`} value={newEvent.image_url} onChange={e => setNewEvent({ ...newEvent, image_url: e.target.value })} />
+                  <div className="flex flex-col items-center gap-3.5 rounded-[24px] border-[3px] border-dashed border-slate-300 bg-[#fdfaf6] p-6">
+                    {newEvent.image_url
+                      ? <img src={newEvent.image_url} className="h-28 rounded-[14px] border-2 border-[#0f172a] object-contain" alt="Aperçu" />
+                      : <div className="h-[110px] w-[110px] rounded-[14px] border-2 border-[#0f172a] bg-slate-100" />}
+                    <label className="cursor-pointer rounded-[16px] border-2 border-[#0f172a] bg-white px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#1a5f7a] transition-colors hover:bg-slate-100">
                       {uploading ? "Chargement..." : "Uploader un fichier"}
                       <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
                     </label>
@@ -1479,15 +1488,23 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 </div>
               </div>
 
-              <div data-tutorial="evt-form-description" className="space-y-6 flex flex-col">
-                <h3 className="text-[10px] font-black text-[#e38154] uppercase tracking-widest flex items-center gap-2"><AlignLeft size={16} /> Description</h3>
-                <textarea data-tutorial="evt-form-description" placeholder="Détails..." className="w-full p-6 rounded-[2rem] bg-slate-50 font-medium text-sm outline-none flex-1 min-h-[200px]" value={newEvent.description} onChange={e => setNewEvent({...newEvent, description: e.target.value})} />
-                <button type="button" onClick={() => setShowImportDesc(true)}
-                  className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-[#1a5f7a] transition-colors mt-2">
-                  <Copy size={11} />
-                  Importer depuis un événement précédent
+              <div data-tutorial="evt-form-description" className="flex flex-col">
+                <div className={`${E_SECTION} text-[#e38154]`}><AlignLeft size={15} /> Description</div>
+                <textarea
+                  placeholder="Détails..." rows={10}
+                  className="mb-3.5 min-h-[220px] w-full flex-1 resize-none rounded-[24px] border-2 border-[#0f172a] bg-[#fdfaf6] p-5 text-[13.5px] font-medium text-[#0f172a] outline-none placeholder:text-slate-300 focus:bg-white"
+                  value={newEvent.description} onChange={e => setNewEvent({ ...newEvent, description: e.target.value })}
+                />
+                <button
+                  type="button" onClick={() => setShowImportDesc(true)}
+                  className="flex items-center gap-2 self-start py-2.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400 transition-colors hover:text-[#1a5f7a]"
+                >
+                  <Copy size={13} /> Importer depuis un événement précédent
                 </button>
-                <button data-tutorial="evt-form-submit" type="submit" disabled={uploading} className="w-full py-6 mt-6 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl bg-[#1a5f7a] text-white">
+                <button
+                  data-tutorial="evt-form-submit" type="submit" disabled={uploading}
+                  className={`${BTN_TEAL} mt-4 w-full py-5`}
+                >
                   Enregistrer l'événement
                 </button>
               </div>
@@ -1495,139 +1512,164 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
           </form>
         )}
 
-        <div className="flex justify-end mb-6">
-          <div data-tutorial="evt-view-toggle" className="flex bg-slate-100 rounded-2xl p-1 gap-1">
-            <button onClick={() => setViewMode('grid')} title="Vue grille"
-              className={"p-3 rounded-xl transition-all " + (viewMode === 'grid' ? 'bg-white text-[#1a5f7a] shadow-sm' : 'text-slate-400 hover:text-slate-600')}>
-              <LayoutGrid size={16} />
-            </button>
-            <button onClick={() => setViewMode('list')} title="Vue liste"
-              className={"p-3 rounded-xl transition-all " + (viewMode === 'list' ? 'bg-white text-[#1a5f7a] shadow-sm' : 'text-slate-400 hover:text-slate-600')}>
-              <List size={16} />
-            </button>
+        <div className="mb-4 flex justify-end">
+          <div data-tutorial="evt-view-toggle" className="flex gap-1.5 rounded-[18px] border-2 border-[#0f172a] bg-slate-100 p-1.5">
+            {[{ mode: 'grid', Icon: LayoutGrid, label: 'Vue grille' }, { mode: 'list', Icon: List, label: 'Vue liste' }].map(({ mode, Icon, label }) => (
+              <button
+                key={mode} onClick={() => setViewMode(mode)} title={label} aria-label={label}
+                className={`flex h-10 w-10 items-center justify-center rounded-[12px] transition-colors ${
+                  viewMode === mode ? 'bg-white text-[#1a5f7a] shadow-[2px_2px_0_#0f172a]' : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                <Icon size={16} />
+              </button>
+            ))}
           </div>
         </div>
 
         {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
-        </div>
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="animate-pulse rounded-[32px] border-2 border-slate-200 bg-white p-5">
+                <div className="mb-4 h-40 rounded-[20px] bg-slate-100" />
+                <div className="mb-2 h-4 w-3/4 rounded-full bg-slate-100" />
+                <div className="h-3 w-1/2 rounded-full bg-slate-100" />
+              </div>
+            ))}
+          </div>
         ) : viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {events.map((event, idx) => (
-            <div key={event.id} {...(idx === 0 ? {"data-tutorial": "evt-list-card1"} : idx === 1 ? {"data-tutorial": "evt-list-card2"} : {})} className={"bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden flex flex-col group hover:shadow-xl transition-all " + (isPastEvent(event) ? "grayscale-[60%] opacity-75 hover:grayscale-[20%] hover:opacity-90" : "")}>
-              <div className="h-48 bg-slate-50 relative flex items-center justify-center p-4">
-                {event.image_url ? <img src={event.image_url} className="max-w-full max-h-full object-contain" alt="" /> : <ImageIcon size={48} className="text-slate-200" />}
-                {isPastEvent(event) && (
-                  <div className="absolute top-4 left-4 bg-slate-500/70 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full">
-                    Passé
-                  </div>
-                )}
-                <div className="evt-card-actions absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button data-tutorial="evt-action-edit" onClick={() => startEdit(event)} className="p-2.5 bg-white text-slate-400 rounded-xl shadow-lg hover:bg-[#1a5f7a] hover:text-white transition-all"><Edit2 size={16} /></button>
-                  <button data-tutorial="evt-action-mail" onClick={() => openComposeModal(event)} className="p-2.5 bg-white text-amber-500 rounded-xl shadow-lg hover:bg-amber-500 hover:text-white transition-all"><Mail size={16} /></button>
-                  <button data-tutorial="evt-action-share" onClick={() => openFbModal(event)} title="Publier sur Facebook & Instagram" className="p-2.5 bg-white text-blue-500 rounded-xl shadow-lg hover:bg-blue-500 hover:text-white transition-all"><Share2 size={16} /></button>
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {events.map((event, idx) => (
+              <div
+                key={event.id}
+                {...(idx === 0 ? { "data-tutorial": "evt-list-card1" } : idx === 1 ? { "data-tutorial": "evt-list-card2" } : {})}
+                className={`flex flex-col overflow-hidden rounded-[32px] border-2 border-[#0f172a] bg-white ${isPastEvent(event) ? 'opacity-75 grayscale-[60%] hover:opacity-95 hover:grayscale-0' : ''}`}
+                style={{ boxShadow: `5px 5px 0 ${isPastEvent(event) ? '#94a3b8' : '#1a5f7a'}` }}
+              >
+                {/* Hauteur calée sur la colonne d'actions : 5 boutons de 32px + 4 écarts de 4px + marges */}
+                <div className="relative flex h-[212px] items-center justify-center border-b-2 border-[#0f172a] bg-[#fdfaf6] p-3">
+                  {event.image_url ? <img src={event.image_url} className="max-h-full max-w-full object-contain" alt="" /> : <ImageIcon size={44} className="text-slate-200" />}
+
                   {isPastEvent(event) && (
-                    <button data-tutorial="evt-action-bilan" onClick={() => openBilanModal(event)} title="Bilan de l'événement" className="p-2.5 bg-white text-emerald-500 rounded-xl shadow-lg hover:bg-emerald-500 hover:text-white transition-all"><BarChart2 size={16} /></button>
+                    <span className="absolute left-3 top-3 rounded-full border-2 border-[#0f172a] bg-slate-500 px-2.5 py-1 text-[8.5px] font-extrabold uppercase tracking-[0.12em] text-white">
+                      Passé
+                    </span>
                   )}
-                  {isPastEvent(event) && hasBilan(event) ? (
-                    <button onClick={() => archiveEvent(event.id)} title="Archiver" className="p-2.5 bg-white text-amber-500 rounded-xl shadow-lg hover:bg-amber-500 hover:text-white transition-all"><Archive size={16} /></button>
-                  ) : (
-                    <button onClick={() => setDeleteModal({show: true, id: event.id, title: event.title})} className="p-2.5 bg-white text-slate-400 rounded-xl shadow-lg hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={16} /></button>
-                  )}
-                </div>
-                {event.mail_sent_at && (
-                  <div className="absolute bottom-4 left-4 px-3 py-1 bg-emerald-500 text-white text-[8px] font-black uppercase rounded-full shadow-sm flex items-center gap-1.5">
-                    <Send size={10} /> Diffusé le {new Date(event.mail_sent_at).toLocaleDateString()}
+
+                  <div className="evt-card-actions absolute right-3 top-3 flex flex-col gap-1">
+                    <IconButton data-tutorial="evt-action-edit" title="Modifier" className="h-8 w-8 rounded-[10px] bg-white" onClick={() => startEdit(event)}><Edit2 size={15} /></IconButton>
+                    <IconButton data-tutorial="evt-action-mail" title="Composer l'email" tone="warn" className="h-8 w-8 rounded-[10px] bg-white" onClick={() => openComposeModal(event)}><Mail size={15} /></IconButton>
+                    <IconButton data-tutorial="evt-action-share" title="Publier sur Facebook & Instagram" className="h-8 w-8 rounded-[10px] bg-white text-[#3b82f6] hover:bg-[#3b82f6] hover:text-white" onClick={() => openFbModal(event)}><Share2 size={15} /></IconButton>
+                    {isPastEvent(event) && (
+                      <IconButton data-tutorial="evt-action-bilan" title="Bilan de l'événement" tone="success" className="h-8 w-8 rounded-[10px] bg-white" onClick={() => openBilanModal(event)}><BarChart2 size={15} /></IconButton>
+                    )}
+                    {isPastEvent(event) && hasBilan(event) ? (
+                      <IconButton title="Archiver" tone="warn" className="h-8 w-8 rounded-[10px] bg-white" onClick={() => archiveEvent(event.id)}><Archive size={15} /></IconButton>
+                    ) : (
+                      <IconButton title="Supprimer" tone="danger" className="h-8 w-8 rounded-[10px] bg-white" onClick={() => setDeleteModal({ show: true, id: event.id, title: event.title })}><Trash2 size={15} /></IconButton>
+                    )}
                   </div>
-                )}
-              </div>
-              <div className="p-8">
-                <h3 className="text-lg font-black text-slate-900 uppercase mb-4">{event.title}</h3>
-                <div className="space-y-2 mb-4 font-black uppercase text-[9px] text-slate-400">
-                  <div className="flex items-center gap-3">
-                    <Clock size={14} className="text-[#1a5f7a]" />
-                    {new Date(event.date).toLocaleString('fr-FR', {day:'numeric', month:'short'})}
-                    {" | "}
-                    {new Date(event.date).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}
-                    {event.end_time && ` — ${event.end_time.replace(':', 'h')}`}
-                  </div>
-                  <div className="flex items-center gap-3"><MapPin size={14} className="text-[#e38154]" /> {event.location}</div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-        ) : (
-        <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 divide-y divide-slate-100 overflow-hidden">
-          {events.map((event) => (
-            <div key={event.id} className={"flex items-center flex-wrap gap-4 p-4 md:p-5 group transition-all " + (isPastEvent(event) ? "grayscale-[60%] opacity-75 hover:grayscale-[20%] hover:opacity-90" : "")}>
-              <div className="w-16 h-16 rounded-xl bg-slate-50 relative flex items-center justify-center overflow-hidden shrink-0">
-                {event.image_url ? <img src={event.image_url} className="w-full h-full object-cover" alt="" /> : <ImageIcon size={20} className="text-slate-200" />}
-                {isPastEvent(event) && (
-                  <div className="absolute top-0.5 left-0.5 bg-slate-500/70 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full">
-                    Passé
-                  </div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-sm font-black text-slate-900 uppercase truncate">{event.title}</h3>
+
                   {event.mail_sent_at && (
-                    <span className="px-2 py-0.5 bg-emerald-500 text-white text-[7px] font-black uppercase rounded-full shrink-0 flex items-center gap-1">
-                      <Send size={8} /> Diffusé
+                    <span className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full border-2 border-[#0f172a] bg-[#10b981] px-2.5 py-1 text-[8px] font-extrabold uppercase tracking-[0.1em] text-white">
+                      <Send size={10} /> Diffusé le {new Date(event.mail_sent_at).toLocaleDateString()}
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-4 mt-1 text-[9px] font-black uppercase text-slate-400">
-                  <span className="flex items-center gap-1.5">
-                    <Clock size={11} className="text-[#1a5f7a]" />
-                    {new Date(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} · {new Date(event.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                  <span className="flex items-center gap-1.5"><MapPin size={11} className="text-[#e38154]" /> {event.location}</span>
+
+                <div className="p-5">
+                  <h3 className="mb-3.5 font-display text-[18px] font-extrabold uppercase tracking-[-0.03em]">{event.title}</h3>
+                  <div className="flex flex-col gap-2 text-[9.5px] font-extrabold uppercase tracking-[0.1em] text-slate-400">
+                    <div className="flex items-center gap-2.5">
+                      <Clock size={14} className="shrink-0 text-[#1a5f7a]" />
+                      {new Date(event.date).toLocaleString('fr-FR', { day: 'numeric', month: 'short' })} · {new Date(event.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                      {event.end_time && ` — ${event.end_time.replace(':', 'h')}`}
+                    </div>
+                    <div className="flex items-center gap-2.5"><MapPin size={14} className="shrink-0 text-[#e38154]" /> {event.location}</div>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center flex-wrap gap-1.5 shrink-0">
-                <button onClick={() => startEdit(event)} className="min-h-11 min-w-11 flex items-center justify-center p-2 text-slate-400 rounded-lg hover:bg-[#1a5f7a] hover:text-white transition-all"><Edit2 size={15} /></button>
-                <button onClick={() => openComposeModal(event)} className="min-h-11 min-w-11 flex items-center justify-center p-2 text-amber-500 rounded-lg hover:bg-amber-500 hover:text-white transition-all"><Mail size={15} /></button>
-                <button onClick={() => openFbModal(event)} title="Publier sur Facebook & Instagram" className="min-h-11 min-w-11 flex items-center justify-center p-2 text-blue-500 rounded-lg hover:bg-blue-500 hover:text-white transition-all"><Share2 size={15} /></button>
-                {isPastEvent(event) && (
-                  <button onClick={() => openBilanModal(event)} title="Bilan de l'événement" className="min-h-11 min-w-11 flex items-center justify-center p-2 text-emerald-500 rounded-lg hover:bg-emerald-500 hover:text-white transition-all"><BarChart2 size={15} /></button>
-                )}
-                {isPastEvent(event) && hasBilan(event) ? (
-                  <button onClick={() => archiveEvent(event.id)} title="Archiver" className="min-h-11 min-w-11 flex items-center justify-center p-2 text-amber-500 rounded-lg hover:bg-amber-500 hover:text-white transition-all"><Archive size={15} /></button>
-                ) : (
-                  <button onClick={() => setDeleteModal({show: true, id: event.id, title: event.title})} className="min-h-11 min-w-11 flex items-center justify-center p-2 text-slate-400 rounded-lg hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={15} /></button>
-                )}
+            ))}
+          </div>
+        ) : (
+          <DataCard>
+            {events.map((event) => (
+              <div
+                key={event.id}
+                className={`flex flex-wrap items-center gap-4 border-b border-slate-100 p-4 last:border-b-0 ${isPastEvent(event) ? 'opacity-75 grayscale-[60%]' : ''}`}
+              >
+                <div className="relative flex h-[62px] w-[62px] shrink-0 items-center justify-center overflow-hidden rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6]">
+                  {event.image_url ? <img src={event.image_url} className="h-full w-full object-cover" alt="" /> : <ImageIcon size={20} className="text-slate-200" />}
+                </div>
+
+                <div className="min-w-0 flex-1 basis-[220px]">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="truncate text-[13px] font-extrabold uppercase tracking-[-0.01em]">{event.title}</span>
+                    {event.mail_sent_at && (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border-2 border-[#0f172a] bg-[#10b981] px-2 py-0.5 text-[7.5px] font-extrabold uppercase tracking-[0.1em] text-white">
+                        <Send size={9} /> Diffusé
+                      </span>
+                    )}
+                    {isPastEvent(event) && (
+                      <span className="shrink-0 rounded-full border-2 border-[#0f172a] bg-slate-500 px-2 py-0.5 text-[7.5px] font-extrabold uppercase tracking-[0.1em] text-white">Passé</span>
+                    )}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-4 text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-400">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Clock size={12} className="text-[#1a5f7a]" />
+                      {new Date(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} · {new Date(event.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5"><MapPin size={12} className="text-[#e38154]" /> {event.location}</span>
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 flex-wrap gap-1.5">
+                  <IconButton title="Modifier" className="h-9 w-9 rounded-[11px]" onClick={() => startEdit(event)}><Edit2 size={15} /></IconButton>
+                  <IconButton title="Composer l'email" tone="warn" className="h-9 w-9 rounded-[11px]" onClick={() => openComposeModal(event)}><Mail size={15} /></IconButton>
+                  <IconButton title="Publier sur Facebook & Instagram" className="h-9 w-9 rounded-[11px] bg-[#eff6ff] text-[#3b82f6] hover:bg-[#3b82f6] hover:text-white" onClick={() => openFbModal(event)}><Share2 size={15} /></IconButton>
+                  {isPastEvent(event) && (
+                    <IconButton title="Bilan de l'événement" tone="success" className="h-9 w-9 rounded-[11px]" onClick={() => openBilanModal(event)}><BarChart2 size={15} /></IconButton>
+                  )}
+                  {isPastEvent(event) && hasBilan(event) ? (
+                    <IconButton title="Archiver" tone="warn" className="h-9 w-9 rounded-[11px]" onClick={() => archiveEvent(event.id)}><Archive size={15} /></IconButton>
+                  ) : (
+                    <IconButton title="Supprimer" tone="danger" className="h-9 w-9 rounded-[11px]" onClick={() => setDeleteModal({ show: true, id: event.id, title: event.title })}><Trash2 size={15} /></IconButton>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </DataCard>
         )}
         </>)}
       </main>
+      </div>
+
       
       {/* MODALE COMPOSITION EMAIL */}
       {composeModal.show && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
-          <div data-tutorial="evt-compose-modal" className="bg-white rounded-[2.5rem] w-full max-w-3xl max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col">
-            
-            {/* Header */}
-            <div className="sticky top-0 bg-white rounded-t-[2.5rem] p-8 pb-4 border-b border-slate-100 flex items-center justify-between z-10">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-amber-50 text-amber-500 rounded-xl"><Mail size={20} /></div>
-                <h3 className="text-base font-black uppercase text-slate-900">Composer l'email</h3>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-[22px]">
+          <div className="anim-fade-in absolute inset-0 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }} onClick={() => setComposeModal({ show: false, event: null })} />
+          <div data-tutorial="evt-compose-modal" className="anim-modal-in relative flex max-h-[92vh] w-full max-w-[820px] flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#f59e0b]">
+
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
+              <div className="flex min-w-0 items-center gap-3.5">
+                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#fffbeb] text-[#f59e0b]"><Mail size={20} /></div>
+                <div className="min-w-0">
+                  <h3 className="font-display text-[19px] font-extrabold tracking-[-0.04em]">Composer l'<span className="text-[#f59e0b]">email</span></h3>
+                  <p className="mt-1.5 truncate text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-400">{composeModal.event?.title}</p>
+                </div>
               </div>
-              <button onClick={() => setComposeModal({ show: false, event: null })} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-all"><X size={20} /></button>
+              <button onClick={() => setComposeModal({ show: false, event: null })} aria-label="Fermer"
+                className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[15px] font-extrabold text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white">✕</button>
             </div>
 
-            <div className="p-8 space-y-6 flex-1">
+            <div className="flex-1 space-y-5 overflow-y-auto p-6">
 
               {/* Objet */}
               <div className="space-y-2">
-                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Objet</label>
+                <label className="text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-[#1a5f7a]">Objet</label>
                 <input
-                  className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                  className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-bold text-sm outline-none focus:bg-white"
                   value={composeData.subject}
                   onChange={e => setComposeData(prev => ({ ...prev, subject: e.target.value }))}
                 />
@@ -1635,10 +1677,10 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
 
               {/* Corps — onglets Collectivités / Adhérents */}
               <div className="space-y-3">
-                <div data-tutorial="evt-compose-tabs" className="flex bg-slate-100 rounded-2xl p-1 gap-1 w-fit">
+                <div data-tutorial="evt-compose-tabs" className="flex w-fit gap-1.5 rounded-[18px] border-2 border-[#0f172a] bg-slate-100 p-1.5">
                   <button
                     onClick={() => setActiveMailTab('collectivites')}
-                    className={'px-4 py-2.5 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all flex items-center gap-2 ' +
+                    className={'flex items-center gap-2 rounded-[12px] px-4 py-2.5 text-[9.5px] font-extrabold uppercase tracking-[0.14em] transition-colors ' +
                       (activeMailTab === 'collectivites' ? 'bg-white text-[#1a5f7a] shadow-sm' : 'text-slate-400 hover:text-slate-600')}>
                     <Building2 size={11} />
                     Collectivités
@@ -1648,7 +1690,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                   </button>
                   <button
                     onClick={() => setActiveMailTab('adherents')}
-                    className={'px-4 py-2.5 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all flex items-center gap-2 ' +
+                    className={'flex items-center gap-2 rounded-[12px] px-4 py-2.5 text-[9.5px] font-extrabold uppercase tracking-[0.14em] transition-colors ' +
                       (activeMailTab === 'adherents' ? 'bg-white text-[#1a5f7a] shadow-sm' : 'text-slate-400 hover:text-slate-600')}>
                     <Users size={11} />
                     Adhérents
@@ -1665,7 +1707,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                     </p>
                     <textarea
                       rows={8}
-                      className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a] resize-y"
+                      className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-medium text-sm outline-none focus:bg-white resize-y"
                       value={composeData.bodyCollectivites}
                       onChange={e => setComposeData(prev => ({ ...prev, bodyCollectivites: e.target.value }))}
                     />
@@ -1682,7 +1724,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                     </p>
                     <textarea
                       rows={8}
-                      className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a] resize-y"
+                      className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-medium text-sm outline-none focus:bg-white resize-y"
                       value={composeData.bodyAdherents}
                       onChange={e => setComposeData(prev => ({ ...prev, bodyAdherents: e.target.value }))}
                     />
@@ -1696,18 +1738,18 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
               {/* Événements — blocs éditables */}
               <div data-tutorial="evt-compose-events" className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2">
+                  <label className="text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-[#1a5f7a] flex items-center gap-2">
                     <Calendar size={12} /> Événements ({selectedEvents.length})
                   </label>
                   <button onClick={() => setShowEventPicker(v => !v)}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-[#1a5f7a]/10 text-[#1a5f7a] rounded-xl text-[9px] font-black uppercase tracking-wide hover:bg-[#1a5f7a]/20 transition-colors">
+                    className="flex items-center gap-2 rounded-[14px] border-2 border-[#0f172a] bg-[#f0f7f9] px-3.5 py-2 text-[9.5px] font-extrabold uppercase tracking-[0.12em] text-[#1a5f7a] transition-colors hover:bg-[#1a5f7a] hover:text-white">
                     <PlusCircle size={12} /> Ajouter un événement
                   </button>
                 </div>
                 {showEventPicker && (
                   <div className="border-2 border-[#1a5f7a]/20 rounded-2xl overflow-hidden">
                     <div className="p-3 bg-[#1a5f7a]/5 border-b border-[#1a5f7a]/10">
-                      <p className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Choisir un événement à ajouter</p>
+                      <p className="text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-[#1a5f7a]">Choisir un événement à ajouter</p>
                     </div>
                     <div className="divide-y divide-slate-50 max-h-48 overflow-y-auto">
                       {events.filter(e => !selectedEvents.find(b => b.event.id === e.id))
@@ -1732,7 +1774,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 <div className="space-y-4">
                   {selectedEvents.map((b, idx) => (
                     <div key={b.event.id} className="border-2 border-slate-100 rounded-2xl overflow-hidden">
-                      <div className="flex items-center justify-between p-4 bg-slate-50 border-b border-slate-100">
+                      <div className="flex items-center justify-between border-b-2 border-[#0f172a] bg-[#fdfaf6] p-4">
                         <div className="flex items-center gap-2">
                           <GripVertical size={14} className="text-slate-300" />
                           <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Événement {idx + 1}</span>
@@ -1754,30 +1796,30 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                           <div>
                             <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Titre</label>
                             <input value={b.titre} onChange={e => updateEventBlock(b.event.id, 'titre', e.target.value)}
-                              className="w-full mt-1 p-2.5 rounded-xl bg-slate-50 text-xs font-bold outline-none border border-transparent focus:border-[#1a5f7a]" />
+                              className="mt-1.5 w-full rounded-[12px] border-2 border-[#0f172a] bg-[#fdfaf6] p-2.5 text-xs font-bold outline-none focus:bg-white" />
                           </div>
                           <div>
                             <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Lieu</label>
                             <input value={b.lieu} onChange={e => updateEventBlock(b.event.id, 'lieu', e.target.value)}
-                              className="w-full mt-1 p-2.5 rounded-xl bg-slate-50 text-xs font-bold outline-none border border-transparent focus:border-[#1a5f7a]" />
+                              className="mt-1.5 w-full rounded-[12px] border-2 border-[#0f172a] bg-[#fdfaf6] p-2.5 text-xs font-bold outline-none focus:bg-white" />
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Date</label>
                             <input value={b.date} onChange={e => updateEventBlock(b.event.id, 'date', e.target.value)}
-                              className="w-full mt-1 p-2.5 rounded-xl bg-slate-50 text-xs font-bold outline-none border border-transparent focus:border-[#1a5f7a]" />
+                              className="mt-1.5 w-full rounded-[12px] border-2 border-[#0f172a] bg-[#fdfaf6] p-2.5 text-xs font-bold outline-none focus:bg-white" />
                           </div>
                           <div>
                             <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Horaires</label>
                             <input value={b.horaire} onChange={e => updateEventBlock(b.event.id, 'horaire', e.target.value)}
-                              className="w-full mt-1 p-2.5 rounded-xl bg-slate-50 text-xs font-bold outline-none border border-transparent focus:border-[#1a5f7a]" />
+                              className="mt-1.5 w-full rounded-[12px] border-2 border-[#0f172a] bg-[#fdfaf6] p-2.5 text-xs font-bold outline-none focus:bg-white" />
                           </div>
                         </div>
                         <div>
                           <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Description (optionnel)</label>
                           <textarea value={b.description} onChange={e => updateEventBlock(b.event.id, 'description', e.target.value)}
-                            rows={2} className="w-full mt-1 p-2.5 rounded-xl bg-slate-50 text-xs font-medium outline-none border border-transparent focus:border-[#1a5f7a] resize-none" />
+                            rows={2} className="mt-1.5 w-full resize-none rounded-[12px] border-2 border-[#0f172a] bg-[#fdfaf6] p-2.5 text-xs font-medium outline-none focus:bg-white" />
                         </div>
                       </div>
                     </div>
@@ -1788,7 +1830,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
               {/* Destinataires */}
               <div data-tutorial="evt-compose-recipients" className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2">
+                  <label className="text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-[#1a5f7a] flex items-center gap-2">
                     <Users size={12} /> Destinataires
                   </label>
                   <span className="text-[9px] font-black text-slate-400 uppercase">
@@ -1807,7 +1849,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                     <div className="border border-slate-100 rounded-2xl overflow-hidden">
                       <button
                         onClick={() => setShowMairies(v => !v)}
-                        className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
+                        className="flex w-full items-center justify-between border-b-2 border-[#0f172a] bg-[#fdfaf6] p-4 transition-colors hover:bg-slate-100"
                       >
                         <div className="flex items-center gap-3">
                           <input type="checkbox" readOnly
@@ -1843,7 +1885,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                       <div className="mt-4 border border-slate-100 rounded-2xl overflow-hidden">
                         <button
                           onClick={() => setShowAdherents(v => !v)}
-                          className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
+                          className="flex w-full items-center justify-between border-b-2 border-[#0f172a] bg-[#fdfaf6] p-4 transition-colors hover:bg-slate-100"
                         >
                           <div className="flex items-center gap-3">
                             <input type="checkbox" readOnly
@@ -1878,16 +1920,16 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
             </div>
 
             {/* Footer sticky */}
-            <div className="sticky bottom-0 bg-white rounded-b-[2.5rem] p-8 pt-4 border-t border-slate-100 flex gap-3">
+            <div className="flex shrink-0 flex-wrap gap-2.5 border-t-2 border-slate-100 p-6">
               <button onClick={() => setComposeModal({ show: false, event: null })}
-                className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-colors">
+                className="flex-1 basis-[140px] rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] py-4 text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500 transition-colors hover:bg-slate-100">
                 Annuler
               </button>
               <button data-tutorial="evt-compose-send" onClick={handleSendMail} disabled={sendingMail || composeData.recipients.filter(r => r.checked).length === 0}
-                className={'flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all ' +
+                className={'flex flex-1 basis-[180px] items-center justify-center gap-2 rounded-[18px] border-2 border-[#0f172a] py-4 text-[11px] font-extrabold uppercase tracking-[0.16em] transition-[transform,box-shadow] duration-200 ' +
                   (sendingMail || composeData.recipients.filter(r => r.checked).length === 0
-                    ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
-                    : 'bg-[#1a5f7a] text-white hover:bg-[#134a5e]')}>
+                    ? 'cursor-not-allowed bg-slate-100 text-slate-300'
+                    : 'bg-[#1a5f7a] text-white shadow-[5px_5px_0_#0f172a] hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a]')}>
                 {sendingMail ? <><Loader2 size={14} className="animate-spin" /> Envoi...</> : <><Send size={14} /> Envoyer ({composeData.recipients.filter(r => r.checked).length})</>}
               </button>
             </div>
@@ -1897,66 +1939,72 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
 
       {/* OVERLAY ENVOI EN COURS */}
       {sendingMail && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl">
-            <Loader2 className="animate-spin mx-auto text-[#1a5f7a] mb-6" size={40} />
-            <h3 className="text-lg font-black uppercase text-slate-900">Envoi en cours...</h3>
-            <p className="text-[11px] text-slate-400 mt-2">Merci de patienter</p>
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }}>
+          <div className="anim-modal-in flex flex-col items-center gap-4 rounded-[34px] border-2 border-[#0f172a] bg-white px-10 py-9 text-center shadow-[12px_12px_0_#1a5f7a]">
+            <Loader2 className="animate-spin text-[#1a5f7a]" size={38} />
+            <div>
+              <h3 className="font-display text-[20px] font-extrabold uppercase tracking-[-0.03em]">Envoi en cours...</h3>
+              <p className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Merci de patienter</p>
+            </div>
           </div>
         </div>
       )}
 
 
-      {deleteModal.show && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60">
-          <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center">
-             <h3 className="text-xl font-black uppercase mb-8">Supprimer l'événement ?</h3>
-             <button onClick={confirmDelete} className="w-full py-5 bg-rose-500 text-white rounded-2xl font-black mb-3 uppercase text-[10px]">Confirmer</button>
-             <button onClick={() => setDeleteModal({show: false})} className="w-full py-5 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase text-[10px]">Annuler</button>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={deleteModal.show}
+        onClose={() => setDeleteModal({ show: false })}
+        onConfirm={confirmDelete}
+        title="Supprimer ?"
+        message={deleteModal.title ? `« ${deleteModal.title} » sera définitivement supprimé.` : "Cet événement sera définitivement supprimé."}
+        confirmLabel="Oui, supprimer"
+        cancelLabel="Conserver"
+        tone="danger"
+        icon={<Trash2 size={26} />}
+      />
 
       {/* MODALE IMPORT DESCRIPTION DEPUIS UN ÉVÉNEMENT PRÉCÉDENT */}
       {showImportDesc && (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-lg max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between shrink-0">
-              <h3 className="text-base font-black uppercase tracking-tight text-slate-900">Choisir un événement</h3>
-              <button onClick={() => { setShowImportDesc(false); setImportDescSearch('') }} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-all">
-                <X size={20} />
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-3 sm:p-[22px]">
+          <div className="anim-fade-in absolute inset-0 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }} onClick={() => { setShowImportDesc(false); setImportDescSearch('') }} />
+          <div className="anim-modal-in relative flex max-h-[85vh] w-full max-w-[560px] flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a]">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
+              <div>
+                <h3 className="font-display text-[21px] font-extrabold tracking-[-0.04em]">Choisir un <span className="text-[#1a5f7a]">événement</span></h3>
+                <p className="mt-1.5 text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Sa description sera recopiée</p>
+              </div>
+              <button
+                onClick={() => { setShowImportDesc(false); setImportDescSearch('') }} aria-label="Fermer"
+                className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[15px] font-extrabold text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"
+              >
+                ✕
               </button>
             </div>
 
-            <div className="p-6 pb-3 shrink-0">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-                <input
-                  type="text"
-                  placeholder="Rechercher par titre..."
-                  value={importDescSearch}
-                  onChange={e => setImportDescSearch(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 bg-slate-50 rounded-2xl font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]/20 transition-all"
-                />
-              </div>
+            <div className="shrink-0 p-6 pb-3">
+              <SearchField
+                placeholder="Rechercher par titre..."
+                value={importDescSearch}
+                onChange={e => setImportDescSearch(e.target.value)}
+              />
             </div>
 
-            <div className="overflow-y-auto px-6 pb-6 space-y-2 flex-1">
+            <div className="flex-1 space-y-2.5 overflow-y-auto px-6 pb-6">
               {filteredImportableEvents.length === 0 ? (
-                <p className="text-center text-[10px] text-slate-400 py-8 uppercase font-bold">Aucun événement trouvé</p>
+                <p className="py-8 text-center text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Aucun événement trouvé</p>
               ) : (
                 filteredImportableEvents.map(event => (
                   <button
                     key={event.id}
                     type="button"
                     onClick={() => importDescriptionFrom(event)}
-                    className="w-full text-left p-4 bg-slate-50 hover:bg-[#1a5f7a]/5 rounded-2xl transition-all border border-transparent hover:border-[#1a5f7a]/20"
+                    className="w-full rounded-[20px] border-2 border-slate-200 bg-[#fdfaf6] p-4 text-left transition-colors hover:border-[#0f172a] hover:bg-[#f0f7f9]"
                   >
-                    <p className="font-black text-sm text-slate-900 uppercase truncate">{event.title}</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 mb-1.5">
+                    <p className="truncate text-sm font-extrabold uppercase">{event.title}</p>
+                    <p className="mb-1.5 mt-1 text-[9px] font-extrabold uppercase tracking-[0.14em] text-slate-400">
                       {new Date(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
                     </p>
-                    <p className="text-xs text-slate-500 italic truncate">
+                    <p className="truncate text-xs italic text-slate-500">
                       {event.description.length > 50 ? event.description.slice(0, 50) + '…' : event.description}
                     </p>
                   </button>
@@ -1968,23 +2016,23 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
       )}
 
       {/* BOUTON DESTINATAIRES ENREGISTRÉS en bas de page */}
-      <div className="max-w-7xl mx-auto mt-8 mb-4 flex justify-end px-4 md:px-0">
+      <div className="mx-auto mb-4 mt-8 flex max-w-[1240px] justify-end px-5 md:px-11">
         <button
           data-tutorial="evt-collectivites-btn"
           onClick={() => setCollectivitesModal(true)}
-          className="flex items-center gap-2 px-5 py-3 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[9px] tracking-widest hover:bg-slate-200 transition-colors shadow-sm">
+          className="flex items-center gap-2 rounded-[16px] border-2 border-[#0f172a] bg-white px-5 py-3 text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-slate-500 transition-colors hover:bg-[#1a5f7a] hover:text-white">
           <Building2 size={14} /> Destinataires enregistrés
         </button>
       </div>
 
       {/* SECTION ÉVÉNEMENTS ARCHIVÉS */}
-      <div data-tutorial="evt-archived" className="max-w-7xl mx-auto mt-6 mb-10 px-4 md:px-0">
+      <div data-tutorial="evt-archived" className="mx-auto mb-10 mt-6 max-w-[1240px] px-5 md:px-11">
         <button
           onClick={() => setArchivedOpen(v => !v)}
-          className="w-full flex items-center justify-between p-5 bg-white rounded-2xl shadow-sm border border-slate-100 hover:border-amber-200 transition-colors">
-          <span className="flex items-center gap-3 font-black uppercase text-xs text-slate-700">
-            <Archive size={16} className="text-amber-500" /> Événements archivés
-            <span className="text-[9px] font-bold text-slate-400 normal-case">({archivedEvents.length})</span>
+          className="flex w-full items-center justify-between rounded-[20px] border-2 border-[#0f172a] bg-white p-5 shadow-[4px_4px_0_#f59e0b] transition-[transform,box-shadow] duration-200 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#f59e0b]">
+          <span className="flex items-center gap-3 text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-700">
+            <Archive size={16} className="text-[#f59e0b]" /> Événements archivés
+            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[9px] text-slate-500">{archivedEvents.length}</span>
           </span>
           {archivedOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
         </button>
@@ -1995,8 +2043,8 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
               <p className="text-center text-[10px] text-slate-400 py-6">Aucun événement archivé</p>
             ) : (
               archivedEvents.map(event => (
-                <div key={event.id} className="flex items-center flex-wrap gap-4 bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-                  <div className="w-16 h-16 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden shrink-0">
+                <div key={event.id} className="flex flex-wrap items-center gap-4 rounded-[20px] border-2 border-[#0f172a] bg-white p-4 shadow-[3px_3px_0_#94a3b8]">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6]">
                     {event.image_url ? <img src={event.image_url} className="w-full h-full object-cover" alt="" /> : <ImageIcon size={20} className="text-slate-200" />}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -2006,9 +2054,9 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                     </p>
                   </div>
                   <div className="flex items-center flex-wrap gap-1.5 shrink-0">
-                    <button onClick={() => openBilanModal(event)} title="Bilan de l'événement" className="min-h-11 min-w-11 flex items-center justify-center p-2.5 bg-slate-50 text-emerald-500 rounded-xl hover:bg-emerald-500 hover:text-white transition-all"><BarChart2 size={16} /></button>
-                    <button onClick={() => unarchiveEvent(event.id)} title="Désarchiver" className="min-h-11 min-w-11 flex items-center justify-center p-2.5 bg-slate-50 text-amber-500 rounded-xl hover:bg-amber-500 hover:text-white transition-all"><ArchiveRestore size={16} /></button>
-                    <button onClick={() => setDeleteModal({show: true, id: event.id, title: event.title})} title="Supprimer définitivement" className="min-h-11 min-w-11 flex items-center justify-center p-2.5 bg-slate-50 text-slate-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={16} /></button>
+                    <IconButton tone="success" title="Bilan de l'événement" onClick={() => openBilanModal(event)}><BarChart2 size={16} /></IconButton>
+                    <IconButton tone="warn" title="Désarchiver" onClick={() => unarchiveEvent(event.id)}><ArchiveRestore size={16} /></IconButton>
+                    <IconButton tone="danger" title="Supprimer définitivement" onClick={() => setDeleteModal({ show: true, id: event.id, title: event.title })}><Trash2 size={16} /></IconButton>
                   </div>
                 </div>
               ))
@@ -2019,47 +2067,48 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
 
       {/* MODALE GESTION COLLECTIVITÉS */}
       {collectivitesModal && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
-          <div data-tutorial="evt-collectivites-modal" className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-[22px]">
+          <div className="anim-fade-in absolute inset-0 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }} onClick={() => { setCollectivitesModal(false); setEditingCollectivite(null); setNewCollectivite({ nom: '', email: '' }) }} />
+          <div data-tutorial="evt-collectivites-modal" className="anim-modal-in relative flex max-h-[90vh] w-full max-w-[680px] flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a]">
 
-            <div className="sticky top-0 bg-white rounded-t-[2.5rem] p-8 pb-4 border-b border-slate-100 flex items-center justify-between z-10">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-[#1a5f7a]/10 text-[#1a5f7a] rounded-xl"><Building2 size={20} /></div>
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
+              <div className="flex items-center gap-3.5">
+                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#f0f7f9] text-[#1a5f7a]"><Building2 size={20} /></div>
                 <div>
-                  <h3 className="text-base font-black uppercase text-slate-900">Destinataires enregistrés</h3>
-                  <p className="text-[10px] text-slate-400">{collectivites.length} collectivité{collectivites.length > 1 ? 's' : ''}</p>
+                  <h3 className="font-display text-[21px] font-extrabold tracking-[-0.04em]">Destinataires <span className="text-[#1a5f7a]">enregistrés</span></h3>
+                  <p className="mt-1.5 text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-400">{collectivites.length} collectivité{collectivites.length > 1 ? 's' : ''}</p>
                 </div>
               </div>
-              <button onClick={() => { setCollectivitesModal(false); setEditingCollectivite(null); setNewCollectivite({ nom: '', email: '' }) }}
-                className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-all"><X size={20} /></button>
+              <button onClick={() => { setCollectivitesModal(false); setEditingCollectivite(null); setNewCollectivite({ nom: '', email: '' }) }} aria-label="Fermer"
+                className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[15px] font-extrabold text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white">✕</button>
             </div>
 
-            <div className="p-8 space-y-6 flex-1">
+            <div className="flex-1 space-y-5 overflow-y-auto p-6">
 
               {/* Note info adhérents */}
-              <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-2xl p-4">
-                <Users size={16} className="text-blue-400 mt-0.5 shrink-0" />
-                <p className="text-[10px] text-blue-600 font-medium leading-relaxed">
+              <div className="flex items-start gap-3 rounded-[20px] border-2 border-[#1a5f7a] bg-[#f0f7f9] p-4">
+                <Users size={16} className="mt-0.5 shrink-0 text-[#1a5f7a]" />
+                <p className="text-[10.5px] font-medium leading-relaxed text-[#1a5f7a]">
                   Les emails des <strong>adhérents</strong> n'ont pas besoin d'être renseignés ici — ils sont automatiquement récupérés depuis la base de données lors de l'envoi.
                 </p>
               </div>
 
               {/* Formulaire ajout/édition */}
-              <div id="collectivite-form" className="bg-slate-50 rounded-2xl p-5 space-y-3 scroll-mt-4">
-                <p className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">
+              <div id="collectivite-form" className="scroll-mt-4 space-y-3 rounded-[22px] border-2 border-[#0f172a] bg-[#fdfaf6] p-5">
+                <p className="text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-[#1a5f7a]">
                   {editingCollectivite ? '✏️ Modifier la collectivité' : 'Ajouter une collectivité'}
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <input
                     placeholder="Nom (ex: Mairie de Beaupont)"
-                    className="p-3 rounded-xl bg-white text-sm font-bold outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                    className="rounded-[14px] border-2 border-[#0f172a] bg-white p-3 text-sm font-bold outline-none"
                     value={newCollectivite.nom}
                     onChange={e => setNewCollectivite(prev => ({ ...prev, nom: e.target.value }))}
                   />
                   <input
                     placeholder="Email"
                     type="email"
-                    className="p-3 rounded-xl bg-white text-sm font-bold outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                    className="rounded-[14px] border-2 border-[#0f172a] bg-white p-3 text-sm font-bold outline-none"
                     value={newCollectivite.email}
                     onChange={e => setNewCollectivite(prev => ({ ...prev, email: e.target.value }))}
                   />
@@ -2067,15 +2116,15 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 <div className="flex gap-2">
                   <button onClick={saveCollectivite}
                     disabled={!newCollectivite.nom || !newCollectivite.email}
-                    className={'flex-1 py-3 rounded-xl font-black uppercase text-[9px] tracking-widest transition-all ' +
+                    className={'flex-1 rounded-[14px] border-2 border-[#0f172a] py-3 text-[9.5px] font-extrabold uppercase tracking-[0.14em] transition-colors ' +
                       (newCollectivite.nom && newCollectivite.email
                         ? 'bg-[#1a5f7a] text-white hover:bg-[#134a5e]'
-                        : 'bg-slate-100 text-slate-300 cursor-not-allowed')}>
+                        : 'cursor-not-allowed bg-slate-100 text-slate-300')}>
                     {editingCollectivite ? 'Enregistrer les modifications' : 'Ajouter'}
                   </button>
                   {editingCollectivite && (
                     <button onClick={() => { setEditingCollectivite(null); setNewCollectivite({ nom: '', email: '' }) }}
-                      className="px-4 py-3 rounded-xl font-black uppercase text-[9px] tracking-widest bg-slate-100 text-slate-500 hover:bg-slate-200">
+                      className="rounded-[14px] border-2 border-[#0f172a] bg-white px-4 py-3 text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-slate-500 hover:bg-slate-100">
                       Annuler
                     </button>
                   )}
@@ -2083,31 +2132,28 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
               </div>
 
               {/* Liste */}
-              <div className="divide-y divide-slate-50">
+              <div className="flex flex-col gap-2.5">
                 {collectivites.map(c => (
-                  <div key={c.id} className="flex items-center gap-3 py-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-800 truncate">{c.label}</p>
-                      <p className="text-[10px] text-slate-400 truncate">{c.email}</p>
+                  <div key={c.id} className="flex items-center gap-3 rounded-[18px] border-2 border-slate-200 bg-white px-4 py-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-extrabold uppercase">{c.label}</p>
+                      <p className="mt-0.5 truncate text-[10.5px] font-bold text-slate-400">{c.email}</p>
                     </div>
-                    <button
+                    <IconButton
+                      title="Modifier"
                       onClick={() => {
                         setEditingCollectivite(c.id)
                         setNewCollectivite({ nom: c.label, email: c.email })
                         document.getElementById('collectivite-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                       }}
-                      className="p-2 text-slate-300 hover:text-[#1a5f7a] hover:bg-[#1a5f7a]/10 rounded-lg transition-all">
-                      <Edit2 size={14} />
-                    </button>
-                    <button
-                      onClick={() => deleteCollectivite(c.id)}
-                      className="p-2 text-slate-300 hover:text-rose-400 hover:bg-rose-50 rounded-lg transition-all">
-                      <Trash size={14} />
-                    </button>
+                    >
+                      <Edit2 size={15} />
+                    </IconButton>
+                    <IconButton tone="danger" title="Supprimer" onClick={() => deleteCollectivite(c.id)}><Trash size={15} /></IconButton>
                   </div>
                 ))}
                 {collectivites.length === 0 && (
-                  <p className="text-center text-[10px] text-slate-400 py-6">Aucune collectivité enregistrée</p>
+                  <p className="py-6 text-center text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Aucune collectivité enregistrée</p>
                 )}
               </div>
             </div>
@@ -2136,44 +2182,42 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
 
       {/* MODALE PUBLICATION FACEBOOK & INSTAGRAM */}
       {fbModal.show && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-[22px]">
+          <div className="anim-fade-in absolute inset-0 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }} onClick={() => setFbModal({ show: false, event: null })} />
+          <div className="anim-modal-in relative flex max-h-[90vh] w-full max-w-[680px] flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#3b82f6]">
 
-            {/* Header */}
-            <div className="sticky top-0 bg-white rounded-t-[2.5rem] p-8 pb-4 border-b border-slate-100 flex items-center justify-between z-10">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-blue-50 text-blue-500 rounded-xl"><Share2 size={20} /></div>
-                <div>
-                  <h3 className="text-base font-black uppercase text-slate-900">Publier sur Facebook & Instagram</h3>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{fbModal.event?.title}</p>
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
+              <div className="flex min-w-0 items-center gap-3.5">
+                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#eff6ff] text-[#3b82f6]"><Share2 size={20} /></div>
+                <div className="min-w-0">
+                  <h3 className="font-display text-[19px] font-extrabold tracking-[-0.04em]">Publier sur <span className="text-[#3b82f6]">les réseaux</span></h3>
+                  <p className="mt-1.5 truncate text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-400">{fbModal.event?.title}</p>
                 </div>
               </div>
-              <button onClick={() => setFbModal({ show: false, event: null })}
-                className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-all">
-                <X size={20} />
-              </button>
+              <button onClick={() => setFbModal({ show: false, event: null })} aria-label="Fermer"
+                className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[15px] font-extrabold text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white">✕</button>
             </div>
 
-            <div className="p-8 space-y-6 flex-1">
+            <div className="flex-1 space-y-5 overflow-y-auto p-6">
 
               {/* Aperçu affiche */}
               {fbModal.event?.image_url && (
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Affiche jointe</label>
-                  <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-2xl border border-blue-100">
-                    <img src={fbModal.event.image_url} alt="Affiche" className="w-12 h-16 object-cover rounded-lg shadow-sm" />
+                  <label className="mb-2 block text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-[#1a5f7a]">Affiche jointe</label>
+                  <div className="flex items-center gap-3.5 rounded-[20px] border-2 border-[#3b82f6] bg-[#eff6ff] p-3.5">
+                    <img src={fbModal.event.image_url} alt="Affiche" className="h-16 w-12 rounded-[10px] border-2 border-[#0f172a] object-cover" />
                     <div>
-                      <p className="text-xs font-bold text-blue-800">Image publiée automatiquement</p>
-                      <p className="text-[9px] text-blue-400 mt-0.5">Format JPEG requis par Instagram</p>
+                      <p className="text-xs font-extrabold text-[#1e40af]">Image publiée automatiquement</p>
+                      <p className="mt-1 text-[10px] font-bold text-[#3b82f6]">Format JPEG requis par Instagram</p>
                     </div>
                   </div>
                 </div>
               )}
 
               {!fbModal.event?.image_url && (
-                <div className="p-3 bg-amber-50 rounded-2xl border border-amber-100">
-                  <p className="text-[9px] font-black text-amber-600 uppercase tracking-wide">⚠️ Aucune affiche — publication texte uniquement</p>
-                  <p className="text-[9px] text-amber-500 mt-1">Instagram requiert une image. Sans affiche, seul Facebook sera publié.</p>
+                <div className="rounded-[20px] border-2 border-[#f59e0b] bg-[#fffbeb] p-4">
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#b45309]">⚠️ Aucune affiche — publication texte uniquement</p>
+                  <p className="mt-1.5 text-[10px] font-bold text-[#b45309]/80">Instagram requiert une image. Sans affiche, seul Facebook sera publié.</p>
                 </div>
               )}
 
@@ -2181,10 +2225,10 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
 
               {/* Texte du post */}
               <div className="space-y-2">
-                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Texte du post</label>
+                <label className="mb-2 block text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-[#1a5f7a]">Texte du post</label>
                 <textarea
                   rows={10}
-                  className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-blue-400 resize-y"
+                  className="w-full resize-y rounded-[20px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 text-[13px] font-medium text-[#0f172a] outline-none focus:bg-white"
                   value={fbText}
                   onChange={e => setFbText(e.target.value)}
                 />
@@ -2192,19 +2236,19 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
             </div>
 
             {/* Footer */}
-            <div className="sticky bottom-0 bg-white rounded-b-[2.5rem] p-8 pt-4 border-t border-slate-100 flex gap-3">
+            <div className="flex shrink-0 flex-wrap gap-2.5 border-t-2 border-slate-100 p-6">
               <button onClick={() => setFbModal({ show: false, event: null })}
-                className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-colors">
+                className="flex-1 basis-[140px] rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] py-4 text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500 transition-colors hover:bg-slate-100">
                 Annuler
               </button>
               {fbSuccess ? (
-                <div className="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2">
+                <div className="flex flex-1 basis-[180px] items-center justify-center gap-2 rounded-[18px] border-2 border-[#0f172a] bg-[#10b981] py-4 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white">
                   <CheckCircle2 size={14} /> Publié avec succès !
                 </div>
               ) : (
                 <button onClick={handlePublishFb} disabled={publishingFb || !fbText}
-                  className={'flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all ' +
-                    (publishingFb || !fbText ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600')}>
+                  className={'flex flex-1 basis-[180px] items-center justify-center gap-2 rounded-[18px] border-2 border-[#0f172a] py-4 text-[11px] font-extrabold uppercase tracking-[0.16em] transition-[transform,box-shadow] duration-200 ' +
+                    (publishingFb || !fbText ? 'cursor-not-allowed bg-slate-100 text-slate-300' : 'bg-[#3b82f6] text-white shadow-[5px_5px_0_#0f172a] hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a]')}>
                   {publishingFb ? <><Loader2 size={14} className="animate-spin" /> Publication...</> : <><Share2 size={14} /> Publier</>}
                 </button>
               )}
@@ -2215,22 +2259,23 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
 
       {/* MODALE BILAN D'ÉVÉNEMENT */}
       {bilanModal.show && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-3xl max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-[22px]">
+          <div className="anim-fade-in absolute inset-0 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }} onClick={closeBilanModal} />
+          <div className="anim-modal-in relative flex max-h-[92vh] w-full max-w-[820px] flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#10b981]">
 
-            {/* Header */}
-            <div className="sticky top-0 bg-white rounded-t-[2.5rem] p-8 pb-4 border-b border-slate-100 flex items-center justify-between z-10">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-emerald-50 text-emerald-500 rounded-xl"><BarChart2 size={20} /></div>
-                <div>
-                  <h3 className="text-base font-black uppercase text-slate-900">Bilan de l'événement</h3>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{bilanModal.event?.title}</p>
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
+              <div className="flex min-w-0 items-center gap-3.5">
+                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#ecfdf5] text-[#10b981]"><BarChart2 size={20} /></div>
+                <div className="min-w-0">
+                  <h3 className="font-display text-[19px] font-extrabold tracking-[-0.04em]">Bilan de l'<span className="text-[#10b981]">événement</span></h3>
+                  <p className="mt-1.5 truncate text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-400">{bilanModal.event?.title}</p>
                 </div>
               </div>
-              <button onClick={closeBilanModal} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-all"><X size={20} /></button>
+              <button onClick={closeBilanModal} aria-label="Fermer"
+                className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[15px] font-extrabold text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white">✕</button>
             </div>
 
-            <div className="p-8 space-y-8 flex-1">
+            <div className="flex-1 space-y-7 overflow-y-auto p-6">
 
               {/* SECTION PARTICIPANTS */}
               <div className="space-y-3">
@@ -2240,7 +2285,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 <div className="flex gap-3">
                   <input
                     type="number" min={0} placeholder="Nombre de participants"
-                    className="flex-1 p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                    className="flex-1 rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
                     value={bilanParticipants}
                     onChange={e => setBilanParticipants(e.target.value)}
                   />
@@ -2259,7 +2304,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 </h4>
 
                 {bilanPhotoFiles.length > 0 ? (
-                  <div className="space-y-4 bg-slate-50 rounded-2xl p-6">
+                  <div className="space-y-4 rounded-[22px] border-2 border-[#0f172a] bg-[#fdfaf6] p-6">
                     <div className="flex items-center justify-between">
                       <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
                         Photo {bilanPhotoIndex + 1} / {bilanPhotoFiles.length} — dessinez des rectangles pour flouter
@@ -2298,8 +2343,8 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                     </div>
                   </div>
                 ) : (
-                  <div className="border-4 border-dashed border-slate-50 rounded-[2rem] p-8 flex flex-col items-center justify-center bg-slate-50/50">
-                    <label className="cursor-pointer bg-white border-2 border-slate-100 px-6 py-3 rounded-2xl text-[10px] font-black uppercase text-[#1a5f7a]">
+                  <div className="flex flex-col items-center justify-center rounded-[24px] border-[3px] border-dashed border-slate-300 bg-[#fdfaf6] p-8">
+                    <label className="cursor-pointer rounded-[16px] border-2 border-[#0f172a] bg-white px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#1a5f7a] transition-colors hover:bg-slate-100">
                       Ajouter des photos
                       <input type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoFilesSelected} />
                     </label>
@@ -2331,14 +2376,14 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
                   <input
                     placeholder="Rechercher un jeu sur MyLudo..."
-                    className="w-full pl-11 pr-10 py-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                    className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] py-4 pl-11 pr-10 text-sm font-bold outline-none focus:bg-white"
                     value={gameSearchQuery}
                     onChange={e => handleGameSearchChange(e.target.value)}
                   />
                   {gameSearchLoading && <Loader2 size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#1a5f7a] animate-spin" />}
 
                   {gameSearchResults.length > 0 && (
-                    <div className="absolute z-50 top-full mt-2 w-full bg-white rounded-2xl shadow-2xl border border-slate-100 max-h-64 overflow-y-auto">
+                    <div className="absolute z-50 top-full mt-2 w-full rounded-[18px] border-2 border-[#0f172a] bg-white shadow-[4px_4px_0_#1a5f7a] max-h-64 overflow-y-auto">
                       {gameSearchResults.map(result => (
                         <div key={result.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 border-b border-slate-50 last:border-0">
                           <div className="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden flex items-center justify-center shrink-0">
@@ -2361,7 +2406,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 {bilanGames.length > 0 && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
                     {bilanGames.map(game => (
-                      <div key={game.id} className="relative rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 p-3 flex flex-col items-center text-center">
+                      <div key={game.id} className="relative flex flex-col items-center overflow-hidden rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-3 text-center">
                         <button onClick={() => deleteBilanGame(game.id)}
                           className="absolute top-1.5 right-1.5 p-1.5 bg-white text-rose-400 rounded-lg shadow hover:bg-rose-50 transition-colors z-10">
                           <Trash2 size={12} />
@@ -2387,7 +2432,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
 
                 <textarea
                   rows={8}
-                  className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-blue-400 resize-y"
+                  className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-medium text-sm outline-none border-2 border-transparent focus:border-blue-400 resize-y"
                   value={bilanFbText}
                   onChange={e => { setBilanFbText(e.target.value); setBilanFbTextEdited(true) }}
                 />
@@ -2440,9 +2485,9 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
             </div>
 
             {/* Footer */}
-            <div className="sticky bottom-0 bg-white rounded-b-[2.5rem] p-8 pt-4 border-t border-slate-100">
+            <div className="shrink-0 border-t-2 border-slate-100 p-6">
               <button onClick={closeBilanModal}
-                className="w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-colors">
+                className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] py-4 text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500 transition-colors hover:bg-slate-100">
                 Fermer
               </button>
             </div>

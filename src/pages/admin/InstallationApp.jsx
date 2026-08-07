@@ -61,18 +61,18 @@ export default function InstallationApp() {
     return (
       <div className="p-4 md:p-10 bg-[#fdfaf6] min-h-screen font-sans text-slate-900 flex items-center justify-center">
         <div className="max-w-md w-full text-center">
-          <div className="w-24 h-24 bg-emerald-500 rounded-[2rem] flex items-center justify-center mx-auto mb-8 shadow-xl shadow-emerald-200 rotate-3">
+          <div className="mx-auto mb-8 flex h-24 w-24 rotate-3 items-center justify-center rounded-[28px] border-2 border-[#0f172a] bg-[#10b981] shadow-[6px_6px_0_#0f172a]">
             <CheckCircle2 size={48} className="text-white" />
           </div>
-          <h1 className="text-3xl font-black uppercase tracking-tight text-slate-900 mb-3">
+          <h1 className="mb-3 font-display text-[30px] font-extrabold uppercase tracking-[-0.04em] text-[#0f172a]">
             Déjà installée !
           </h1>
-          <p className="text-slate-500 font-medium mb-8">
+          <p className="mb-8 text-sm font-medium leading-[1.6] text-slate-500">
             L'application est déjà installée sur cet appareil. Vous pouvez y accéder directement depuis votre écran d'accueil.
           </p>
           <button
             onClick={() => window.history.back()}
-            className="inline-flex items-center gap-3 px-8 py-4 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all"
+            className="inline-flex items-center justify-center gap-2 rounded-[18px] border-2 border-[#0f172a] bg-[#1a5f7a] px-6 py-4 text-[10px] font-extrabold uppercase tracking-[0.14em] text-white shadow-[4px_4px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0f172a]"
           >
             <ArrowLeft size={16} />
             Retour
@@ -88,13 +88,13 @@ export default function InstallationApp() {
 
         {/* HEADER */}
         <div className="mb-10">
-          <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-4">
-            <div className="p-3 bg-emerald-500 rounded-[1.2rem] shadow-lg shadow-emerald-200 text-white">
+          <h1 className="flex items-center gap-4 font-display text-[26px] font-extrabold leading-none tracking-[-0.045em] text-[#0f172a] md:text-[38px]">
+            <div className="flex h-[54px] w-[54px] shrink-0 items-center justify-center rounded-[18px] border-2 border-[#0f172a] bg-[#10b981] text-white shadow-[4px_4px_0_#0f172a] md:h-[58px] md:w-[58px] md:rounded-[20px]">
               <Smartphone size={28} />
             </div>
-            <span>Installer <span className="text-emerald-500">l'Application</span></span>
+            <span>Installer <span className="text-[#10b981]">l'application</span></span>
           </h1>
-          <p className="mt-4 text-slate-500 font-medium">
+          <p className="mt-4 text-sm font-medium leading-[1.6] text-slate-500">
             Accédez à la ludothèque directement depuis votre écran d'accueil, comme une vraie application.
           </p>
         </div>
@@ -106,34 +106,34 @@ export default function InstallationApp() {
             { icon: <Monitor size={20} />, label: 'Plein écran' },
             { icon: <Globe size={20} />, label: 'Toujours à jour' },
           ].map((item, i) => (
-            <div key={i} className="bg-white rounded-[1.5rem] p-5 text-center shadow-sm border border-slate-100 flex flex-col items-center gap-3">
-              <div className="p-3 bg-emerald-50 text-emerald-500 rounded-xl">
+            <div key={i} className="flex flex-col items-center gap-3 rounded-[24px] border-2 border-[#0f172a] bg-white p-5 text-center shadow-[4px_4px_0_#10b981]">
+              <div className="flex h-11 w-11 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#ecfdf5] text-[#047857]">
                 {item.icon}
               </div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{item.label}</span>
+              <span className="text-[10px] font-extrabold uppercase leading-tight tracking-[0.12em] text-slate-500">{item.label}</span>
             </div>
           ))}
         </div>
 
         {/* --- CAS 1 : INSTALLATION DIRECTE (Android + Chrome) --- */}
         {installPrompt && (
-          <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-sm border border-slate-100 mb-6">
+          <div className="mb-6 rounded-[34px] border-2 border-[#0f172a] bg-white p-7 shadow-[6px_6px_0_#10b981] md:p-9">
             <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-emerald-50 text-emerald-500 rounded-xl">
+              <div className="flex h-10 w-10 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#ecfdf5] text-[#047857]">
                 <Chrome size={20} />
               </div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Installation disponible</span>
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#047857]">Installation disponible</span>
             </div>
-            <h2 className="text-xl font-black uppercase tracking-tight text-slate-900 mb-3">
+            <h2 className="mb-3 font-display text-[22px] font-extrabold uppercase tracking-[-0.04em] text-[#0f172a]">
               Un seul clic suffit !
             </h2>
-            <p className="text-slate-500 text-sm font-medium mb-8 leading-relaxed">
+            <p className="mb-8 text-sm font-medium leading-[1.7] text-slate-500">
               Votre navigateur est compatible avec l'installation directe. Appuyez sur le bouton ci-dessous pour ajouter l'application à votre écran d'accueil.
             </p>
             <button
               onClick={handleInstall}
               disabled={isInstalling}
-              className="w-full py-5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-100 disabled:text-slate-400 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 shadow-xl shadow-emerald-200 active:scale-95 transition-all"
+              className="flex w-full items-center justify-center gap-3 rounded-[18px] border-2 border-[#0f172a] bg-[#10b981] py-5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white shadow-[5px_5px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a] disabled:pointer-events-none disabled:opacity-40"
             >
               {isInstalling ? (
                 <span className="animate-pulse">Installation en cours...</span>
@@ -146,26 +146,26 @@ export default function InstallationApp() {
 
         {/* --- CAS 2 : iOS (Safari) --- */}
         {deviceType === 'ios' && !installPrompt && (
-          <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-sm border border-slate-100">
+          <div className="rounded-[34px] border-2 border-[#0f172a] bg-white p-7 shadow-[6px_6px_0_#1a5f7a] md:p-9">
             <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-slate-100 text-slate-500 rounded-xl text-sm font-black"></div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#1a5f7a]">iPhone / iPad</span>
+              <div className="flex h-10 w-10 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[#0f172a]"></div>
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#1a5f7a]">iPhone / iPad</span>
             </div>
-            <h2 className="text-xl font-black uppercase tracking-tight text-slate-900 mb-2">
+            <h2 className="mb-2 font-display text-[22px] font-extrabold uppercase tracking-[-0.04em] text-[#0f172a]">
               Marche à suivre
             </h2>
-            <p className="text-slate-500 text-sm font-medium mb-8 leading-relaxed">
+            <p className="mb-8 text-sm font-medium leading-[1.7] text-slate-500">
               Sur iOS, l'installation se fait via Safari en 3 étapes simples.
             </p>
 
             {browserType !== 'safari' && (
-              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-5 mb-8 flex gap-4 items-start">
-                <div className="p-2 bg-amber-100 text-amber-500 rounded-xl shrink-0">
+              <div className="mb-8 flex items-start gap-4 rounded-[20px] border-2 border-[#f59e0b] bg-[#fffbeb] p-5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#fef3c7] text-[#b45309]">
                   <Globe size={16} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase text-amber-600 mb-1">Ouvrez Safari d'abord</p>
-                  <p className="text-xs text-amber-700 font-medium leading-relaxed">
+                  <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#b45309]">Ouvrez Safari d'abord</p>
+                  <p className="text-xs font-medium leading-relaxed text-[#92400e]">
                     L'installation n'est possible que depuis Safari sur iPhone et iPad. Copiez l'URL et ouvrez-la dans Safari.
                   </p>
                 </div>
@@ -178,14 +178,14 @@ export default function InstallationApp() {
                   number: '1',
                   icon: <Share size={20} />,
                   title: 'Appuyez sur Partager',
-                  description: <>Appuyez sur l'icône <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 rounded-md text-[10px] font-black"><Share size={10} /> Partager</span> en bas de l'écran Safari.</>,
+                  description: <>Appuyez sur l'icône <span className="inline-flex items-center gap-1 rounded-md border border-[#0f172a] bg-[#fdfaf6] px-2 py-0.5 text-[10px] font-extrabold"><Share size={10} /> Partager</span> en bas de l'écran Safari.</>,
                   color: 'bg-[#f0f7f9] text-[#1a5f7a]',
                 },
                 {
                   number: '2',
                   icon: <Plus size={20} />,
                   title: 'Sur l\'écran d\'accueil',
-                  description: <>Faites défiler les options et appuyez sur <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 rounded-md text-[10px] font-black"><Plus size={10} /> Sur l'écran d'accueil</span>.</>,
+                  description: <>Faites défiler les options et appuyez sur <span className="inline-flex items-center gap-1 rounded-md border border-[#0f172a] bg-[#fdfaf6] px-2 py-0.5 text-[10px] font-extrabold"><Plus size={10} /> Sur l'écran d'accueil</span>.</>,
                   color: 'bg-[#fdf2ee] text-[#e38154]',
                 },
                 {
@@ -193,16 +193,16 @@ export default function InstallationApp() {
                   icon: <CheckCircle2 size={20} />,
                   title: 'Confirmer',
                   description: 'Appuyez sur "Ajouter" en haut à droite. L\'application apparaît immédiatement sur votre écran d\'accueil.',
-                  color: 'bg-emerald-50 text-emerald-500',
+                  color: 'bg-[#ecfdf5] text-[#047857]',
                 },
               ].map((step) => (
-                <div key={step.number} className="flex gap-5 items-start p-5 bg-slate-50 rounded-2xl">
-                  <div className={`w-12 h-12 shrink-0 rounded-xl flex items-center justify-center font-black text-lg ${step.color}`}>
+                <div key={step.number} className="flex items-start gap-5 rounded-[20px] border-2 border-[#0f172a] bg-[#fdfaf6] p-5">
+                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[15px] border-2 border-[#0f172a] font-display text-lg font-extrabold ${step.color}`}>
                     {step.number}
                   </div>
                   <div className="flex-1">
-                    <p className="font-black text-slate-900 text-sm uppercase tracking-tight mb-1">{step.title}</p>
-                    <p className="text-xs text-slate-500 font-medium leading-relaxed">{step.description}</p>
+                    <p className="mb-1 text-sm font-extrabold uppercase tracking-tight text-[#0f172a]">{step.title}</p>
+                    <p className="text-xs font-medium leading-relaxed text-slate-500">{step.description}</p>
                   </div>
                 </div>
               ))}
@@ -212,25 +212,25 @@ export default function InstallationApp() {
 
         {/* --- CAS 3 : Android sans prompt (Firefox, Samsung Browser…) --- */}
         {deviceType === 'android' && !installPrompt && (
-          <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-sm border border-slate-100">
+          <div className="rounded-[34px] border-2 border-[#0f172a] bg-white p-7 shadow-[6px_6px_0_#1a5f7a] md:p-9">
             <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-[#f0f7f9] text-[#1a5f7a] rounded-xl">
+              <div className="flex h-10 w-10 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#f0f7f9] text-[#1a5f7a]">
                 <Chrome size={20} />
               </div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#1a5f7a]">Android</span>
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#1a5f7a]">Android</span>
             </div>
-            <h2 className="text-xl font-black uppercase tracking-tight text-slate-900 mb-2">
+            <h2 className="mb-2 font-display text-[22px] font-extrabold uppercase tracking-[-0.04em] text-[#0f172a]">
               Marche à suivre
             </h2>
 
             {browserType !== 'chrome' && (
-              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-5 mb-8 flex gap-4 items-start">
-                <div className="p-2 bg-amber-100 text-amber-500 rounded-xl shrink-0">
+              <div className="mb-8 flex items-start gap-4 rounded-[20px] border-2 border-[#f59e0b] bg-[#fffbeb] p-5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#fef3c7] text-[#b45309]">
                   <Chrome size={16} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase text-amber-600 mb-1">Utilisez Chrome de préférence</p>
-                  <p className="text-xs text-amber-700 font-medium leading-relaxed">
+                  <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#b45309]">Utilisez Chrome de préférence</p>
+                  <p className="text-xs font-medium leading-relaxed text-[#92400e]">
                     L'installation automatique fonctionne mieux avec Google Chrome sur Android. Copiez l'URL et ouvrez-la dans Chrome.
                   </p>
                 </div>
@@ -242,29 +242,29 @@ export default function InstallationApp() {
                 {
                   number: '1',
                   title: 'Ouvrir le menu Chrome',
-                  description: <>Appuyez sur les <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 rounded-md text-[10px] font-black"><MoreVertical size={10} /> 3 points</span> en haut à droite de Chrome.</>,
+                  description: <>Appuyez sur les <span className="inline-flex items-center gap-1 rounded-md border border-[#0f172a] bg-[#fdfaf6] px-2 py-0.5 text-[10px] font-extrabold"><MoreVertical size={10} /> 3 points</span> en haut à droite de Chrome.</>,
                   color: 'bg-[#f0f7f9] text-[#1a5f7a]',
                 },
                 {
                   number: '2',
                   title: 'Ajouter à l\'écran d\'accueil',
-                  description: <>Appuyez sur <span className="px-2 py-0.5 bg-slate-100 rounded-md text-[10px] font-black">Ajouter à l'écran d'accueil</span> dans le menu déroulant.</>,
+                  description: <>Appuyez sur <span className="rounded-md border border-[#0f172a] bg-[#fdfaf6] px-2 py-0.5 text-[10px] font-extrabold">Ajouter à l'écran d'accueil</span> dans le menu déroulant.</>,
                   color: 'bg-[#fdf2ee] text-[#e38154]',
                 },
                 {
                   number: '3',
                   title: 'Confirmer l\'installation',
                   description: 'Une boîte de dialogue apparaît. Appuyez sur "Ajouter" pour finaliser l\'installation.',
-                  color: 'bg-emerald-50 text-emerald-500',
+                  color: 'bg-[#ecfdf5] text-[#047857]',
                 },
               ].map((step) => (
-                <div key={step.number} className="flex gap-5 items-start p-5 bg-slate-50 rounded-2xl">
-                  <div className={`w-12 h-12 shrink-0 rounded-xl flex items-center justify-center font-black text-lg ${step.color}`}>
+                <div key={step.number} className="flex items-start gap-5 rounded-[20px] border-2 border-[#0f172a] bg-[#fdfaf6] p-5">
+                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[15px] border-2 border-[#0f172a] font-display text-lg font-extrabold ${step.color}`}>
                     {step.number}
                   </div>
                   <div className="flex-1">
-                    <p className="font-black text-slate-900 text-sm uppercase tracking-tight mb-1">{step.title}</p>
-                    <p className="text-xs text-slate-500 font-medium leading-relaxed">{step.description}</p>
+                    <p className="mb-1 text-sm font-extrabold uppercase tracking-tight text-[#0f172a]">{step.title}</p>
+                    <p className="text-xs font-medium leading-relaxed text-slate-500">{step.description}</p>
                   </div>
                 </div>
               ))}
@@ -274,18 +274,18 @@ export default function InstallationApp() {
 
         {/* --- CAS 4 : Desktop --- */}
         {deviceType === 'desktop' && !installPrompt && (
-          <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-sm border border-slate-100">
+          <div className="rounded-[34px] border-2 border-[#0f172a] bg-white p-7 shadow-[6px_6px_0_#1a5f7a] md:p-9">
             <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-[#f0f7f9] text-[#1a5f7a] rounded-xl">
+              <div className="flex h-10 w-10 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#f0f7f9] text-[#1a5f7a]">
                 <Monitor size={20} />
               </div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#1a5f7a]">Ordinateur</span>
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#1a5f7a]">Ordinateur</span>
             </div>
-            <h2 className="text-xl font-black uppercase tracking-tight text-slate-900 mb-3">
+            <h2 className="mb-3 font-display text-[22px] font-extrabold uppercase tracking-[-0.04em] text-[#0f172a]">
               Installation sur ordinateur
             </h2>
-            <p className="text-slate-500 text-sm font-medium mb-8 leading-relaxed">
-              Sur Chrome ou Edge, une icône d'installation <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 rounded-md text-[10px] font-black"><Download size={10} /></span> apparaît dans la barre d'adresse. Cliquez dessus pour installer l'application sur votre bureau.
+            <p className="mb-8 text-sm font-medium leading-[1.7] text-slate-500">
+              Sur Chrome ou Edge, une icône d'installation <span className="inline-flex items-center gap-1 rounded-md border border-[#0f172a] bg-[#fdfaf6] px-2 py-0.5 text-[10px] font-extrabold"><Download size={10} /></span> apparaît dans la barre d'adresse. Cliquez dessus pour installer l'application sur votre bureau.
             </p>
             <div className="space-y-4">
               {[
@@ -305,16 +305,16 @@ export default function InstallationApp() {
                   number: '3',
                   title: 'Confirmer',
                   description: 'Cliquez sur l\'icône puis sur "Installer". L\'application s\'ouvre dans sa propre fenêtre.',
-                  color: 'bg-emerald-50 text-emerald-500',
+                  color: 'bg-[#ecfdf5] text-[#047857]',
                 },
               ].map((step) => (
-                <div key={step.number} className="flex gap-5 items-start p-5 bg-slate-50 rounded-2xl">
-                  <div className={`w-12 h-12 shrink-0 rounded-xl flex items-center justify-center font-black text-lg ${step.color}`}>
+                <div key={step.number} className="flex items-start gap-5 rounded-[20px] border-2 border-[#0f172a] bg-[#fdfaf6] p-5">
+                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[15px] border-2 border-[#0f172a] font-display text-lg font-extrabold ${step.color}`}>
                     {step.number}
                   </div>
                   <div className="flex-1">
-                    <p className="font-black text-slate-900 text-sm uppercase tracking-tight mb-1">{step.title}</p>
-                    <p className="text-xs text-slate-500 font-medium leading-relaxed">{step.description}</p>
+                    <p className="mb-1 text-sm font-extrabold uppercase tracking-tight text-[#0f172a]">{step.title}</p>
+                    <p className="text-xs font-medium leading-relaxed text-slate-500">{step.description}</p>
                   </div>
                 </div>
               ))}
@@ -323,7 +323,7 @@ export default function InstallationApp() {
         )}
 
         {/* NOTE DE BAS DE PAGE */}
-        <p className="text-center mt-8 text-[9px] font-black text-slate-300 uppercase tracking-widest">
+        <p className="mt-8 text-center text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-300">
           Association PACTES — Ludothèque de Coligny
         </p>
 

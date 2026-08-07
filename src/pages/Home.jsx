@@ -1,87 +1,22 @@
 import { useNavigate } from 'react-router-dom'
-import { useEffect, useState, memo } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../services/supabaseClient'
 import TitrePactes from '../components/TitrePactes'
-import Footer from '../components/Footer'
-import {
-  Dice5,
-  Calendar,
-  ArrowRight,
-  MapPin,
-  Loader2,
-  User,
-  Heart,
-  Clock,
-  ImageIcon,
-  HelpCircle,
-  X,
-  Facebook
-} from 'lucide-react'
+import PublicLayout from '../components/site/PublicLayout'
+import FloatingIcons from '../components/site/FloatingIcons'
+import MaskIcon from '../components/site/MaskIcon'
+import Reveal from '../components/site/Reveal'
+import CountUp from '../components/site/CountUp'
+import Modal from '../components/site/Modal'
+import { BTN_PRIMARY, BTN_SECONDARY, BTN_ON_COLOR, EYEBROW } from '../components/site/styles'
+import { MapPin, Loader2, ImageIcon } from 'lucide-react'
 
-// Composant pour tes icônes avec mouvement fluide et aléatoire
-const FloatingIcons = memo(() => {
-  const myIcons = ['01.svg', '02.svg', '03.svg', '04.svg', '05.svg', '06.svg', '07.svg'];
-  const colors = ['#1a5f7a', '#e38154'];
-  
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const count = isMobile ? 35 : 65;
-  
-  const [particles] = useState(() => 
-    Array.from({ length: count }).map((_, i) => ({
-      id: i,
-      fileName: myIcons[Math.floor(Math.random() * myIcons.length)],
-      color: colors[Math.floor(Math.random() * colors.length)],
-      size: Math.floor(Math.random() * (isMobile ? 25 : 35) + 15), 
-      left: `${Math.random() * 100}%`,
-      top: `${Math.random() * 100}%`,
-      duration: Math.random() * (40 - 25) + 25,
-      delay: Math.random() * -40,
-      rotation: Math.floor(Math.random() * 360),
-    }))
-  );
-
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {particles.map((p) => (
-        <div
-          key={p.id}
-          className="absolute animate-random-float"
-          style={{
-            left: p.left,
-            top: p.top,
-            animation: `randomFloat ${p.duration}s infinite ease-in-out ${p.delay}s`,
-            opacity: isMobile ? 0.25 : 0.35 
-          }}
-        >
-          <div 
-            style={{ 
-              width: `${p.size}px`, 
-              height: `${p.size}px`,
-              backgroundColor: p.color,
-              maskImage: `url(/icons/${p.fileName})`,
-              WebkitMaskImage: `url(/icons/${p.fileName})`,
-              maskRepeat: 'no-repeat',
-              WebkitMaskRepeat: 'no-repeat',
-              maskSize: 'contain',
-              WebkitMaskSize: 'contain',
-              transform: `rotate(${p.rotation}deg)`
-            }}
-          />
-        </div>
-      ))}
-      <style>{`
-        @keyframes randomFloat {
-          0% { transform: translate(0, 0) rotate(0deg) scale(1); }
-          25% { transform: translate(60px, -40px) rotate(90deg) scale(1.1); }
-          50% { transform: translate(20px, -100px) rotate(180deg) scale(1); }
-          75% { transform: translate(-50px, -50px) rotate(270deg) scale(0.9); }
-          100% { transform: translate(0, 0) rotate(360deg) scale(1); }
-        }
-        .animate-random-float { will-change: transform; }
-      `}</style>
-    </div>
-  );
-});
+// Les trois dés qui tombent en ouverture de la page
+const HERO_DICE = [
+  { icon: '01.svg', pip: '#1a5f7a', shadow: '#e38154', drop: 0, pipDelay: 0.8, idle: 1.6 },
+  { icon: '03.svg', pip: '#e38154', shadow: '#1a5f7a', drop: 0.15, pipDelay: 0.95, idle: 1.8 },
+  { icon: '06.svg', pip: '#1a5f7a', shadow: '#e38154', drop: 0.3, pipDelay: 1.1, idle: 2 },
+]
 
 export default function Home() {
   const navigate = useNavigate()
@@ -90,6 +25,9 @@ export default function Home() {
   const [playerCount, setPlayerCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [selectedEvent, setSelectedEvent] = useState(null)
+
+  // Chiffres et visuels résumant la page « Vie de la ludothèque »
+  const [vie, setVie] = useState({ photos: [], photoCount: 0, editions: 0, jeuxJoues: 0 })
 
   // État pour les horaires dynamiques
   const [horaires, setHoraires] = useState({
@@ -111,8 +49,6 @@ export default function Home() {
     code_postal: '01270'
   })
 
-  const facebookUrl = "https://www.facebook.com/groups/ludothequedecoligny?locale=fr_FR"
-
   // Adresse dynamique pour Google Maps
   const addressQuery = `${adresse.rue}, ${adresse.code_postal} ${adresse.ville}`.replace(/ /g, '+')
   const adresseComplete = `${adresse.rue}, ${adresse.code_postal} ${adresse.ville}`
@@ -130,8 +66,8 @@ export default function Home() {
     async function fetchHomeData() {
       try {
         setLoading(true)
-        
-        // 1. Fetch Contact Settings (Nouveau)
+
+        // 1. Fetch Contact Settings
         const { data: settingsData } = await supabase.from('settings').select('*')
         if (settingsData) {
           const h = { ...horaires }
@@ -162,7 +98,7 @@ export default function Home() {
         const { data: membersData } = await supabase
           .from('members')
           .select('family_members')
-        
+
         if (membersData) {
           const total = membersData.reduce((acc, current) => {
             const familyCount = Array.isArray(current.family_members) ? current.family_members.length : 0
@@ -176,17 +112,40 @@ export default function Home() {
         threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
         await supabase.from('events').delete().lt('date', threeMonthsAgo.toISOString()).is('archived_at', null)
 
-        // Charger tous les événements restants (hors événements archivés)
-        const { data: eventData } = await supabase
-          .from('events')
-          .select('*')
-          .is('archived_at', null)
-          .order('date', { ascending: true })
+        // Un seul appel : l'agenda n'affiche que les événements non archivés,
+        // tandis que les compteurs « vie de la ludothèque » portent sur tout l'historique.
+        const [{ data: eventData }, { data: photosData }, { data: gamesPlayedData }] = await Promise.all([
+          supabase.from('events').select('*').order('date', { ascending: true }),
+          supabase.from('event_photos').select('id, event_id, url'),
+          supabase.from('event_games_played').select('name'),
+        ])
 
+        const allEvents = eventData || []
+        const photos = photosData || []
         const now = new Date()
-        const upcoming = (eventData || []).filter(e => new Date(e.date) >= now)
-        const past = (eventData || []).filter(e => new Date(e.date) < now)
-        setEvents({ upcoming, past })
+
+        const agenda = allEvents.filter(e => !e.archived_at)
+        setEvents({
+          upcoming: agenda.filter(e => new Date(e.date) >= now),
+          past: agenda.filter(e => new Date(e.date) < now),
+        })
+
+        // Une « édition » = un événement passé documenté (participants renseignés ou photos)
+        const eventIdsWithPhotos = new Set(photos.map(p => p.event_id))
+        const editions = allEvents.filter(e =>
+          new Date(e.date) < now &&
+          (Number(e.participants_count) > 0 || eventIdsWithPhotos.has(e.id))
+        ).length
+
+        const uniqueGames = new Set()
+        ;(gamesPlayedData || []).forEach(g => { if (g.name) uniqueGames.add(g.name.trim().toLowerCase()) })
+
+        setVie({
+          photos: photos.slice(0, 3),
+          photoCount: photos.length,
+          editions,
+          jeuxJoues: uniqueGames.size,
+        })
       } catch (error) {
         console.error("Erreur Home:", error.message)
       } finally {
@@ -211,7 +170,7 @@ export default function Home() {
     if (!dateIso) return "H-NC";
     const d = new Date(dateIso);
     const start = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h');
-    
+
     if (endTime) {
       const formattedEnd = endTime.replace(':', 'h');
       return `${start} — ${formattedEnd}`;
@@ -219,264 +178,393 @@ export default function Home() {
     return start;
   }
 
+  const formatEventDay = (dateIso) =>
+    new Date(dateIso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+
+  const vieChips = [
+    { value: vie.photoCount, label: 'Photos' },
+    { value: vie.editions, label: 'Événements' },
+    { value: vie.jeuxJoues, label: 'Jeux joués' },
+  ].filter(c => c.value > 0)
+
   return (
-    <div className={`min-h-screen bg-white text-slate-900 font-sans ${selectedEvent ? 'overflow-hidden' : ''}`}>
-      
-      <header className="sticky top-0 z-50 bg-white border-b border-slate-100">
-        <div className="max-w-6xl mx-auto px-4 md:px-8">
-          <div className="flex items-center justify-between h-20">
-            <div className="flex items-center gap-4">
-              <img data-app-logo="header" src="/logo-feuille.svg" alt="Ludothèque de Coligny" className="h-10 shrink-0" />
-              <div>
-                <h1 className="font-black text-xl tracking-tight text-slate-900 leading-none">Ludothèque de Coligny</h1>
-                <p className="text-[10px] uppercase font-bold text-[#e38154] tracking-widest mt-1">Un service de l'association PACTES</p>
-              </div>
+    <PublicLayout>
+      <main>
+        {/* ---------- HERO ---------- */}
+        <section className="relative overflow-hidden px-4 pb-8 pt-10 text-center md:px-10 md:pb-14 md:pt-20">
+          <FloatingIcons />
+
+          <div className="relative z-10 mx-auto max-w-[900px]">
+            <div className="mb-6 flex justify-center gap-3.5">
+              {HERO_DICE.map((die) => (
+                <div key={die.icon} className="anim-die-drop" style={{ animationDelay: `${die.drop}s` }}>
+                  <div
+                    className="anim-die-idle flex h-[54px] w-[54px] items-center justify-center rounded-[18px] border-2 border-[#0f172a] bg-white"
+                    style={{ boxShadow: `3px 3px 0 ${die.shadow}`, animationDelay: `${die.idle}s` }}
+                  >
+                    <MaskIcon
+                      file={die.icon}
+                      size={26}
+                      color={die.pip}
+                      className="anim-pip-in"
+                      style={{ animationDelay: `${die.pipDelay}s` }}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
-            
-            <div className="flex items-center gap-6">
-              <a href={facebookUrl} target="_blank" rel="noopener noreferrer" className="hidden lg:flex items-center gap-2 text-slate-400 hover:text-[#1a5f7a] transition-colors text-[10px] font-black uppercase tracking-widest">
-                <Facebook size={18} />
-                <span>Nous suivre</span>
-              </a>
-              <button onClick={() => navigate('/login')} className="px-5 py-2 rounded-xl border-2 border-slate-100 hover:border-[#1a5f7a] hover:text-[#1a5f7a] font-bold transition-all text-xs uppercase tracking-widest">
-                Espace Bénévole
+
+            <h1 className="mb-5 font-display text-[27px] font-extrabold leading-none tracking-[-0.045em] sm:text-[38px] md:text-[62px] lg:text-[76px]">
+              <span className="block overflow-hidden pb-[0.06em]">
+                <span className="anim-word-up inline-block" style={{ animationDelay: '0.45s' }}>
+                  Le jeu pour tous,
+                </span>
+              </span>
+              <span className="block overflow-hidden pb-[0.06em]">
+                <span className="anim-word-up inline-block" style={{ animationDelay: '0.6s' }}>
+                  <span className="inline-block -rotate-[1.5deg] rounded-[14px] bg-[#e38154] px-[0.18em] text-white">
+                    à partager à Coligny
+                  </span>
+                </span>
+              </span>
+              <span className="block overflow-hidden pb-[0.06em]">
+                <span
+                  className="anim-word-up inline-block text-[0.6em] italic text-[#1a5f7a]"
+                  style={{ animationDelay: '0.75s' }}
+                >
+                  ... et autour
+                </span>
+              </span>
+            </h1>
+
+            <p
+              className="anim-soft-in mx-auto mb-7 max-w-[32em] text-[15px] font-medium leading-[1.65] text-slate-500 md:text-[19px]"
+              style={{ animationDelay: '0.9s' }}
+            >
+              Portée par l'association <TitrePactes />, notre ludothèque est un espace de rencontre et de partage.
+            </p>
+
+            <div
+              className="anim-soft-in flex flex-wrap justify-center gap-3.5"
+              style={{ animationDelay: '1.05s' }}
+            >
+              <button onClick={() => navigate('/catalogue')} className={BTN_PRIMARY}>
+                Explorer notre collection →
+              </button>
+              <button onClick={() => navigate('/comment-emprunter')} className={BTN_SECONDARY}>
+                Comment emprunter ?
               </button>
             </div>
           </div>
-        </div>
-      </header>
+        </section>
 
-      <section className="relative pt-16 pb-12 md:pt-24 md:pb-16 text-center overflow-hidden bg-[#fdfaf6]">
-        <FloatingIcons />
-
-        <div className="relative max-w-6xl mx-auto px-4 md:px-8 z-10">
-          <h2 className="text-4xl md:text-7xl font-black text-slate-900 leading-[1.1] mb-8">
-            Le jeu pour tous, <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1a5f7a] to-[#2d8ba1]">
-              à partager à Coligny ... et autour
-            </span>
-          </h2>
-          <p className="mt-4 text-xl text-slate-500 max-w-2xl mx-auto leading-relaxed font-medium mb-10">
-            Portée par l'association <TitrePactes className="text-xl align-middle" />, notre ludothèque est un espace de rencontre et de partage.
-          </p>
-          
-          <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-16">
-            <button onClick={() => navigate('/catalogue')} className="w-full sm:w-auto px-10 py-5 rounded-2xl bg-[#e38154] text-white font-black flex items-center justify-center gap-3 hover:bg-[#d06b42] transition-all hover:scale-105 shadow-xl shadow-orange-100 uppercase tracking-widest text-sm">
-              Explorer notre collection
-              <ArrowRight size={20} />
-            </button>
-            <button onClick={() => navigate('/comment-emprunter')} className="w-full sm:w-auto px-10 py-5 rounded-2xl bg-white text-[#1a5f7a] border-2 border-slate-100 font-black flex items-center justify-center gap-3 hover:border-[#1a5f7a] transition-all hover:scale-105 uppercase tracking-widest text-sm shadow-sm">
-              <HelpCircle size={20} />
-              Comment emprunter ?
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            <button 
+        {/* ---------- CHIFFRES CLÉS ---------- */}
+        <section className="px-4 pb-8 md:px-10 md:pb-14">
+          <div className="mx-auto grid max-w-[900px] grid-cols-1 gap-4 sm:grid-cols-2">
+            <Reveal
+              as="button"
+              variant="scale"
               onClick={() => navigate('/catalogue')}
-              className="p-10 rounded-[2.5rem] bg-white border border-slate-100 shadow-sm group hover:border-[#1a5f7a] hover:shadow-xl hover:-translate-y-1 transition-all relative z-10 w-full text-center cursor-pointer"
+              className="rounded-[30px] border-2 border-[#0f172a] bg-white px-6 py-7 text-center shadow-[5px_5px_0_#1a5f7a] transition-transform duration-300 hover:-translate-y-1 hover:-rotate-[1.5deg] md:px-8 md:py-8"
             >
-                <Dice5 className="w-10 h-10 text-[#1a5f7a] mb-4 mx-auto group-hover:rotate-12 transition-transform" />
-                <p className="text-5xl font-black text-slate-900 mb-1">{loading ? "..." : gameCount}</p>
-                <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Jeux à emprunter</p>
-            </button>
+              <div className="font-display text-[40px] font-extrabold leading-none tracking-[-0.05em] text-[#1a5f7a] md:text-[58px]">
+                {loading ? '···' : <CountUp value={gameCount} />}
+              </div>
+              <div className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-500">
+                Jeux à emprunter
+              </div>
+            </Reveal>
 
-            <button 
+            <Reveal
+              as="button"
+              variant="scale"
+              delay={90}
               onClick={() => navigate('/comment-emprunter')}
-              className="p-10 rounded-[2.5rem] bg-white border border-slate-100 shadow-sm group hover:border-[#e38154] hover:shadow-xl hover:-translate-y-1 transition-all relative z-10 w-full text-center cursor-pointer"
+              className="rounded-[30px] border-2 border-[#0f172a] bg-white px-6 py-7 text-center shadow-[5px_5px_0_#e38154] transition-transform duration-300 hover:-translate-y-1 hover:rotate-[1.5deg] md:px-8 md:py-8"
             >
-                <User className="w-10 h-10 text-[#e38154] mb-4 mx-auto group-hover:scale-110 transition-transform" />
-                <p className="text-5xl font-black text-slate-900 mb-1">{loading ? "..." : playerCount}</p>
-                <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Joueurs Passionnés</p>
-            </button>
+              <div className="font-display text-[40px] font-extrabold leading-none tracking-[-0.05em] text-[#e38154] md:text-[58px]">
+                {loading ? '···' : <CountUp value={playerCount} />}
+              </div>
+              <div className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-500">
+                Joueurs passionnés
+              </div>
+            </Reveal>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <div className="bg-white pt-16 pb-4 flex justify-center px-4">
-        <button
-          onClick={() => navigate('/vie-association')}
-          className="flex items-center gap-3 px-5 py-3 bg-white border border-slate-200 rounded-2xl hover:shadow-md transition-all"
-        >
-          <div className="p-2 bg-[#1a5f7a]/10 text-[#1a5f7a] rounded-xl">
-            <Heart size={18} />
-          </div>
-          <span className="font-black uppercase text-[10px] tracking-widest text-slate-700">La vie de la ludothèque</span>
-        </button>
-      </div>
+        {/* ---------- LA VIE DE LA LUDOTHÈQUE ---------- */}
+        <section className="px-4 py-8 md:px-10 md:py-14">
+          <Reveal className="mx-auto max-w-[1180px] overflow-hidden rounded-[32px] border-2 border-[#0f172a] bg-[#e38154] text-white shadow-[10px_10px_0_#0f172a] md:rounded-[52px]">
+            <div className={`grid grid-cols-1 items-center ${vie.photos.length > 0 ? 'lg:grid-cols-2' : ''}`}>
+              <div className="p-7 md:p-12">
+                <div className="mb-5 inline-flex items-center gap-2.5 rounded-full bg-[#0f172a] px-4 py-2.5">
+                  <span className="relative flex h-2 w-2">
+                    <span className="anim-pulse-ring absolute inset-0 rounded-full bg-[#e38154]" />
+                    <span className="relative h-2 w-2 rounded-full bg-white" />
+                  </span>
+                  <span className="text-[10px] font-extrabold uppercase tracking-[0.2em]">Notre quotidien</span>
+                </div>
 
-      <section className="pt-8 pb-24 bg-white">
-        <div className="max-w-6xl mx-auto px-4 md:px-8">
-          <div className="text-center mb-16">
-            <span className="text-[#e38154] font-black uppercase tracking-[0.3em] text-xs">À ne pas manquer</span>
-            <h3 className="text-4xl font-black text-slate-900 mt-2 mb-4">Nos prochains rendez-vous</h3>
-            <div className="h-1.5 w-20 bg-[#1a5f7a] mx-auto rounded-full"></div>
-          </div>
+                <h2 className="mb-4 font-display text-[26px] font-extrabold leading-[0.98] tracking-[-0.045em] sm:text-[32px] md:text-[50px]">
+                  La vie de la ludothèque
+                </h2>
+                <p className="mb-7 max-w-[30em] text-[14px] font-medium leading-[1.62] text-white/85 md:text-[17px]">
+                  Les photos, les jeux joués et les moments partagés à chaque permanence.
+                  C'est ici que la ludothèque raconte sa vie.
+                </p>
 
-          {loading ? (
-            <div className="flex justify-center py-20"><Loader2 className="animate-spin text-[#1a5f7a]" size={40} /></div>
-          ) : events.upcoming.length === 0 && events.past.length === 0 ? (
-            <div className="text-center py-10 bg-slate-50 rounded-3xl border border-dashed border-slate-200">
-              <p className="text-slate-400 italic">Consultez régulièrement notre agenda.</p>
-            </div>
-          ) : (
-            <div className="space-y-8">
-
-              {/* Événements à venir */}
-              {events.upcoming.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {events.upcoming.map((event) => (
-                    <div key={event.id} onClick={() => setSelectedEvent(event)}
-                      className="group bg-[#fcfcfc] rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all flex flex-col sm:flex-row h-full cursor-pointer">
-                      <div className="sm:w-48 h-48 sm:h-auto bg-slate-100 flex-shrink-0">
-                        {event.image_url ? (
-                          <img src={event.image_url} alt={event.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon size={40} /></div>
-                        )}
+                {vieChips.length > 0 && (
+                  <div className="mb-7 flex flex-wrap gap-2.5">
+                    {vieChips.map(chip => (
+                      <div
+                        key={chip.label}
+                        className="flex items-baseline gap-2 rounded-full border border-white/30 bg-white/20 px-4 py-3"
+                      >
+                        <CountUp value={chip.value} className="font-display text-[22px] font-extrabold" />
+                        <span className="text-[10px] font-extrabold uppercase tracking-[0.16em]">{chip.label}</span>
                       </div>
-                      <div className="p-8 flex flex-col justify-center">
-                        <p className="text-[#e38154] font-bold text-xs uppercase tracking-widest mb-2 flex items-center gap-2">
-                          <Calendar size={14} /> {new Date(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
-                          <span className="text-slate-300 mx-1">|</span>
-                          <Clock size={12} /> {formatEventDuration(event.date, event.end_time)}
-                        </p>
-                        <h4 className="text-2xl font-bold text-slate-900 mb-2">{event.title}</h4>
-                        <p className="text-slate-500 text-sm line-clamp-2 italic">{event.description}</p>
-                        <div className="mt-4 flex items-center gap-2 text-[#1a5f7a] font-black text-[10px] uppercase tracking-widest group-hover:gap-4 transition-all">
-                          Voir les détails <ArrowRight size={14} />
-                        </div>
-                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <button onClick={() => navigate('/vie-association')} className={BTN_ON_COLOR}>
+                  Voir la vie de la ludothèque →
+                </button>
+              </div>
+
+              {/* Aperçu photo — masqué tant qu'aucune photo n'a été publiée */}
+              {vie.photos.length > 0 && (
+                <div className="grid grid-cols-2 gap-3.5 p-5 md:p-8">
+                  {vie.photos.map((photo, i) => (
+                    <div
+                      key={photo.id}
+                      className={`overflow-hidden border-2 border-[#0f172a] ${
+                        i === 0
+                          ? 'col-span-2 h-[156px] rounded-[26px] -rotate-1'
+                          : `h-[118px] rounded-[22px] ${i === 1 ? 'rotate-[1.5deg]' : '-rotate-1'}`
+                      }`}
+                    >
+                      <img src={photo.url} alt="" loading="lazy" className="h-full w-full object-cover" />
                     </div>
                   ))}
                 </div>
               )}
+            </div>
+          </Reveal>
+        </section>
 
-              {/* Événements passés — grisés et estompés */}
-              {events.past.length > 0 && (
-                <div className="relative">
-                  <div className="flex items-center gap-3 mb-4 mt-4">
-                    <div className="h-px flex-1 bg-slate-100"></div>
-                    <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Événements passés</span>
-                    <div className="h-px flex-1 bg-slate-100"></div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 opacity-50 grayscale">
-                    {events.past.map((event) => (
-                      <div key={event.id}
-                        className="bg-[#fcfcfc] rounded-[2.5rem] overflow-hidden border border-slate-100 flex flex-col sm:flex-row h-full">
-                        <div className="sm:w-48 h-48 sm:h-auto bg-slate-100 flex-shrink-0">
+        {/* ---------- AGENDA ---------- */}
+        <section className="border-y-2 border-[#0f172a] bg-white px-4 py-14 md:px-10 md:py-20">
+          <div className="mx-auto max-w-[1180px]">
+            <Reveal className="mb-8 text-center md:mb-12">
+              <div className={EYEBROW}>À ne pas manquer</div>
+              <h2 className="mt-2.5 font-display text-[28px] font-extrabold tracking-[-0.04em] md:text-[44px]">
+                Nos prochains rendez-vous
+              </h2>
+            </Reveal>
+
+            {loading ? (
+              <div className="flex justify-center py-16">
+                <Loader2 className="animate-spin text-[#1a5f7a]" size={40} />
+              </div>
+            ) : events.upcoming.length === 0 && events.past.length === 0 ? (
+              <div className="rounded-[30px] border-2 border-dashed border-[#0f172a]/30 bg-[#fdfaf6] py-12 text-center">
+                <p className="italic text-slate-400">Consultez régulièrement notre agenda.</p>
+              </div>
+            ) : (
+              <>
+                {events.upcoming.length > 0 && (
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                    {events.upcoming.map((event, i) => (
+                      <Reveal
+                        key={event.id}
+                        as="button"
+                        delay={(i % 3) * 90}
+                        onClick={() => setSelectedEvent(event)}
+                        className="overflow-hidden rounded-[32px] border-2 border-[#0f172a] bg-[#fdfaf6] text-left shadow-[6px_6px_0_#1a5f7a] transition-[transform,box-shadow] duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[3px_3px_0_#1a5f7a]"
+                      >
+                        <div className="flex h-[156px] items-center justify-center border-b-2 border-[#0f172a] bg-slate-100">
                           {event.image_url ? (
-                            <img src={event.image_url} alt={event.title} className="w-full h-full object-cover" />
+                            <img src={event.image_url} alt="" loading="lazy" className="h-full w-full object-cover" />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon size={40} /></div>
+                            <ImageIcon size={40} className="text-slate-300" />
                           )}
                         </div>
-                        <div className="p-8 flex flex-col justify-center">
-                          <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-2 flex items-center gap-2">
-                            <Calendar size={14} /> {new Date(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
-                            <span className="text-slate-200 mx-1">|</span>
-                            <Clock size={12} /> {formatEventDuration(event.date, event.end_time)}
+                        <div className="p-5 md:p-6">
+                          <div className="mb-3 inline-block rounded-full bg-[#0f172a] px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-white">
+                            {formatEventDay(event.date)} · {formatEventDuration(event.date, event.end_time)}
+                          </div>
+                          <div className="mb-2 font-display text-[19px] font-extrabold leading-tight tracking-[-0.03em] md:text-[24px]">
+                            {event.title}
+                          </div>
+                          <p className="line-clamp-3 text-[13.5px] italic leading-[1.55] text-slate-500">
+                            {event.description}
                           </p>
-                          <h4 className="text-xl font-bold text-slate-400 mb-2">{event.title}</h4>
-                          <p className="text-slate-300 text-sm line-clamp-2 italic">{event.description}</p>
+                          <div className="mt-4 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#1a5f7a]">
+                            Voir les détails →
+                          </div>
                         </div>
-                      </div>
+                      </Reveal>
                     ))}
                   </div>
+                )}
+
+                {events.past.length > 0 && (
+                  <>
+                    <Reveal className="my-9 flex items-center gap-3.5">
+                      <div className="h-0.5 flex-1 bg-slate-100" />
+                      <span className="text-[9.5px] font-extrabold uppercase tracking-[0.2em] text-slate-300">
+                        Événements passés
+                      </span>
+                      <div className="h-0.5 flex-1 bg-slate-100" />
+                    </Reveal>
+
+                    <div className="grid grid-cols-1 gap-4 opacity-50 grayscale sm:grid-cols-2 lg:grid-cols-3">
+                      {events.past.map((event) => (
+                        <div
+                          key={event.id}
+                          className="flex items-center gap-4 rounded-[26px] border-2 border-slate-300 bg-[#fdfaf6] p-3.5"
+                        >
+                          <div className="hatch h-[74px] w-[74px] shrink-0 overflow-hidden rounded-[18px]">
+                            {event.image_url && (
+                              <img src={event.image_url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">
+                              {formatEventDay(event.date)}
+                            </div>
+                            <div className="truncate font-display text-[17px] font-extrabold tracking-[-0.03em] text-slate-400">
+                              {event.title}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </section>
+
+        {/* ---------- ADRESSE & HORAIRES ---------- */}
+        <section className="px-4 py-14 md:px-10 md:py-20">
+          <Reveal className="mx-auto max-w-[1180px] rounded-[32px] border-2 border-[#0f172a] bg-[#1a5f7a] p-7 text-white shadow-[10px_10px_0_#0f172a] md:rounded-[52px] md:p-12">
+            <div className="grid grid-cols-1 items-center gap-7 lg:grid-cols-2 lg:gap-12">
+              <div>
+                <h2 className="mb-6 font-display text-[26px] font-extrabold leading-[1.08] tracking-[-0.04em] md:text-[42px]">
+                  Nous vous attendons au<br />
+                  <span className="text-[#e38154]">{adresseComplete}</span>
+                </h2>
+                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                  <div className="rounded-[24px] border border-white/20 bg-white/10 p-5">
+                    <div className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#ffd7c2]">
+                      {rangLabel(horaires.horaire_1_rang, horaires.horaire_1_jour)}
+                    </div>
+                    <div className="font-display text-[22px] font-extrabold tracking-[-0.03em]">
+                      {formatHeure(horaires.horaire_1_debut)} — {formatHeure(horaires.horaire_1_fin)}
+                    </div>
+                  </div>
+                  {horaires.horaire_2_actif === 'true' && (
+                    <div className="rounded-[24px] border border-white/20 bg-white/10 p-5">
+                      <div className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#ffd7c2]">
+                        {rangLabel(horaires.horaire_2_rang, horaires.horaire_2_jour)}
+                      </div>
+                      <div className="font-display text-[22px] font-extrabold tracking-[-0.03em]">
+                        {formatHeure(horaires.horaire_2_debut)} — {formatHeure(horaires.horaire_2_fin)}
+                      </div>
+                    </div>
+                  )}
                 </div>
+              </div>
+
+              <div className="text-center">
+                <div className="mb-5 flex h-[150px] flex-col items-center justify-center gap-3 rounded-[26px] border-2 border-white/30 bg-white/10 px-4">
+                  <MapPin size={34} className="text-[#e38154]" />
+                  <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/70">
+                    {adresseComplete}
+                  </span>
+                </div>
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${addressQuery}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${BTN_PRIMARY} w-full`}
+                >
+                  Ouvrir l'itinéraire
+                </a>
+              </div>
+            </div>
+          </Reveal>
+        </section>
+      </main>
+
+      {/* ---------- MODALE ÉVÉNEMENT ---------- */}
+      <Modal
+        open={!!selectedEvent}
+        onClose={() => setSelectedEvent(null)}
+        title={selectedEvent?.title}
+        maxWidth={880}
+        scroll
+        strip
+      >
+        {selectedEvent && (
+          <div className="grid grid-cols-1 md:grid-cols-2">
+            <div className="flex min-h-[220px] items-center justify-center border-b-2 border-[#0f172a] bg-[#fdfaf6] p-4 md:min-h-[300px] md:border-b-0 md:border-r-2">
+              {selectedEvent.image_url ? (
+                <img
+                  src={selectedEvent.image_url}
+                  alt={selectedEvent.title}
+                  className="max-h-[46vh] w-full rounded-[16px] object-contain"
+                />
+              ) : (
+                <ImageIcon size={56} className="text-slate-200" />
               )}
             </div>
-          )}
-        </div>
-      </section>
 
-      {selectedEvent && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-6 animate-in fade-in duration-300">
-          <div className="absolute inset-0 bg-[#1a5f7a]/90 backdrop-blur-sm" onClick={() => setSelectedEvent(null)}></div>
-          <div className="relative bg-white w-full max-w-4xl max-h-[95vh] rounded-[2rem] md:rounded-[3rem] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-300 border-b-8 border-[#e38154]">
-            <button onClick={() => setSelectedEvent(null)} className="absolute top-4 right-4 z-20 p-2 bg-white rounded-full text-[#1a5f7a] shadow-lg hover:bg-[#e38154] hover:text-white transition-colors">
-              <X size={24} />
-            </button>
-            <div className="flex flex-col md:flex-row h-full">
-              <div className="w-full md:w-1/2 bg-slate-50 flex items-center justify-center p-4 md:p-8 min-h-[300px] md:min-h-0 border-b md:border-b-0 md:border-r border-slate-100">
-                {selectedEvent.image_url ? (
-                  <img src={selectedEvent.image_url} alt={selectedEvent.title} className="w-full h-auto max-h-[60vh] md:max-h-full object-contain rounded-xl" />
-                ) : (
-                  <ImageIcon size={64} className="text-slate-200" />
-                )}
-              </div>
-              <div className="w-full md:w-1/2 p-6 md:p-12 bg-white">
-                <div className="space-y-6">
-                  <h3 className="text-2xl md:text-4xl font-black text-slate-900 leading-tight">{selectedEvent.title}</h3>
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-[#f0f7f9] flex items-center justify-center text-[#1a5f7a] flex-shrink-0"><Calendar size={20} /></div>
-                      <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Le jour J</p>
-                        <p className="font-bold text-slate-800 text-sm">{new Date(selectedEvent.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-                      </div>
+            <div className="p-6 md:p-10">
+              <h2 className="mb-6 font-display text-[24px] font-extrabold leading-[1.08] tracking-[-0.04em] md:text-[32px]">
+                {selectedEvent.title}
+              </h2>
+
+              <div className="mb-6 flex flex-col gap-3.5">
+                {[
+                  {
+                    icon: '06.svg',
+                    label: 'Le jour J',
+                    value: new Date(selectedEvent.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }),
+                  },
+                  {
+                    icon: '03.svg',
+                    label: 'Horaires',
+                    value: selectedEvent.end_time
+                      ? `De ${formatEventDuration(selectedEvent.date, selectedEvent.end_time)}`
+                      : `Début à ${formatEventDuration(selectedEvent.date)}`,
+                  },
+                  { icon: '07.svg', label: 'Où ?', value: selectedEvent.location },
+                ].map(row => (
+                  <div key={row.label} className="flex items-center gap-3.5">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[15px] border-2 border-[#0f172a] bg-[#f0f7f9]">
+                      <MaskIcon file={row.icon} size={18} color="#1a5f7a" />
                     </div>
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-[#f0f7f9] flex items-center justify-center text-[#1a5f7a] flex-shrink-0"><Clock size={20} /></div>
-                      <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Horaires</p>
-                        <p className="font-bold text-slate-800 text-sm">
-                            {selectedEvent.end_time ? `De ${formatEventDuration(selectedEvent.date, selectedEvent.end_time)}` : `Début à ${formatEventDuration(selectedEvent.date)}`}
-                        </p>
+                    <div>
+                      <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
+                        {row.label}
                       </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-[#f0f7f9] flex items-center justify-center text-[#1a5f7a] flex-shrink-0"><MapPin size={20} /></div>
-                      <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Où ?</p>
-                        <p className="font-bold text-slate-800 text-sm">{selectedEvent.location}</p>
-                      </div>
+                      <div className="mt-[3px] text-sm font-bold">{row.value}</div>
                     </div>
                   </div>
-                  <div className="pt-6 border-t border-slate-100">
-                    <p className="text-slate-600 leading-relaxed text-sm md:text-base whitespace-pre-line font-medium italic">{selectedEvent.description || "Aucune description disponible."}</p>
-                  </div>
-                </div>
+                ))}
               </div>
+
+              <p className="whitespace-pre-line border-t-2 border-slate-100 pt-5 text-[14.5px] font-medium italic leading-[1.65] text-slate-600">
+                {selectedEvent.description || "Aucune description disponible."}
+              </p>
             </div>
           </div>
-        </div>
-      )}
-
-      <section className="py-24 bg-[#1a5f7a] text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-black/5 rounded-full -ml-48 -mb-48"></div>
-        <div className="max-w-6xl mx-auto px-4 md:px-8 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <h3 className="text-3xl md:text-4xl font-black mb-8 leading-tight">Nous vous attendons au <br/><span className="text-[#e38154]">{adresseComplete}</span></h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div className="bg-white/10 backdrop-blur-sm border border-white/10 p-6 rounded-[2rem]">
-                  <Clock size={24} className="text-[#e38154] mb-3" />
-                  <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200 mb-1">{rangLabel(horaires.horaire_1_rang, horaires.horaire_1_jour)}</p>
-                  <p className="text-xl font-bold">{formatHeure(horaires.horaire_1_debut)} — {formatHeure(horaires.horaire_1_fin)}</p>
-                </div>
-                {horaires.horaire_2_actif === 'true' && (
-                  <div className="bg-white/10 backdrop-blur-sm border border-white/10 p-6 rounded-[2rem]">
-                    <Clock size={24} className="text-[#e38154] mb-3" />
-                    <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200 mb-1">{rangLabel(horaires.horaire_2_rang, horaires.horaire_2_jour)}</p>
-                    <p className="text-xl font-bold">{formatHeure(horaires.horaire_2_debut)} — {formatHeure(horaires.horaire_2_fin)}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="relative group">
-               <div className="relative bg-white/10 backdrop-blur-md border border-white/20 p-8 md:p-12 rounded-[3rem] text-center max-w-sm mx-auto">
-                  <MapPin size={40} className="text-[#e38154] mb-4 mx-auto" />
-                  <p className="text-xs font-bold text-cyan-100/60 mb-6 uppercase tracking-widest">Plan & Navigation</p>
-                  <a href={`https://www.google.com/maps/dir/?api=1&destination=${addressQuery}`} target="_blank" rel="noopener noreferrer" className="inline-block w-full px-8 py-4 bg-white text-[#1a5f7a] rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-[#e38154] hover:text-white hover:scale-105 transition-all shadow-xl">Ouvrir l'itinéraire</a>
-               </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <Footer />
-    </div>
+        )}
+      </Modal>
+    </PublicLayout>
   )
 }

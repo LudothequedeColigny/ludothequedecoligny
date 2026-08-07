@@ -3,7 +3,13 @@ import { Dice5, Plus, Trash2, Edit2, X, Hash, AlertCircle, Search, CheckCircle, 
 import { supabase } from '../../services/supabaseClient'
 import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
 import { useToast } from '../../components/ToastContext'
-import { SkeletonCard } from '../../components/Skeleton'
+import AdminPageHeader from '../../components/admin/AdminPageHeader'
+import AdminBanner from '../../components/admin/AdminBanner'
+import SearchField from '../../components/admin/SearchField'
+import IconButton from '../../components/admin/IconButton'
+import ConfirmModal from '../../components/admin/ConfirmModal'
+import { DataCard, DataHeader, DataRow, DataEmpty } from '../../components/admin/DataCard'
+import { BTN_ORANGE, BTN_TEAL, BTN_INK, BTN_OUTLINE } from '../../components/admin/buttons'
 
 // ─── Helpers MyLudo (via Edge Function Supabase) ──────────────────────────────
 
@@ -85,6 +91,16 @@ async function fetchQrAsBase64(url: string): Promise<string> {
     })
   } catch { return '' }
 }
+
+// Colonnes du tableau des jeux (ordinateur) : n°, jeu, configuration, actions
+const GAMES_COLS = 'minmax(0, 1.15fr) minmax(0, 1.6fr) minmax(0, 1.2fr) 108px'
+
+// Styles des champs du formulaire de jeu, repris de la maquette
+const F_SECTION = 'mb-3.5 text-[10px] font-extrabold uppercase tracking-[0.18em]'
+const F_LABEL = 'mb-2 flex items-center gap-1.5 text-[9px] font-extrabold uppercase tracking-[0.14em] text-slate-400'
+const F_INPUT = 'w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none placeholder:font-semibold placeholder:text-slate-300 focus:bg-white'
+const F_TEXTAREA = 'w-full resize-none rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 text-[13px] font-medium text-[#0f172a] outline-none placeholder:text-slate-300 focus:bg-white'
+const F_SQUARE = 'flex w-12 shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] text-white transition-transform active:scale-95'
 
 // ─── GÉNÉRATEUR D'ÉTIQUETTES ──────────────────────────────────────────────────
 
@@ -168,43 +184,47 @@ ${jeuxSelectionnes.map(jeu => `<div class="card">
   const cA = 99.6, cB = 28.2
 
   return (
-    <div className="fixed inset-0 z-[160] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-[#1a5f7a]/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-4xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-[160] flex items-center justify-center p-3 sm:p-[22px]">
+      <div className="anim-fade-in absolute inset-0 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }} onClick={onClose} />
+      <div className="anim-modal-in relative flex max-h-[92vh] w-full max-w-[940px] flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#e38154]">
 
-        <div className="p-8 pb-5 flex items-start justify-between shrink-0 border-b border-slate-100">
-          <div>
-            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
-              <span className="p-2 bg-[#1a5f7a] text-white rounded-xl"><QrCode size={20} /></span>
-              Générateur d'étiquettes QR
-            </h2>
-            <p className="text-xs text-slate-400 font-semibold mt-1">
-              {jeuxAvecVideo.length} jeu{jeuxAvecVideo.length > 1 ? 'x' : ''} avec vidéo ·{' '}
-              <span className="text-[#1a5f7a]">{selected.size} sélectionné{selected.size > 1 ? 's' : ''}</span>
-            </p>
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b-2 border-[#0f172a] px-7 py-6">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#e38154] text-white">
+              <QrCode size={20} />
+            </div>
+            <div>
+              <h2 className="font-display text-[21px] font-extrabold tracking-[-0.04em]">
+                Générateur d'<span className="text-[#e38154]">étiquettes</span>
+              </h2>
+              <p className="mt-1.5 text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
+                {jeuxAvecVideo.length} jeu{jeuxAvecVideo.length > 1 ? 'x' : ''} avec vidéo ·{' '}
+                <span className="text-[#1a5f7a]">{selected.size} sélectionné{selected.size > 1 ? 's' : ''}</span>
+              </p>
+            </div>
           </div>
-          <button onClick={onClose} className="p-3 bg-slate-100 text-slate-500 rounded-2xl hover:bg-rose-50 hover:text-rose-500 transition-colors"><X size={20} /></button>
+          <button onClick={onClose} aria-label="Fermer" className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[15px] font-extrabold text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white">✕</button>
         </div>
 
         <div className="flex flex-1 overflow-hidden">
-          <div className="w-72 shrink-0 border-r border-slate-100 flex flex-col overflow-hidden">
+          <div className="flex w-72 shrink-0 flex-col overflow-hidden border-r-2 border-[#0f172a]">
             <div className="p-4 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={13} />
                   <input placeholder="Filtrer..." value={searchFilter} onChange={e => setSearchFilter(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2.5 rounded-xl bg-slate-50 font-bold text-xs outline-none" />
+                    className="w-full rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] py-2.5 pl-8 pr-3 text-xs font-bold outline-none focus:bg-white" />
                 </div>
                 <button onClick={toggleAll}
-                  className="px-3 py-2.5 bg-slate-100 text-slate-600 rounded-xl font-black text-[9px] uppercase tracking-wide hover:bg-[#1a5f7a] hover:text-white transition-colors whitespace-nowrap">
+                  className="whitespace-nowrap rounded-[14px] border-2 border-[#0f172a] bg-white px-3 py-2.5 text-[9px] font-extrabold uppercase tracking-wide text-slate-600 transition-colors hover:bg-[#1a5f7a] hover:text-white">
                   {selected.size === jeuxAvecVideo.length ? 'Aucun' : 'Tous'}
                 </button>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-0.5">
               {filteredJeux.map(jeu => (
-                <label key={jeu.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors">
-                  <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${selected.has(jeu.id) ? 'bg-[#1a5f7a] border-[#1a5f7a]' : 'border-slate-300 bg-white'}`}>
+                <label key={jeu.id} className="flex cursor-pointer items-center gap-3 rounded-[14px] p-2.5 transition-colors hover:bg-slate-50">
+                  <div className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[6px] border-2 border-[#0f172a] transition-all ${selected.has(jeu.id) ? 'bg-[#1a5f7a]' : 'bg-white'}`}>
                     {selected.has(jeu.id) && <svg width="8" height="6" viewBox="0 0 8 6" fill="none"><path d="M1 3L3 5L7 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                   </div>
                   <input type="checkbox" className="hidden" checked={selected.has(jeu.id)} onChange={() => toggleOne(jeu.id)} />
@@ -217,7 +237,7 @@ ${jeuxSelectionnes.map(jeu => `<div class="card">
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto bg-slate-50 p-6">
+          <div className="flex-1 overflow-y-auto bg-[#fdfaf6] p-6">
             {jeuxSelectionnes.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-3">
                 <QrCode size={40} />
@@ -267,10 +287,10 @@ ${jeuxSelectionnes.map(jeu => `<div class="card">
           </div>
         </div>
 
-        <div className="p-6 border-t border-slate-100 flex items-center justify-between shrink-0">
-          <p className="text-[10px] text-slate-400 font-semibold">A3 portrait · 3 × 85mm · interstice 9mm · QR pré-chargés</p>
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-t-2 border-[#0f172a] p-6">
+          <p className="text-[10px] font-semibold text-slate-400">A3 portrait · 3 × 85mm · interstice 9mm · QR pré-chargés</p>
           <button onClick={handlePrint} disabled={jeuxSelectionnes.length === 0 || printing}
-            className={`flex items-center gap-2 px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95 ${jeuxSelectionnes.length === 0 || printing ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-[#1a5f7a] text-white hover:bg-[#154d63]'}`}>
+            className={`flex items-center gap-2 rounded-[18px] border-2 border-[#0f172a] px-7 py-4 text-[10px] font-extrabold uppercase tracking-[0.14em] transition-[transform,box-shadow] duration-200 ${jeuxSelectionnes.length === 0 || printing ? 'cursor-not-allowed bg-slate-100 text-slate-300' : 'bg-[#1a5f7a] text-white shadow-[4px_4px_0_#0f172a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0f172a]'}`}>
             {printing ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />}
             {printing ? 'Chargement des QR...' : 'Imprimer les étiquettes'}
           </button>
@@ -615,125 +635,140 @@ export default function Jeux() {
   const nbJeuxAvecVideo = jeux.filter(j => j.youtube_url?.trim()).length
 
   return (
-    <div className="p-4 md:p-10 bg-[#fdfaf6] min-h-screen font-sans text-slate-900">
+    <div className="min-h-screen bg-[#fdfaf6] p-5 font-body text-[#0f172a] md:p-11">
+      <div className="mx-auto max-w-[1240px]">
 
       {/* HEADER */}
-      <div className="max-w-7xl mx-auto mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <h1 data-tutorial="jeux-header" className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-4">
-          <div className="p-3 bg-[#1a5f7a] rounded-[1.2rem] shadow-lg text-white"><Dice5 size={28} /></div>
-          <span>Gestion des <span className="text-[#1a5f7a]">Jeux</span></span>
-        </h1>
-
-        <div className="flex gap-3 w-full md:w-auto">
-          {/* BOUTON NOUVEAU */}
-          <button
-            data-tutorial="jeux-add-btn"
-            onClick={editingId ? cancelEdit : handleOpenForm}
-            className={`flex-1 md:flex-none px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95 ${showForm ? 'bg-slate-800 text-white' : 'bg-[#e38154] text-white hover:bg-[#d16f43]'}`}
-          >
-            {showForm ? <X size={18} className="inline mr-2" strokeWidth={3} /> : <Plus size={18} className="inline mr-2" strokeWidth={3} />}
-            {editingId ? "Annuler" : (showForm ? "Fermer" : "Nouveau Jeu")}
-          </button>
-
-          {/* BOUTON SCAN */}
-          <button
-            data-tutorial="jeux-scanner-btn"
-            onClick={() => {
-              setScanToAdd(true)
-              setNewGame({ ...initialGameState, registration_number: getNextRegistrationNumber() })
-              setBggFilled(false)
-              setShowScanner(true)
-            }}
-            className="flex-1 md:flex-none px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95 bg-[#1a5f7a] text-white hover:bg-[#154f67] flex items-center justify-center gap-2"
-          >
-            <ScanLine size={18} strokeWidth={3} /> Ajouter par scan
-          </button>
-
-          {/* BOUTON ÉTIQUETTES QR — masqué sur mobile */}
-          {!isMobile && (
+      <div data-tutorial="jeux-header">
+        <AdminPageHeader icon="02.svg" title="Gestion des" accent="Jeux">
+          <div className="flex w-full flex-wrap gap-2.5 md:w-auto">
             <button
-              data-tutorial="jeux-etiquettes-btn"
-              onClick={() => setShowEtiquettes(true)}
-              title={`Générer des étiquettes QR (${nbJeuxAvecVideo} jeu${nbJeuxAvecVideo > 1 ? 'x' : ''} avec vidéo)`}
-              className="relative px-5 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95 bg-white border border-slate-200 text-[#1a5f7a] hover:bg-[#1a5f7a] hover:text-white hover:border-[#1a5f7a] flex items-center gap-2"
+              data-tutorial="jeux-add-btn"
+              onClick={editingId ? cancelEdit : handleOpenForm}
+              className={`${showForm ? BTN_INK : BTN_ORANGE} flex-1 md:flex-none`}
             >
-              <QrCode size={18} strokeWidth={2.5} />
-              <span className="hidden lg:inline">Étiquettes</span>
-              {nbJeuxAvecVideo > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-[#e38154] text-white text-[8px] font-black rounded-full w-5 h-5 flex items-center justify-center leading-none">
-                  {nbJeuxAvecVideo}
-                </span>
-              )}
+              {showForm ? <X size={16} strokeWidth={3} /> : <Plus size={16} strokeWidth={3} />}
+              {editingId ? "Annuler" : (showForm ? "Fermer" : "Nouveau jeu")}
             </button>
-          )}
-        </div>
+
+            <button
+              data-tutorial="jeux-scanner-btn"
+              onClick={() => {
+                setScanToAdd(true)
+                setNewGame({ ...initialGameState, registration_number: getNextRegistrationNumber() })
+                setBggFilled(false)
+                setShowScanner(true)
+              }}
+              className={`${BTN_TEAL} flex-1 md:flex-none`}
+            >
+              <ScanLine size={16} strokeWidth={3} /> Ajouter par scan
+            </button>
+
+            {/* Étiquettes QR — masqué sur mobile, la génération se fait sur ordinateur */}
+            {!isMobile && (
+              <button
+                data-tutorial="jeux-etiquettes-btn"
+                onClick={() => setShowEtiquettes(true)}
+                title={`Générer des étiquettes QR (${nbJeuxAvecVideo} jeu${nbJeuxAvecVideo > 1 ? 'x' : ''} avec vidéo)`}
+                className={`${BTN_OUTLINE} relative`}
+              >
+                <QrCode size={16} strokeWidth={2.5} />
+                <span className="hidden lg:inline">Étiquettes</span>
+                {nbJeuxAvecVideo > 0 && (
+                  <span className="absolute -right-2 -top-2 flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-[#0f172a] bg-[#e38154] text-[9px] font-extrabold leading-none text-white">
+                    {nbJeuxAvecVideo}
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
+        </AdminPageHeader>
       </div>
 
-      <main className="max-w-7xl mx-auto">
+      <main>
 
         {!navigator.onLine && (
-          <div className="mb-6 flex items-center gap-3 bg-amber-50 border border-amber-100 p-4 rounded-2xl text-amber-800">
-            <WifiOff className="text-amber-500 shrink-0" size={20} />
-            <p className="text-[10px] font-black uppercase">Catalogue en mode lecture seule (Hors-ligne)</p>
-          </div>
+          <AdminBanner tone="warn" icon={<WifiOff size={18} />}>
+            Catalogue en mode lecture seule (hors-ligne)
+          </AdminBanner>
         )}
 
-        <div data-tutorial="jeux-search" className="relative mb-8">
-          <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
-          <input type="text" placeholder="Rechercher par titre, numéro, code-barres..." className="w-full bg-white border border-slate-100 p-5 pl-16 rounded-[1.5rem] font-bold outline-none focus:ring-4 focus:ring-[#1a5f7a]/5 shadow-sm text-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-        </div>
+        <SearchField
+          data-tutorial="jeux-search"
+          shadow="#e38154"
+          className="mb-6"
+          placeholder="Rechercher par titre, numéro, code-barres..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
 
         {/* MODALE DU FORMULAIRE */}
         {showForm && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 md:p-10">
-            <div className="absolute inset-0 bg-[#1a5f7a]/40 backdrop-blur-sm" onClick={cancelEdit}></div>
-            <div data-tutorial="jeux-form-modal" className="relative w-full max-w-5xl bg-white rounded-[2.5rem] shadow-2xl overflow-y-auto max-h-[90vh] animate-in zoom-in-95 duration-300">
-              <form onSubmit={handleSubmit} className="p-6 md:p-12">
-                <div className="flex justify-between items-center mb-8">
-                  <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">{editingId ? 'Modifier le jeu' : 'Ajouter un jeu'}</h2>
-                  <button type="button" onClick={cancelEdit} className="p-3 bg-slate-100 text-slate-500 rounded-2xl hover:bg-rose-50 hover:text-rose-500 transition-colors"><X size={24} /></button>
-                </div>
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-[22px]">
+            <div className="anim-fade-in absolute inset-0 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }} onClick={cancelEdit} />
+            <div
+              data-tutorial="jeux-form-modal"
+              className="anim-modal-in relative max-h-[88vh] w-full max-w-[820px] overflow-y-auto rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a]"
+            >
+              <form onSubmit={handleSubmit} className="p-6 md:p-9">
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  aria-label="Fermer"
+                  className="absolute right-4 top-4 z-10 flex h-[42px] w-[42px] items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[15px] font-extrabold text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"
+                >
+                  ✕
+                </button>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
-                  <div className="space-y-6">
-                    <h3 className="text-[10px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2 mb-2"><Hash size={16} /> Informations principales</h3>
+                <h2 className="mb-6 pr-14 font-display text-[24px] font-extrabold uppercase tracking-[-0.04em] md:text-[27px]">
+                  {editingId ? <>Modifier le <span className="text-[#1a5f7a]">jeu</span></> : <>Ajouter un <span className="text-[#1a5f7a]">jeu</span></>}
+                </h2>
 
-                    <div data-tutorial="jeux-form-numero" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">N° d'enregistrement</label>
-                        <input required className={`w-full p-4 rounded-2xl bg-slate-50 font-black outline-none border-2 ${isNumberDuplicate ? 'border-rose-500 bg-rose-50 text-rose-600' : 'border-transparent'}`} value={newGame.registration_number} onChange={e => setNewGame({ ...newGame, registration_number: e.target.value })} />
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-7">
+                  <div>
+                    <h3 className={`${F_SECTION} flex items-center gap-2 text-[#1a5f7a]`}><Hash size={14} /> Informations principales</h3>
+
+                    <div data-tutorial="jeux-form-numero" className="mb-3.5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className={F_LABEL}>N° d'enregistrement</label>
+                        <input
+                          required
+                          className={isNumberDuplicate ? `${F_INPUT} border-rose-500 bg-rose-50 text-rose-600` : F_INPUT}
+                          value={newGame.registration_number}
+                          onChange={e => setNewGame({ ...newGame, registration_number: e.target.value })}
+                        />
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Code-Barres (Scan)</label>
-                        <div className="flex gap-2 items-center">
-                          <input className="flex-1 min-w-0 p-4 rounded-2xl bg-slate-50 font-black outline-none border-2 border-transparent focus:border-[#1a5f7a]/10" value={newGame.barcode} placeholder="Scannez..." onChange={e => setNewGame({ ...newGame, barcode: e.target.value })} />
-                          <button type="button" onClick={() => setShowScanner(true)} className="shrink-0 p-4 bg-slate-800 text-white rounded-2xl active:scale-95 shadow-md flex items-center justify-center"><ScanLine size={20} /></button>
+                      <div>
+                        <label className={F_LABEL}>Code-barres (scan)</label>
+                        <div className="flex gap-2">
+                          <input className={`${F_INPUT} min-w-0 flex-1`} value={newGame.barcode} placeholder="Scannez..." onChange={e => setNewGame({ ...newGame, barcode: e.target.value })} />
+                          <button type="button" onClick={() => setShowScanner(true)} aria-label="Scanner" className={`${F_SQUARE} bg-[#0f172a]`}><ScanLine size={19} /></button>
                         </div>
                       </div>
                     </div>
 
-                    <div data-tutorial="jeux-form-titre" className="space-y-2" ref={bggDropdownRef}>
-                      <label className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-2">
+                    <div data-tutorial="jeux-form-titre" className="mb-3.5" ref={bggDropdownRef}>
+                      <label className={F_LABEL}>
                         Titre du jeu
                         {bggLoading && <Loader2 size={10} className="animate-spin text-[#1a5f7a]" />}
                         {bggFilled && !bggLoading && <span className="flex items-center gap-1 text-emerald-500"><Sparkles size={10} /> Rempli via MyLudo</span>}
                       </label>
                       <div className="relative">
-                        <input required placeholder="Ex : Catan, Ticket to Ride..." className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none border-2 border-transparent focus:border-[#1a5f7a]/10" value={newGame.name} onChange={e => handleNameChange(e.target.value)} />
+                        <input required placeholder="Ex : Catan, Ticket to Ride..." className={F_INPUT} value={newGame.name} onChange={e => handleNameChange(e.target.value)} />
                         {bggResults.length > 0 && (
-                          <div className="absolute z-50 top-full mt-2 w-full bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
-                            <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
+                          <div className="absolute top-full z-50 mt-2 w-full overflow-hidden rounded-[18px] border-2 border-[#0f172a] bg-white shadow-[4px_4px_0_#1a5f7a]">
+                            <div className="flex items-center gap-2 border-b-2 border-[#0f172a] bg-[#fdfaf6] px-3.5 py-2.5">
                               <Sparkles size={12} className="text-[#1a5f7a]" />
-                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Résultats MyLudo</span>
+                              <span className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Résultats MyLudo</span>
                             </div>
                             <div className="max-h-60 overflow-y-auto">
                               {bggResults.map(result => (
-                                <button key={result.id} type="button" onClick={() => handleBggSelect(result)} className="w-full text-left px-4 py-3 hover:bg-[#f0f7f9] transition-colors flex items-center justify-between gap-3 border-b border-slate-50 last:border-0">
-                                  <span className="font-bold text-sm text-slate-800 truncate">{result.name}</span>
-                                  <div className="shrink-0 flex items-center gap-2">
-                                    {result.language && <span className="text-[9px] font-black text-[#1a5f7a] bg-cyan-50 px-2 py-1 rounded-lg">{result.language}</span>}
-                                    {result.year && <span className="text-[9px] font-black text-slate-300 bg-slate-50 px-2 py-1 rounded-lg">{result.year}</span>}
-                                  </div>
+                                <button key={result.id} type="button" onClick={() => handleBggSelect(result)} className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3.5 py-3 text-left transition-colors last:border-0 hover:bg-[#f0f7f9]">
+                                  <span className="truncate text-[13px] font-bold text-slate-700">{result.name}</span>
+                                  <span className="flex shrink-0 gap-1.5">
+                                    {result.language && <span className="rounded-lg bg-[#f0f7f9] px-2 py-1 text-[9px] font-extrabold text-[#1a5f7a]">{result.language}</span>}
+                                    {result.year && <span className="rounded-lg bg-slate-100 px-2 py-1 text-[9px] font-extrabold text-slate-400">{result.year}</span>}
+                                  </span>
                                 </button>
                               ))}
                             </div>
@@ -741,85 +776,86 @@ export default function Jeux() {
                         )}
                       </div>
                       {bggLoading && bggResults.length === 0 && (
-                        <p className="text-[9px] text-[#1a5f7a] font-black ml-2 flex items-center gap-1"><Loader2 size={10} className="animate-spin" /> Récupération des informations MyLudo...</p>
+                        <p className="mt-2 flex items-center gap-1 text-[9px] font-extrabold text-[#1a5f7a]"><Loader2 size={10} className="animate-spin" /> Récupération des informations MyLudo...</p>
                       )}
                     </div>
 
-                    <div data-tutorial="jeux-form-desc-obs" className="space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><FileText size={12} /> Description du jeu</label>
-                        <textarea rows={3} placeholder="Règles ou thème..." className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]/10 resize-none" value={newGame.description || ''} onChange={e => setNewGame({ ...newGame, description: e.target.value })} />
+                    <div data-tutorial="jeux-form-desc-obs">
+                      <label className={F_LABEL}><FileText size={12} /> Description du jeu</label>
+                      <textarea rows={3} placeholder="Règles ou thème..." className={`${F_TEXTAREA} mb-3.5`} value={newGame.description || ''} onChange={e => setNewGame({ ...newGame, description: e.target.value })} />
+                      <label className={`${F_LABEL} text-[#e38154]`}><AlertCircle size={12} /> Observations (état, pièces...)</label>
+                      <textarea rows={3} placeholder="Vrac d'infos : usure, pièces manquantes..." className={`${F_TEXTAREA} mb-3.5 bg-[#fff7ed]`} value={newGame.observations || ''} onChange={e => setNewGame({ ...newGame, observations: e.target.value })} />
+                    </div>
+
+                    <div data-tutorial="jeux-form-joueurs-age" className="mb-3.5 grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={F_LABEL}>Joueurs min</label>
+                        <input type="number" className={F_INPUT} value={newGame.min_players} onChange={e => setNewGame({ ...newGame, min_players: parseInt(e.target.value) })} />
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-[#e38154] uppercase ml-2 flex items-center gap-1"><AlertCircle size={12} /> Observations (État, pièces...)</label>
-                        <textarea rows={3} placeholder="Vrac d'infos : usure, pièces manquantes..." className="w-full p-4 rounded-2xl bg-orange-50/30 font-medium text-sm outline-none border-2 border-transparent focus:border-orange-200 resize-none" value={newGame.observations || ''} onChange={e => setNewGame({ ...newGame, observations: e.target.value })} />
+                      <div>
+                        <label className={F_LABEL}>Joueurs max</label>
+                        <input type="number" className={F_INPUT} value={newGame.max_players} onChange={e => setNewGame({ ...newGame, max_players: parseInt(e.target.value) })} />
                       </div>
                     </div>
 
-                    <div data-tutorial="jeux-form-joueurs-age" className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Joueurs Min</label>
-                        <input type="number" className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none" value={newGame.min_players} onChange={e => setNewGame({ ...newGame, min_players: parseInt(e.target.value) })} />
+                    <div>
+                      <label className={F_LABEL}>Catégories</label>
+                      <div className="mb-3 flex gap-2">
+                        <input placeholder="Ajouter..." className={`${F_INPUT} min-w-0 flex-1`} value={categoryInput} onChange={e => setCategoryInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCategory(categoryInput) } }} />
+                        <button type="button" onClick={() => addCategory(categoryInput)} aria-label="Ajouter la catégorie" className={`${F_SQUARE} bg-[#1a5f7a]`}><Plus size={19} strokeWidth={3} /></button>
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Joueurs Max</label>
-                        <input type="number" className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none" value={newGame.max_players} onChange={e => setNewGame({ ...newGame, max_players: parseInt(e.target.value) })} />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Catégories</label>
-                      <div className="flex gap-2 items-center">
-                        <input placeholder="Ajouter..." className="flex-1 min-w-0 p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none" value={categoryInput} onChange={e => setCategoryInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCategory(categoryInput) } }} />
-                        <button type="button" onClick={() => addCategory(categoryInput)} className="shrink-0 p-4 bg-[#1a5f7a] text-white rounded-2xl shadow-lg flex items-center justify-center"><Plus size={20} strokeWidth={3} /></button>
-                      </div>
-                      <div className="flex flex-wrap gap-2 mt-3">
+                      <div className="flex flex-wrap gap-[7px]">
                         {newGame.category?.split(',').map(c => c.trim()).filter(Boolean).map((cat, i) => (
-                          <span key={i} className="px-3 py-2 bg-[#1a5f7a] text-white text-[9px] font-black uppercase rounded-xl flex items-center gap-2">
-                            {cat} <X size={14} className="cursor-pointer" onClick={() => removeCategory(cat)} />
+                          <span key={i} className="flex items-center gap-2 rounded-[12px] border-2 border-[#0f172a] bg-[#1a5f7a] px-3 py-2 text-[9px] font-extrabold uppercase tracking-[0.1em] text-white">
+                            {cat} <X size={13} className="cursor-pointer" onClick={() => removeCategory(cat)} />
                           </span>
                         ))}
                       </div>
                     </div>
                   </div>
 
-                  <div data-tutorial="jeux-form-medias" className="space-y-6">
-                    <h3 className="text-[10px] font-black text-[#e38154] uppercase tracking-widest flex items-center gap-2 mb-2"><ImageIcon size={16} /> Médias & Âge</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><ExternalLink size={12} /> URL Image</label>
-                        <div className="flex gap-2 items-center">
-                          <input placeholder="Lien..." className="flex-1 min-w-0 p-4 rounded-2xl bg-slate-50 font-bold text-xs outline-none" value={newGame.image_url} onChange={e => setNewGame({ ...newGame, image_url: e.target.value })} />
-                          <label className="shrink-0 cursor-pointer p-4 bg-[#e38154] text-white rounded-2xl flex items-center justify-center active:scale-95 shadow-md">
-                            {uploading ? <Loader2 size={20} className="animate-spin" /> : <Camera size={20} />}
-                            <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} disabled={uploading || !navigator.onLine} />
-                          </label>
-                        </div>
+                  <div data-tutorial="jeux-form-medias">
+                    <h3 className={`${F_SECTION} flex items-center gap-2 text-[#e38154]`}><ImageIcon size={14} /> Médias &amp; âge</h3>
+
+                    <label className={F_LABEL}><ExternalLink size={12} /> URL image</label>
+                    <div className="mb-3.5 flex gap-2">
+                      <input placeholder="Lien..." className={`${F_INPUT} min-w-0 flex-1 text-[12.5px]`} value={newGame.image_url} onChange={e => setNewGame({ ...newGame, image_url: e.target.value })} />
+                      <label className={`${F_SQUARE} cursor-pointer bg-[#e38154]`} title="Envoyer une image">
+                        {uploading ? <Loader2 size={19} className="animate-spin" /> : <Camera size={19} />}
+                        <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} disabled={uploading || !navigator.onLine} />
+                      </label>
+                    </div>
+
+                    <label className={F_LABEL}><PlayCircle size={12} /> URL vidéo</label>
+                    <input placeholder="YouTube..." className={`${F_INPUT} mb-3.5 text-[12.5px]`} value={newGame.youtube_url} onChange={e => setNewGame({ ...newGame, youtube_url: e.target.value })} />
+
+                    <div data-tutorial="jeux-form-age-duree" className="mb-4 grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={F_LABEL}>Âge min</label>
+                        <input type="number" className={F_INPUT} value={newGame.min_age} onChange={e => setNewGame({ ...newGame, min_age: parseInt(e.target.value) })} />
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2 flex items-center gap-1"><PlayCircle size={12} /> URL Vidéo</label>
-                        <input placeholder="YouTube..." className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-xs outline-none" value={newGame.youtube_url} onChange={e => setNewGame({ ...newGame, youtube_url: e.target.value })} />
+                      <div>
+                        <label className={F_LABEL}>Durée (min)</label>
+                        <input type="number" className={F_INPUT} value={newGame.duration} onChange={e => setNewGame({ ...newGame, duration: parseInt(e.target.value) })} />
                       </div>
                     </div>
 
-                    <div data-tutorial="jeux-form-age-duree" className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Âge Min</label>
-                        <input type="number" className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none" value={newGame.min_age} onChange={e => setNewGame({ ...newGame, min_age: parseInt(e.target.value) })} />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Durée (min)</label>
-                        <input type="number" className="w-full p-4 rounded-2xl bg-slate-50 font-bold outline-none" value={newGame.duration} onChange={e => setNewGame({ ...newGame, duration: parseInt(e.target.value) })} />
-                      </div>
+                    <div className="mb-4 flex h-[130px] items-center justify-center overflow-hidden rounded-[20px] border-[3px] border-dashed border-slate-300 bg-[#fdfaf6] p-4">
+                      {newGame.image_url
+                        ? <img src={newGame.image_url} className="max-h-full max-w-full object-contain" alt="Aperçu" />
+                        : <span className="font-mono text-[10px] text-slate-400">aperçu de l'image</span>}
                     </div>
 
-                    {newGame.image_url && (
-                      <div className="p-4 bg-slate-50 rounded-2xl flex items-center justify-center border-2 border-dashed border-slate-200 overflow-hidden">
-                        <img src={newGame.image_url} className="h-20 max-w-full object-contain rounded-lg" alt="Aperçu" />
-                      </div>
-                    )}
-
-                    <button data-tutorial="jeux-form-submit" type="submit" disabled={isNumberDuplicate} className={`w-full py-5 md:py-6 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl transition-all ${isNumberDuplicate ? 'bg-slate-200 text-slate-400' : 'bg-[#1a5f7a] text-white active:scale-95'}`}>
+                    <button
+                      data-tutorial="jeux-form-submit"
+                      type="submit"
+                      disabled={isNumberDuplicate}
+                      className={`w-full rounded-[18px] border-2 border-[#0f172a] py-5 text-[11px] font-extrabold uppercase tracking-[0.16em] transition-[transform,box-shadow] duration-200 ${
+                        isNumberDuplicate
+                          ? 'bg-slate-200 text-slate-400'
+                          : 'bg-[#1a5f7a] text-white shadow-[5px_5px_0_#0f172a] hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a]'
+                      }`}
+                    >
                       {editingId ? "Enregistrer les modifications" : "Valider l'ajout du jeu"}
                     </button>
                   </div>
@@ -830,143 +866,202 @@ export default function Jeux() {
         )}
 
         {loading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="animate-pulse rounded-[30px] border-2 border-slate-200 bg-white p-5">
+                <div className="mb-4 h-20 rounded-[18px] bg-slate-100" />
+                <div className="mb-2 h-4 w-3/4 rounded-full bg-slate-100" />
+                <div className="h-3 w-1/2 rounded-full bg-slate-100" />
+              </div>
+            ))}
           </div>
         )}
 
-        {/* TABLEAU DESKTOP */}
-        {!loading && <div className="hidden md:block bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 text-[10px] uppercase text-slate-400 font-black">
-              <tr>
-                <th className="p-8">N° / Barcode</th>
-                <th className="p-8">Jeu</th>
-                <th className="p-8">Config.</th>
-                <th className="p-8 text-right pr-12">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {filteredJeux.map((jeu, idx) => (
-                <tr key={jeu.id} {...(idx === 0 ? {"data-tutorial": "jeux-list-row1"} : idx === 1 ? {"data-tutorial": "jeux-list-row2"} : {})} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="p-8">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-black text-[#1a5f7a] bg-cyan-50 px-3 py-1 rounded-lg border border-cyan-100 w-fit">#{jeu.registration_number}</span>
-                        {jeu.barcode && <CheckCircle size={14} className="text-emerald-500" />}
-                        {jeu.youtube_url && <QrCode size={13} className="text-slate-300" title="Vidéo disponible" />}
-                      </div>
-                      {jeu.barcode && <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1"><ScanLine size={10} /> {jeu.barcode}</span>}
-                    </div>
-                  </td>
-                  <td className="p-8">
-                    <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 shrink-0 bg-slate-50 rounded-xl border border-slate-100 p-1 flex items-center justify-center overflow-hidden">
-                        {jeu.image_url
-                          ? <img src={jeu.image_url} loading="lazy" decoding="async" onLoad={e => (e.currentTarget.style.opacity = '1')} style={{ opacity: 0, transition: 'opacity 0.4s' }} className="max-w-full max-h-full object-contain" alt="" />
-                          : <Dice5 size={24} className="text-slate-200" />}
-                      </div>
-                      <div>
-                        <div className="font-black uppercase text-sm text-slate-800">{jeu.name}</div>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {jeu.category?.split(',').map((cat, i) => (
-                            <span key={i} className="text-[8px] font-black text-[#e38154] uppercase bg-orange-50 px-1.5 py-0.5 rounded">{cat.trim()}</span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="p-8">
-                    <div className="space-y-1">
-                      <div className="text-[10px] font-black text-slate-700 flex items-center gap-2"><Users size={12} className="text-[#1a5f7a]" /> {jeu.min_players}-{jeu.max_players} j.</div>
-                      <div className="text-[10px] font-black text-slate-400 flex items-center gap-2"><Clock size={12} /> {jeu.duration} min</div>
-                    </div>
-                  </td>
-                  <td className="p-8 pr-12 text-right">
-                    <div className="flex justify-end gap-3">
-                      <button data-tutorial="jeux-action-edit" onClick={() => startEdit(jeu)} className="p-3 bg-slate-50 text-slate-400 rounded-xl hover:bg-[#1a5f7a] hover:text-white transition-all shadow-sm"><Edit2 size={18} /></button>
-                      <button data-tutorial="jeux-action-delete" onClick={() => openDeleteModal(jeu)} className="p-3 bg-slate-50 text-slate-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"><Trash2 size={18} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>}
+        {/* LISTE — tableau sur ordinateur, cartes sur téléphone */}
+        {!loading && (
+          <DataCard className="hidden md:block">
+            <DataHeader columns={GAMES_COLS}>
+              <div>N° / Code-barres</div><div>Jeu</div><div>Config.</div>
+              <div className="text-right">Actions</div>
+            </DataHeader>
 
-        {/* CARDS MOBILE */}
-        {!loading && <div className="md:hidden space-y-4">
-          {filteredJeux.map((jeu) => (
-            <div key={jeu.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100">
-              <div className="flex gap-4 mb-4">
-                <div className="w-20 h-20 shrink-0 bg-slate-50 rounded-2xl flex items-center justify-center p-2">
-                  {jeu.image_url
-                    ? <img src={jeu.image_url} loading="lazy" decoding="async" onLoad={e => (e.currentTarget.style.opacity = '1')} style={{ opacity: 0, transition: 'opacity 0.4s' }} className="max-w-full max-h-full object-contain" alt="" />
-                    : <Dice5 size={28} className="text-slate-200" />}
-                </div>
-                <div className="flex-1 min-w-0">
+            {filteredJeux.length === 0 ? (
+              <DataEmpty icon={<Dice5 size={36} className="text-slate-200" />}>
+                Aucun jeu ne correspond à cette recherche.
+              </DataEmpty>
+            ) : filteredJeux.map((jeu, idx) => (
+              <DataRow
+                key={jeu.id}
+                columns={GAMES_COLS}
+                {...(idx === 0 ? { 'data-tutorial': 'jeux-list-row1' } : idx === 1 ? { 'data-tutorial': 'jeux-list-row2' } : {})}
+              >
+                <div className="flex flex-col items-start gap-1.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-black text-[#1a5f7a] bg-cyan-50 px-2 py-1 rounded-lg">#{jeu.registration_number}</span>
-                    {jeu.barcode && <CheckCircle size={12} className="text-emerald-500" />}
-                    {jeu.youtube_url && <QrCode size={12} className="text-slate-300" />}
+                    <span className="rounded-[10px] border-2 border-[#0f172a] bg-[#f0f7f9] px-3 py-1 text-xs font-extrabold text-[#1a5f7a]">
+                      #{jeu.registration_number}
+                    </span>
+                    {jeu.youtube_url && <QrCode size={13} className="text-slate-300" />}
                   </div>
-                  <h3 className="font-black text-slate-900 uppercase text-xs mt-1 truncate">{jeu.name}</h3>
+                  {jeu.barcode && (
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
+                      <ScanLine size={10} /> {jeu.barcode}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex min-w-0 items-center gap-3.5">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] p-1">
+                    {jeu.image_url
+                      ? <img src={jeu.image_url} loading="lazy" decoding="async" className="max-h-full max-w-full object-contain" alt="" />
+                      : <Dice5 size={22} className="text-slate-200" />}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[13.5px] font-extrabold uppercase tracking-[-0.01em]">{jeu.name}</div>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {jeu.category?.split(',').filter(Boolean).map((cat, i) => (
+                        <span key={i} className="rounded-[7px] bg-[#fdf1ea] px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-[0.1em] text-[#e38154]">
+                          {cat.trim()}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5 text-[10.5px] font-extrabold text-slate-600">
+                  <span>{jeu.min_players}-{jeu.max_players} joueurs</span>
+                  <span className="text-slate-400">{jeu.duration} min</span>
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <IconButton data-tutorial="jeux-action-edit" title="Modifier" onClick={() => startEdit(jeu)}>
+                    <Edit2 size={17} />
+                  </IconButton>
+                  <IconButton data-tutorial="jeux-action-delete" title="Supprimer" tone="danger" onClick={() => openDeleteModal(jeu)}>
+                    <Trash2 size={17} />
+                  </IconButton>
+                </div>
+              </DataRow>
+            ))}
+          </DataCard>
+        )}
+
+        {!loading && (
+          <div className="space-y-4 md:hidden">
+            {filteredJeux.length === 0 && (
+              <DataCard>
+                <DataEmpty icon={<Dice5 size={36} className="text-slate-200" />}>
+                  Aucun jeu ne correspond à cette recherche.
+                </DataEmpty>
+              </DataCard>
+            )}
+            {filteredJeux.map((jeu) => (
+              <div key={jeu.id} className="rounded-[26px] border-2 border-[#0f172a] bg-white p-4 shadow-[4px_4px_0_#1a5f7a]">
+                <div className="mb-4 flex gap-3.5">
+                  <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center overflow-hidden rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-1.5">
+                    {jeu.image_url
+                      ? <img src={jeu.image_url} loading="lazy" decoding="async" className="max-h-full max-w-full object-contain" alt="" />
+                      : <Dice5 size={26} className="text-slate-200" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-[9px] border-2 border-[#0f172a] bg-[#f0f7f9] px-2 py-0.5 text-[10px] font-extrabold text-[#1a5f7a]">
+                        #{jeu.registration_number}
+                      </span>
+                      {jeu.youtube_url && <QrCode size={12} className="text-slate-300" />}
+                    </div>
+                    <h3 className="mt-1.5 font-display text-[15px] font-extrabold uppercase leading-tight tracking-[-0.02em]">
+                      {jeu.name}
+                    </h3>
+                    <p className="mt-1 text-[10px] font-extrabold text-slate-400">
+                      {jeu.min_players}-{jeu.max_players} joueurs · {jeu.duration} min
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2 border-t-2 border-slate-100 pt-3.5">
+                  <button
+                    onClick={() => startEdit(jeu)}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] py-3.5 text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#1a5f7a]"
+                  >
+                    <Edit2 size={14} /> Modifier
+                  </button>
+                  <IconButton tone="danger" title="Supprimer" className="h-auto w-12" onClick={() => openDeleteModal(jeu)}>
+                    <Trash2 size={17} />
+                  </IconButton>
                 </div>
               </div>
-              <div className="flex gap-2 pt-4 border-t border-slate-100">
-                <button onClick={() => startEdit(jeu)} className="flex-1 py-4 bg-slate-50 text-[#1a5f7a] rounded-2xl font-black uppercase text-[9px] flex items-center justify-center gap-2"><Edit2 size={14} /> Modifier</button>
-                <button onClick={() => openDeleteModal(jeu)} className="p-4 bg-rose-50 text-rose-500 rounded-2xl"><Trash2 size={18} /></button>
-              </div>
-            </div>
-          ))}
-        </div>}
+            ))}
+          </div>
+        )}
       </main>
+      </div>
 
       {/* MODALE ÉTIQUETTES */}
       {showEtiquettes && <GenerateurEtiquettes jeux={jeux} onClose={() => setShowEtiquettes(false)} />}
 
       {/* OVERLAY CHARGEMENT SCAN */}
       {bggLoading && scanToAdd && (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-[#1a5f7a]/80 backdrop-blur-sm">
-          <div className="bg-white rounded-[2rem] p-10 flex flex-col items-center gap-4 shadow-2xl">
-            <Loader2 size={40} className="animate-spin text-[#1a5f7a]" />
-            <p className="font-black uppercase text-xs tracking-widest text-slate-600">Recherche sur MyLudo...</p>
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }}>
+          <div className="anim-modal-in flex flex-col items-center gap-4 rounded-[34px] border-2 border-[#0f172a] bg-white px-10 py-9 shadow-[12px_12px_0_#1a5f7a]">
+            <Loader2 size={38} className="animate-spin text-[#1a5f7a]" />
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Recherche sur MyLudo...</p>
           </div>
         </div>
       )}
 
       {/* MODALE SCANNER */}
       {showScanner && (
-        <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center p-6 bg-slate-900/95 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white rounded-[2.5rem] p-8 shadow-2xl overflow-hidden relative">
-            <h3 className="text-center font-black uppercase text-xs tracking-widest mb-4">Scannez le code-barres</h3>
-            {iosWarning && (
-              <div className="mb-4 p-4 bg-amber-50 border border-amber-100 rounded-2xl text-amber-700 text-[10px] font-black uppercase text-center">
-                ⚠️ Sur iPhone, le scan nécessite Safari.
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 backdrop-blur-[6px] sm:p-[22px]" style={{ background: 'rgba(15,23,42,.7)' }}>
+          <div className="anim-modal-in relative w-full max-w-md overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#0f172a]">
+            <div className="flex items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
+              <div>
+                <h3 className="font-display text-[21px] font-extrabold tracking-[-0.04em]">
+                  Scanner un <span className="text-[#1a5f7a]">code-barres</span>
+                </h3>
+                <p className="mt-1.5 text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
+                  Pointez la caméra vers la boîte du jeu
+                </p>
               </div>
-            )}
-            <video ref={videoRef} className="w-full rounded-2xl overflow-hidden shadow-inner bg-slate-900" autoPlay muted playsInline />
-            <p className="text-center text-[9px] text-slate-400 italic mt-4 mb-6">Pointez la caméra vers le code-barres du jeu</p>
-            <button onClick={stopScanner} className="w-full py-5 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-rose-50 hover:text-rose-500 transition-colors">Annuler le scan</button>
+              <button
+                onClick={stopScanner}
+                aria-label="Fermer"
+                className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[15px] font-extrabold text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6">
+              {iosWarning && (
+                <AdminBanner tone="warn">⚠️ Sur iPhone, le scan nécessite Safari.</AdminBanner>
+              )}
+              <video
+                ref={videoRef}
+                className="w-full overflow-hidden rounded-[22px] border-2 border-[#0f172a] bg-slate-900"
+                autoPlay muted playsInline
+              />
+              <button
+                onClick={stopScanner}
+                className="mt-5 w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] py-4 text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500 transition-colors hover:bg-slate-100"
+              >
+                Annuler le scan
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* MODALE SUPPRESSION */}
-      {deleteModal.show && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-[#1a5f7a]/80 backdrop-blur-md" onClick={() => setDeleteModal({ show: false })}></div>
-          <div className="relative bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl border-b-8 border-rose-500">
-            <div className="mx-auto w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mb-6"><Trash2 size={28} /></div>
-            <h3 className="text-xl font-black uppercase text-slate-900 mb-2">Supprimer ?</h3>
-            <p className="text-xs text-slate-500 mb-8 italic">"{deleteModal.name}"</p>
-            <div className="flex flex-col gap-3">
-              <button onClick={confirmDelete} className="w-full py-5 bg-rose-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg">Supprimer</button>
-              <button onClick={() => setDeleteModal({ show: false })} className="w-full py-5 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase text-[10px] tracking-widest">Annuler</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={deleteModal.show}
+        onClose={() => setDeleteModal({ show: false })}
+        onConfirm={confirmDelete}
+        title="Supprimer ?"
+        message={`« ${deleteModal.name} » sera définitivement retiré du catalogue.`}
+        confirmLabel="Oui, supprimer"
+        cancelLabel="Conserver"
+        tone="danger"
+        icon={<Trash2 size={26} />}
+      />
 
       {/* TUTORIEL */}
       <TutorialButton onClick={() => setShowTuto(true)} />

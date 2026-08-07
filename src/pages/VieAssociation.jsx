@@ -1,26 +1,11 @@
-import { useNavigate } from 'react-router-dom'
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '../services/supabaseClient'
-import {
-  ArrowLeft,
-  Calendar,
-  Users,
-  Dice5,
-  ImageIcon,
-  X,
-  ChevronDown,
-  ChevronUp,
-} from 'lucide-react'
-import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-} from 'recharts'
-import Footer from '../components/Footer'
+import { Calendar, Users, Dice5, ImageIcon, X, ChevronDown, ChevronUp } from 'lucide-react'
+import PublicLayout from '../components/site/PublicLayout'
+import FloatingIcons from '../components/site/FloatingIcons'
+import Reveal from '../components/site/Reveal'
+import CountUp from '../components/site/CountUp'
+import { EYEBROW } from '../components/site/styles'
 
 // Détecte le type d'un événement à partir de son titre (insensible aux accents/casse)
 // Plage Unicode des signes diacritiques combinants (0x0300-0x036f), construite
@@ -50,8 +35,89 @@ const EVENT_TYPE_LABELS = {
 // Réutilise les couleurs déjà définies dans CHART_CONFIG pour éviter de dupliquer les codes hexa
 const TYPE_COLORS = Object.fromEntries(CHART_CONFIG.map(c => [c.key, c.color]))
 
+/** Histogramme de fréquentation : une barre par édition, cliquable pour rejoindre la carte. */
+function FrequentationChart({ config, points }) {
+  const max = Math.max(...points.map(p => p.participants), 1)
+
+  return (
+    <Reveal
+      className="rounded-[32px] border-2 border-[#0f172a] bg-[#fdfaf6] p-6 md:p-8"
+      style={{ boxShadow: `6px 6px 0 ${config.color}` }}
+    >
+      <div
+        className="mb-6 text-xs font-extrabold uppercase tracking-[0.16em]"
+        style={{ color: config.color }}
+      >
+        {config.label}
+      </div>
+
+      {/* Au-delà de quelques éditions, les barres deviendraient illisibles sur mobile :
+          on leur garantit une largeur minimale et le graphique défile horizontalement. */}
+      <div className="-mx-1 overflow-x-auto px-1">
+        <div className="min-w-full" style={{ minWidth: points.length * 44 }}>
+          <div className="flex h-[180px] items-end gap-2.5 border-b-2 border-slate-200">
+            {points.map((point, i) => (
+              <button
+                key={point.id}
+                onClick={() => document.getElementById(`event-${point.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                title={`${point.participants} participants — ${point.date}`}
+                className="flex h-full flex-1 flex-col items-center justify-end"
+              >
+                <span className="mb-2 text-[11px] font-extrabold text-[#0f172a]">{point.participants}</span>
+                <span
+                  className="anim-grow-bar w-full rounded-t-[10px] border-2 border-b-0 border-[#0f172a] transition-opacity hover:opacity-80"
+                  style={{
+                    height: `${(point.participants / max) * 100}%`,
+                    // Réserve la place du nombre au-dessus : la barre la plus haute ne déborde pas
+                    maxHeight: 'calc(100% - 26px)',
+                    background: config.color,
+                    animationDelay: `${i * 80}ms`,
+                  }}
+                />
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-2.5 flex gap-2.5">
+            {points.map(point => (
+              <div key={point.id} className="flex-1 text-center text-[9px] font-bold text-slate-400">
+                {point.date}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Reveal>
+  )
+}
+
+/** Vignette carrée d'un jeu joué, cliquable si une fiche externe est renseignée. */
+function GameThumb({ game }) {
+  const Wrapper = game.external_url ? 'a' : 'div'
+  const wrapperProps = game.external_url
+    ? { href: game.external_url, target: '_blank', rel: 'noopener noreferrer' }
+    : {}
+
+  return (
+    <Wrapper {...wrapperProps} className="flex w-full max-w-[76px] shrink-0 flex-col items-center text-center">
+      <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-[16px] border-2 border-[#0f172a] bg-white">
+        {game.image_url ? (
+          <img src={game.image_url} alt={game.name} loading="lazy" className="h-full w-full object-contain" />
+        ) : (
+          <Dice5 size={22} className="text-slate-200" />
+        )}
+      </div>
+      <p className="mt-1.5 w-full truncate text-[10px] font-bold leading-tight">{game.name}</p>
+      {game.in_catalogue && (
+        <span className="mt-1 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[8px] font-extrabold uppercase text-white">
+          Dispo
+        </span>
+      )}
+    </Wrapper>
+  )
+}
+
 export default function VieAssociation() {
-  const navigate = useNavigate()
   const [pastEvents, setPastEvents] = useState([])
   const [photos, setPhotos] = useState([])
   const [gamesPlayed, setGamesPlayed] = useState([])
@@ -157,373 +223,272 @@ export default function VieAssociation() {
   }, [gamesPlayed])
 
   if (loading) return (
-    <div className="min-h-screen bg-[#fdfaf6] flex flex-col items-center justify-center gap-4 text-[#1a5f7a] font-black uppercase tracking-widest animate-pulse">
+    <div className="flex min-h-screen animate-pulse flex-col items-center justify-center gap-4 bg-[#fdfaf6] font-body text-sm font-extrabold uppercase tracking-[0.2em] text-[#1a5f7a]">
       <Dice5 size={48} className="animate-bounce" />
       <p>Chargement...</p>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans">
+    <PublicLayout>
+      <main>
+        {/* ---------- EN-TÊTE ---------- */}
+        <section className="relative overflow-hidden px-4 pb-8 pt-9 text-center md:px-10 md:pb-11 md:pt-16">
+          <FloatingIcons />
 
-      <header className="bg-white border-b border-slate-100 sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigate('/')} className="shrink-0">
-              <img src="/logo-feuille.svg" alt="Ludothèque de Coligny" className="h-10" />
-            </button>
-            <button onClick={() => navigate('/')} className="flex items-center gap-2 text-slate-400 hover:text-[#1a5f7a] font-bold transition-colors text-xs uppercase tracking-widest">
-              <ArrowLeft size={16} /> <span>Retour à la page d'accueil</span>
-            </button>
-          </div>
-          <div className="w-10 md:w-20"></div>
-        </div>
-      </header>
+          <div className="relative z-10 mx-auto max-w-[820px]">
+            <h1 className="anim-soft-in mb-5 font-display text-[27px] font-extrabold leading-[1.02] tracking-[-0.045em] sm:text-[34px] md:text-[58px]">
+              La vie de<br />
+              <span className="inline-block -rotate-[1.5deg] rounded-[16px] bg-[#e38154] px-[0.16em] text-white">
+                la ludothèque
+              </span>
+            </h1>
+            <p
+              className="anim-soft-in mx-auto mb-8 max-w-[34em] text-[15px] font-medium leading-[1.65] text-slate-500 md:text-[18px]"
+              style={{ animationDelay: '0.15s' }}
+            >
+              Retour en images et en chiffres sur nos soirées, événements famille et permanences passées.
+            </p>
 
-      <section className="relative pt-16 pb-12 md:pt-20 md:pb-16 text-center overflow-hidden bg-[#fdfaf6]">
-        <div className="relative max-w-4xl mx-auto px-4 z-10">
-          <h2 className="font-black text-3xl md:text-4xl text-slate-900 leading-[1.1] mb-6">
-            La vie de <br className="md:hidden" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1a5f7a] to-[#2d8ba1]">la ludothèque</span>
-          </h2>
-          <p className="text-lg text-slate-500 max-w-2xl mx-auto leading-relaxed font-medium">
-            Retour en images et en chiffres sur nos soirées, événements famille et permanences passées.
-          </p>
-
-          {(totalEditions > 0 || uniqueGamesCount > 0) && (
-            <div className="flex flex-wrap justify-center gap-5 mt-10">
-              {totalEditions > 0 && (
-                <div className="bg-[#1a5f7a] rounded-[2.5rem] px-9 py-5 text-center shadow-xl shadow-cyan-900/20 -rotate-1">
-                  <p className="text-3xl md:text-4xl font-black text-white">{totalEditions}</p>
-                  <p className="text-[9px] md:text-[10px] font-black text-cyan-100 uppercase tracking-widest mt-1">
-                    Édition{totalEditions > 1 ? 's' : ''} organisée{totalEditions > 1 ? 's' : ''}
-                  </p>
-                </div>
-              )}
-              {uniqueGamesCount > 0 && (
-                <div className="bg-[#e38154] rounded-[2.5rem] px-9 py-5 text-center shadow-xl shadow-orange-900/20 rotate-1">
-                  <p className="text-3xl md:text-4xl font-black text-white">{uniqueGamesCount}</p>
-                  <p className="text-[9px] md:text-[10px] font-black text-orange-100 uppercase tracking-widest mt-1">
-                    Jeu{uniqueGamesCount > 1 ? 'x' : ''} différent{uniqueGamesCount > 1 ? 's' : ''} joué{uniqueGamesCount > 1 ? 's' : ''}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {visibleCharts.length > 0 && (
-        <section className="py-20 bg-white">
-          <div className="max-w-6xl mx-auto px-4 md:px-8">
-            <div className="text-center mb-12">
-              <span className="text-[#e38154] font-black uppercase tracking-[0.3em] text-xs">Statistiques</span>
-              <h3 className="text-4xl font-black text-slate-900 mt-2 mb-4">Évolution de la fréquentation</h3>
-              <div className="h-1.5 w-20 bg-[#1a5f7a] mx-auto rounded-full mb-4"></div>
-              <p className="text-xs font-bold text-slate-400">Cliquez un point pour retrouver l'édition correspondante ci-dessous</p>
-            </div>
-            <div className={`grid grid-cols-1 gap-8 ${visibleCharts.length === 2 ? 'lg:grid-cols-2' : ''} ${visibleCharts.length >= 3 ? 'lg:grid-cols-3' : ''}`}>
-              {visibleCharts.map(cfg => (
-                <div key={cfg.key} className="bg-[#fcfcfc] rounded-[2.5rem] border border-slate-100 shadow-sm p-8">
-                  <h4 className="text-sm font-black uppercase tracking-widest mb-6" style={{ color: cfg.color }}>{cfg.label}</h4>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <LineChart data={chartData[cfg.key]} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis dataKey="date" tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                      <YAxis allowDecimals={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={30} />
-                      <Tooltip
-                        contentStyle={{ borderRadius: 16, border: '1px solid #f1f5f9', fontSize: 12, fontWeight: 700, boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}
-                        labelStyle={{ color: '#1a5f7a', fontWeight: 900 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="participants"
-                        name="Participants"
-                        stroke={cfg.color}
-                        strokeWidth={3}
-                        dot={(props) => {
-                          const { cx, cy, payload } = props
-                          return (
-                            <circle
-                              key={payload.id}
-                              cx={cx} cy={cy} r={6}
-                              fill={cfg.color} stroke="white" strokeWidth={2}
-                              style={{ cursor: 'pointer' }}
-                              onClick={() => {
-                                document.getElementById(`event-${payload.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                              }}
-                            />
-                          )
-                        }}
-                        activeDot={{ r: 9, strokeWidth: 2 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              ))}
-            </div>
+            {(totalEditions > 0 || uniqueGamesCount > 0) && (
+              <div className="flex flex-wrap justify-center gap-4">
+                {totalEditions > 0 && (
+                  <Reveal
+                    variant="scale"
+                    className="-rotate-[1.5deg] rounded-[32px] border-2 border-[#0f172a] bg-[#1a5f7a] px-8 py-5 text-white shadow-[6px_6px_0_#0f172a]"
+                  >
+                    <CountUp
+                      value={totalEditions}
+                      className="block font-display text-[30px] font-extrabold leading-none tracking-[-0.045em] md:text-[42px]"
+                    />
+                    <div className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#bae6fd]">
+                      Édition{totalEditions > 1 ? 's' : ''} organisée{totalEditions > 1 ? 's' : ''}
+                    </div>
+                  </Reveal>
+                )}
+                {uniqueGamesCount > 0 && (
+                  <Reveal
+                    variant="scale"
+                    delay={90}
+                    className="rotate-[1.5deg] rounded-[32px] border-2 border-[#0f172a] bg-[#e38154] px-8 py-5 text-white shadow-[6px_6px_0_#0f172a]"
+                  >
+                    <CountUp
+                      value={uniqueGamesCount}
+                      className="block font-display text-[30px] font-extrabold leading-none tracking-[-0.045em] md:text-[42px]"
+                    />
+                    <div className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#ffe8dc]">
+                      Jeu{uniqueGamesCount > 1 ? 'x' : ''} différent{uniqueGamesCount > 1 ? 's' : ''} joué{uniqueGamesCount > 1 ? 's' : ''}
+                    </div>
+                  </Reveal>
+                )}
+              </div>
+            )}
           </div>
         </section>
-      )}
 
-      <section className="py-20 bg-[#fdfaf6]">
-        <div className="max-w-4xl mx-auto px-4 md:px-8">
-          <div className="text-center mb-16">
-            <span className="text-[#e38154] font-black uppercase tracking-[0.3em] text-xs">Souvenirs</span>
-            <h3 className="text-4xl font-black text-slate-900 mt-2 mb-4">Nos événements passés</h3>
-            <div className="h-1.5 w-20 bg-[#1a5f7a] mx-auto rounded-full"></div>
-          </div>
+        {/* ---------- STATISTIQUES ---------- */}
+        {visibleCharts.length > 0 && (
+          <section className="border-y-2 border-[#0f172a] bg-white px-4 py-14 md:px-10 md:py-20">
+            <div className="mx-auto max-w-[1180px]">
+              <Reveal className="mb-8 text-center md:mb-11">
+                <div className={EYEBROW}>Statistiques</div>
+                <h2 className="mb-3 mt-2.5 font-display text-[26px] font-extrabold tracking-[-0.04em] md:text-[42px]">
+                  Évolution de la fréquentation
+                </h2>
+                <p className="text-xs font-bold text-slate-400">
+                  Cliquez une barre pour retrouver l'édition correspondante ci-dessous
+                </p>
+              </Reveal>
 
-          {enrichedEvents.length === 0 ? (
-            <div className="text-center py-10 bg-white rounded-3xl border border-dashed border-slate-200">
-              <p className="text-slate-400 italic">Aucun souvenir enregistré pour le moment.</p>
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
+                {visibleCharts.map(cfg => (
+                  <FrequentationChart key={cfg.key} config={cfg} points={chartData[cfg.key]} />
+                ))}
+              </div>
             </div>
-          ) : (
-            <div>
-              {enrichedEvents.map((event, eventIndex) => {
-                const evPhotos = photosByEvent[event.id] || []
-                const evGames = gamesByEvent[event.id] || []
-                const hasPhotos = evPhotos.length > 0
-                const hasGames = evGames.length > 0
-                const photosExpanded = !!sectionOpen[event.id]?.photos
-                const gamesExpanded = !!sectionOpen[event.id]?.games
-                const firstPhotos = evPhotos.slice(0, 3)
-                const restPhotos = evPhotos.slice(3)
-                const firstGames = evGames.slice(0, 3)
-                const restGames = evGames.slice(3)
-                const eventType = getEventType(event.title)
-                const typeColor = TYPE_COLORS[eventType]
-                const coverPhoto = evPhotos[0]?.url
-                const isFirst = eventIndex === 0
-                const isLast = eventIndex === enrichedEvents.length - 1
+          </section>
+        )}
 
-                return (
-                  <div key={event.id} id={`event-${event.id}`} className="grid grid-cols-[28px_1fr] md:grid-cols-[36px_1fr] gap-x-4 md:gap-x-5">
-                    {/* Colonne timeline */}
-                    <div className="flex flex-col items-center">
-                      <div className={`w-0.5 flex-1 ${isFirst ? 'bg-transparent' : 'bg-slate-200'}`}></div>
-                      <div
-                        className="w-4 h-4 rounded-full border-[3px] border-[#fdfaf6] shrink-0"
-                        style={{ backgroundColor: typeColor, boxShadow: `0 0 0 2px ${typeColor}` }}
-                      ></div>
-                      <div className={`w-0.5 flex-1 ${isLast ? 'bg-transparent' : 'bg-slate-200'}`}></div>
-                    </div>
+        {/* ---------- SOUVENIRS ---------- */}
+        <section className="px-4 py-14 md:px-10 md:py-20">
+          <div className="mx-auto max-w-[900px]">
+            <Reveal className="mb-9 text-center md:mb-12">
+              <div className={EYEBROW}>Souvenirs</div>
+              <h2 className="mt-2.5 font-display text-[26px] font-extrabold tracking-[-0.04em] md:text-[42px]">
+                Nos événements passés
+              </h2>
+            </Reveal>
 
-                    {/* Carte événement — hauteur de base réduite pour approcher un cadrage carré (largeur = hauteur de la photo de couverture),
-                        mais la carte grandit librement quand l'accordéon photos/jeux est ouvert : pas de hauteur fixe ni d'overflow-hidden
-                        qui bloquerait l'agrandissement. La photo de couverture (stretch flex, largeur fixe) suit toujours la hauteur réelle
-                        de la carte, quitte à rogner davantage l'image quand la carte s'agrandit. */}
-                    <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden mb-8 md:mb-10">
-                      <div className="flex flex-col sm:flex-row">
-                        <div className="w-full h-40 sm:w-56 sm:h-auto shrink-0 bg-slate-50 overflow-hidden">
-                          {coverPhoto ? (
-                            <img src={coverPhoto} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <ImageIcon size={36} className="text-slate-200" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 sm:min-h-56 p-4 md:p-5 min-w-0">
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                              <span
-                                className="inline-block text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full mb-1"
-                                style={{ backgroundColor: `${typeColor}1a`, color: typeColor }}
-                              >
-                                {EVENT_TYPE_LABELS[eventType]}
-                              </span>
-                              <h4 className="text-lg md:text-xl font-black text-slate-900 leading-tight">{event.title}</h4>
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 flex items-center gap-2">
-                                <Calendar size={12} /> {new Date(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                              </p>
-                            </div>
-                            {Number(event.participants_count) > 0 && (
-                              <div
-                                className="flex items-center gap-2 px-4 py-1.5 text-white rounded-full font-black text-xs uppercase tracking-widest shrink-0"
-                                style={{ backgroundColor: typeColor }}
-                              >
-                                <Users size={14} /> {event.participants_count} participant{event.participants_count > 1 ? 's' : ''}
+            {enrichedEvents.length === 0 ? (
+              <div className="rounded-[30px] border-2 border-dashed border-[#0f172a]/30 bg-white py-12 text-center">
+                <p className="italic text-slate-400">Aucun souvenir enregistré pour le moment.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-6">
+                {enrichedEvents.map((event, eventIndex) => {
+                  const evPhotos = photosByEvent[event.id] || []
+                  const evGames = gamesByEvent[event.id] || []
+                  const hasPhotos = evPhotos.length > 0
+                  const hasGames = evGames.length > 0
+                  const photosExpanded = !!sectionOpen[event.id]?.photos
+                  const gamesExpanded = !!sectionOpen[event.id]?.games
+                  const visiblePhotos = photosExpanded ? evPhotos : evPhotos.slice(0, 3)
+                  const visibleGames = gamesExpanded ? evGames : evGames.slice(0, 3)
+                  const eventType = getEventType(event.title)
+                  const typeColor = TYPE_COLORS[eventType]
+                  const coverPhoto = evPhotos[0]?.url
+                  const isLast = eventIndex === enrichedEvents.length - 1
+
+                  return (
+                    <div key={event.id} id={`event-${event.id}`} className="flex gap-4">
+                      {/* Colonne timeline */}
+                      <div className="flex shrink-0 flex-col items-center pt-11">
+                        <div
+                          className="h-[18px] w-[18px] rounded-full border-2 border-[#0f172a]"
+                          style={{ backgroundColor: typeColor }}
+                        />
+                        {!isLast && <div className="w-[3px] flex-1 bg-slate-200" />}
+                      </div>
+
+                      <Reveal
+                        variant="left"
+                        className="flex-1 overflow-hidden rounded-[32px] border-2 border-[#0f172a] bg-white"
+                        style={{ boxShadow: `6px 6px 0 ${typeColor}` }}
+                      >
+                        <div className="flex flex-col sm:flex-row">
+                          <div className="h-40 w-full shrink-0 overflow-hidden border-b-2 border-[#0f172a] bg-slate-50 sm:h-auto sm:w-[190px] sm:border-b-0 sm:border-r-2">
+                            {coverPhoto ? (
+                              <img src={coverPhoto} alt="" loading="lazy" className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center">
+                                <ImageIcon size={36} className="text-slate-200" />
                               </div>
                             )}
                           </div>
 
-                          {(hasPhotos || hasGames) && (
-                            <div className="pt-2.5 mt-2.5 border-t border-slate-50 flex flex-col sm:flex-row gap-6">
-                              {hasPhotos && (
-                                <div className="flex-1 min-w-0 flex flex-col">
-                                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Photos</p>
-                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-                                    {firstPhotos.map((photo, index) => {
-                                      const rotation = ((index * 7 + eventIndex * 13) % 9) - 4
-                                      return (
+                          <div className="min-w-0 flex-1 p-5 md:p-6">
+                            <div className="mb-3.5 flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <span
+                                  className="mb-2 inline-block rounded-full bg-slate-100 px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-[0.14em]"
+                                  style={{ color: typeColor }}
+                                >
+                                  {EVENT_TYPE_LABELS[eventType]}
+                                </span>
+                                <h3 className="font-display text-[21px] font-extrabold leading-[1.15] tracking-[-0.03em]">
+                                  {event.title}
+                                </h3>
+                                <p className="mt-1.5 flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">
+                                  <Calendar size={12} />
+                                  {new Date(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                </p>
+                              </div>
+
+                              {Number(event.participants_count) > 0 && (
+                                <div
+                                  className="flex shrink-0 items-center gap-2 rounded-full border-2 border-[#0f172a] px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-white"
+                                  style={{ backgroundColor: typeColor }}
+                                >
+                                  <Users size={13} /> {event.participants_count} participant{event.participants_count > 1 ? 's' : ''}
+                                </div>
+                              )}
+                            </div>
+
+                            {(hasPhotos || hasGames) ? (
+                              <div className="flex flex-col gap-5 border-t-2 border-slate-100 pt-3.5 sm:flex-row sm:gap-6">
+                                {hasPhotos && (
+                                  <div className="flex min-w-0 flex-1 flex-col">
+                                    <p className="mb-2.5 text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
+                                      Photos
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                      {visiblePhotos.map((photo, index) => (
                                         <button
                                           key={photo.id}
                                           onClick={() => setLightboxPhoto(photo.url)}
-                                          className="w-full max-w-[84px] aspect-square shrink-0 rounded-2xl overflow-hidden bg-white shadow-md p-1 group"
-                                          style={{ transform: `rotate(${rotation}deg)` }}
+                                          className="h-[62px] w-[62px] shrink-0 overflow-hidden rounded-[16px] border-2 border-[#0f172a]"
+                                          style={{ transform: `rotate(${((index * 7 + eventIndex * 13) % 9) - 4}deg)` }}
                                         >
-                                          <div className="w-full h-full rounded-xl overflow-hidden">
-                                            <img src={photo.url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                                          </div>
+                                          <img
+                                            src={photo.url}
+                                            alt=""
+                                            loading="lazy"
+                                            className="h-full w-full object-cover transition-transform duration-500 hover:scale-110"
+                                          />
                                         </button>
-                                      )
-                                    })}
-                                  </div>
-                                  {restPhotos.length > 0 && (
-                                    <div className={`overflow-hidden transition-all duration-300 ${photosExpanded ? 'max-h-[2000px] mt-3' : 'max-h-0'}`}>
-                                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-                                        {restPhotos.map((photo, index) => {
-                                          const rotation = (((index + 3) * 7 + eventIndex * 13) % 9) - 4
-                                          return (
-                                            <button
-                                              key={photo.id}
-                                              onClick={() => setLightboxPhoto(photo.url)}
-                                              className="w-full max-w-[84px] aspect-square shrink-0 rounded-2xl overflow-hidden bg-white shadow-md p-1 group"
-                                              style={{ transform: `rotate(${rotation}deg)` }}
-                                            >
-                                              <div className="w-full h-full rounded-xl overflow-hidden">
-                                                <img src={photo.url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                                              </div>
-                                            </button>
-                                          )
-                                        })}
-                                      </div>
+                                      ))}
                                     </div>
-                                  )}
-                                  {evPhotos.length > 3 && (
-                                    <button
-                                      onClick={() => toggleSection(event.id, 'photos')}
-                                      className="w-full flex flex-row items-center justify-center gap-1 mt-auto pt-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-[#1a5f7a] transition-colors"
-                                    >
-                                      <span>{photosExpanded ? 'Réduire' : `Voir toutes les photos (${evPhotos.length})`}</span>
-                                      {photosExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-
-                              {hasGames && (
-                                <div className="flex-1 min-w-0 flex flex-col">
-                                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Jeux joués</p>
-                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-                                    {firstGames.map(game => {
-                                      const Wrapper = game.external_url ? 'a' : 'div'
-                                      const wrapperProps = game.external_url
-                                        ? { href: game.external_url, target: '_blank', rel: 'noopener noreferrer' }
-                                        : {}
-                                      return (
-                                        <Wrapper
-                                          key={game.id}
-                                          {...wrapperProps}
-                                          className="w-full max-w-[84px] shrink-0 flex flex-col items-center text-center"
-                                        >
-                                          <div className="w-full aspect-square shrink-0 rounded-2xl overflow-hidden bg-white shadow-md p-1">
-                                            <div className="w-full h-full rounded-xl overflow-hidden bg-slate-50 flex items-center justify-center">
-                                              {game.image_url ? (
-                                                <img src={game.image_url} alt={game.name} className="w-full h-full object-contain" />
-                                              ) : (
-                                                <Dice5 size={24} className="text-slate-200" />
-                                              )}
-                                            </div>
-                                          </div>
-                                          <p className="text-[10px] font-bold mt-1.5 leading-tight truncate w-full">{game.name}</p>
-                                          {game.in_catalogue && (
-                                            <span className="mt-1 bg-emerald-500 text-white text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full">
-                                              Dispo
-                                            </span>
-                                          )}
-                                        </Wrapper>
-                                      )
-                                    })}
+                                    {evPhotos.length > 3 && (
+                                      <button
+                                        onClick={() => toggleSection(event.id, 'photos')}
+                                        className="mt-auto flex items-center gap-1 pt-3 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400 transition-colors hover:text-[#1a5f7a]"
+                                      >
+                                        {photosExpanded
+                                          ? <>Réduire <ChevronUp size={14} /></>
+                                          : <>Voir toutes les photos ({evPhotos.length}) <ChevronDown size={14} /></>}
+                                      </button>
+                                    )}
                                   </div>
-                                  {restGames.length > 0 && (
-                                    <div className={`overflow-hidden transition-all duration-300 ${gamesExpanded ? 'max-h-[2000px] mt-3' : 'max-h-0'}`}>
-                                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-                                        {restGames.map(game => {
-                                          const Wrapper = game.external_url ? 'a' : 'div'
-                                          const wrapperProps = game.external_url
-                                            ? { href: game.external_url, target: '_blank', rel: 'noopener noreferrer' }
-                                            : {}
-                                          return (
-                                            <Wrapper
-                                              key={game.id}
-                                              {...wrapperProps}
-                                              className="w-full max-w-[84px] shrink-0 flex flex-col items-center text-center"
-                                            >
-                                              <div className="w-full aspect-square shrink-0 rounded-2xl overflow-hidden bg-white shadow-md p-1">
-                                                <div className="w-full h-full rounded-xl overflow-hidden bg-slate-50 flex items-center justify-center">
-                                                  {game.image_url ? (
-                                                    <img src={game.image_url} alt={game.name} className="w-full h-full object-contain" />
-                                                  ) : (
-                                                    <Dice5 size={24} className="text-slate-200" />
-                                                  )}
-                                                </div>
-                                              </div>
-                                              <p className="text-[10px] font-bold mt-1.5 leading-tight truncate w-full">{game.name}</p>
-                                              {game.in_catalogue && (
-                                                <span className="mt-1 bg-emerald-500 text-white text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full">
-                                                  Dispo
-                                                </span>
-                                              )}
-                                            </Wrapper>
-                                          )
-                                        })}
-                                      </div>
-                                    </div>
-                                  )}
-                                  {evGames.length > 3 && (
-                                    <button
-                                      onClick={() => toggleSection(event.id, 'games')}
-                                      className="w-full flex flex-row items-center justify-center gap-1 mt-auto pt-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-[#1a5f7a] transition-colors"
-                                    >
-                                      <span>{gamesExpanded ? 'Réduire' : `Voir tous les jeux (${evGames.length})`}</span>
-                                      {gamesExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          )}
+                                )}
 
-                          {!hasPhotos && !hasGames && (
-                            <div className="flex items-center gap-3 text-slate-300 pt-4 mt-4 border-t border-slate-50">
-                              <ImageIcon size={20} />
-                              <p className="text-xs italic">Pas de photo pour cet événement.</p>
-                            </div>
-                          )}
+                                {hasGames && (
+                                  <div className="flex min-w-0 flex-1 flex-col">
+                                    <p className="mb-2.5 text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
+                                      Jeux joués
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                      {visibleGames.map(game => <GameThumb key={game.id} game={game} />)}
+                                    </div>
+                                    {evGames.length > 3 && (
+                                      <button
+                                        onClick={() => toggleSection(event.id, 'games')}
+                                        className="mt-auto flex items-center gap-1 pt-3 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400 transition-colors hover:text-[#1a5f7a]"
+                                      >
+                                        {gamesExpanded
+                                          ? <>Réduire <ChevronUp size={14} /></>
+                                          : <>Voir tous les jeux ({evGames.length}) <ChevronDown size={14} /></>}
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-3 border-t-2 border-slate-100 pt-4 text-slate-300">
+                                <ImageIcon size={20} />
+                                <p className="text-xs italic">Pas de photo pour cet événement.</p>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      </Reveal>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </section>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+      </main>
 
       {lightboxPhoto && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#1a5f7a]/90 backdrop-blur-sm animate-in fade-in duration-300"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-[#1a5f7a]/90 p-4 backdrop-blur-sm"
           onClick={() => setLightboxPhoto(null)}
         >
           <button
             onClick={() => setLightboxPhoto(null)}
-            className="absolute top-4 right-4 z-20 p-2 bg-white rounded-full text-[#1a5f7a] shadow-lg hover:bg-[#e38154] hover:text-white transition-colors"
+            className="absolute right-4 top-4 z-20 rounded-full border-2 border-[#0f172a] bg-white p-2 text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"
           >
             <X size={24} />
           </button>
           <img
             src={lightboxPhoto}
             alt=""
-            className="max-w-full max-h-[90vh] rounded-2xl shadow-2xl"
+            className="max-h-[90vh] max-w-full rounded-[22px] border-2 border-[#0f172a]"
             onClick={e => e.stopPropagation()}
           />
         </div>
       )}
-
-      <Footer />
-    </div>
+    </PublicLayout>
   )
 }

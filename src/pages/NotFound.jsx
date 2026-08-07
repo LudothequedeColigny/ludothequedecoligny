@@ -1,69 +1,61 @@
 import { useNavigate } from 'react-router-dom'
-import { Home as HomeIcon, Dice5 } from 'lucide-react'
-import Footer from '../components/Footer'
+import PublicLayout from '../components/site/PublicLayout'
+import FloatingIcons from '../components/site/FloatingIcons'
+import { BTN_TEAL, BTN_PRIMARY } from '../components/site/styles'
 
-const DIGIT_COLORS = ['#1a5f7a', '#e38154', '#1a5f7a']
-
-function TiltedDiceIllustration() {
-  return (
-    <svg width="120" height="100" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="opacity-80">
-      <g transform="rotate(-14 55 45)">
-        <rect x="25" y="18" width="60" height="60" rx="12" fill="#fdfaf6" stroke="#1a5f7a" strokeWidth="3" />
-        <circle cx="42" cy="35" r="4.5" fill="#1a5f7a" />
-        <circle cx="68" cy="35" r="4.5" fill="#1a5f7a" />
-        <circle cx="42" cy="61" r="4.5" fill="#1a5f7a" />
-        <circle cx="68" cy="61" r="4.5" fill="#1a5f7a" />
-        <circle cx="55" cy="48" r="4.5" fill="#1a5f7a" />
-      </g>
-      <circle cx="14" cy="82" r="5" fill="#e38154" opacity="0.55" />
-      <circle cx="104" cy="20" r="4" fill="#e38154" opacity="0.45" />
-      <circle cx="108" cy="78" r="3.5" fill="#1a5f7a" opacity="0.35" />
-    </svg>
-  )
-}
+const DIGITS = [
+  { char: '4', color: '#1a5f7a', delay: '0.2s' },
+  { char: '0', color: '#e38154', delay: '0.45s' },
+  { char: '4', color: '#1a5f7a', delay: '0.7s' },
+]
 
 export default function NotFound() {
   const navigate = useNavigate()
 
   return (
-    <div className="min-h-screen bg-[#fdfaf6] flex flex-col items-center justify-center px-4 py-16 text-center font-sans">
-      <img src="/logo-feuille.svg" alt="Ludothèque de Coligny" className="h-20 mb-8" />
+    <PublicLayout>
+      <main className="relative overflow-hidden px-4 py-14 text-center md:px-10 md:py-24">
+        <FloatingIcons />
 
-      <div className="flex items-center justify-center gap-1 text-8xl md:text-9xl font-black tracking-tight leading-none mb-6">
-        {'404'.split('').map((digit, i) => (
-          <span key={i} style={{ color: DIGIT_COLORS[i] }}>{digit}</span>
-        ))}
-      </div>
+        <div className="relative z-10 mx-auto max-w-[640px]">
+          <img src="/logo-feuille.svg" alt="" className="anim-soft-in mx-auto mb-7 h-[76px]" />
 
-      <h1 className="text-2xl md:text-3xl font-black text-slate-900 leading-tight mb-4 max-w-xl">
-        Oups, cette page s'est perdue dans la ludothèque !
-      </h1>
-      <p className="text-slate-500 max-w-md leading-relaxed font-medium mb-10">
-        On a cherché dans toutes les boîtes de jeux, mais cette page est introuvable. Peut-être qu'elle est rangée au mauvais endroit ?
-      </p>
+          <div className="mb-5 font-display text-[68px] font-extrabold leading-none tracking-[-0.06em] sm:text-[80px] md:text-[140px]">
+            {DIGITS.map((digit, i) => (
+              <span
+                key={i}
+                className="anim-die-drop inline-block"
+                style={{ color: digit.color, animationDelay: digit.delay }}
+              >
+                {digit.char}
+              </span>
+            ))}
+          </div>
 
-      <div className="flex flex-col sm:flex-row items-center gap-4 mb-14">
-        <button
-          onClick={() => navigate('/')}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#1a5f7a] text-white rounded-2xl px-8 py-4 font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-all shadow-xl shadow-cyan-100"
-        >
-          <HomeIcon size={16} />
-          Retour à l'accueil
-        </button>
-        <button
-          onClick={() => navigate('/catalogue')}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#e38154] text-white rounded-2xl px-8 py-4 font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-all shadow-xl shadow-orange-100"
-        >
-          <Dice5 size={16} />
-          Voir notre catalogue
-        </button>
-      </div>
+          <h1
+            className="anim-soft-in mb-4 font-display text-[21px] font-extrabold leading-[1.15] tracking-[-0.035em] sm:text-[24px] md:text-[34px]"
+            style={{ animationDelay: '0.9s' }}
+          >
+            Oups, cette page s'est perdue dans la ludothèque !
+          </h1>
+          <p
+            className="anim-soft-in mx-auto mb-8 max-w-[30em] text-base font-medium leading-[1.65] text-slate-500"
+            style={{ animationDelay: '1s' }}
+          >
+            On a cherché dans toutes les boîtes de jeux, mais cette page est introuvable.
+            Peut-être qu'elle est rangée au mauvais endroit ?
+          </p>
 
-      <TiltedDiceIllustration />
-
-      <div className="w-full mt-14">
-        <Footer />
-      </div>
-    </div>
+          <div className="anim-soft-in flex flex-wrap justify-center gap-3.5" style={{ animationDelay: '1.1s' }}>
+            <button onClick={() => navigate('/')} className={BTN_TEAL}>
+              Retour à l'accueil
+            </button>
+            <button onClick={() => navigate('/catalogue')} className={BTN_PRIMARY}>
+              Voir notre catalogue
+            </button>
+          </div>
+        </div>
+      </main>
+    </PublicLayout>
   )
 }

@@ -1,8 +1,9 @@
-import { useEffect, useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Fragment, useEffect, useState, useRef } from 'react'
 import { supabase } from '../services/supabaseClient'
-import { SkeletonCard } from '../components/Skeleton'
-import Footer from '../components/Footer'
+import PublicLayout from '../components/site/PublicLayout'
+import Reveal from '../components/site/Reveal'
+import Modal from '../components/site/Modal'
+import { BTN_TEAL } from '../components/site/styles'
 import {
   X,
   Users,
@@ -12,10 +13,7 @@ import {
   ChevronDown,
   ChevronUp,
   Baby,
-  ArrowLeft,
   PlayCircle,
-  CheckCircle2,
-  AlertCircle,
   Tag,
   SlidersHorizontal
 } from 'lucide-react'
@@ -24,11 +22,11 @@ import {
 function SliderFilter({ icon, filterKey, value, setter, max, unit, accentColor, editingFilter, editingValue, setEditingValue, onStartEditing, onCommit, onCancelEditing }) {
   const pct = max ? (value / max) * 100 : 0
   const isEditing = editingFilter === filterKey
-  const track = `linear-gradient(to right, ${accentColor} ${pct}%, #e2e8f0 ${pct}%)`
+  const track = `linear-gradient(to right, ${accentColor} ${pct}%, #f1f5f9 ${pct}%)`
   return (
-    <div className="text-left flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+    <div className="flex flex-col gap-2.5 text-left">
+      <div className="flex items-center justify-between gap-2">
+        <label className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
           {icon}
         </label>
         {isEditing ? (
@@ -43,39 +41,41 @@ function SliderFilter({ icon, filterKey, value, setter, max, unit, accentColor, 
               if (e.key === 'Enter') onCommit(setter, max)
               if (e.key === 'Escape') onCancelEditing()
             }}
-            className="w-16 text-center text-[11px] font-black rounded-lg border-2 border-[#1a5f7a]/30 outline-none py-0.5 px-1"
+            className="w-16 rounded-lg border-2 border-[#0f172a] px-1 py-0.5 text-center text-[11px] font-extrabold outline-none"
             style={{ color: accentColor }}
           />
         ) : (
-          value > 0
-            ? <button
-                onClick={() => onStartEditing(filterKey, value)}
-                title="Cliquer pour saisir une valeur"
-                className="text-[11px] font-black px-3 py-1 rounded-full transition-all hover:scale-105 hover:opacity-80 cursor-text"
-                style={{ color: accentColor, background: accentColor + '18' }}
-              >{value} {unit}</button>
-            : <button
-                onClick={() => onStartEditing(filterKey, value)}
-                title="Cliquer pour saisir une valeur"
-                className="text-[10px] font-bold text-slate-300 italic hover:text-slate-400 transition-colors cursor-text"
-              >Tous</button>
+          <button
+            onClick={() => onStartEditing(filterKey, value)}
+            title="Cliquer pour saisir une valeur"
+            className={`cursor-text rounded-full px-3 py-1 text-[10px] font-extrabold transition-opacity hover:opacity-70 ${
+              value > 0 ? 'bg-slate-100 text-[#1a5f7a]' : 'italic text-slate-300'
+            }`}
+            style={value > 0 ? { color: accentColor } : undefined}
+          >
+            {value > 0 ? `${value} ${unit}` : 'Tous'}
+          </button>
         )}
       </div>
-      <div className="px-1">
-        <input
-          type="range"
-          min={0} max={max || 10} step={1}
-          value={value}
-          onChange={e => setter(Number(e.target.value))}
-          className="w-full h-2 rounded-full appearance-none cursor-pointer"
-          style={{ background: track }}
-        />
-        <div className="flex justify-between text-[9px] font-bold text-slate-300 mt-1.5">
-          <span>Tous</span><span>{max || 10} {unit}</span>
-        </div>
+
+      <input
+        type="range"
+        aria-label={typeof unit === 'string' ? `Filtre ${filterKey}` : undefined}
+        min={0} max={max || 10} step={1}
+        value={value}
+        onChange={e => setter(Number(e.target.value))}
+        className="range-brut w-full"
+        style={{ background: track }}
+      />
+      <div className="flex justify-between text-[9px] font-bold text-slate-300">
+        <span>Tous</span><span>{max || 10} {unit}</span>
       </div>
+
       {value > 0 && (
-        <button onClick={() => setter(0)} className="text-[9px] font-black uppercase text-slate-300 hover:text-rose-400 transition-colors flex items-center gap-1 ml-1">
+        <button
+          onClick={() => setter(0)}
+          className="flex items-center gap-1 text-[9px] font-extrabold uppercase text-slate-300 transition-colors hover:text-rose-400"
+        >
           <X size={10} /> Réinitialiser
         </button>
       )}
@@ -84,17 +84,16 @@ function SliderFilter({ icon, filterKey, value, setter, max, unit, accentColor, 
 }
 
 function Catalogue() {
-  const navigate = useNavigate()
   const [jeux, setJeux] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedJeu, setSelectedJeu] = useState(null)
-  
+
   // État pour la description extensible
   const [isExpanded, setIsExpanded] = useState(false)
-  
+
   // États des Filtres
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedCategories, setSelectedCategories] = useState([]) 
+  const [selectedCategories, setSelectedCategories] = useState([])
   const [categoryInput, setCategoryInput] = useState("")
   const [selectedAge, setSelectedAge] = useState(0)
   const [selectedMinPlayers, setSelectedMinPlayers] = useState(0)
@@ -240,384 +239,372 @@ function Catalogue() {
   unMoisAvant.setMonth(unMoisAvant.getMonth() - 1)
   const isNouveau = (jeu) => jeu.created_at && new Date(jeu.created_at) > unMoisAvant
 
-  return (
-    <div className="min-h-screen bg-[#fdfaf6] text-slate-900 font-sans">
-      
-      <header className="bg-white border-b border-slate-100 sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigate('/')} className="shrink-0">
-              <img src="/logo-feuille.svg" alt="Ludothèque de Coligny" className="h-10" />
+  // Bloc de filtres réutilisé à l'identique en desktop et dans le tiroir mobile
+  const categoryField = (ref) => (
+    <div className="relative text-left" ref={ref}>
+      <label className="mb-2.5 flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#e38154]">
+        <Tag size={14} /> Catégories
+      </label>
+      <input
+        type="text"
+        placeholder="Ex : Stratégie..."
+        value={categoryInput}
+        onFocus={() => setShowSuggestions(true)}
+        onChange={(e) => setCategoryInput(e.target.value)}
+        className="w-full rounded-[16px] border-2 border-slate-200 bg-[#fdfaf6] px-4 py-3.5 text-[13px] font-bold outline-none focus:border-[#0f172a]"
+      />
+      {showSuggestions && suggestions.length > 0 && (
+        <div className="absolute z-[60] mt-2 max-h-48 w-full overflow-y-auto rounded-[18px] border-2 border-[#0f172a] bg-white p-2 shadow-[4px_4px_0_#1a5f7a]">
+          {suggestions.map(cat => (
+            <button
+              key={cat}
+              onClick={() => addCategory(cat)}
+              className="w-full rounded-xl px-4 py-2.5 text-left text-xs font-bold hover:bg-[#fdf1ea] hover:text-[#e38154]"
+            >
+              {cat}
             </button>
-            <button onClick={() => navigate('/')} className="flex items-center gap-2 text-slate-400 hover:text-[#1a5f7a] font-bold transition-colors text-xs uppercase tracking-widest">
-              <ArrowLeft size={16} /> <span>Retour à la page d'accueil</span>
-            </button>
-          </div>
-          {/* Texte central supprimé pour plus de clarté */}
-          <div className="w-10 md:w-20"></div>
+          ))}
         </div>
-      </header>
+      )}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {selectedCategories.map(cat => (
+          <span
+            key={cat}
+            className="flex items-center gap-2 rounded-full bg-[#1a5f7a] px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-[0.12em] text-white"
+          >
+            {cat}
+            <X size={12} className="cursor-pointer" onClick={() => removeCategory(cat)} />
+          </span>
+        ))}
+      </div>
+    </div>
+  )
 
-      <main className="max-w-6xl mx-auto px-4 md:px-8 py-4 md:py-12">
-        <div className="text-center mb-10">
-          {/* Titre modifié en "Notre Collection" */}
-          <h2 className="font-black text-3xl md:text-4xl text-slate-900 mb-8 tracking-tight uppercase">Notre Collection</h2>
-          
-          <div className="max-w-2xl mx-auto mb-8 relative">
-            <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300" />
-            <input
-              type="text"
-              placeholder="Rechercher par nom..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-16 pr-6 py-5 bg-white border border-slate-100 rounded-3xl shadow-sm focus:ring-4 focus:ring-[#1a5f7a]/5 outline-none font-bold text-lg"
-            />
-          </div>
+  const sliderProps = {
+    editingFilter,
+    editingValue,
+    setEditingValue,
+    onStartEditing: startEditing,
+    onCommit: commitEditingValue,
+    onCancelEditing: () => { setEditingFilter(null); setEditingValue('') },
+  }
 
-          <div className="hidden md:grid md:grid-cols-2 xl:grid-cols-4 gap-6 bg-white p-6 md:p-8 rounded-[2.5rem] shadow-xl border border-slate-50">
+  const sliders = (
+    <>
+      <SliderFilter
+        filterKey="age"
+        icon={<><Baby size={14} /><span>Âge minimum</span></>}
+        value={selectedAge} setter={setSelectedAge}
+        max={maxAge || 18} unit="ans" accentColor="#e38154"
+        {...sliderProps}
+      />
+      <SliderFilter
+        filterKey="minPlayers"
+        icon={<><Users size={14} /><span>Joueurs min</span></>}
+        value={selectedMinPlayers} setter={setSelectedMinPlayers}
+        max={maxMinPlayers || 8} unit="j." accentColor="#e38154"
+        {...sliderProps}
+      />
+      <SliderFilter
+        filterKey="maxPlayers"
+        icon={<><Users size={14} /><span>Joueurs max</span></>}
+        value={selectedMaxPlayers} setter={setSelectedMaxPlayers}
+        max={maxMaxPlayers || 10} unit="j." accentColor="#e38154"
+        {...sliderProps}
+      />
+    </>
+  )
 
-            {/* Catégories — inchangé */}
-            <div className="relative text-left md:col-span-2 xl:col-span-1" ref={suggestionRef}>
-              <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#e38154] mb-2 ml-2"><Tag size={14} /> Catégories</label>
+  return (
+    <PublicLayout>
+      <main className="px-4 pb-16 pt-8 md:px-10 md:pb-24 md:pt-12">
+        <div className="mx-auto max-w-[1180px]">
+          <div className="mb-8 text-center md:mb-11">
+            <h1 className="anim-soft-in mb-6 font-display text-[25px] font-extrabold uppercase leading-none tracking-[-0.045em] sm:text-[34px] md:text-[58px]">
+              <span className="inline-block -rotate-1 rounded-[16px] bg-[#1a5f7a] px-[0.16em] text-white">
+                Notre collection
+              </span>
+            </h1>
+
+            <div className="anim-soft-in relative mx-auto max-w-[640px]" style={{ animationDelay: '0.12s' }}>
+              <Search className="pointer-events-none absolute left-6 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-300" />
               <input
                 type="text"
-                placeholder="Ex: Stratégie..."
-                value={categoryInput}
-                onFocus={() => setShowSuggestions(true)}
-                onChange={(e) => setCategoryInput(e.target.value)}
-                className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl outline-none font-bold text-sm"
+                placeholder="Rechercher par nom..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full rounded-[22px] border-2 border-[#0f172a] bg-white py-5 pl-16 pr-6 text-[16px] font-bold text-[#0f172a] shadow-[5px_5px_0_#1a5f7a] outline-none placeholder:text-slate-300"
               />
-              {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute z-[60] top-full mt-2 w-full bg-white rounded-2xl shadow-2xl border border-slate-100 max-h-48 overflow-y-auto p-2">
-                  {suggestions.map(cat => (
-                    <button key={cat} onClick={() => addCategory(cat)} className="w-full text-left px-4 py-3 hover:bg-[#fdf2ee] hover:text-[#e38154] rounded-xl font-bold text-xs">{cat}</button>
-                  ))}
-                </div>
-              )}
-              <div className="flex flex-wrap gap-2 mt-3">
-                {selectedCategories.map(cat => (
-                  <span key={cat} className="flex items-center gap-2 px-3 py-1.5 bg-[#1a5f7a] text-white rounded-full text-[9px] font-black uppercase">
-                    {cat} <X size={12} className="cursor-pointer" onClick={() => removeCategory(cat)} />
-                  </span>
-                ))}
-              </div>
             </div>
-
-            <SliderFilter
-              filterKey="age"
-              icon={<><Baby size={14} /><span>Âge minimum</span></>}
-              value={selectedAge} setter={setSelectedAge}
-              max={maxAge || 18} unit="ans" accentColor="#1a5f7a"
-              editingFilter={editingFilter} editingValue={editingValue}
-              setEditingValue={setEditingValue}
-              onStartEditing={startEditing} onCommit={commitEditingValue} onCancelEditing={() => { setEditingFilter(null); setEditingValue('') }}
-            />
-            <SliderFilter
-              filterKey="minPlayers"
-              icon={<><Users size={14} className="text-[#1a5f7a]/60" /><span>Joueurs min</span></>}
-              value={selectedMinPlayers} setter={setSelectedMinPlayers}
-              max={maxMinPlayers || 8} unit="j." accentColor="#1a5f7a"
-              editingFilter={editingFilter} editingValue={editingValue}
-              setEditingValue={setEditingValue}
-              onStartEditing={startEditing} onCommit={commitEditingValue} onCancelEditing={() => { setEditingFilter(null); setEditingValue('') }}
-            />
-            <SliderFilter
-              filterKey="maxPlayers"
-              icon={<><Users size={14} className="text-[#e38154]/60" /><span>Joueurs max</span></>}
-              value={selectedMaxPlayers} setter={setSelectedMaxPlayers}
-              max={maxMaxPlayers || 10} unit="j." accentColor="#e38154"
-              editingFilter={editingFilter} editingValue={editingValue}
-              setEditingValue={setEditingValue}
-              onStartEditing={startEditing} onCommit={commitEditingValue} onCancelEditing={() => { setEditingFilter(null); setEditingValue('') }}
-            />
           </div>
 
-          <style>{`
-            input[type='range'] { -webkit-appearance: none; appearance: none; }
-            input[type='range']::-webkit-slider-thumb {
-              -webkit-appearance: none;
-              width: 20px; height: 20px;
-              border-radius: 50%;
-              background: white;
-              border: 3px solid #1a5f7a;
-              box-shadow: 0 2px 6px rgba(26,95,122,0.2);
-              cursor: pointer;
-              transition: transform 0.15s;
-            }
-            input[type='range']::-webkit-slider-thumb:hover { transform: scale(1.2); }
-            input[type='range']::-moz-range-thumb {
-              width: 20px; height: 20px; border-radius: 50%;
-              background: white; border: 3px solid #1a5f7a;
-              box-shadow: 0 2px 6px rgba(26,95,122,0.2); cursor: pointer;
-            }
-          `}</style>
-        </div>
+          {/* PANNEAU DE FILTRES — DESKTOP */}
+          <Reveal className="mb-9 hidden rounded-[34px] border-2 border-[#0f172a] bg-white p-6 shadow-[6px_6px_0_#e38154] md:grid md:grid-cols-2 md:gap-7 xl:grid-cols-4 md:p-8">
+            {categoryField(suggestionRef)}
+            {sliders}
+          </Reveal>
 
-        {/* BOUTON FILTRES — MOBILE UNIQUEMENT */}
-        <button onClick={() => setShowFilters(true)}
-          className="md:hidden fixed bottom-6 right-6 z-40 flex items-center gap-2 px-5 py-3.5 bg-[#1a5f7a] text-white rounded-full shadow-2xl font-black uppercase text-[10px] tracking-widest">
-          <SlidersHorizontal size={16} />
-          Filtres
-          {activeFiltersCount > 0 && (
-            <span className="bg-[#e38154] text-white rounded-full w-5 h-5 flex items-center justify-center text-[9px] font-black">
-              {activeFiltersCount}
-            </span>
-          )}
-        </button>
+          {/* BOUTON FILTRES — MOBILE UNIQUEMENT */}
+          <button
+            onClick={() => setShowFilters(true)}
+            className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full border-2 border-[#0f172a] bg-[#1a5f7a] px-5 py-3.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-white shadow-[4px_4px_0_#0f172a] md:hidden"
+          >
+            <SlidersHorizontal size={16} />
+            Filtres
+            {activeFiltersCount > 0 && (
+              <span className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-[#0f172a] bg-[#e38154] text-[9px] font-extrabold text-white">
+                {activeFiltersCount}
+              </span>
+            )}
+          </button>
 
-        {/* DRAWER FILTRES — MOBILE UNIQUEMENT */}
-        <div className={`md:hidden fixed inset-0 z-50 transition-opacity duration-300 ${showFilters ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowFilters(false)} />
-          {/* Drawer */}
-          <div className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-[2.5rem] max-h-[85vh] overflow-y-auto transition-transform duration-300 ${showFilters ? 'translate-y-0' : 'translate-y-full'}`}>
-            {/* Handle */}
-            <div className="flex justify-center pt-3 pb-2">
-              <div className="w-10 h-1 bg-slate-200 rounded-full" />
-            </div>
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 pb-4">
-              <h3 className="font-black text-lg text-slate-900">Filtres</h3>
-              <button onClick={() => setShowFilters(false)}><X size={20} /></button>
-            </div>
-
-            {/* Contenu filtres — mêmes composants que desktop */}
-            <div className="px-6 pb-6 space-y-6">
-              {/* Catégories */}
-              <div className="relative text-left" ref={drawerSuggestionRef}>
-                <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#e38154] mb-2 ml-2"><Tag size={14} /> Catégories</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Stratégie..."
-                  value={categoryInput}
-                  onFocus={() => setShowSuggestions(true)}
-                  onChange={(e) => setCategoryInput(e.target.value)}
-                  className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl outline-none font-bold text-sm"
-                />
-                {showSuggestions && suggestions.length > 0 && (
-                  <div className="relative z-[60] mt-2 w-full bg-white rounded-2xl shadow-2xl border border-slate-100 max-h-48 overflow-y-auto p-2">
-                    {suggestions.map(cat => (
-                      <button key={cat} onClick={() => addCategory(cat)} className="w-full text-left px-4 py-3 hover:bg-[#fdf2ee] hover:text-[#e38154] rounded-xl font-bold text-xs">{cat}</button>
-                    ))}
-                  </div>
-                )}
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {selectedCategories.map(cat => (
-                    <span key={cat} className="flex items-center gap-2 px-3 py-1.5 bg-[#1a5f7a] text-white rounded-full text-[9px] font-black uppercase">
-                      {cat} <X size={12} className="cursor-pointer" onClick={() => removeCategory(cat)} />
-                    </span>
-                  ))}
-                </div>
+          {/* TIROIR FILTRES — MOBILE UNIQUEMENT */}
+          <div className={`fixed inset-0 z-50 transition-opacity duration-300 md:hidden ${showFilters ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`}>
+            <div className="absolute inset-0 bg-[#0f172a]/40" onClick={() => setShowFilters(false)} />
+            <div className={`absolute bottom-0 left-0 right-0 max-h-[85vh] overflow-y-auto rounded-t-[2.5rem] border-t-2 border-[#0f172a] bg-white transition-transform duration-300 ${showFilters ? 'translate-y-0' : 'translate-y-full'}`}>
+              <div className="flex justify-center pb-2 pt-3">
+                <div className="h-1 w-10 rounded-full bg-slate-200" />
+              </div>
+              <div className="flex items-center justify-between px-6 pb-4">
+                <h2 className="font-display text-lg font-extrabold tracking-[-0.03em]">Filtres</h2>
+                <button onClick={() => setShowFilters(false)} aria-label="Fermer les filtres"><X size={20} /></button>
               </div>
 
-              <SliderFilter
-                filterKey="age"
-                icon={<><Baby size={14} /><span>Âge minimum</span></>}
-                value={selectedAge} setter={setSelectedAge}
-                max={maxAge || 18} unit="ans" accentColor="#1a5f7a"
-                editingFilter={editingFilter} editingValue={editingValue}
-                setEditingValue={setEditingValue}
-                onStartEditing={startEditing} onCommit={commitEditingValue} onCancelEditing={() => { setEditingFilter(null); setEditingValue('') }}
-              />
-              <SliderFilter
-                filterKey="minPlayers"
-                icon={<><Users size={14} className="text-[#1a5f7a]/60" /><span>Joueurs min</span></>}
-                value={selectedMinPlayers} setter={setSelectedMinPlayers}
-                max={maxMinPlayers || 8} unit="j." accentColor="#1a5f7a"
-                editingFilter={editingFilter} editingValue={editingValue}
-                setEditingValue={setEditingValue}
-                onStartEditing={startEditing} onCommit={commitEditingValue} onCancelEditing={() => { setEditingFilter(null); setEditingValue('') }}
-              />
-              <SliderFilter
-                filterKey="maxPlayers"
-                icon={<><Users size={14} className="text-[#e38154]/60" /><span>Joueurs max</span></>}
-                value={selectedMaxPlayers} setter={setSelectedMaxPlayers}
-                max={maxMaxPlayers || 10} unit="j." accentColor="#e38154"
-                editingFilter={editingFilter} editingValue={editingValue}
-                setEditingValue={setEditingValue}
-                onStartEditing={startEditing} onCommit={commitEditingValue} onCancelEditing={() => { setEditingFilter(null); setEditingValue('') }}
-              />
-            </div>
+              <div className="space-y-6 px-6 pb-6">
+                {categoryField(drawerSuggestionRef)}
+                {sliders}
+              </div>
 
-            {/* Footer avec boutons */}
-            <div className="sticky bottom-0 bg-white p-6 border-t border-slate-100 flex gap-3">
-              <button onClick={resetFilters}
-                className="flex-1 py-3.5 bg-slate-100 rounded-2xl font-black uppercase text-[10px] tracking-widest text-slate-500">
-                Réinitialiser
-              </button>
-              <button onClick={() => setShowFilters(false)}
-                className="flex-1 py-3.5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest">
-                Voir les résultats ({filteredJeux.length})
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* SÉPARATEUR NOUVEAUTÉS */}
-        {filteredJeux.some(isNouveau) && (
-          <div className="mb-6">
-            <div className="flex items-center gap-3 mb-6">
-              <span className="px-4 py-1.5 bg-[#e38154] text-white text-[9px] font-black uppercase tracking-widest rounded-full">✦ Nouveautés</span>
-              <div className="flex-1 h-px bg-slate-100"></div>
-              <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Ajoutés ce dernier mois</span>
-            </div>
-          </div>
-        )}
-
-        {/* GRILLE */}
-        {loading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
-          </div>
-        )}
-
-        {!loading && <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-          {filteredJeux.map((jeu, index) => {
-            // Détecter la transition nouveaux → anciens pour insérer un séparateur
-            const prevJeu = filteredJeux[index - 1]
-            const showOldSeparator = index > 0 && !isNouveau(jeu) && isNouveau(prevJeu)
-            return (
-              <>
-                {showOldSeparator && (
-                  <div key={`sep-${jeu.id}`} className="col-span-full flex items-center gap-3 my-2">
-                    <div className="flex-1 h-px bg-slate-100"></div>
-                    <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Collection complète</span>
-                    <div className="flex-1 h-px bg-slate-100"></div>
-                  </div>
-                )}
-                <div 
-                  key={jeu.id} 
-                  onClick={() => openModale(jeu)}
-                  className="group bg-white rounded-[2.5rem] shadow-sm overflow-hidden border border-slate-50 transition-all hover:shadow-2xl hover:-translate-y-2 cursor-pointer flex flex-col"
+              <div className="sticky bottom-0 flex gap-3 border-t-2 border-slate-100 bg-white p-6">
+                <button
+                  onClick={resetFilters}
+                  className="flex-1 rounded-2xl border-2 border-[#0f172a] bg-slate-100 py-3.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500"
                 >
-                  {/* Zone image — fond slate-50 comme placeholder pendant le chargement */}
-                  <div className="h-56 w-full bg-slate-50 relative flex items-center justify-center p-6">
-                    {jeu.image_url ? (
-                      <img
-                        src={jeu.image_url}
-                        alt={jeu.name}
-                        loading="lazy"
-                        decoding="async"
-                        onLoad={e => e.currentTarget.classList.add('opacity-100')}
-                        className="relative z-10 max-w-full max-h-full object-contain transition-all duration-500 opacity-0 group-hover:scale-110"
-                      />
-                    ) : ( <Dice5 size={64} className="text-slate-100" /> )}
-                    <div className="absolute top-4 left-4 z-20 flex flex-col gap-1.5">
-                      <span className="bg-[#1a5f7a] text-white px-3 py-1 rounded-full text-[9px] font-black uppercase">{jeu.min_age || '3'}+ ans</span>
-                      {isNouveau(jeu) && (
-                        <span className="bg-[#e38154] text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg">✦ Nouveau</span>
-                      )}
-                    </div>
-                    <div className="absolute top-4 right-4 z-20">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${jeu.is_available ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}`}>
-                        {jeu.is_available ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-                      </div>
-                    </div>
-                  </div>
+                  Réinitialiser
+                </button>
+                <button
+                  onClick={() => setShowFilters(false)}
+                  className="flex-1 rounded-2xl border-2 border-[#0f172a] bg-[#1a5f7a] py-3.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-white"
+                >
+                  Voir les résultats ({filteredJeux.length})
+                </button>
+              </div>
+            </div>
+          </div>
 
-                  <div className="p-8 flex-grow border-t border-slate-50">
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {jeu.category?.split(',').map((cat, i) => (
-                        <span key={i} className="text-[7px] font-black text-[#e38154] uppercase bg-[#fdf2ee] px-2 py-1 rounded-md">{cat.trim()}</span>
-                      ))}
-                    </div>
-                    <h2 className="text-lg font-black text-slate-900 mb-4 group-hover:text-[#1a5f7a] transition-colors line-clamp-2 uppercase">{jeu.name}</h2>
-                    <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400">
-                      <span className="flex items-center gap-1.5"><Users size={14} className="text-[#1a5f7a]/30"/> {jeu.min_players}-{jeu.max_players}</span>
-                      <span className="flex items-center gap-1.5"><Clock size={14} className="text-[#1a5f7a]/30"/> {jeu.duration || '--'}'</span>
-                    </div>
-                  </div>
+          {/* SÉPARATEUR NOUVEAUTÉS */}
+          {filteredJeux.some(isNouveau) && (
+            <Reveal className="mb-5 flex items-center gap-3">
+              <span className="rounded-full border-2 border-[#0f172a] bg-[#e38154] px-4 py-1.5 text-[9px] font-extrabold uppercase tracking-[0.16em] text-white">
+                ✦ Nouveautés
+              </span>
+              <div className="h-0.5 flex-1 bg-slate-100" />
+              <span className="hidden text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-300 sm:inline">
+                Ajoutés ce dernier mois
+              </span>
+            </Reveal>
+          )}
+
+          {/* GRILLE */}
+          {loading ? (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="animate-pulse rounded-[30px] border-2 border-slate-200 bg-white p-5">
+                  <div className="mb-4 h-44 rounded-[20px] bg-slate-100" />
+                  <div className="mb-2 h-4 w-3/4 rounded-full bg-slate-100" />
+                  <div className="h-3 w-1/2 rounded-full bg-slate-100" />
                 </div>
-              </>
-            )
-          })}
-        </div>}
+              ))}
+            </div>
+          ) : filteredJeux.length === 0 ? (
+            <div className="rounded-[30px] border-2 border-dashed border-[#0f172a]/30 bg-white py-14 text-center">
+              <Dice5 size={40} className="mx-auto mb-4 text-slate-200" />
+              <p className="italic text-slate-400">Aucun jeu ne correspond à votre recherche.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredJeux.map((jeu, index) => {
+                // Détecter la transition nouveaux → anciens pour insérer un séparateur
+                const prevJeu = filteredJeux[index - 1]
+                const showOldSeparator = index > 0 && !isNouveau(jeu) && isNouveau(prevJeu)
+                return (
+                  <Fragment key={jeu.id}>
+                    {showOldSeparator && (
+                      <div className="col-span-full my-2 flex items-center gap-3">
+                        <div className="h-0.5 flex-1 bg-slate-100" />
+                        <span className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-300">
+                          Collection complète
+                        </span>
+                        <div className="h-0.5 flex-1 bg-slate-100" />
+                      </div>
+                    )}
+                    <Reveal
+                      as="button"
+                      delay={(index % 3) * 90}
+                      onClick={() => openModale(jeu)}
+                      className="group flex flex-col overflow-hidden rounded-[30px] border-2 border-[#0f172a] bg-white text-left shadow-[5px_5px_0_#1a5f7a] transition-[transform,box-shadow] duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#1a5f7a]"
+                    >
+                      <div className="relative flex h-[190px] items-center justify-center border-b-2 border-[#0f172a] bg-[#fdfaf6] p-6">
+                        {jeu.image_url ? (
+                          <img
+                            src={jeu.image_url}
+                            alt={jeu.name}
+                            loading="lazy"
+                            decoding="async"
+                            className="max-h-full max-w-full object-contain transition-transform duration-500 group-hover:scale-105"
+                          />
+                        ) : (
+                          <Dice5 size={56} className="text-slate-200" />
+                        )}
+
+                        <div className="absolute left-3 top-3 flex flex-col items-start gap-1.5">
+                          <span className="rounded-full border-2 border-[#0f172a] bg-[#1a5f7a] px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-[0.1em] text-white">
+                            {jeu.min_age || '3'}+ ans
+                          </span>
+                          {isNouveau(jeu) && (
+                            <span className="rounded-full border-2 border-[#0f172a] bg-[#e38154] px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-[0.12em] text-white">
+                              ✦ Nouveau
+                            </span>
+                          )}
+                        </div>
+
+                        <span
+                          className="absolute right-3 top-3 rounded-full border-2 border-[#0f172a] px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-[0.1em] text-white"
+                          style={{ background: jeu.is_available ? '#10b981' : '#f43f5e' }}
+                        >
+                          {jeu.is_available ? 'Dispo' : 'En prêt'}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-1 flex-col gap-2.5 p-5">
+                        <div className="flex flex-wrap gap-1.5">
+                          {jeu.category?.split(',').map((cat, i) => (
+                            <span key={i} className="rounded-lg bg-[#fdf1ea] px-2 py-1 text-[8px] font-extrabold uppercase tracking-[0.1em] text-[#e38154]">
+                              {cat.trim()}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="font-display text-[19px] font-extrabold uppercase leading-[1.15] tracking-[-0.03em]">
+                          {jeu.name}
+                        </div>
+                        <div className="mt-auto flex gap-4 pt-1 text-[11px] font-bold text-slate-400">
+                          <span className="flex items-center gap-1.5"><Users size={13} /> {jeu.min_players}-{jeu.max_players} joueurs</span>
+                          <span className="flex items-center gap-1.5"><Clock size={13} /> {jeu.duration || '--'} min</span>
+                        </div>
+                      </div>
+                    </Reveal>
+                  </Fragment>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </main>
 
       {/* MODALE */}
-      {selectedJeu && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4">
-          <div className="absolute inset-0 bg-[#1a5f7a]/90 backdrop-blur-sm" onClick={() => setSelectedJeu(null)}></div>
-          
-          <div className="relative bg-white w-full sm:max-w-4xl max-h-[90vh] overflow-y-auto rounded-[3rem] shadow-2xl flex flex-col md:flex-row border-b-8 border-[#e38154]">
-            <button onClick={() => setSelectedJeu(null)} className="absolute top-6 right-6 p-2 bg-slate-50 text-[#1a5f7a] hover:bg-[#e38154] hover:text-white rounded-full z-30 transition-all"><X size={20} /></button>
-
-            {/* Zone image modale — pas de lazy (prioritaire après clic) */}
-            <div className="md:w-1/2 bg-white flex items-center justify-center p-8 md:p-12 min-h-[300px]">
+      <Modal
+        open={!!selectedJeu}
+        onClose={() => setSelectedJeu(null)}
+        title={selectedJeu?.name}
+        maxWidth={860}
+        scroll
+        strip
+      >
+        {selectedJeu && (
+          <div className="grid grid-cols-1 md:grid-cols-2">
+            <div className="flex min-h-[220px] items-center justify-center border-b-2 border-[#0f172a] bg-[#fdfaf6] p-8 md:min-h-[280px] md:border-b-0 md:border-r-2">
               {selectedJeu.image_url ? (
                 <img
                   src={selectedJeu.image_url}
                   alt={selectedJeu.name}
                   decoding="async"
-                  onLoad={e => e.currentTarget.classList.add('opacity-100')}
-                  className="object-contain max-h-72 w-auto transition-opacity duration-500 opacity-0"
+                  className="max-h-64 w-auto object-contain"
                 />
-              ) : ( <Dice5 size={80} className="text-slate-100" /> )}
+              ) : (
+                <Dice5 size={72} className="text-slate-200" />
+              )}
             </div>
 
-            <div className="p-8 md:p-12 md:w-1/2 flex flex-col">
-              <div className="mb-4 flex flex-wrap gap-2">
+            <div className="p-6 md:p-9">
+              <div className="mb-3.5 flex flex-wrap gap-[7px]">
                 {isNouveau(selectedJeu) && (
-                  <span className="px-3 py-1 bg-[#e38154] text-white text-[9px] font-black uppercase rounded-full tracking-widest">✦ Nouveau</span>
+                  <span className="rounded-full border-2 border-[#0f172a] bg-[#e38154] px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-[0.12em] text-white">
+                    ✦ Nouveau
+                  </span>
                 )}
                 {selectedJeu.category?.split(',').map((cat, i) => (
-                  <span key={i} className="px-3 py-1 bg-[#fdf2ee] text-[#e38154] text-[9px] font-black uppercase rounded-full">{cat.trim()}</span>
+                  <span key={i} className="rounded-full bg-[#fdf1ea] px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-[0.12em] text-[#e38154]">
+                    {cat.trim()}
+                  </span>
                 ))}
               </div>
-              <h2 className="text-3xl font-black text-slate-900 mb-6 uppercase leading-tight">{selectedJeu.name}</h2>
-              <div className="grid grid-cols-3 gap-3 mb-8">
-                <div className="p-4 bg-slate-50 rounded-2xl text-center">
-                  <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Joueurs</span>
-                  <span className="text-sm font-black text-[#1a5f7a]">{selectedJeu.min_players}-{selectedJeu.max_players}</span>
-                </div>
-                <div className="p-4 bg-[#f0f7f9] rounded-2xl text-center">
-                  <span className="text-[9px] font-black text-[#1a5f7a]/60 uppercase block mb-1">Âge</span>
-                  <span className="text-sm font-black text-[#1a5f7a]">{selectedJeu.min_age || '3'}+</span>
-                </div>
-                <div className="p-4 bg-slate-50 rounded-2xl text-center">
-                  <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Temps</span>
-                  <span className="text-sm font-black text-[#1a5f7a]">{selectedJeu.duration || '--'}'</span>
-                </div>
+
+              <h2 className="mb-5 font-display text-[24px] font-extrabold uppercase leading-[1.05] tracking-[-0.04em] md:text-[32px]">
+                {selectedJeu.name}
+              </h2>
+
+              <div className="mb-6 grid grid-cols-3 gap-2.5">
+                {[
+                  { label: 'Joueurs', value: `${selectedJeu.min_players}-${selectedJeu.max_players}`, tint: '#fdfaf6' },
+                  { label: 'Âge', value: `${selectedJeu.min_age || '3'}+`, tint: '#f0f7f9' },
+                  { label: 'Temps', value: `${selectedJeu.duration || '--'}'`, tint: '#fdfaf6' },
+                ].map(stat => (
+                  <div
+                    key={stat.label}
+                    className="rounded-[18px] border-2 border-[#0f172a] px-2.5 py-3.5 text-center"
+                    style={{ background: stat.tint }}
+                  >
+                    <div className="text-[8.5px] font-extrabold uppercase tracking-[0.12em] text-slate-400">
+                      {stat.label}
+                    </div>
+                    <div className="mt-[5px] font-display text-[17px] font-extrabold text-[#1a5f7a]">
+                      {stat.value}
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              {/* DESCRIPTION AVEC "VOIR PLUS" ET RESPECT DES SAUTS DE LIGNE */}
-              <div className="mb-8 flex-grow">
-                <h4 className="text-[10px] font-black text-[#e38154] uppercase tracking-[0.2em] mb-3">Description</h4>
-                <div className="relative">
-                  {/* Ajout de whitespace-pre-wrap pour les retours à la ligne */}
-                  <p className={`text-slate-500 leading-relaxed font-medium italic text-sm whitespace-pre-wrap ${!isExpanded ? 'line-clamp-6' : ''}`}>
-                    {selectedJeu.description || "Aucune description disponible."}
-                  </p>
-                  {selectedJeu.description && selectedJeu.description.length > 120 && (
-                    <button 
-                      onClick={() => setIsExpanded(!isExpanded)}
-                      className="mt-2 flex items-center gap-1 text-[#e38154] text-[10px] font-black uppercase hover:underline"
-                    >
-                      {isExpanded ? (
-                        <>Voir moins <ChevronUp size={14} /></>
-                      ) : (
-                        <>Lire la suite <ChevronDown size={14} /></>
-                      )}
-                    </button>
-                  )}
-                </div>
+              <div className="mb-2.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#e38154]">
+                Description
+              </div>
+              <p className={`whitespace-pre-wrap text-sm font-medium italic leading-[1.65] text-slate-500 ${!isExpanded ? 'line-clamp-6' : ''}`}>
+                {selectedJeu.description || "Aucune description disponible."}
+              </p>
+              {selectedJeu.description && selectedJeu.description.length > 120 && (
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="mt-2 flex items-center gap-1 text-[10px] font-extrabold uppercase text-[#e38154] hover:underline"
+                >
+                  {isExpanded ? <>Voir moins <ChevronUp size={14} /></> : <>Lire la suite <ChevronDown size={14} /></>}
+                </button>
+              )}
+
+              <div
+                className="mb-3.5 mt-5 rounded-[16px] border-2 border-[#0f172a] p-3.5 text-center text-[10px] font-extrabold uppercase tracking-[0.16em]"
+                style={
+                  selectedJeu.is_available
+                    ? { background: '#ecfdf5', color: '#047857' }
+                    : { background: '#fff1f2', color: '#be123c' }
+                }
+              >
+                {selectedJeu.is_available ? 'Disponible' : 'En prêt'}
               </div>
 
-              <div className={`mb-6 py-3 text-center rounded-xl font-black uppercase text-[10px] border ${selectedJeu.is_available ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-rose-50 border-rose-100 text-rose-600'}`}>
-                 {selectedJeu.is_available ? "Disponible" : "En prêt"}
-              </div>
               {selectedJeu.youtube_url && (
-                <a href={selectedJeu.youtube_url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-3 w-full py-5 bg-[#1a5f7a] hover:bg-[#e38154] text-white rounded-2xl font-black uppercase text-[11px] transition-all shadow-xl">
-                  <PlayCircle size={20} /> Vidéo des règles
+                <a
+                  href={selectedJeu.youtube_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${BTN_TEAL} w-full`}
+                >
+                  <PlayCircle size={18} /> Vidéo des règles
                 </a>
               )}
             </div>
           </div>
-        </div>
-      )}
-
-      <Footer />
-    </div>
+        )}
+      </Modal>
+    </PublicLayout>
   )
 }
 

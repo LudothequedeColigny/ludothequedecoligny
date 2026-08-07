@@ -30,6 +30,42 @@ import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverla
 import { sendEmail } from '../../services/emailService'
 import { useToast } from '../../components/ToastContext'
 import { SkeletonRow } from '../../components/Skeleton'
+import AdminPageHeader from '../../components/admin/AdminPageHeader'
+import AdminBanner from '../../components/admin/AdminBanner'
+import SearchField from '../../components/admin/SearchField'
+import IconButton from '../../components/admin/IconButton'
+import ConfirmModal from '../../components/admin/ConfirmModal'
+import FormModal, { FieldLabel, FIELD } from '../../components/admin/FormModal'
+import { BTN_ORANGE, BTN_INK } from '../../components/admin/buttons'
+
+/**
+ * Rappel de l'état du jeu au moment où il est parti : soit les remarques notées
+ * avant le prêt, soit la mention qu'il n'y en avait aucune.
+ */
+function ObservationsPanel({ game }: { game: any }) {
+  if (game?.observations) {
+    return (
+      <div className="mb-6 rounded-[18px] border-2 border-[#f59e0b] bg-[#fffbeb] p-4 text-left">
+        <div className="mb-2 flex items-center gap-2">
+          <AlertTriangle size={14} className="shrink-0 text-[#f59e0b]" />
+          <span className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#b45309]">Observations avant prêt</span>
+        </div>
+        <p className="text-xs font-medium leading-relaxed text-[#92400e]">{game.observations}</p>
+      </div>
+    )
+  }
+  return (
+    <div className="mb-6 rounded-[18px] border-2 border-[#10b981] bg-[#ecfdf5] p-4 text-left">
+      <div className="flex items-center gap-2">
+        <CheckCircle size={14} className="shrink-0 text-[#10b981]" />
+        <span className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#047857]">Aucune observation enregistrée</span>
+      </div>
+      <p className="mt-1 text-[10.5px] font-medium leading-relaxed text-[#047857]">
+        Le jeu était en bon état au départ — tout composant manquant est imputable à l'emprunteur.
+      </p>
+    </div>
+  )
+}
 
 
 const PRETS_TUTORIAL_STEPS = (openForm, closeForm, openRelance) => [
@@ -655,92 +691,90 @@ www.ludothequedecoligny.fr`
     <div className="p-4 md:p-10 bg-[#fdfaf6] min-h-screen font-sans text-slate-900">
 
       {/* HEADER */}
-      <div className="max-w-7xl mx-auto mb-6 md:mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h1 data-tutorial="prets-header" className="text-xl md:text-4xl font-black text-slate-900 flex items-center gap-3">
-          <div className="p-2.5 bg-[#1a5f7a] rounded-xl shadow-lg text-white">
-            <Share2 size={24} />
+      <div className="mx-auto max-w-7xl" data-tutorial="prets-header">
+        <AdminPageHeader icon="03.svg" title="Gestion des" accent="Prêts" eyebrow="Sorties et retours">
+          <div className="flex flex-wrap gap-2.5">
+            <button
+              data-tutorial="prets-scanner-btn"
+              onClick={() => { setScannedGamesForLoan([]); setShowScanner(true) }}
+              className={BTN_INK}
+            >
+              <ScanLine size={16} /> Scan rapide
+            </button>
+            <button data-tutorial="prets-add-btn" onClick={openNewLoan} className={BTN_ORANGE}>
+              <Plus size={16} /> Nouveau prêt
+            </button>
           </div>
-          <span>Gestion des <span className="text-[#1a5f7a]">Prêts</span></span>
-        </h1>
-
-        <div className="flex gap-2">
-          <button
-            data-tutorial="prets-scanner-btn"
-            onClick={() => { setScannedGamesForLoan([]); setShowScanner(true) }}
-            className="px-6 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl flex items-center gap-2"
-          >
-            <ScanLine size={16} /> Scan Rapide
-          </button>
-          <button
-            data-tutorial="prets-add-btn"
-            onClick={openNewLoan}
-            className="px-6 py-4 bg-[#e38154] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl"
-          >
-            Nouveau Prêt
-          </button>
-        </div>
+        </AdminPageHeader>
       </div>
 
-      <main className="max-w-7xl mx-auto space-y-6">
+      <main className="mx-auto max-w-7xl">
 
         {overdueLoansCount > 0 && (
-          <div className="flex items-center gap-3 bg-rose-50 border border-rose-100 p-4 rounded-2xl text-rose-800 animate-in fade-in slide-in-from-top-2">
-            <AlertTriangle className="text-rose-500 shrink-0 animate-bounce" size={20} />
-            <p className="text-[10px] md:text-xs font-black uppercase tracking-wider">
-              Attention : {overdueLoansCount} prêt(s) en retard !
-            </p>
-          </div>
+          <AdminBanner tone="danger" pulse>
+            Attention : {overdueLoansCount} prêt{overdueLoansCount > 1 ? 's' : ''} en retard !
+          </AdminBanner>
         )}
 
-        <div data-tutorial="prets-search" className="relative group">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-          <input
-            type="text"
-            placeholder="Rechercher par adhérent ou jeu..."
-            className="w-full bg-white border border-slate-100 p-4 pl-14 rounded-2xl font-bold text-slate-700 outline-none shadow-sm focus:ring-2 focus:ring-[#1a5f7a]/10 transition-all"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
+        <SearchField
+          data-tutorial="prets-search"
+          className="mb-6"
+          placeholder="Rechercher par adhérent ou jeu..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
 
-        {/* VERSION MOBILE */}
-        <div className="md:hidden space-y-4">
+        {/* VERSION MOBILE — une carte par prêt */}
+        <div className="space-y-4 md:hidden">
           {filteredLoans.map((l) => {
             const late = isOverdue(l.loan_date)
             return (
-              <div key={l.id} className={`bg-white p-5 rounded-[2rem] shadow-sm border ${late ? 'border-rose-200 bg-rose-50/20' : 'border-slate-50'}`}>
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-black text-[#1a5f7a] bg-cyan-50 px-2 py-0.5 rounded-md">#{l.games?.registration_number}</span>
-                      <span className={`text-[10px] font-black uppercase ${late ? 'text-rose-600' : 'text-slate-400'}`}>
+              <div
+                key={l.id}
+                className={`rounded-[28px] border-2 border-[#0f172a] p-5 ${
+                  late ? 'bg-[#fff1f2] shadow-[5px_5px_0_#f43f5e]' : 'bg-white shadow-[5px_5px_0_#1a5f7a]'
+                }`}
+              >
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border-2 border-[#0f172a] bg-[#f0f7f9] px-2.5 py-0.5 text-[10px] font-extrabold text-[#1a5f7a]">
+                        #{l.games?.registration_number}
+                      </span>
+                      <span className={`text-[10px] font-extrabold uppercase tracking-[0.08em] ${late ? 'text-[#be123c]' : 'text-slate-400'}`}>
                         Sortie le {new Date(l.loan_date).toLocaleDateString()}
                       </span>
                     </div>
-                    <h3 className="font-black text-slate-900 uppercase text-xs leading-tight mb-1">{l.games?.name}</h3>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">
+                    <h3 className="font-display text-[17px] font-extrabold leading-tight tracking-[-0.03em] text-[#0f172a]">
+                      {l.games?.name}
+                    </h3>
+                    <p className="mt-1 text-[11px] font-bold text-slate-500">
                       Emprunteur : {l.members?.last_name} {l.members?.first_name}
                     </p>
                   </div>
-                  {late && <AlertTriangle size={18} className="text-rose-500 animate-pulse shrink-0" />}
+                  {late && <AlertTriangle size={18} className="shrink-0 text-[#f43f5e]" />}
                 </div>
-                <div className="flex gap-2 pt-2">
+                <div className="flex gap-2">
                   <button
                     onClick={() => setConfirmAction({ type: 'return', loan: l })}
-                    className={`flex-[2] py-4 rounded-xl text-[9px] font-black uppercase text-white shadow-md flex items-center justify-center gap-2 ${late ? 'bg-rose-500' : 'bg-emerald-500'}`}
+                    className={`flex flex-[2] items-center justify-center gap-2 rounded-[14px] border-2 border-[#0f172a] py-3.5 text-[9px] font-extrabold uppercase tracking-[0.12em] text-white shadow-[3px_3px_0_#0f172a] ${
+                      late ? 'bg-[#f43f5e]' : 'bg-[#10b981]'
+                    }`}
                   >
                     <CheckCircle size={14} /> Retour
                   </button>
                   <button
                     onClick={() => setConfirmAction({ type: 'extend', loan: l })}
-                    className="flex-1 py-4 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center shadow-sm"
+                    title="Prolonger"
+                    className="flex flex-1 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fffbeb] py-3.5 text-[#b45309]"
                   >
                     <Clock size={16} />
                   </button>
                   {late && (
                     <button
                       onClick={() => setRenewalAction(l)}
-                      className="flex-1 py-4 bg-[#1a5f7a] text-white rounded-xl flex items-center justify-center shadow-md"
+                      title="Relancer"
+                      className="flex flex-1 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fff1f2] py-3.5 text-[#be123c]"
                     >
                       <Send size={16} />
                     </button>
@@ -752,61 +786,61 @@ www.ludothequedecoligny.fr`
         </div>
 
         {/* VERSION ORDINATEUR */}
-        <div className="hidden md:block bg-white rounded-[2.5rem] shadow-sm border border-slate-50 overflow-x-auto">
+        <div className="hidden overflow-hidden rounded-[34px] border-2 border-[#0f172a] bg-white shadow-[6px_6px_0_#1a5f7a] md:block">
           <table className="w-full text-left">
-            <thead className="bg-slate-50 text-[10px] uppercase text-slate-400 font-black">
+            <thead className="border-b-2 border-[#0f172a] bg-[#fdfaf6] text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
               <tr>
-                <th className="p-8">Date Sortie</th>
-                <th className="p-8">Emprunteur</th>
-                <th className="p-8">Jeu emprunté</th>
-                <th className="p-8 text-right pr-12">Gestion</th>
+                <th className="px-6 py-[18px]">Date sortie</th>
+                <th className="px-6 py-[18px]">Emprunteur</th>
+                <th className="px-6 py-[18px]">Jeu emprunté</th>
+                <th className="w-[268px] px-6 py-[18px] text-right">Gestion</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-slate-100">
               {loading ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />) : filteredLoans.map((l, idx) => {
                 const late = isOverdue(l.loan_date)
                 return (
-                  <tr key={l.id} {...(idx === 0 ? {"data-tutorial": "prets-list-row1"} : idx === 1 ? {"data-tutorial": "prets-list-row2"} : {})} className={`transition-colors ${late ? 'bg-rose-50/40 hover:bg-rose-50/60' : 'hover:bg-slate-50/50'}`}>
-                    <td className={`p-8 font-black ${late ? 'text-rose-600' : 'text-[#1a5f7a]'}`}>
+                  <tr key={l.id} {...(idx === 0 ? {"data-tutorial": "prets-list-row1"} : idx === 1 ? {"data-tutorial": "prets-list-row2"} : {})} className={late ? 'bg-[#fff1f2]' : ''}>
+                    <td className={`px-6 py-5 font-display text-[15px] font-extrabold ${late ? 'text-[#be123c]' : 'text-[#1a5f7a]'}`}>
                       {new Date(l.loan_date).toLocaleDateString()}
                     </td>
-                    <td className="p-8">
-                      <div className={`font-black uppercase text-sm ${late ? 'text-rose-900' : 'text-slate-900'}`}>
-                        {l.members?.last_name} {l.members?.first_name}
-                      </div>
+                    <td className="px-6 py-5 text-[13px] font-extrabold uppercase tracking-[-0.01em] text-[#0f172a]">
+                      {l.members?.last_name} {l.members?.first_name}
                     </td>
-                    <td className="p-8">
-                      <div className="text-sm font-bold text-slate-700">
-                        <span className="text-[#1a5f7a] mr-2 font-black">#{l.games?.registration_number}</span>
-                        {l.games?.name}
-                      </div>
+                    <td className="px-6 py-5 text-[13px] font-semibold text-slate-600">
+                      <span className="mr-2 font-extrabold text-[#1a5f7a]">#{l.games?.registration_number}</span>
+                      {l.games?.name}
                     </td>
-                    <td className="p-8 text-right pr-12 space-x-2">
-                      {late && (
-                        <button
-                          data-tutorial="prets-action-relance"
-                          title="Relancer"
-                          onClick={() => setRenewalAction(l)}
-                          className="p-3 bg-amber-50 text-amber-600 rounded-xl border border-amber-100 hover:bg-amber-100 transition-all shadow-sm"
+                    <td className="px-6 py-5">
+                      <div className="flex items-center justify-end gap-2">
+                        {late && (
+                          <IconButton
+                            data-tutorial="prets-action-relance"
+                            title="Relancer"
+                            tone="danger"
+                            onClick={() => setRenewalAction(l)}
+                          >
+                            <Send size={18} />
+                          </IconButton>
+                        )}
+                        <IconButton
+                          data-tutorial="prets-action-extend"
+                          title="Prolonger"
+                          tone="warn"
+                          onClick={() => setConfirmAction({ type: 'extend', loan: l })}
                         >
-                          <Send size={18} />
+                          <Clock size={18} />
+                        </IconButton>
+                        <button
+                          data-tutorial="prets-action-return"
+                          onClick={() => setConfirmAction({ type: 'return', loan: l })}
+                          className={`whitespace-nowrap rounded-[14px] border-2 border-[#0f172a] px-4 py-2.5 text-[9px] font-extrabold uppercase tracking-[0.12em] text-white shadow-[3px_3px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[1px_1px_0_#0f172a] ${
+                            late ? 'bg-[#f43f5e]' : 'bg-[#10b981]'
+                          }`}
+                        >
+                          Valider retour
                         </button>
-                      )}
-                      <button
-                        data-tutorial="prets-action-extend"
-                        title="Prolonger"
-                        onClick={() => setConfirmAction({ type: 'extend', loan: l })}
-                        className="p-3 text-slate-400 bg-white rounded-xl shadow-sm hover:text-amber-500 transition-all"
-                      >
-                        <Clock size={18} />
-                      </button>
-                      <button
-                        data-tutorial="prets-action-return"
-                        onClick={() => setConfirmAction({ type: 'return', loan: l })}
-                        className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase text-white shadow-md transition-all active:scale-95 ${late ? 'bg-rose-500' : 'bg-emerald-500'}`}
-                      >
-                        Valider Retour
-                      </button>
+                      </div>
                     </td>
                   </tr>
                 )
@@ -815,11 +849,11 @@ www.ludothequedecoligny.fr`
           </table>
         </div>
 
-        <div className="flex justify-center md:justify-end pt-6">
+        <div className="flex justify-center pt-6 md:justify-end">
           <button
             data-tutorial="prets-historique"
             onClick={() => window.location.href = '/admin/historique-prets'}
-            className="flex items-center gap-2 px-8 py-4 bg-slate-800 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-lg hover:bg-slate-700 active:scale-95"
+            className={BTN_INK}
           >
             <Clock size={16} /> Consulter l'historique complet
           </button>
@@ -828,48 +862,55 @@ www.ludothequedecoligny.fr`
 
       {/* MODALE SCANNER HYBRIDE */}
       {showScanner && (
-        <div className="fixed inset-0 z-[250] flex flex-col items-center justify-center p-6 bg-slate-900/95 backdrop-blur-md">
-          <div className="w-full max-w-md bg-white rounded-[2.5rem] p-8 shadow-2xl relative">
-            <button onClick={stopScanner} className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-rose-50 hover:text-rose-500 transition-colors">
-              <X size={16} />
+        <div className="fixed inset-0 z-[250] flex flex-col items-center justify-center p-5 backdrop-blur-md" style={{ background: 'rgba(15,23,42,.9)' }}>
+          <div className="anim-modal-in relative w-full max-w-md rounded-[34px] border-2 border-[#0f172a] bg-white p-7 shadow-[10px_10px_0_#1a5f7a]">
+            <button
+              onClick={stopScanner}
+              className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-white text-[#0f172a] transition-colors hover:bg-[#fff1f2] hover:text-[#f43f5e]"
+            >
+              <X size={18} />
             </button>
-            <h3 className="text-center font-black uppercase text-xs tracking-widest mb-4">Scan Rapide (Prêt / Retour)</h3>
+            <h3 className="mb-5 pr-12 font-display text-xl font-extrabold tracking-[-0.03em] text-[#0f172a]">
+              Scan rapide <span className="text-[#1a5f7a]">(prêt / retour)</span>
+            </h3>
 
             {iosWarning && (
-              <div className="mb-4 p-4 bg-amber-50 border border-amber-100 rounded-2xl text-amber-700 text-[10px] font-black uppercase text-center">
-                ⚠️ Sur iPhone, le scan nécessite Safari. Veuillez ouvrir cette page dans Safari.
+              <div className="mb-4 rounded-[18px] border-2 border-[#f59e0b] bg-[#fffbeb] p-4 text-center text-[10px] font-extrabold uppercase leading-tight tracking-[0.08em] text-[#b45309]">
+                Sur iPhone, le scan nécessite Safari. Veuillez ouvrir cette page dans Safari.
               </div>
             )}
 
             <video
               ref={videoRef}
-              className={`w-full rounded-2xl overflow-hidden shadow-inner bg-slate-900 mb-6 transition-all ${scanFlash ? 'border-4 border-emerald-400' : 'border-4 border-transparent'}`}
+              className={`mb-5 w-full overflow-hidden rounded-[20px] border-2 bg-[#0f172a] transition-colors ${scanFlash ? 'border-[#10b981]' : 'border-[#0f172a]'}`}
               autoPlay
               muted
               playsInline
             />
 
             {scannedGamesForLoan.length > 0 && (
-              <div className="space-y-3 mb-6 animate-in slide-in-from-bottom-2">
-                <p className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Jeux scannés ({scannedGamesForLoan.length})</p>
-                <div className="max-h-32 overflow-y-auto space-y-2">
+              <div className="anim-modal-in mb-5 space-y-3">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#1a5f7a]">
+                  Jeux scannés ({scannedGamesForLoan.length})
+                </p>
+                <div className="max-h-32 space-y-2 overflow-y-auto">
                   {scannedGamesForLoan.map(g => (
-                    <div key={g.id} className="flex justify-between p-3 bg-slate-50 rounded-xl text-[10px] font-bold border border-slate-100">
-                      <span className="truncate">#{g.registration_number} - {g.name}</span>
-                      <X size={14} className="text-rose-400 cursor-pointer hover:text-rose-600 shrink-0" onClick={() => setScannedGamesForLoan(scannedGamesForLoan.filter(sg => sg.id !== g.id))} />
+                    <div key={g.id} className="flex items-center justify-between gap-3 rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] p-3 text-[11px] font-bold text-[#0f172a]">
+                      <span className="truncate">#{g.registration_number} — {g.name}</span>
+                      <X size={15} className="shrink-0 cursor-pointer text-[#f43f5e]" onClick={() => setScannedGamesForLoan(scannedGamesForLoan.filter(sg => sg.id !== g.id))} />
                     </div>
                   ))}
                 </div>
                 <button
                   onClick={() => { setSelectedGames(scannedGamesForLoan); stopScanner(); setShowFormModal(true) }}
-                  className="w-full py-4 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all"
+                  className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#1a5f7a] py-4 text-[10px] font-extrabold uppercase tracking-[0.14em] text-white shadow-[4px_4px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0f172a]"
                 >
                   Valider pour un adhérent
                 </button>
               </div>
             )}
 
-            <p className="text-center text-[10px] text-slate-400 italic">
+            <p className="text-center text-[11px] font-medium leading-[1.6] text-slate-500">
               Scannez un jeu libre pour le prêter, ou un jeu déjà prêté pour le rendre.
             </p>
           </div>
@@ -878,89 +919,73 @@ www.ludothequedecoligny.fr`
 
       {/* MODALE CONFIRMATION RETOUR SCAN */}
       {scanReturnConfirm && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-md">
-          <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl">
-            <CheckCircle className="mx-auto text-emerald-500 mb-6" size={40} />
-            <h3 className="text-lg font-black uppercase mb-2">Confirmer le retour ?</h3>
-            <p className="text-xs text-slate-500 mb-4 italic">
-              "{scanReturnConfirm.games?.name}" ramené par {scanReturnConfirm.members?.first_name} {scanReturnConfirm.members?.last_name}
-            </p>
-
-            {/* Alerte observations si le jeu en avait au moment du prêt */}
-            {scanReturnConfirm.games?.observations ? (
-              <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-left">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle size={14} className="text-amber-500 shrink-0" />
-                  <span className="text-[9px] font-black uppercase text-amber-600 tracking-widest">Observations avant prêt</span>
-                </div>
-                <p className="text-xs font-medium text-amber-800 leading-relaxed">{scanReturnConfirm.games.observations}</p>
-              </div>
-            ) : (
-              <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-left">
-                <div className="flex items-center gap-2">
-                  <CheckCircle size={14} className="text-emerald-500 shrink-0" />
-                  <span className="text-[9px] font-black uppercase text-emerald-600 tracking-widest">Aucune observation enregistrée</span>
-                </div>
-                <p className="text-[10px] text-emerald-700 mt-1">Le jeu était en bon état au départ — tout composant manquant est imputable à l'emprunteur.</p>
-              </div>
-            )}
-
-            <div className="flex flex-col gap-3">
-              <button onClick={confirmScanReturn} className="w-full py-5 bg-emerald-500 text-white rounded-2xl font-black uppercase text-[10px] shadow-lg">Valider le retour</button>
-              <button onClick={() => setScanReturnConfirm(null)} className="w-full py-5 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase text-[10px]">Annuler</button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          open
+          onClose={() => setScanReturnConfirm(null)}
+          onConfirm={confirmScanReturn}
+          tone="success"
+          icon={<CheckCircle size={32} />}
+          title="Confirmer le retour ?"
+          message={`« ${scanReturnConfirm.games?.name} » ramené par ${scanReturnConfirm.members?.first_name} ${scanReturnConfirm.members?.last_name}`}
+          confirmLabel="Valider le retour"
+        >
+          <ObservationsPanel game={scanReturnConfirm.games} />
+        </ConfirmModal>
       )}
 
       {/* MODALE 1 : COORDONNÉES + SUIVI RELANCE */}
       {renewalAction && !composeModal.show && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-[#1a5f7a]/80 backdrop-blur-md">
-          <div data-tutorial="prets-relance-modal" className="bg-white rounded-[3rem] p-10 max-w-lg w-full shadow-2xl border-b-8 border-amber-500">
-            
-            <div className="flex justify-between items-start mb-6">
-              <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 backdrop-blur-[6px] sm:p-[22px]" style={{ background: 'rgba(26,95,122,.82)' }}>
+          <div data-tutorial="prets-relance-modal" className="anim-modal-in flex max-h-[92vh] w-full max-w-lg flex-col overflow-y-auto rounded-[36px] border-2 border-[#0f172a] bg-white p-7 shadow-[12px_12px_0_#f59e0b] md:p-9">
+
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div className="flex h-[62px] w-[62px] items-center justify-center rounded-[20px] border-2 border-[#0f172a] bg-[#fffbeb] text-[#b45309] shadow-[4px_4px_0_#f59e0b]">
                 <Share2 size={28} />
               </div>
-              <button onClick={() => setRenewalAction(null)} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
-                <X size={24} />
+              <button
+                onClick={() => setRenewalAction(null)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-white text-[#0f172a] transition-colors hover:bg-[#fdfaf6]"
+              >
+                <X size={18} />
               </button>
             </div>
 
-            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight mb-1">Relance prêt en retard</h2>
-            <p className="text-sm text-slate-500 mb-6">
-              Adhérent : <strong>{renewalAction.members?.first_name} {renewalAction.members?.last_name}</strong>
+            <h2 className="mb-1.5 font-display text-[26px] font-extrabold uppercase leading-none tracking-[-0.04em] text-[#0f172a]">
+              Relance prêt en retard
+            </h2>
+            <p className="mb-6 text-sm font-medium text-slate-500">
+              Adhérent : <strong className="text-[#0f172a]">{renewalAction.members?.first_name} {renewalAction.members?.last_name}</strong>
             </p>
 
             {/* Coordonnées */}
-            <div data-tutorial="prets-relance-coordonnees" className="space-y-3 mb-6">
-              <div className="flex items-center gap-4 text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <Mail size={18} className="text-[#1a5f7a] shrink-0" />
-                <span className="text-sm font-bold truncate">{renewalAction.members?.email || 'Email non renseigné'}</span>
+            <div data-tutorial="prets-relance-coordonnees" className="mb-6 space-y-2.5">
+              <div className="flex items-center gap-4 rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4">
+                <Mail size={18} className="shrink-0 text-[#1a5f7a]" />
+                <span className="truncate text-sm font-bold text-[#0f172a]">{renewalAction.members?.email || 'Email non renseigné'}</span>
               </div>
-              <div className="flex items-center gap-4 text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <Phone size={18} className="text-[#1a5f7a] shrink-0" />
-                <span className="text-sm font-bold">{renewalAction.members?.phone || 'Téléphone non renseigné'}</span>
+              <div className="flex items-center gap-4 rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4">
+                <Phone size={18} className="shrink-0 text-[#1a5f7a]" />
+                <span className="text-sm font-bold text-[#0f172a]">{renewalAction.members?.phone || 'Téléphone non renseigné'}</span>
               </div>
-              <div className="flex items-start gap-4 text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <MapPin size={18} className="text-[#1a5f7a] mt-1 shrink-0" />
-                <span className="text-sm font-bold leading-relaxed">{renewalAction.members?.address || 'Adresse non renseignée'}</span>
+              <div className="flex items-start gap-4 rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4">
+                <MapPin size={18} className="mt-0.5 shrink-0 text-[#1a5f7a]" />
+                <span className="text-sm font-bold leading-relaxed text-[#0f172a]">{renewalAction.members?.address || 'Adresse non renseignée'}</span>
               </div>
             </div>
 
             {/* Jeux en retard */}
             <div data-tutorial="prets-relance-jeux" className="mb-6">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Jeux en retard</p>
+              <FieldLabel>Jeux en retard</FieldLabel>
               <div className="space-y-2">
                 {loans.filter(l => {
                   const memberId = renewalAction.members?.id || renewalAction.member_id
                   const lId = l.members?.id || l.member_id
                   return lId === memberId && isOverdue(l.loan_date)
                 }).map(l => (
-                  <div key={l.id} className="flex items-center gap-3 p-3 bg-rose-50 rounded-xl border border-rose-100">
-                    <span className="text-[9px] font-black text-rose-400 uppercase">#{l.games?.registration_number}</span>
-                    <span className="text-sm font-bold text-rose-800 flex-1">{l.games?.name}</span>
-                    <span className="text-[9px] text-rose-400">depuis le {new Date(l.loan_date).toLocaleDateString('fr-FR')}</span>
+                  <div key={l.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[16px] border-2 border-[#f43f5e] bg-[#fff1f2] p-3">
+                    <span className="text-[10px] font-extrabold uppercase text-[#f43f5e]">#{l.games?.registration_number}</span>
+                    <span className="flex-1 text-sm font-bold text-[#be123c]">{l.games?.name}</span>
+                    <span className="text-[10px] font-semibold text-[#f43f5e]">depuis le {new Date(l.loan_date).toLocaleDateString('fr-FR')}</span>
                   </div>
                 ))}
               </div>
@@ -970,23 +995,23 @@ www.ludothequedecoligny.fr`
             <button
               data-tutorial="prets-relance-email"
               onClick={() => openComposeLoan(renewalAction)}
-              className="w-full p-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 mb-4"
+              className="mb-5 flex w-full items-center justify-center gap-3 rounded-[18px] border-2 border-[#0f172a] bg-[#1a5f7a] py-5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-white shadow-[4px_4px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0f172a]"
             >
               <Mail size={18} /> Envoyer une relance par mail
             </button>
 
             {/* Suivi des relances */}
-            <div data-tutorial="prets-relance-suivi" className="bg-amber-50/50 rounded-[2rem] p-6 border border-amber-100">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-[10px] font-black uppercase text-amber-600 flex items-center gap-2">
+            <div data-tutorial="prets-relance-suivi" className="rounded-[24px] border-2 border-[#f59e0b] bg-[#fffbeb] p-5">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <span className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#b45309]">
                   <Calendar size={14} /> Suivi des relances
                 </span>
                 {renewalAction.last_reminder_date ? (
-                  <span className="px-3 py-1 bg-amber-100 text-amber-700 text-[9px] font-black rounded-full uppercase">
+                  <span className="rounded-full border-2 border-[#0f172a] bg-[#f59e0b] px-3 py-1 text-[9px] font-extrabold uppercase text-white">
                     Relancé le {new Date(renewalAction.last_reminder_date).toLocaleDateString()}
                   </span>
                 ) : (
-                  <span className="text-[9px] font-bold text-amber-400 italic">Aucun rappel noté</span>
+                  <span className="text-[10px] font-bold text-[#b45309]/60">Aucun rappel noté</span>
                 )}
               </div>
               <button
@@ -1005,7 +1030,7 @@ www.ludothequedecoligny.fr`
                   ))
                   setRenewalAction({ ...renewalAction, last_reminder_date: today })
                 }}
-                className="w-full py-3 bg-white border border-amber-200 text-amber-600 rounded-xl font-black uppercase text-[9px] tracking-widest hover:bg-amber-500 hover:text-white transition-all shadow-sm flex items-center justify-center gap-2"
+                className="flex w-full items-center justify-center gap-2 rounded-[16px] border-2 border-[#0f172a] bg-white py-3.5 text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#b45309] transition-colors hover:bg-[#f59e0b] hover:text-white"
               >
                 Marquer comme relancé aujourd'hui
               </button>
@@ -1016,65 +1041,80 @@ www.ludothequedecoligny.fr`
 
       {/* MODALE 2 : COMPOSITION EMAIL */}
       {composeModal.show && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 backdrop-blur-[6px] sm:p-[22px]" style={{ background: 'rgba(15,23,42,.7)' }}>
+          <div className="anim-modal-in flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#f59e0b]">
 
-            <div className="sticky top-0 bg-white rounded-t-[2.5rem] p-8 pb-4 border-b border-slate-100 flex items-center justify-between z-10">
-              <div>
-                <div className="flex items-center gap-3 mb-1">
-                  <div className="p-2.5 bg-amber-50 text-amber-500 rounded-xl"><Mail size={20} /></div>
-                  <h3 className="text-base font-black uppercase text-slate-900">Relance — {composeModal.member?.first_name} {composeModal.member?.last_name}</h3>
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
+              <div className="min-w-0">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#fffbeb] text-[#b45309]"><Mail size={18} /></div>
+                  <h3 className="truncate font-display text-lg font-extrabold tracking-[-0.03em] text-[#0f172a]">
+                    Relance — {composeModal.member?.first_name} {composeModal.member?.last_name}
+                  </h3>
                 </div>
-                <p className="text-[10px] text-slate-400 ml-12">
+                <p className="ml-[52px] mt-1 truncate text-[11px] font-semibold text-slate-400">
                   {composeModal.loans.length} jeu{composeModal.loans.length > 1 ? 'x' : ''} en retard · {composeModal.member?.email}
                 </p>
               </div>
-              <button onClick={() => setComposeModal({ show: false, member: null, loans: [] })} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-all"><X size={20} /></button>
+              <button
+                onClick={() => setComposeModal({ show: false, member: null, loans: [] })}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-white text-[#0f172a] transition-colors hover:bg-[#fdfaf6]"
+              >
+                <X size={18} />
+              </button>
             </div>
 
-            <div className="p-8 space-y-6 flex-1">
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Jeux concernés</label>
+            <div className="flex-1 space-y-6 overflow-y-auto p-6">
+              <div>
+                <FieldLabel>Jeux concernés</FieldLabel>
                 <div className="space-y-2">
                   {composeModal.loans.map(l => (
-                    <div key={l.id} className="flex items-center gap-3 p-3 bg-rose-50 rounded-xl border border-rose-100">
-                      <span className="text-[9px] font-black text-rose-400 uppercase">#{l.games?.registration_number}</span>
-                      <span className="text-sm font-bold text-rose-800 flex-1">{l.games?.name}</span>
-                      <span className="text-[9px] text-rose-400">depuis le {new Date(l.loan_date).toLocaleDateString('fr-FR')}</span>
+                    <div key={l.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[16px] border-2 border-[#f43f5e] bg-[#fff1f2] p-3">
+                      <span className="text-[10px] font-extrabold uppercase text-[#f43f5e]">#{l.games?.registration_number}</span>
+                      <span className="flex-1 text-sm font-bold text-[#be123c]">{l.games?.name}</span>
+                      <span className="text-[10px] font-semibold text-[#f43f5e]">depuis le {new Date(l.loan_date).toLocaleDateString('fr-FR')}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Objet</label>
+              <div>
+                <FieldLabel>Objet</FieldLabel>
                 <input
-                  className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                  className={FIELD}
                   value={composeData.subject}
                   onChange={e => setComposeData(prev => ({ ...prev, subject: e.target.value }))}
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Message</label>
+              <div>
+                <FieldLabel>Message</FieldLabel>
                 <textarea
                   rows={10}
-                  className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a] resize-y"
+                  className={`${FIELD} resize-y font-medium`}
                   value={composeData.body}
                   onChange={e => setComposeData(prev => ({ ...prev, body: e.target.value }))}
                 />
               </div>
             </div>
 
-            <div className="sticky bottom-0 bg-white rounded-b-[2.5rem] p-8 pt-4 border-t border-slate-100 flex gap-3">
-              <button onClick={() => setComposeModal({ show: false, member: null, loans: [] })}
-                className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest">
+            <div className="flex shrink-0 gap-3 border-t-2 border-[#0f172a] bg-white p-6">
+              <button
+                onClick={() => setComposeModal({ show: false, member: null, loans: [] })}
+                className="flex-1 rounded-[16px] border-2 border-[#0f172a] bg-white py-4 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#0f172a] transition-colors hover:bg-[#fdfaf6]"
+              >
                 Annuler
               </button>
-              <button onClick={handleSendLoanReminder} disabled={sendingMail}
-                className={'flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 ' +
-                  (sendingMail ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-[#1a5f7a] text-white hover:bg-[#134a5e]')}>
-                {sendingMail ? <><Loader2 size={14} className="animate-spin" /> Envoi...</> : <><Send size={14} /> Envoyer la relance</>}
+              <button
+                onClick={handleSendLoanReminder}
+                disabled={sendingMail}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-[16px] border-2 border-[#0f172a] py-4 text-[10px] font-extrabold uppercase tracking-[0.14em] transition-all ${
+                  sendingMail
+                    ? 'cursor-not-allowed bg-[#fdfaf6] text-slate-300'
+                    : 'bg-[#1a5f7a] text-white shadow-[4px_4px_0_#0f172a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0f172a]'
+                }`}
+              >
+                {sendingMail ? <><Loader2 size={14} className="animate-spin" /> Envoi…</> : <><Send size={14} /> Envoyer la relance</>}
               </button>
             </div>
           </div>
@@ -1083,10 +1123,10 @@ www.ludothequedecoligny.fr`
 
       {/* OVERLAY ENVOI EN COURS */}
       {sendingMail && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl">
-            <Loader2 className="animate-spin mx-auto text-[#1a5f7a] mb-6" size={40} />
-            <h3 className="text-lg font-black uppercase text-slate-900">Envoi en cours...</h3>
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-5 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }}>
+          <div className="anim-modal-in w-full max-w-sm rounded-[34px] border-2 border-[#0f172a] bg-white p-9 text-center shadow-[10px_10px_0_#1a5f7a]">
+            <Loader2 className="mx-auto mb-5 animate-spin text-[#1a5f7a]" size={40} />
+            <h3 className="font-display text-xl font-extrabold uppercase tracking-[-0.03em] text-[#0f172a]">Envoi en cours…</h3>
           </div>
         </div>
       )}
@@ -1094,89 +1134,56 @@ www.ludothequedecoligny.fr`
 
       {/* MODALES CONFIRMATION */}
       {confirmAction && (
-        <div className="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-10 text-center shadow-2xl animate-in zoom-in-95">
-            <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 ${confirmAction.type === 'return' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-              {confirmAction.type === 'return' ? <CheckCircle size={32} /> : <Clock size={32} />}
-            </div>
-            <h3 className="text-xl font-black uppercase mb-2">
-              {confirmAction.type === 'return' ? 'Confirmer le retour de ce jeu' : "Autoriser l'allongement du délai d'emprunt de 14 jours"}
-            </h3>
-            <p className="text-[10px] font-black uppercase text-slate-500 mb-4">Voulez-vous valider cette action ?</p>
-
-            {/* Alerte observations uniquement sur les retours */}
-            {confirmAction.type === 'return' && (
-              confirmAction.loan.games?.observations ? (
-                <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-left">
-                  <div className="flex items-center gap-2 mb-2">
-                    <AlertTriangle size={14} className="text-amber-500 shrink-0" />
-                    <span className="text-[9px] font-black uppercase text-amber-600 tracking-widest">Observations avant prêt</span>
-                  </div>
-                  <p className="text-xs font-medium text-amber-800 leading-relaxed">{confirmAction.loan.games.observations}</p>
-                </div>
-              ) : (
-                <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-left">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle size={14} className="text-emerald-500 shrink-0" />
-                    <span className="text-[9px] font-black uppercase text-emerald-600 tracking-widest">Aucune observation enregistrée</span>
-                  </div>
-                  <p className="text-[10px] text-emerald-700 mt-1">Le jeu était en bon état au départ — tout composant manquant est imputable à l'emprunteur.</p>
-                </div>
-              )
-            )}
-
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={processConfirmAction}
-                className={`w-full py-5 text-white rounded-2xl font-black uppercase text-xs shadow-lg ${confirmAction.type === 'return' ? 'bg-emerald-600' : 'bg-amber-600'}`}
-              >
-                Confirmer
-              </button>
-              <button onClick={() => setConfirmAction(null)} className="w-full py-4 bg-slate-50 text-slate-400 rounded-2xl font-black uppercase text-[10px]">
-                Annuler
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          open
+          onClose={() => setConfirmAction(null)}
+          onConfirm={processConfirmAction}
+          tone={confirmAction.type === 'return' ? 'success' : 'neutral'}
+          icon={confirmAction.type === 'return' ? <CheckCircle size={32} /> : <Clock size={32} />}
+          title={confirmAction.type === 'return' ? 'Confirmer le retour de ce jeu' : "Prolonger l'emprunt de 14 jours"}
+          message="Voulez-vous valider cette action ?"
+        >
+          {confirmAction.type === 'return' && <ObservationsPanel game={confirmAction.loan.games} />}
+        </ConfirmModal>
       )}
 
       {/* MODALE FORMULAIRE NOUVEAU PRÊT */}
       {showFormModal && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div data-tutorial="prets-form-modal" className="bg-white rounded-[2.5rem] w-full max-w-xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
-            <div className="p-8 border-b border-slate-50 flex justify-between items-center shrink-0">
-              <h2 className="text-xl font-black uppercase">Enregistrer un <span className="text-[#1a5f7a]">Prêt</span></h2>
-              <button onClick={() => { setShowFormModal(false); setQuotaWarning(null) }} className="p-2 bg-slate-50 rounded-full text-slate-400 hover:text-rose-500">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 backdrop-blur-[6px] sm:p-[22px]" style={{ background: "rgba(15,23,42,.7)" }}>
+          <div data-tutorial="prets-form-modal" className="anim-modal-in flex max-h-[92vh] w-full max-w-xl flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#e38154]">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
+              <h2 className="font-display text-lg font-extrabold tracking-[-0.03em] text-[#0f172a]">Enregistrer un <span className="text-[#1a5f7a]">prêt</span></h2>
+              <button onClick={() => { setShowFormModal(false); setQuotaWarning(null) }} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-white text-[#0f172a] transition-colors hover:bg-[#fff1f2] hover:text-[#f43f5e]">
                 <X size={24} />
               </button>
             </div>
-            <div className="p-8 space-y-8 overflow-y-auto">
+            <div className="flex-1 space-y-7 overflow-y-auto p-6">
 
               {/* ÉTAPE 1 : ADHÉRENT */}
               <div data-tutorial="prets-form-adherent" className="space-y-3">
-                <label className="text-[10px] font-black uppercase tracking-tighter text-[#1a5f7a]">1. Sélection de l'adhérent</label>
+                <label className="mb-3 block text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#1a5f7a]">1. Sélection de l'adhérent</label>
                 {!selectedMember ? (
                   <div className="relative">
                     <input
                       type="text"
                       placeholder="Nom ou prénom..."
-                      className="w-full p-5 bg-slate-50 rounded-2xl font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                      className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] px-5 py-4 text-[13px] font-bold text-[#0f172a] outline-none placeholder:font-semibold placeholder:text-slate-300 focus:bg-white"
                       value={memberSearch}
                       onFocus={() => setMemberListVisible(true)}
                       onBlur={() => setTimeout(() => setMemberListVisible(false), 200)}
                       onChange={(e) => setMemberSearch(e.target.value)}
                     />
                     {memberListVisible && (
-                      <div className="absolute top-full w-full bg-white border border-slate-100 rounded-2xl mt-2 shadow-2xl max-h-48 overflow-y-auto z-[110] p-2 divide-y divide-slate-50">
+                      <div className="absolute top-full z-[110] mt-2 max-h-48 w-full overflow-y-auto rounded-[18px] border-2 border-[#0f172a] bg-white p-2 shadow-[4px_4px_0_#1a5f7a]">
                         {members
                           .filter(m => `${m.first_name} ${m.last_name}`.toLowerCase().includes(memberSearch.toLowerCase()))
                           .map(m => (
                             <div
                               key={m.id}
                               onMouseDown={() => handleSelectMember(m)}
-                              className="p-4 hover:bg-slate-50 rounded-xl cursor-pointer"
+                              className="cursor-pointer rounded-[12px] p-3 transition-colors hover:bg-[#fdfaf6]"
                             >
-                              <span className="uppercase font-black text-xs">{m.last_name} {m.first_name}</span>
+                              <span className="text-xs font-extrabold uppercase text-[#0f172a]">{m.last_name} {m.first_name}</span>
                             </div>
                           ))
                         }
@@ -1185,10 +1192,10 @@ www.ludothequedecoligny.fr`
                   </div>
                 ) : (
                   <>
-                    <div className="bg-cyan-50 p-5 rounded-2xl flex justify-between items-center border border-cyan-100">
+                    <div className="flex items-center justify-between gap-4 rounded-[20px] border-2 border-[#0f172a] bg-[#f0f7f9] p-5">
                       <div>
-                        <p className="font-black text-[#1a5f7a] text-sm uppercase">{selectedMember.last_name} {selectedMember.first_name}</p>
-                        <p className="text-[10px] font-bold text-cyan-600 uppercase">
+                        <p className="text-sm font-extrabold uppercase text-[#1a5f7a]">{selectedMember.last_name} {selectedMember.first_name}</p>
+                        <p className="mt-0.5 text-[10.5px] font-bold uppercase text-[#1a5f7a]/70">
                           Emprunts : {totalCount} / {getLoanLimit(selectedMember)}
                           {getRemainingSlots(selectedMember) === 0 && (
                             <span className="ml-2 text-rose-500">— Quota atteint</span>
@@ -1197,7 +1204,7 @@ www.ludothequedecoligny.fr`
                       </div>
                       <button
                         onClick={() => { setSelectedMember(null); setSelectedGames([]); setQuotaWarning(null) }}
-                        className="text-[9px] font-black uppercase text-slate-400 underline"
+                        className="shrink-0 rounded-[12px] border-2 border-[#0f172a] bg-white px-3 py-2 text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500 transition-colors hover:bg-[#fdfaf6]"
                       >
                         Changer
                       </button>
@@ -1205,9 +1212,9 @@ www.ludothequedecoligny.fr`
 
                     {/* Avertissement cotisation expirée */}
                     {!isSubscriptionUpToDate(selectedMember) && (
-                      <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-center gap-3 text-amber-700 animate-in fade-in zoom-in-95">
+                      <div className="anim-modal-in mt-3 flex items-center gap-3 rounded-[18px] border-2 border-[#f59e0b] bg-[#fffbeb] p-4 text-[#b45309]">
                         <AlertTriangle size={18} className="shrink-0 text-amber-500 animate-pulse" />
-                        <p className="text-[9px] font-black uppercase tracking-wider leading-tight">
+                        <p className="text-[10px] font-extrabold uppercase leading-tight tracking-[0.08em]">
                           Attention : La cotisation de cet adhérent n'est plus à jour !
                         </p>
                       </div>
@@ -1215,9 +1222,9 @@ www.ludothequedecoligny.fr`
 
                     {/* Avertissement troncature quota après scan */}
                     {quotaWarning && (
-                      <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-3 text-rose-700 animate-in fade-in zoom-in-95">
+                      <div className="anim-modal-in mt-3 flex items-start gap-3 rounded-[18px] border-2 border-[#f43f5e] bg-[#fff1f2] p-4 text-[#be123c]">
                         <AlertTriangle size={18} className="shrink-0 text-rose-500 mt-0.5" />
-                        <p className="text-[9px] font-black uppercase tracking-wider leading-tight">{quotaWarning}</p>
+                        <p className="text-[10px] font-extrabold uppercase leading-tight tracking-[0.08em]">{quotaWarning}</p>
                       </div>
                     )}
                   </>
@@ -1226,7 +1233,7 @@ www.ludothequedecoligny.fr`
 
               {/* ÉTAPE 2 : JEUX */}
               <div data-tutorial="prets-form-jeux" className="space-y-3">
-                <label className="text-[10px] font-black uppercase tracking-tighter text-[#1a5f7a]">2. Jeux à ajouter</label>
+                <label className="mb-3 block text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#1a5f7a]">2. Jeux à ajouter</label>
                 {selectedMember ? (
                   <>
                     {/* Barre de recherche manuelle — masquée si quota atteint */}
@@ -1235,14 +1242,14 @@ www.ludothequedecoligny.fr`
                         <input
                           type="text"
                           placeholder="Rechercher un jeu..."
-                          className="w-full p-5 bg-slate-50 rounded-2xl font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                          className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] px-5 py-4 text-[13px] font-bold text-[#0f172a] outline-none placeholder:font-semibold placeholder:text-slate-300 focus:bg-white"
                           value={gameSearch}
                           onFocus={() => setGameListVisible(true)}
                           onBlur={() => setTimeout(() => setGameListVisible(false), 200)}
                           onChange={(e) => setGameSearch(e.target.value)}
                         />
                         {gameListVisible && (
-                          <div className="absolute top-full w-full bg-white border border-slate-100 rounded-2xl mt-2 shadow-2xl max-h-48 overflow-y-auto z-[110] p-2 divide-y divide-slate-50">
+                          <div className="absolute top-full z-[110] mt-2 max-h-48 w-full overflow-y-auto rounded-[18px] border-2 border-[#0f172a] bg-white p-2 shadow-[4px_4px_0_#1a5f7a]">
                             {games
                               .filter(g =>
                                 g.is_available &&
@@ -1253,9 +1260,9 @@ www.ludothequedecoligny.fr`
                                 <div
                                   key={g.id}
                                   onMouseDown={() => { setSelectedGames([...selectedGames, g]); setGameSearch('') }}
-                                  className="p-4 hover:bg-slate-50 rounded-xl cursor-pointer"
+                                  className="cursor-pointer rounded-[12px] p-3 transition-colors hover:bg-[#fdfaf6]"
                                 >
-                                  <p className="font-black text-xs uppercase tracking-tight">#{g.registration_number} - {g.name}</p>
+                                  <p className="text-xs font-extrabold uppercase tracking-tight text-[#0f172a]">#{g.registration_number} - {g.name}</p>
                                 </div>
                               ))
                             }
@@ -1263,7 +1270,7 @@ www.ludothequedecoligny.fr`
                         )}
                       </div>
                     ) : (
-                      <div className="p-5 bg-rose-50 text-rose-500 rounded-2xl text-[10px] font-black uppercase text-center border border-rose-100">
+                      <div className="rounded-[18px] border-2 border-[#f43f5e] bg-[#fff1f2] p-5 text-center text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#be123c]">
                         Quota maximum atteint — {getLoanLimit(selectedMember)} jeu(x) autorisé(s)
                       </div>
                     )}
@@ -1271,9 +1278,9 @@ www.ludothequedecoligny.fr`
                     {/* Liste des jeux sélectionnés */}
                     <div className="space-y-2">
                       {selectedGames.map(g => (
-                        <div key={g.id} className="bg-white border border-slate-100 p-4 rounded-xl flex justify-between items-center shadow-sm">
-                          <span className="text-[10px] font-black uppercase text-slate-700">#{g.registration_number} - {g.name}</span>
-                          <button onClick={() => setSelectedGames(selectedGames.filter(sg => sg.id !== g.id))} className="text-rose-500">
+                        <div key={g.id} className="flex items-center justify-between gap-3 rounded-[16px] border-2 border-[#0f172a] bg-white p-4">
+                          <span className="text-[11px] font-extrabold uppercase text-[#0f172a]">#{g.registration_number} - {g.name}</span>
+                          <button onClick={() => setSelectedGames(selectedGames.filter(sg => sg.id !== g.id))} className="shrink-0 text-[#f43f5e]">
                             <X size={16} />
                           </button>
                         </div>
@@ -1281,24 +1288,24 @@ www.ludothequedecoligny.fr`
                     </div>
                   </>
                 ) : (
-                  <div className="p-5 bg-slate-50 text-slate-400 rounded-2xl text-[10px] font-bold uppercase text-center border-dashed border-2">
+                  <div className="rounded-[18px] border-2 border-dashed border-slate-300 bg-[#fdfaf6] p-5 text-center text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400">
                     Veuillez d'abord choisir l'adhérent
                   </div>
                 )}
               </div>
 
               {/* ÉTAPE 3 : DATE + VALIDATION */}
-              <div data-tutorial="prets-form-date-submit" className="pt-6 border-t border-slate-50 space-y-4">
+              <div data-tutorial="prets-form-date-submit" className="space-y-4 border-t-2 border-[#0f172a] pt-6">
                 <input
                   type="date"
-                  className="w-full p-5 bg-slate-50 rounded-2xl font-black text-sm outline-none"
+                  className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] px-5 py-4 text-[13px] font-bold text-[#0f172a] outline-none placeholder:font-semibold placeholder:text-slate-300 focus:bg-white"
                   value={loanDate}
                   onChange={e => setLoanDate(e.target.value)}
                 />
                 <button
                   onClick={handleSaveLoan}
                   disabled={!selectedMember || selectedGames.length === 0}
-                  className="w-full py-6 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl disabled:opacity-30 transition-all active:scale-95"
+                  className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#1a5f7a] py-5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white shadow-[5px_5px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a] disabled:pointer-events-none disabled:opacity-30"
                 >
                   Valider le prêt
                 </button>

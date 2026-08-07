@@ -2,6 +2,9 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../services/supabaseClient'
 import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
 import { useToast } from '../../components/ToastContext'
+import AdminPageHeader from '../../components/admin/AdminPageHeader'
+import IconButton from '../../components/admin/IconButton'
+import { BTN_ORANGE, BTN_OUTLINE } from '../../components/admin/buttons'
 import {
   Lightbulb, Dices, Wrench, MessageSquarePlus, Send, CheckCircle2,
   Loader2, Sparkles, CalendarDays, AlertTriangle, Link2, Megaphone,
@@ -542,80 +545,70 @@ export default function Suggestions() {
   ), []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="p-4 md:p-10 bg-[#fdfaf6] min-h-screen font-sans text-slate-900">
-      <div className="max-w-3xl mx-auto">
+    <div className="min-h-screen bg-[#fdfaf6] p-5 font-body text-[#0f172a] md:p-11">
+      <div className="mx-auto max-w-[860px]">
 
-        {/* HEADER — aligné sur les autres pages admin */}
-        <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <h1 data-tutorial="sugg-header" className="text-xl md:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-            <div className="p-2.5 bg-[#1a5f7a] rounded-xl shadow-lg text-white">
-              <Lightbulb size={24} />
-            </div>
-            <span>Vos <span className="text-[#1a5f7a]">Suggestions</span></span>
-          </h1>
-          <div className="flex items-center gap-3 flex-wrap">
-            {jeuxACheterCount > 0 && (
+        <div data-tutorial="sugg-header">
+          <AdminPageHeader icon="03.svg" title="Vos" accent="Suggestions">
+            <div className="flex w-full flex-wrap gap-2.5 md:w-auto">
+              {jeuxACheterCount > 0 && (
+                <button
+                  data-tutorial="sugg-export-pdf"
+                  onClick={exportPdf}
+                  disabled={exportingPdf}
+                  className={`${BTN_OUTLINE} flex-1 md:flex-none`}
+                >
+                  {exportingPdf
+                    ? <><Loader2 size={15} className="animate-spin" /> Génération...</>
+                    : <><FileDown size={15} /> Exporter en PDF</>}
+                </button>
+              )}
               <button
-                data-tutorial="sugg-export-pdf"
-                onClick={exportPdf}
-                disabled={exportingPdf}
-                className={`flex items-center gap-2 px-5 py-4 bg-white border-2 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all whitespace-nowrap ${
-                  exportingPdf
-                    ? 'border-slate-100 text-slate-300 cursor-not-allowed'
-                    : 'border-slate-100 text-slate-500 hover:border-[#1a5f7a] hover:text-[#1a5f7a]'
-                }`}
+                data-tutorial="sugg-add-btn"
+                onClick={() => { setShowModal(true); setSuccess(false); setError('') }}
+                className={`${BTN_ORANGE} flex-1 md:flex-none`}
               >
-                {exportingPdf
-                  ? <><Loader2 size={16} className="animate-spin" /> Génération...</>
-                  : <><FileDown size={16} /> Exporter en PDF</>}
+                <Plus size={15} strokeWidth={3} /> Nouvelle suggestion
               </button>
-            )}
-            <button
-              data-tutorial="sugg-add-btn"
-              onClick={() => { setShowModal(true); setSuccess(false); setError('') }}
-              className="flex items-center gap-2 px-6 py-4 bg-[#e38154] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-[#d16f43] active:scale-95 transition-all whitespace-nowrap"
-            >
-              <Plus size={16} strokeWidth={3} /> Nouvelle suggestion
-            </button>
-          </div>
+            </div>
+          </AdminPageHeader>
         </div>
 
         {/* RÉCAPITULATIF DES ACHATS À PRÉVOIR */}
         {suggestions.length > 0 && (
-          <div data-tutorial="sugg-budget" className="mb-6 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-orange-50 rounded-xl text-[#e38154] shrink-0"><Euro size={18} /></div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total à prévoir</p>
-                <p className="text-lg font-black text-[#e38154] truncate">{formatPrice(totalToProvide)}</p>
+          <div data-tutorial="sugg-budget" className="mb-5 grid grid-cols-1 gap-5 rounded-[32px] border-2 border-[#0f172a] bg-white p-6 shadow-[6px_6px_0_#e38154] sm:grid-cols-3">
+            {[
+              { label: 'Total à prévoir', value: formatPrice(totalToProvide), color: '#e38154', tint: '#fdf1ea', icon: <Euro size={18} /> },
+              { label: 'Économisé',       value: formatPrice(totalSaved),     color: '#10b981', tint: '#ecfdf5', icon: <PiggyBank size={18} /> },
+              { label: 'Non chiffré',     value: `${uncostedCount} suggestion${uncostedCount > 1 ? 's' : ''}`, color: '#64748b', tint: '#f1f5f9', icon: <HelpCircle size={18} /> },
+            ].map(stat => (
+              <div key={stat.label} className="flex items-center gap-3.5">
+                <span
+                  className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a]"
+                  style={{ background: stat.tint, color: stat.color }}
+                >
+                  {stat.icon}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400">{stat.label}</span>
+                  <span className="mt-1 block truncate font-display text-[21px] font-extrabold tracking-[-0.04em]" style={{ color: stat.color }}>
+                    {stat.value}
+                  </span>
+                </span>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-emerald-50 rounded-xl text-emerald-600 shrink-0"><PiggyBank size={18} /></div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Économisé</p>
-                <p className="text-lg font-black text-emerald-600 truncate">{formatPrice(totalSaved)}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-slate-50 rounded-xl text-slate-400 shrink-0"><HelpCircle size={18} /></div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Non chiffré</p>
-                <p className="text-lg font-black text-slate-500 truncate">{uncostedCount} suggestion{uncostedCount > 1 ? 's' : ''}</p>
-              </div>
-            </div>
+            ))}
           </div>
         )}
 
         {/* BARRE FILTRES */}
-        <div className="flex items-center gap-3 mb-6">
+        <div className="mb-5 flex flex-wrap items-center gap-3">
           {/* Compteur */}
-          <p className="text-slate-400 text-xs font-bold flex-1">
+          <p className="flex-1 basis-[160px] text-[11.5px] font-bold text-slate-400">
             {pendingCount} en attente · {doneCount} traitée{doneCount > 1 ? 's' : ''}
           </p>
 
           {/* Filtre statut */}
-          <div className="flex bg-white border border-slate-100 rounded-2xl p-1 gap-1 shadow-sm">
+          <div className="flex gap-1 rounded-[16px] border-2 border-[#0f172a] bg-white p-1">
             {[
               { val: 'all',     label: 'Toutes' },
               { val: 'pending', label: 'En attente' },
@@ -623,7 +616,7 @@ export default function Suggestions() {
             ].map(f => (
               <button key={f.val} onClick={() => setFilterDone(f.val)}
                 className={`px-3 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all ${
-                  filterDone === f.val ? 'bg-[#1a5f7a] text-white shadow' : 'text-slate-400 hover:text-slate-600'
+                  filterDone === f.val ? 'bg-[#1a5f7a] text-white' : 'text-slate-400 hover:text-slate-600'
                 }`}>
                 {f.label}
               </button>
@@ -634,10 +627,10 @@ export default function Suggestions() {
           <div className="relative">
             <button
               onClick={() => setShowFilterMenu(v => !v)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl border-2 font-black text-[9px] uppercase tracking-widest transition-all shadow-sm ${
+              className={`flex items-center gap-2 rounded-[16px] border-2 border-[#0f172a] px-4 py-2.5 text-[9px] font-extrabold uppercase tracking-widest transition-colors ${
                 filterCats.length > 0
-                  ? 'bg-[#1a5f7a] border-[#1a5f7a] text-white'
-                  : 'bg-white border-slate-100 text-slate-400 hover:border-slate-300'
+                  ? 'bg-[#1a5f7a] text-white'
+                  : 'bg-white text-slate-500 hover:bg-[#fdfaf6]'
               }`}
             >
               Catégories
@@ -653,7 +646,7 @@ export default function Suggestions() {
               <>
                 {/* Overlay pour fermer */}
                 <div className="fixed inset-0 z-10" onClick={() => setShowFilterMenu(false)} />
-                <div className="absolute right-0 top-full mt-2 z-20 bg-white rounded-[1.5rem] shadow-2xl border border-slate-100 p-2 min-w-[220px] animate-in zoom-in-95 duration-150">
+                <div className="absolute right-0 top-full mt-2 z-20 rounded-[18px] border-2 border-[#0f172a] bg-white shadow-[4px_4px_0_#1a5f7a] p-2 min-w-[220px] animate-in zoom-in-95 duration-150">
                   {/* Tout désélectionner */}
                   {filterCats.length > 0 && (
                     <button
@@ -707,11 +700,11 @@ export default function Suggestions() {
               const cat = getCat(s.category)
               const cardTutoAttr = idx === 0 ? { 'data-tutorial': 'sugg-card1' } : idx === 1 ? { 'data-tutorial': 'sugg-card2' } : {}
               return (
-                <div key={s.id} {...cardTutoAttr} className={`bg-white rounded-[2rem] border p-5 flex items-start gap-4 transition-all ${
-                  s.done ? 'opacity-50 border-slate-100' : 'border-slate-100 hover:border-slate-200 shadow-sm'
+                <div key={s.id} {...cardTutoAttr} className={`flex items-start gap-4 rounded-[32px] border-2 border-[#0f172a] bg-white p-5 ${
+                  s.done ? 'opacity-50 shadow-[3px_3px_0_#94a3b8]' : 'shadow-[5px_5px_0_#1a5f7a]'
                 }`}>
                   {/* Badge catégorie */}
-                  <div className={`p-2.5 rounded-xl shrink-0 ${cat.bg}`} style={{ color: cat.color }}>
+                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] ${cat.bg}`} style={{ color: cat.color }}>
                     {cat.icon}
                   </div>
 
@@ -752,12 +745,12 @@ export default function Suggestions() {
                         <Loader2 size={12} className="animate-spin text-slate-300" />
                       ) : s.price != null ? (
                         <button onClick={() => startEditPrice(s)}
-                          className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black hover:bg-emerald-100 transition-colors">
+                          className="flex items-center gap-1.5 rounded-full border-2 border-[#10b981] bg-[#ecfdf5] px-3 py-1 text-[10px] font-extrabold text-[#047857] transition-colors hover:bg-[#10b981] hover:text-white">
                           {formatPrice(s.price)} <Pencil size={9} className="opacity-50" />
                         </button>
                       ) : (
                         <button onClick={() => startEditPrice(s)}
-                          className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 text-slate-400 rounded-full text-[10px] font-bold hover:bg-slate-100 transition-colors">
+                          className="flex items-center gap-1.5 rounded-full border-2 border-slate-300 bg-[#fdfaf6] px-3 py-1 text-[10px] font-extrabold text-slate-500 transition-colors hover:border-[#0f172a]">
                           <Pencil size={9} /> Ajouter un prix
                         </button>
                       )}
@@ -773,7 +766,7 @@ export default function Suggestions() {
                           {priceSearchFor === s.id && (
                             <>
                               <div className="fixed inset-0 z-10" onClick={() => setPriceSearchFor(null)} />
-                              <div className="absolute left-0 top-full mt-1 z-20 bg-white rounded-2xl shadow-2xl border border-slate-100 w-64 max-h-64 overflow-y-auto">
+                              <div className="absolute left-0 top-full mt-1 z-20 rounded-[18px] border-2 border-[#0f172a] bg-white shadow-[4px_4px_0_#1a5f7a] w-64 max-h-64 overflow-y-auto">
                                 {priceSearchLoading ? (
                                   <div className="flex items-center justify-center gap-2 p-4 text-slate-400 text-xs">
                                     <Loader2 size={14} className="animate-spin" /> Recherche...
@@ -865,16 +858,16 @@ export default function Suggestions() {
 
       {/* MODALE FORMULAIRE */}
       {showModal && (
-        <div className="fixed inset-0 z-[200] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div data-tutorial="sugg-form" className="bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] w-full max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col animate-in slide-in-from-bottom md:zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 backdrop-blur-[6px] sm:p-[22px]" style={{ background: "rgba(15,23,42,.7)" }}>
+          <div data-tutorial="sugg-form" className="anim-modal-in flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#e38154]">
 
             {/* Header modale */}
-            <div className="sticky top-0 bg-white rounded-t-[2.5rem] p-6 pb-4 border-b border-slate-100 flex items-center justify-between z-10">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-[#1a5f7a]/10 text-[#1a5f7a] rounded-xl"><Lightbulb size={20} /></div>
-                <h3 className="text-base font-black uppercase tracking-tight text-slate-900">Nouvelle suggestion</h3>
+                <div className="flex h-10 w-10 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#1a5f7a] text-white"><Lightbulb size={18} /></div>
+                <h3 className="font-display text-lg font-extrabold tracking-[-0.03em] text-[#0f172a]">Nouvelle suggestion</h3>
               </div>
-              <button onClick={() => setShowModal(false)} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-all">
+              <button onClick={() => setShowModal(false)} className="flex h-10 w-10 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-white text-[#0f172a] transition-colors hover:bg-[#fdfaf6]">
                 <X size={20} />
               </button>
             </div>
@@ -883,7 +876,7 @@ export default function Suggestions() {
 
               {/* Succès */}
               {success && (
-                <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 rounded-2xl p-4 animate-in zoom-in-95">
+                <div className="anim-modal-in flex items-center gap-3 rounded-[18px] border-2 border-[#10b981] bg-[#ecfdf5] p-4">
                   <CheckCircle2 size={20} className="text-emerald-500 shrink-0" />
                   <p className="font-black text-emerald-700 uppercase text-xs tracking-tight">Suggestion enregistrée !</p>
                 </div>
@@ -891,16 +884,14 @@ export default function Suggestions() {
 
               {/* Catégorie — dropdown */}
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">
+                <label className="mb-3 block text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#1a5f7a]">
                   1. Catégorie
                 </label>
                 <div className="relative">
                   <button
                     onClick={() => setShowCatDropdown(v => !v)}
-                    className={`w-full flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left ${
-                      selectedCategory
-                        ? `${getCat(selectedCategory).bg} ${getCat(selectedCategory).border}`
-                        : 'border-slate-100 bg-slate-50 hover:border-slate-200'
+                    className={`flex w-full items-center gap-3 rounded-[18px] border-2 border-[#0f172a] p-4 text-left transition-colors ${
+                      selectedCategory ? getCat(selectedCategory).bg : 'bg-[#fdfaf6] hover:bg-white'
                     }`}
                   >
                     <div className="p-1.5 rounded-lg shrink-0"
@@ -919,7 +910,7 @@ export default function Suggestions() {
                   {showCatDropdown && (
                     <>
                       <div className="fixed inset-0 z-10" onClick={() => setShowCatDropdown(false)} />
-                      <div className="absolute left-0 right-0 top-full mt-2 z-20 bg-white rounded-[1.5rem] shadow-2xl border border-slate-100 p-2 animate-in zoom-in-95 duration-150 max-h-64 overflow-y-auto">
+                      <div className="absolute left-0 right-0 top-full mt-2 z-20 rounded-[18px] border-2 border-[#0f172a] bg-white shadow-[4px_4px_0_#1a5f7a] p-2 animate-in zoom-in-95 duration-150 max-h-64 overflow-y-auto">
                         {CATEGORIES.map(c => (
                           <button key={c.id}
                             onClick={() => { setSelectedCategory(c.id); setShowCatDropdown(false) }}
@@ -952,45 +943,45 @@ export default function Suggestions() {
 
               {/* Message */}
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">
+                <label className="mb-3 block text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#1a5f7a]">
                   2. Votre suggestion
                 </label>
                 <textarea rows={4} value={message} onChange={e => setMessage(e.target.value)}
                   placeholder={FORM_CATEGORIES.find(c => c.id === selectedCategory)?.placeholder || 'Décrivez votre idée…'}
-                  className="w-full p-4 bg-slate-50 rounded-2xl font-medium text-sm text-slate-700 placeholder:text-slate-300 outline-none border-2 border-transparent focus:border-[#1a5f7a]/30 resize-none transition-all"
+                  className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] px-5 py-4 text-[13px] font-bold text-[#0f172a] outline-none placeholder:font-semibold placeholder:text-slate-300 focus:bg-white resize-none"
                 />
               </div>
 
               {/* Auteur */}
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">
-                  3. Votre prénom <span className="normal-case font-medium text-slate-300">(optionnel)</span>
+                <label className="mb-3 block text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#1a5f7a]">
+                  3. Votre prénom <span className="font-semibold normal-case text-slate-400">(optionnel)</span>
                 </label>
                 <input type="text" value={author} onChange={e => setAuthor(e.target.value)}
                   placeholder="Laissez vide pour rester anonyme"
-                  className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-sm text-slate-700 placeholder:text-slate-300 outline-none border-2 border-transparent focus:border-[#1a5f7a]/30 transition-all"
+                  className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] px-5 py-4 text-[13px] font-bold text-[#0f172a] outline-none placeholder:font-semibold placeholder:text-slate-300 focus:bg-white"
                 />
               </div>
 
               {/* Erreur */}
               {error && (
-                <div className="flex items-center gap-3 p-4 bg-rose-50 text-rose-600 rounded-2xl font-bold text-xs border border-rose-100">
+                <div className="flex items-center gap-3 rounded-[18px] border-2 border-[#f43f5e] bg-[#fff1f2] p-4 text-xs font-bold text-[#be123c]">
                   {error}
                 </div>
               )}
             </div>
 
             {/* Footer sticky */}
-            <div className="sticky bottom-0 bg-white rounded-b-[2.5rem] p-6 pt-4 border-t border-slate-100 flex gap-3">
+            <div className="sticky bottom-0 flex shrink-0 gap-3 border-t-2 border-[#0f172a] bg-white p-6">
               <button onClick={() => setShowModal(false)}
-                className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-colors">
+                className="flex-1 rounded-[16px] border-2 border-[#0f172a] bg-white py-4 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#0f172a] transition-colors hover:bg-[#fdfaf6]">
                 Annuler
               </button>
               <button onClick={handleSubmit} disabled={sending || !selectedCategory || !message.trim()}
-                className={`flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 ${
+                className={`flex flex-1 items-center justify-center gap-2 rounded-[16px] border-2 border-[#0f172a] py-4 text-[10px] font-extrabold uppercase tracking-[0.14em] transition-all ${
                   sending || !selectedCategory || !message.trim()
-                    ? 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none'
-                    : 'bg-[#1a5f7a] text-white shadow-lg shadow-cyan-900/20 hover:bg-[#154f67]'
+                    ? 'cursor-not-allowed bg-[#fdfaf6] text-slate-300'
+                    : 'bg-[#1a5f7a] text-white shadow-[4px_4px_0_#0f172a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0f172a]'
                 }`}>
                 {sending ? <><Loader2 size={14} className="animate-spin" /> Enregistrement…</> : <><Check size={14} /> Enregistrer</>}
               </button>
@@ -1001,16 +992,16 @@ export default function Suggestions() {
 
       {/* MODALE ÉDITION */}
       {editModal.show && (
-        <div className="fixed inset-0 z-[200] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] w-full max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col animate-in slide-in-from-bottom md:zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 backdrop-blur-[6px] sm:p-[22px]" style={{ background: "rgba(15,23,42,.7)" }}>
+          <div className="anim-modal-in flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#e38154]">
 
             {/* Header modale */}
-            <div className="sticky top-0 bg-white rounded-t-[2.5rem] p-6 pb-4 border-b border-slate-100 flex items-center justify-between z-10">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-[#1a5f7a]/10 text-[#1a5f7a] rounded-xl"><Edit2 size={18} /></div>
-                <h3 className="text-base font-black uppercase tracking-tight text-slate-900">Modifier la suggestion</h3>
+                <div className="flex h-10 w-10 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#1a5f7a] text-white"><Edit2 size={18} /></div>
+                <h3 className="font-display text-lg font-extrabold tracking-[-0.03em] text-[#0f172a]">Modifier la suggestion</h3>
               </div>
-              <button onClick={closeEditModal} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-all">
+              <button onClick={closeEditModal} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-white text-[#0f172a] transition-colors hover:bg-[#fdfaf6]">
                 <X size={20} />
               </button>
             </div>
@@ -1019,16 +1010,14 @@ export default function Suggestions() {
 
               {/* Catégorie — dropdown */}
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">
+                <label className="mb-3 block text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#1a5f7a]">
                   Catégorie
                 </label>
                 <div className="relative">
                   <button
                     onClick={() => setShowEditCatDropdown(v => !v)}
-                    className={`w-full flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left ${
-                      editCategory
-                        ? `${getCat(editCategory).bg} ${getCat(editCategory).border}`
-                        : 'border-slate-100 bg-slate-50 hover:border-slate-200'
+                    className={`flex w-full items-center gap-3 rounded-[18px] border-2 border-[#0f172a] p-4 text-left transition-colors ${
+                      editCategory ? getCat(editCategory).bg : 'bg-[#fdfaf6] hover:bg-white'
                     }`}
                   >
                     <div className="p-1.5 rounded-lg shrink-0"
@@ -1047,7 +1036,7 @@ export default function Suggestions() {
                   {showEditCatDropdown && (
                     <>
                       <div className="fixed inset-0 z-10" onClick={() => setShowEditCatDropdown(false)} />
-                      <div className="absolute left-0 right-0 top-full mt-2 z-20 bg-white rounded-[1.5rem] shadow-2xl border border-slate-100 p-2 animate-in zoom-in-95 duration-150 max-h-64 overflow-y-auto">
+                      <div className="absolute left-0 right-0 top-full mt-2 z-20 rounded-[18px] border-2 border-[#0f172a] bg-white shadow-[4px_4px_0_#1a5f7a] p-2 animate-in zoom-in-95 duration-150 max-h-64 overflow-y-auto">
                         {CATEGORIES.map(c => (
                           <button key={c.id}
                             onClick={() => { setEditCategory(c.id); setShowEditCatDropdown(false) }}
@@ -1075,34 +1064,34 @@ export default function Suggestions() {
 
               {/* Message */}
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">
+                <label className="mb-3 block text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#1a5f7a]">
                   Suggestion
                 </label>
                 <textarea rows={4} value={editMessage} onChange={e => setEditMessage(e.target.value)}
-                  className="w-full p-4 bg-slate-50 rounded-2xl font-medium text-sm text-slate-700 placeholder:text-slate-300 outline-none border-2 border-transparent focus:border-[#1a5f7a]/30 resize-none transition-all"
+                  className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] px-5 py-4 text-[13px] font-bold text-[#0f172a] outline-none placeholder:font-semibold placeholder:text-slate-300 focus:bg-white resize-none"
                 />
               </div>
 
               {/* Auteur */}
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">
+                <label className="mb-3 block text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#1a5f7a]">
                   Suggéré par
                 </label>
                 <input type="text" value={editAuthor} onChange={e => setEditAuthor(e.target.value)}
                   placeholder="Laissez vide pour rester anonyme"
-                  className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-sm text-slate-700 placeholder:text-slate-300 outline-none border-2 border-transparent focus:border-[#1a5f7a]/30 transition-all"
+                  className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] px-5 py-4 text-[13px] font-bold text-[#0f172a] outline-none placeholder:font-semibold placeholder:text-slate-300 focus:bg-white"
                 />
               </div>
 
               {/* Prix */}
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3">
-                  Prix <span className="normal-case font-medium text-slate-300">(optionnel)</span>
+                <label className="mb-3 block text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#1a5f7a]">
+                  Prix <span className="font-semibold normal-case text-slate-400">(optionnel)</span>
                 </label>
                 <div className="relative">
                   <input type="number" step="0.01" min="0" value={editPrice} onChange={e => setEditPrice(e.target.value)}
                     placeholder="0.00"
-                    className="w-full p-4 pr-12 bg-slate-50 rounded-2xl font-bold text-sm text-slate-700 placeholder:text-slate-300 outline-none border-2 border-transparent focus:border-[#1a5f7a]/30 transition-all"
+                    className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] px-5 py-4 text-[13px] font-bold text-[#0f172a] outline-none placeholder:font-semibold placeholder:text-slate-300 focus:bg-white pr-12"
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">€</span>
                 </div>
@@ -1110,23 +1099,23 @@ export default function Suggestions() {
 
               {/* Erreur */}
               {editError && (
-                <div className="flex items-center gap-3 p-4 bg-rose-50 text-rose-600 rounded-2xl font-bold text-xs border border-rose-100">
+                <div className="flex items-center gap-3 rounded-[18px] border-2 border-[#f43f5e] bg-[#fff1f2] p-4 text-xs font-bold text-[#be123c]">
                   {editError}
                 </div>
               )}
             </div>
 
             {/* Footer sticky */}
-            <div className="sticky bottom-0 bg-white rounded-b-[2.5rem] p-6 pt-4 border-t border-slate-100 flex gap-3">
+            <div className="sticky bottom-0 flex shrink-0 gap-3 border-t-2 border-[#0f172a] bg-white p-6">
               <button onClick={closeEditModal}
-                className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-colors">
+                className="flex-1 rounded-[16px] border-2 border-[#0f172a] bg-white py-4 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#0f172a] transition-colors hover:bg-[#fdfaf6]">
                 Annuler
               </button>
               <button onClick={saveEdit} disabled={editSaving || !editCategory || !editMessage.trim()}
-                className={`flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 ${
+                className={`flex flex-1 items-center justify-center gap-2 rounded-[16px] border-2 border-[#0f172a] py-4 text-[10px] font-extrabold uppercase tracking-[0.14em] transition-all ${
                   editSaving || !editCategory || !editMessage.trim()
-                    ? 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none'
-                    : 'bg-[#1a5f7a] text-white shadow-lg shadow-cyan-900/20 hover:bg-[#154f67]'
+                    ? 'cursor-not-allowed bg-[#fdfaf6] text-slate-300'
+                    : 'bg-[#1a5f7a] text-white shadow-[4px_4px_0_#0f172a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0f172a]'
                 }`}>
                 {editSaving ? <><Loader2 size={14} className="animate-spin" /> Enregistrement…</> : <><Check size={14} /> Enregistrer</>}
               </button>

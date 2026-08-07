@@ -9,7 +9,22 @@ import {
 import { supabase } from '../../services/supabaseClient'
 import { sendEmail } from '../../services/emailService'
 import { useToast } from '../../components/ToastContext'
-import { SkeletonRow } from '../../components/Skeleton'
+import AdminPageHeader from '../../components/admin/AdminPageHeader'
+import SearchField from '../../components/admin/SearchField'
+import IconButton from '../../components/admin/IconButton'
+import ConfirmModal from '../../components/admin/ConfirmModal'
+import FormModal from '../../components/admin/FormModal'
+import { DataCard, DataHeader, DataRow, DataEmpty } from '../../components/admin/DataCard'
+import { BTN_ORANGE, BTN_TEAL, BTN_INK } from '../../components/admin/buttons'
+
+// Colonnes du tableau des adhérents : n°, adhérent, statut, caution, actions
+const MEMBERS_COLS = '62px minmax(0, 1.3fr) minmax(0, 1.1fr) minmax(0, .95fr) 236px'
+
+// Styles des champs, repris de la maquette
+const A_SECTION = 'mb-3 text-[9.5px] font-extrabold uppercase tracking-[0.18em]'
+const A_INPUT = 'w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13px] font-bold text-[#0f172a] outline-none placeholder:font-semibold placeholder:text-slate-300 focus:bg-white'
+const A_CHECK = 'flex cursor-pointer items-center gap-2.5 rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-4 py-3.5 text-[10.5px] font-extrabold uppercase tracking-[0.1em] text-slate-600'
+const A_INFO_ROW = 'flex items-center gap-3.5 rounded-[20px] border-2 border-slate-200 bg-[#fdfaf6] px-5 py-4 text-[13.5px] font-bold text-slate-600'
 
 
 const ADHERENTS_TUTORIAL_STEPS = (openForm, closeForm, openRelance, openRenewal) => [
@@ -512,457 +527,611 @@ www.ludothequedecoligny.fr`
   ), [fakeExpiredMember]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="p-4 md:p-10 bg-[#fdfaf6] min-h-screen font-sans text-slate-900">
-      
-      {/* HEADER */}
-      <div className="max-w-7xl mx-auto mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h1 data-tutorial="adherents-header" className="text-xl md:text-4xl font-black text-slate-900 flex items-center gap-3">
-          <div className="p-2.5 bg-[#1a5f7a] rounded-xl shadow-lg text-white"><Users size={24} /></div>
-          <span>Gestion des <span className="text-[#1a5f7a]">Adhérents</span></span>
-        </h1>
-        <button data-tutorial="adherents-add-btn" onClick={() => showForm ? setShowForm(false) : handleOpenForm()} className={`w-full md:w-auto px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl ${showForm ? 'bg-slate-800 text-white' : 'bg-[#e38154] text-white'}`}>
-          {showForm ? "Fermer" : "Nouvel Adhérent"}
-        </button>
+    <div className="min-h-screen bg-[#fdfaf6] p-5 font-body text-[#0f172a] md:p-11">
+      <div className="mx-auto max-w-[1240px]">
+
+      <div data-tutorial="adherents-header">
+        <AdminPageHeader
+          icon="04.svg" title="Gestion des" accent="adhérents"
+          tileBg="#e38154" tileShadow="#1a5f7a" accentColor="#e38154"
+        >
+          <button
+            data-tutorial="adherents-add-btn"
+            onClick={() => showForm ? setShowForm(false) : handleOpenForm()}
+            className={`${showForm ? BTN_INK : BTN_TEAL} w-full md:w-auto`}
+          >
+            {showForm ? <><X size={16} strokeWidth={3} /> Fermer</> : <><Plus size={16} strokeWidth={3} /> Nouvel adhérent</>}
+          </button>
+        </AdminPageHeader>
       </div>
 
-      <main className="max-w-7xl mx-auto space-y-6">
-        {!showForm && (
-          <div data-tutorial="adherents-search" className="relative group">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-            <input type="text" placeholder="Rechercher..." className="w-full bg-white border border-slate-100 p-4 pl-14 rounded-2xl font-bold text-slate-700 outline-none shadow-sm focus:ring-2 focus:ring-[#1a5f7a]/10 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-          </div>
-        )}
+      <main>
+        <SearchField
+          data-tutorial="adherents-search"
+          className="mb-6"
+          placeholder="Rechercher un adhérent..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
 
-        {showForm && (
-          <form data-tutorial="adherents-form" onSubmit={handleSubmit} className="bg-white p-6 md:p-12 rounded-[2.5rem] shadow-xl border border-slate-50 mb-8 animate-in zoom-in-95">
-             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                {/* IDENTITÉ */}
-                <div data-tutorial="adherents-form-type" className="space-y-4">
-                  <h3 className="text-[10px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2"><User size={14}/> Type & Identité</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {['Particulier', 'Association'].map((t) => (
-                      <button key={t} type="button" onClick={() => setNewMember({...newMember, type: t, first_name: t === 'Association' ? 'Association' : ''})} className={`py-3 rounded-xl font-bold text-[10px] border transition-all ${newMember.type === t ? 'bg-[#1a5f7a] text-white border-[#1a5f7a] shadow-md' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>{t}</button>
-                    ))}
+        {/* LISTE — tableau sur ordinateur, cartes sur téléphone */}
+        <DataCard shadow="#e38154" className="hidden md:block">
+          <DataHeader columns={MEMBERS_COLS}>
+            <div>N°</div><div>Adhérent</div><div>Statut</div><div>Caution</div>
+            <div className="text-right">Gestion</div>
+          </DataHeader>
+
+          {loading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <DataRow key={i} columns={MEMBERS_COLS} className="animate-pulse">
+                <div className="h-4 w-8 rounded-full bg-slate-100" />
+                <div className="h-4 w-32 rounded-full bg-slate-100" />
+                <div className="h-6 w-24 rounded-full bg-slate-100" />
+                <div className="h-4 w-16 rounded-full bg-slate-100" />
+                <div />
+              </DataRow>
+            ))
+          ) : filteredMembers.length === 0 ? (
+            <DataEmpty icon={<Users size={36} className="text-slate-200" />}>
+              Aucun adhérent ne correspond à cette recherche.
+            </DataEmpty>
+          ) : filteredMembers.map((m, idx) => {
+            const status = getExpirationStatus(m);
+            const isCautionActive = (m.type === 'Particulier' && appSettings.active_caution_particulier === "true") || (m.type === 'Association' && appSettings.active_caution_association === "true");
+            return (
+              <DataRow
+                key={m.id}
+                columns={MEMBERS_COLS}
+                style={status.expired ? { background: '#fff5f6' } : undefined}
+                {...(idx === 0 ? { 'data-tutorial': 'adherents-list-row1' } : idx === 1 ? { 'data-tutorial': 'adherents-list-row2' } : {})}
+              >
+                <div className="font-display text-[16px] font-extrabold text-[#1a5f7a]">{m.member_number}</div>
+
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 truncate text-[13px] font-extrabold uppercase">
+                    {m.type === 'Association' && <Building2 size={13} className="shrink-0 text-slate-400" />}
+                    {m.last_name} {m.type !== 'Association' ? m.first_name : ''}
                   </div>
-                  <input required placeholder="N° Adhérent" className="w-full p-4 rounded-xl bg-slate-50 font-bold text-sm border-2 border-transparent focus:border-[#1a5f7a] outline-none" value={newMember.member_number} onChange={e => setNewMember({...newMember, member_number: e.target.value})} />
-                  <div className="grid grid-cols-1 gap-2">
-                    {newMember.type !== 'Association' && (
-                       <input required placeholder="Prénom" className="w-full p-4 rounded-xl bg-slate-50 font-bold text-sm border-2 border-transparent focus:border-[#1a5f7a] outline-none" value={newMember.first_name} onChange={e => setNewMember({...newMember, first_name: e.target.value})} />
-                    )}
-                    <input required placeholder={newMember.type === 'Association' ? "Nom de l'Asso" : "Nom"} className="w-full p-4 rounded-xl bg-slate-50 font-bold text-sm border-2 border-transparent focus:border-[#1a5f7a] outline-none" value={newMember.last_name} onChange={e => setNewMember({...newMember, last_name: e.target.value})} />
+                  <div className="mt-1.5 text-[9.5px] font-extrabold uppercase tracking-[0.12em] text-slate-400">
+                    {m.type}
                   </div>
-                  <input type="date" required className="w-full p-4 rounded-xl bg-slate-50 font-bold text-sm outline-none" value={newMember.membership_date} onChange={e => setNewMember({...newMember, membership_date: e.target.value})} />
                 </div>
 
-                {/* CONTACT */}
-                <div data-tutorial="adherents-form-contact" className="space-y-4">
-                  <h3 className="text-[10px] font-black text-[#e38154] uppercase tracking-widest flex items-center gap-2"><Mail size={14}/> Coordonnées</h3>
-                  <input type="email" placeholder="Email" className="w-full p-4 rounded-xl bg-slate-50 font-bold text-sm" value={newMember.email} onChange={e => setNewMember({...newMember, email: e.target.value})} />
-                  <input type="tel" placeholder="Téléphone" className="w-full p-4 rounded-xl bg-slate-50 font-bold text-sm" value={newMember.phone} onChange={e => setNewMember({...newMember, phone: e.target.value})} />
-                  <textarea placeholder="Adresse complète" rows="2" className="w-full p-4 rounded-xl bg-slate-50 font-bold text-sm outline-none resize-none" value={newMember.address} onChange={e => setNewMember({...newMember, address: e.target.value})} />
-                  
-                  {newMember.type === 'Particulier' && (
-                    <div className="pt-2">
-                      <div className="flex gap-2 mb-2">
-                        <input placeholder="Membre foyer..." className="flex-1 p-4 rounded-xl bg-slate-50 font-bold text-sm outline-none" value={tempFamilyMember} onChange={e => setTempFamilyMember(e.target.value)} />
-                        <button type="button" onClick={() => { if(tempFamilyMember.trim()){ setNewMember({...newMember, family_members: [...newMember.family_members, tempFamilyMember.trim()]}); setTempFamilyMember(''); }}} className="bg-[#1a5f7a] text-white p-4 rounded-xl shadow-md"><Plus size={20}/></button>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {newMember.family_members.map((name, i) => (
-                          <span key={i} className="flex items-center gap-2 bg-[#fdfaf6] px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border border-slate-100">
-                            {name} <X size={12} className="text-rose-500 cursor-pointer" onClick={() => setNewMember({...newMember, family_members: newMember.family_members.filter((_, idx) => idx !== i)})} />
-                          </span>
-                        ))}
-                      </div>
+                <div>
+                  <span
+                    className="inline-block rounded-full border-2 border-[#0f172a] px-3.5 py-1.5 text-[9px] font-extrabold uppercase tracking-[0.1em]"
+                    style={status.expired ? { background: '#ffe4e6', color: '#be123c' } : { background: '#ecfdf5', color: '#047857' }}
+                  >
+                    {status.message} ({m.fee_amount}€)
+                  </span>
+                </div>
+
+                <div className="text-[10px] font-extrabold uppercase tracking-[0.1em]">
+                  {!isCautionActive
+                    ? <span className="italic text-slate-300">N/A</span>
+                    : m.caution_received
+                      ? <span className="flex items-center gap-2 text-orange-600"><ShieldCheck size={15} /> OK</span>
+                      : <span className="flex items-center gap-2 text-rose-400"><ShieldOff size={15} /> Manquante</span>}
+                </div>
+
+                <div className="flex flex-wrap justify-end gap-2">
+                  {status.expired && (
+                    <IconButton data-tutorial="adherents-action-renew" tone="success" title="Renouveler l'adhésion" onClick={() => openRenewalModal(m)}>
+                      <RefreshCw size={17} />
+                    </IconButton>
+                  )}
+                  {status.expired && (
+                    <IconButton data-tutorial="adherents-action-relance" tone="warn" title="Envoyer une relance" onClick={() => setRenewalAction(m)}>
+                      <Send size={17} />
+                    </IconButton>
+                  )}
+                  <IconButton data-tutorial="adherents-action-view" title="Voir la fiche" onClick={() => setViewMember(m)}>
+                    <Eye size={17} />
+                  </IconButton>
+                  <IconButton
+                    data-tutorial="adherents-action-edit" title="Modifier"
+                    className="bg-[#fdfaf6] text-[#0f172a] hover:bg-[#0f172a] hover:text-white"
+                    onClick={() => { setNewMember({ ...m, family_members: m.family_members || [] }); setEditingId(m.id); setShowForm(true); }}
+                  >
+                    <Edit2 size={17} />
+                  </IconButton>
+                  <IconButton data-tutorial="adherents-action-delete" tone="danger" title="Supprimer" onClick={() => setDeleteConfirm(m)}>
+                    <Trash2 size={17} />
+                  </IconButton>
+                </div>
+              </DataRow>
+            )
+          })}
+        </DataCard>
+
+        <div className="space-y-4 md:hidden">
+          {!loading && filteredMembers.length === 0 && (
+            <DataCard shadow="#e38154">
+              <DataEmpty icon={<Users size={36} className="text-slate-200" />}>
+                Aucun adhérent ne correspond à cette recherche.
+              </DataEmpty>
+            </DataCard>
+          )}
+          {filteredMembers.map((m) => {
+            const status = getExpirationStatus(m);
+            return (
+              <div
+                key={m.id}
+                className="rounded-[26px] border-2 border-[#0f172a] bg-white p-4 shadow-[4px_4px_0_#e38154]"
+                style={status.expired ? { background: '#fff5f6' } : undefined}
+              >
+                <div className="mb-3.5 flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#f0f7f9] font-display text-[13px] font-extrabold text-[#1a5f7a]">
+                      {m.member_number}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate font-display text-[15px] font-extrabold uppercase leading-tight">
+                        {m.last_name} {m.type !== 'Association' ? m.first_name : ''}
+                      </p>
+                      <p className="mt-1 flex items-center gap-1 text-[9.5px] font-extrabold uppercase tracking-[0.12em] text-slate-400">
+                        {m.type === 'Association' ? <><Building2 size={10} /> Association</> : <><User size={10} /> Particulier</>}
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className="shrink-0 rounded-full border-2 border-[#0f172a] px-2.5 py-1 text-[8px] font-extrabold uppercase tracking-[0.1em]"
+                    style={status.expired ? { background: '#ffe4e6', color: '#be123c' } : { background: '#ecfdf5', color: '#047857' }}
+                  >
+                    {status.message}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t-2 border-slate-100 pt-3.5">
+                  <div className="flex gap-2">
+                    <IconButton title="Voir la fiche" onClick={() => setViewMember(m)}><Eye size={17} /></IconButton>
+                    <IconButton
+                      title="Modifier"
+                      className="bg-[#fdfaf6] text-[#0f172a] hover:bg-[#0f172a] hover:text-white"
+                      onClick={() => { setNewMember({ ...m, family_members: m.family_members || [] }); setEditingId(m.id); setShowForm(true); }}
+                    >
+                      <Edit2 size={17} />
+                    </IconButton>
+                    <IconButton tone="danger" title="Supprimer" onClick={() => setDeleteConfirm(m)}><Trash2 size={17} /></IconButton>
+                  </div>
+                  {status.expired && (
+                    <div className="flex gap-2">
+                      <IconButton tone="success" title="Renouveler" onClick={() => openRenewalModal(m)}><RefreshCw size={17} /></IconButton>
+                      <IconButton tone="warn" title="Relancer" onClick={() => setRenewalAction(m)}><Send size={17} /></IconButton>
                     </div>
                   )}
                 </div>
+              </div>
+            )
+          })}
+        </div>
+      </main>
+      </div>
 
-                {/* PAIEMENT */}
-                <div data-tutorial="adherents-form-cotisation" className="space-y-4">
-                  <h3 className="text-[10px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2"><CreditCard size={14}/> Cotisation</h3>
-                  <div className={`p-6 rounded-[2rem] border-2 text-center transition-all ${newMember.has_paid ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
-                    <span className="text-3xl font-black text-slate-900 block mb-3">{newMember.fee_amount}€</span>
-                    
-                    {/* BOUTON MODALITÉS DE PAIEMENT */}
-                    <button data-tutorial="adherents-payment-info-btn" type="button" onClick={() => setShowPaymentInfoModal(true)} className="mb-4 flex items-center gap-2 mx-auto px-4 py-2 bg-white rounded-xl border border-slate-100 text-[9px] font-black uppercase text-[#1a5f7a] hover:bg-slate-50 transition-all">
-                      <Info size={14} /> Modalités de paiement
+      {/* ---------- FICHE ADHÉRENT (création / modification) ---------- */}
+      {showForm && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-[22px]">
+          <div className="anim-fade-in absolute inset-0 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }} onClick={() => setShowForm(false)} />
+          <form
+            data-tutorial="adherents-form"
+            onSubmit={handleSubmit}
+            className="anim-modal-in relative max-h-[88vh] w-full max-w-[820px] overflow-y-auto rounded-[36px] border-2 border-[#0f172a] bg-white p-6 shadow-[12px_12px_0_#e38154] md:p-9"
+          >
+            <button
+              type="button" onClick={() => setShowForm(false)} aria-label="Fermer"
+              className="absolute right-4 top-4 z-10 flex h-[42px] w-[42px] items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[15px] font-extrabold text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"
+            >
+              ✕
+            </button>
+
+            <h2 className="mb-6 pr-14 font-display text-[24px] font-extrabold uppercase tracking-[-0.04em] md:text-[27px]">
+              Fiche <span className="text-[#e38154]">adhérent</span>
+            </h2>
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div>
+                <div data-tutorial="adherents-form-type">
+                  <div className={`${A_SECTION} text-[#1a5f7a]`}>Type &amp; identité</div>
+                  <div className="mb-3 flex gap-2">
+                    {['Particulier', 'Association'].map((t) => (
+                      <button
+                        key={t} type="button"
+                        onClick={() => setNewMember({ ...newMember, type: t, first_name: t === 'Association' ? 'Association' : '' })}
+                        className={`flex-1 rounded-[14px] border-2 border-[#0f172a] py-3 text-[10px] font-extrabold uppercase tracking-[0.1em] transition-colors ${
+                          newMember.type === t ? 'bg-[#1a5f7a] text-white' : 'bg-[#fdfaf6] text-slate-500'
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                  <input required placeholder="N° adhérent" className={`${A_INPUT} mb-3`} value={newMember.member_number} onChange={e => setNewMember({ ...newMember, member_number: e.target.value })} />
+                  <div className="mb-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                    {newMember.type !== 'Association' && (
+                      <input required placeholder="Prénom" className={A_INPUT} value={newMember.first_name} onChange={e => setNewMember({ ...newMember, first_name: e.target.value })} />
+                    )}
+                    <input required placeholder={newMember.type === 'Association' ? "Nom de l'asso" : "Nom"} className={A_INPUT} value={newMember.last_name} onChange={e => setNewMember({ ...newMember, last_name: e.target.value })} />
+                  </div>
+                  <input type="date" required className={A_INPUT} value={newMember.membership_date} onChange={e => setNewMember({ ...newMember, membership_date: e.target.value })} />
+                </div>
+
+                <div data-tutorial="adherents-form-contact">
+                  <div className={`${A_SECTION} mt-5 text-[#e38154]`}>Coordonnées</div>
+                  <input type="email" placeholder="Email" className={`${A_INPUT} mb-3`} value={newMember.email} onChange={e => setNewMember({ ...newMember, email: e.target.value })} />
+                  <input type="tel" placeholder="Téléphone" className={`${A_INPUT} mb-3`} value={newMember.phone} onChange={e => setNewMember({ ...newMember, phone: e.target.value })} />
+                  <textarea
+                    placeholder="Adresse complète" rows={2}
+                    className="w-full resize-none rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-4 text-[13px] font-semibold text-[#0f172a] outline-none placeholder:text-slate-300 focus:bg-white"
+                    value={newMember.address} onChange={e => setNewMember({ ...newMember, address: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                {newMember.type === 'Particulier' && (
+                  <>
+                    <div className={`${A_SECTION} text-[#1a5f7a]`}>Membres du foyer</div>
+                    <div className="mb-3 flex gap-2.5">
+                      <input
+                        placeholder="Membre foyer..." className={`${A_INPUT} min-w-0 flex-1`}
+                        value={tempFamilyMember} onChange={e => setTempFamilyMember(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (tempFamilyMember.trim()) { setNewMember({ ...newMember, family_members: [...newMember.family_members, tempFamilyMember.trim()] }); setTempFamilyMember('') } } }}
+                      />
+                      <button
+                        type="button" aria-label="Ajouter au foyer"
+                        onClick={() => { if (tempFamilyMember.trim()) { setNewMember({ ...newMember, family_members: [...newMember.family_members, tempFamilyMember.trim()] }); setTempFamilyMember('') } }}
+                        className="flex w-14 shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#0f172a] text-white transition-transform active:scale-95"
+                      >
+                        <Plus size={19} strokeWidth={3} />
+                      </button>
+                    </div>
+                    <div className="mb-5 flex flex-wrap gap-[7px]">
+                      {newMember.family_members.map((name, i) => (
+                        <span key={i} className="flex items-center gap-2 rounded-[12px] border-2 border-slate-200 bg-[#fdfaf6] px-3.5 py-2 text-[11.5px] font-bold text-slate-600">
+                          {name}
+                          <X size={13} className="cursor-pointer text-rose-500" onClick={() => setNewMember({ ...newMember, family_members: newMember.family_members.filter((_, idx) => idx !== i) })} />
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                <div data-tutorial="adherents-form-cotisation">
+                  <div className={`${A_SECTION} text-[#1a5f7a]`}>Cotisation</div>
+                  <div
+                    className="mb-3 rounded-[20px] border-2 border-[#0f172a] p-5 text-center"
+                    style={{ background: newMember.has_paid ? '#ecfdf5' : '#fff1f2' }}
+                  >
+                    <span className="mb-3 block font-display text-[32px] font-extrabold leading-none tracking-[-0.04em]">{newMember.fee_amount}€</span>
+                    <button
+                      data-tutorial="adherents-payment-info-btn" type="button" onClick={() => setShowPaymentInfoModal(true)}
+                      className="mx-auto mb-4 flex items-center gap-2 rounded-[12px] border-2 border-[#0f172a] bg-white px-4 py-2 text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#1a5f7a] transition-colors hover:bg-[#1a5f7a] hover:text-white"
+                    >
+                      <Info size={13} /> Modalités de paiement
                     </button>
-
-                    <label className="flex items-center justify-center gap-3 cursor-pointer">
-                      <input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={newMember.has_paid} onChange={(e) => setNewMember({...newMember, has_paid: e.target.checked})} />
-                      <span className="text-[10px] font-black uppercase text-slate-600 tracking-widest">Réglée</span>
+                    <label className="flex cursor-pointer items-center justify-center gap-3">
+                      <input type="checkbox" className="h-5 w-5 accent-emerald-500" checked={newMember.has_paid} onChange={(e) => setNewMember({ ...newMember, has_paid: e.target.checked })} />
+                      <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-600">Cotisation réglée</span>
                     </label>
                   </div>
 
-                  {((newMember.type === 'Particulier' && appSettings.active_caution_particulier === "true") || 
+                  {((newMember.type === 'Particulier' && appSettings.active_caution_particulier === "true") ||
                     (newMember.type === 'Association' && appSettings.active_caution_association === "true")) && (
-                    <div className={`p-6 rounded-[2rem] border-2 text-center transition-all ${newMember.caution_received ? 'bg-orange-50 border-orange-100' : 'bg-slate-50 border-slate-100'}`}>
-                      <span className="text-xl font-black text-slate-700 block mb-2">
+                    <div
+                      className="mb-3 rounded-[20px] border-2 border-[#0f172a] p-5 text-center"
+                      style={{ background: newMember.caution_received ? '#fff7ed' : '#fdfaf6' }}
+                    >
+                      <span className="mb-2 block font-display text-[22px] font-extrabold">
                         {newMember.type === 'Particulier' ? appSettings.montant_caution_particulier : appSettings.montant_caution_association}€
                       </span>
-                      <label className="flex items-center justify-center gap-3 cursor-pointer">
-                        <input type="checkbox" className="w-5 h-5 accent-orange-500" checked={newMember.caution_received} onChange={(e) => setNewMember({...newMember, caution_received: e.target.checked})} />
-                        <span className="text-[10px] font-black uppercase text-slate-600 tracking-widest">Caution reçue</span>
+                      <label className="flex cursor-pointer items-center justify-center gap-3">
+                        <input type="checkbox" className="h-5 w-5 accent-orange-500" checked={newMember.caution_received} onChange={(e) => setNewMember({ ...newMember, caution_received: e.target.checked })} />
+                        <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-600">Caution reçue</span>
                       </label>
                     </div>
                   )}
 
-                  <button data-tutorial="adherents-form-submit" type="submit" className="w-full py-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg transition-all active:scale-95">
-                    {editingId ? "Mettre à jour" : "Enregistrer"}
-                  </button>
                   {!editingId && newMember.email && (
-                    <label className="flex items-center gap-3 cursor-pointer px-2">
-                      <input type="checkbox" className="w-5 h-5 accent-[#1a5f7a]" checked={sendWelcomeEmail} onChange={e => setSendWelcomeEmail(e.target.checked)} />
-                      <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2"><Mail size={12}/> Envoyer un email de bienvenue</span>
+                    <label className={`${A_CHECK} mb-3`}>
+                      <input type="checkbox" className="h-[18px] w-[18px] accent-[#1a5f7a]" checked={sendWelcomeEmail} onChange={e => setSendWelcomeEmail(e.target.checked)} />
+                      <Mail size={13} /> Envoyer un email de bienvenue
                     </label>
                   )}
                 </div>
-             </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-2.5">
+              <button
+                data-tutorial="adherents-form-submit" type="submit"
+                className="flex-1 basis-[200px] rounded-[18px] border-2 border-[#0f172a] bg-[#1a5f7a] py-5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white shadow-[5px_5px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a]"
+              >
+                {editingId ? "Mettre à jour" : "Enregistrer"}
+              </button>
+              <button
+                type="button" onClick={() => setShowForm(false)}
+                className="basis-[150px] rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] py-5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500 transition-colors hover:bg-slate-100"
+              >
+                Annuler
+              </button>
+            </div>
           </form>
-        )}
-
-        {/* LISTE - TABLEAU (DESKTOP) & CARDS (MOBILE) */}
-        {!showForm && (
-          <div className="space-y-4">
-            {/* VUE TABLEAU (VISIBLE UNIQUEMENT SUR DESKTOP) */}
-            <div className="hidden md:block bg-white rounded-[2.5rem] shadow-sm border border-slate-50 overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-slate-50 text-[10px] uppercase text-slate-400 font-black">
-                  <tr>
-                    <th className="p-8">N°</th>
-                    <th className="p-8">Adhérent</th>
-                    <th className="p-8">Status</th>
-                    <th className="p-8">Caution</th>
-                    <th className="p-8 text-right pr-12">Gestion</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {loading ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />) : filteredMembers.map((m, idx) => {
-                    const status = getExpirationStatus(m);
-                    const isCautionActive = (m.type === 'Particulier' && appSettings.active_caution_particulier === "true") || (m.type === 'Association' && appSettings.active_caution_association === "true");
-                    return (
-                      <tr key={m.id} {...(idx === 0 ? {"data-tutorial": "adherents-list-row1"} : idx === 1 ? {"data-tutorial": "adherents-list-row2"} : {})} className={`transition-colors ${status.expired ? 'bg-rose-50/40 hover:bg-rose-50/60' : 'hover:bg-slate-50/50'}`}>
-                        <td className="p-8 font-black text-[#1a5f7a]">{m.member_number}</td>
-                        <td className="p-8 font-black uppercase text-sm">
-                          {m.type === 'Association' && <Building2 size={14} className="inline mr-2 text-slate-400"/>}
-                          {m.last_name} {m.type !== 'Association' ? m.first_name : ''}
-                        </td>
-                        <td className="p-8">
-                          <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase border flex items-center gap-2 w-fit ${status.expired ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
-                            {status.message} ({m.fee_amount}€)
-                          </span>
-                        </td>
-                        <td className="p-8 text-[10px] font-black uppercase">
-                          {!isCautionActive ? <span className="text-slate-300 italic">N/A</span> : m.caution_received ? <span className="text-orange-600 flex items-center gap-2"><ShieldCheck size={16}/> OK</span> : <span className="text-rose-400 flex items-center gap-2"><ShieldOff size={16}/> Manquante</span>}
-                        </td>
-                        <td className="p-8 text-right pr-12 space-x-2">
-                          {status.expired && (
-                            <button
-                              data-tutorial="adherents-action-renew"
-                              onClick={() => openRenewalModal(m)}
-                              title="Renouveler l'adhésion"
-                              className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-emerald-100 transition-all"
-                            >
-                              <RefreshCw size={14} /> Renouveler
-                            </button>
-                          )}
-                          {status.expired && <button data-tutorial="adherents-action-relance" onClick={() => setRenewalAction(m)} title="Envoyer une relance" className="p-3 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-100 transition-all"><Send size={18} /></button>}
-                          <button data-tutorial="adherents-action-view" onClick={() => setViewMember(m)} className="p-3 text-slate-400 hover:text-[#1a5f7a]"><Eye size={18} /></button>
-                          <button data-tutorial="adherents-action-edit" onClick={() => { setNewMember({...m, family_members: m.family_members || []}); setEditingId(m.id); setShowForm(true); }} className="p-3 text-slate-400 hover:text-amber-500"><Edit2 size={18} /></button>
-                          <button data-tutorial="adherents-action-delete" onClick={() => setDeleteConfirm(m)} className="p-3 text-slate-400 hover:text-rose-500"><Trash2 size={18} /></button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* VUE CARDS (VISIBLE UNIQUEMENT SUR MOBILE) */}
-            <div className="md:hidden grid grid-cols-1 gap-4">
-              {filteredMembers.map((m) => {
-                const status = getExpirationStatus(m);
-                return (
-                  <div key={m.id} className={`bg-white p-6 rounded-[2rem] shadow-sm border border-slate-50 space-y-4 ${status.expired ? 'bg-rose-50/30' : ''}`}>
-                    <div className="flex justify-between items-start">
-                      <div className="flex gap-3 items-center">
-                        <div className="w-10 h-10 bg-[#1a5f7a]/10 rounded-xl flex items-center justify-center text-[#1a5f7a] font-black text-xs">{m.member_number}</div>
-                        <div>
-                          <p className="font-black uppercase text-sm leading-tight">{m.last_name} {m.type !== 'Association' ? m.first_name : ''}</p>
-                          <p className="text-[10px] text-slate-400 font-bold flex items-center gap-1 uppercase tracking-wider">
-                            {m.type === 'Association' ? <><Building2 size={10}/> Association</> : <><User size={10}/> Particulier</>}
-                          </p>
-                        </div>
-                      </div>
-                      <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase border ${status.expired ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
-                        {status.message}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center flex-wrap gap-2 justify-between pt-2 border-t border-slate-50">
-                       <div className="flex gap-2">
-                        <button onClick={() => setViewMember(m)} className="min-h-11 min-w-11 flex items-center justify-center bg-slate-50 text-slate-400 rounded-xl"><Eye size={18}/></button>
-                        <button onClick={() => { setNewMember({...m, family_members: m.family_members || []}); setEditingId(m.id); setShowForm(true); }} className="min-h-11 min-w-11 flex items-center justify-center bg-slate-50 text-slate-400 rounded-xl"><Edit2 size={18}/></button>
-                        <button onClick={() => setDeleteConfirm(m)} className="min-h-11 min-w-11 flex items-center justify-center bg-rose-50 text-rose-400 rounded-xl"><Trash2 size={18}/></button>
-                       </div>
-                       {status.expired && (
-                         <div className="flex gap-2 flex-wrap">
-                           <button onClick={() => openRenewalModal(m)} className="min-h-11 px-4 py-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2"><RefreshCw size={14}/> Renouveler</button>
-                           <button onClick={() => setRenewalAction(m)} className="min-h-11 min-w-11 flex items-center justify-center bg-amber-50 text-amber-600 rounded-xl"><Send size={16}/></button>
-                         </div>
-                       )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* MODALE MODALITÉS DE PAIEMENT */}
-      {showPaymentInfoModal && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-[2.5rem] p-10 max-w-lg w-full shadow-2xl animate-in zoom-in-95">
-             <h3 className="font-black text-slate-900 uppercase text-xl mb-6 flex items-center gap-3">
-               <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><CreditCard size={20}/></div>
-               Moyens de paiement acceptés
-             </h3>
-             <div className="space-y-4 mb-8">
-                {appSettings.pay_cb === "true" && (
-                  <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl font-bold text-sm text-slate-700 border border-slate-100">
-                    <CheckCircle2 size={18} className="text-emerald-500" /> Carte Bancaire (CB)
-                  </div>
-                )}
-                {appSettings.pay_especes === "true" && (
-                  <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl font-bold text-sm text-slate-700 border border-slate-100">
-                    <CheckCircle2 size={18} className="text-emerald-500" /> Espèces
-                  </div>
-                )}
-                {appSettings.pay_cheque === "true" && (
-                  <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl font-bold text-sm text-slate-700 border border-slate-100">
-                    <CheckCircle2 size={18} className="text-emerald-500" /> Chèque
-                  </div>
-                )}
-                {appSettings.pay_virement === "true" && (
-                  <div className="p-6 bg-blue-50/50 rounded-3xl border border-blue-100 space-y-4">
-                    <div className="flex items-center gap-3 font-black text-[10px] uppercase text-blue-600 tracking-widest">
-                      <Send size={16} /> Virement Bancaire
-                    </div>
-                    <div className="space-y-2">
-                       <p className="text-[9px] font-black text-slate-400 uppercase">Titulaire</p>
-                       <p className="text-sm font-bold text-slate-700 bg-white p-3 rounded-xl border border-blue-50">{appSettings.nom_compte || 'Non renseigné'}</p>
-                       <p className="text-[9px] font-black text-slate-400 uppercase mt-2">IBAN</p>
-                       <p className="text-sm font-mono font-bold text-slate-700 bg-white p-3 rounded-xl border border-blue-50 break-all">{appSettings.iban || 'Non renseigné'}</p>
-                       <p className="text-[9px] font-black text-slate-400 uppercase mt-2">Code BIC</p>
-                       <p className="text-sm font-mono font-bold text-slate-700 bg-white p-3 rounded-xl border border-blue-50">{appSettings.bic || 'Non renseigné'}</p>
-                    </div>
-                  </div>
-                )}
-                {appSettings.pay_cb !== "true" && appSettings.pay_especes !== "true" && appSettings.pay_cheque !== "true" && appSettings.pay_virement !== "true" && (
-                  <p className="text-center italic text-slate-400 text-sm py-4">Aucun moyen de paiement configuré dans les paramètres.</p>
-                )}
-             </div>
-             <button onClick={() => setShowPaymentInfoModal(false)} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">Fermer</button>
-          </div>
         </div>
       )}
 
-      {/* MODALE RENOUVELLEMENT ADHÉSION */}
+      {/* ---------- MODALITÉS DE PAIEMENT ---------- */}
+      <FormModal
+        open={showPaymentInfoModal}
+        onClose={() => setShowPaymentInfoModal(false)}
+        title="Moyens de" titleAccent="paiement"
+        subtitle="Acceptés par l'association"
+        accent="#10b981"
+        maxWidth={560}
+        footer={
+          <button onClick={() => setShowPaymentInfoModal(false)} className={`${BTN_INK} w-full`}>Fermer</button>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          {appSettings.pay_cb === "true" && (
+            <div className={A_INFO_ROW}><CheckCircle2 size={18} className="shrink-0 text-emerald-500" /> Carte bancaire (CB)</div>
+          )}
+          {appSettings.pay_especes === "true" && (
+            <div className={A_INFO_ROW}><CheckCircle2 size={18} className="shrink-0 text-emerald-500" /> Espèces</div>
+          )}
+          {appSettings.pay_cheque === "true" && (
+            <div className={A_INFO_ROW}><CheckCircle2 size={18} className="shrink-0 text-emerald-500" /> Chèque</div>
+          )}
+          {appSettings.pay_virement === "true" && (
+            <div className="rounded-[22px] border-2 border-[#1a5f7a] bg-[#f0f7f9] p-5">
+              <div className="mb-4 flex items-center gap-2.5 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#1a5f7a]">
+                <Send size={15} /> Virement bancaire
+              </div>
+              <p className="mb-1.5 text-[9px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Titulaire</p>
+              <p className="mb-3 rounded-[14px] border-2 border-slate-200 bg-white p-3 text-sm font-bold text-slate-700">{appSettings.nom_compte || 'Non renseigné'}</p>
+              <p className="mb-1.5 text-[9px] font-extrabold uppercase tracking-[0.14em] text-slate-400">IBAN</p>
+              <p className="mb-3 break-all rounded-[14px] border-2 border-slate-200 bg-white p-3 font-mono text-sm font-bold text-slate-700">{appSettings.iban || 'Non renseigné'}</p>
+              <p className="mb-1.5 text-[9px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Code BIC</p>
+              <p className="rounded-[14px] border-2 border-slate-200 bg-white p-3 font-mono text-sm font-bold text-slate-700">{appSettings.bic || 'Non renseigné'}</p>
+            </div>
+          )}
+          {appSettings.pay_cb !== "true" && appSettings.pay_especes !== "true" && appSettings.pay_cheque !== "true" && appSettings.pay_virement !== "true" && (
+            <p className="py-4 text-center text-sm italic text-slate-400">Aucun moyen de paiement configuré dans les paramètres.</p>
+          )}
+        </div>
+      </FormModal>
+
+      {/* ---------- RENOUVELLEMENT ---------- */}
       {renewalModal.show && renewalModal.member && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-[#1a5f7a]/80 backdrop-blur-md">
-          <div data-tutorial="adherents-renewal-modal" className="bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl border-b-8 border-emerald-500 animate-in zoom-in-95">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl"><RefreshCw size={24}/></div>
-              <div>
-                <h2 className="text-xl font-black text-slate-900 uppercase leading-tight">Renouveler l'adhésion</h2>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-[22px]">
+          <div className="anim-fade-in absolute inset-0 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }} onClick={() => setRenewalModal({ show: false, member: null })} />
+          <div data-tutorial="adherents-renewal-modal" className="anim-modal-in relative max-h-[90vh] w-full max-w-[480px] overflow-y-auto rounded-[34px] border-2 border-[#0f172a] bg-white p-7 shadow-[12px_12px_0_#10b981] md:p-9">
+            <button
+              onClick={() => setRenewalModal({ show: false, member: null })} aria-label="Fermer"
+              className="absolute right-4 top-4 flex h-[42px] w-[42px] items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[15px] font-extrabold text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"
+            >
+              ✕
+            </button>
+
+            <div className="mb-6 flex items-center gap-3.5 pr-12">
+              <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[18px] border-2 border-[#0f172a] bg-[#ecfdf5] text-[#047857] shadow-[3px_3px_0_#10b981]">
+                <RefreshCw size={22} />
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-display text-[20px] font-extrabold uppercase leading-[1.05] tracking-[-0.04em]">Renouveler l'adhésion</h2>
+                <p className="mt-1.5 truncate text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
                   {renewalModal.member.type === 'Association' ? renewalModal.member.last_name : `${renewalModal.member.first_name} ${renewalModal.member.last_name}`} — N°{renewalModal.member.member_number}
                 </p>
               </div>
             </div>
 
-            <div className="space-y-5">
-              {/* Date d'adhésion */}
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2"><Calendar size={12}/> Date de renouvellement</label>
-                <input
-                  type="date"
-                  className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
-                  value={renewalForm.membership_date}
-                  onChange={e => {
-                    const newDate = e.target.value
-                    const newFee = calculateFee(renewalModal.member.type, newDate, appSettings)
-                    setRenewalForm(f => ({ ...f, membership_date: newDate, fee_amount: newFee }))
-                  }}
-                />
-              </div>
+            <div className={`${A_SECTION} text-[#1a5f7a]`}>Date de renouvellement</div>
+            <input
+              type="date" className={`${A_INPUT} mb-4`}
+              value={renewalForm.membership_date}
+              onChange={e => {
+                const newDate = e.target.value
+                const newFee = calculateFee(renewalModal.member.type, newDate, appSettings)
+                setRenewalForm(f => ({ ...f, membership_date: newDate, fee_amount: newFee }))
+              }}
+            />
 
-              {/* Montant cotisation */}
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2"><CreditCard size={12}/> Montant de la cotisation</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    className="flex-1 p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
-                    value={renewalForm.fee_amount}
-                    onChange={e => setRenewalForm(f => ({ ...f, fee_amount: parseFloat(e.target.value) || 0 }))}
-                  />
-                  <span className="text-xl font-black text-slate-400">€</span>
-                </div>
-              </div>
+            <div className={`${A_SECTION} text-[#1a5f7a]`}>Montant de la cotisation</div>
+            <div className="mb-4 flex items-center gap-3">
+              <input
+                type="number" min="0" step="0.5" className={`${A_INPUT} min-w-0 flex-1`}
+                value={renewalForm.fee_amount}
+                onChange={e => setRenewalForm(f => ({ ...f, fee_amount: parseFloat(e.target.value) || 0 }))}
+              />
+              <span className="font-display text-[22px] font-extrabold text-slate-400">€</span>
+            </div>
 
-              {/* Cotisation réglée */}
-              <div className={`p-5 rounded-2xl border-2 transition-all ${renewalForm.has_paid ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" className="w-5 h-5 accent-emerald-500" checked={renewalForm.has_paid} onChange={e => setRenewalForm(f => ({ ...f, has_paid: e.target.checked }))} />
-                  <span className="text-[10px] font-black uppercase text-slate-600 tracking-widest">Cotisation réglée</span>
-                </label>
-                {renewalForm.has_paid && (
-                  <p className="text-[9px] text-emerald-600 font-bold mt-2 ml-8">Une entrée de {renewalForm.fee_amount}€ sera enregistrée dans le suivi financier.</p>
-                )}
-              </div>
-
-              {/* Email de confirmation */}
-              {renewalModal.member.email ? (
-                <label className="flex items-center gap-3 cursor-pointer px-1">
-                  <input type="checkbox" className="w-5 h-5 accent-[#1a5f7a]" checked={renewalForm.sendEmail} onChange={e => setRenewalForm(f => ({ ...f, sendEmail: e.target.checked }))} />
-                  <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2"><Mail size={12}/> Envoyer un email de confirmation</span>
-                </label>
-              ) : (
-                <p className="text-[9px] text-slate-400 italic px-1 flex items-center gap-2"><Mail size={12}/> Aucun email renseigné — confirmation impossible.</p>
+            <div
+              className="mb-3.5 rounded-[20px] border-2 p-4"
+              style={renewalForm.has_paid ? { background: '#ecfdf5', borderColor: '#10b981' } : { background: '#fff1f2', borderColor: '#f43f5e' }}
+            >
+              <label className="flex cursor-pointer items-center gap-2.5">
+                <input type="checkbox" className="h-[18px] w-[18px] accent-emerald-500" checked={renewalForm.has_paid} onChange={e => setRenewalForm(f => ({ ...f, has_paid: e.target.checked }))} />
+                <span className="text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-slate-600">Cotisation réglée</span>
+              </label>
+              {renewalForm.has_paid && (
+                <p className="ml-7 mt-2.5 text-[10.5px] font-bold text-[#047857]">Une entrée de {renewalForm.fee_amount}€ sera enregistrée dans le suivi financier.</p>
               )}
             </div>
 
-            <div className="flex flex-col gap-3 mt-8">
+            {renewalModal.member.email ? (
+              <label className={`${A_CHECK} mb-5`}>
+                <input type="checkbox" className="h-[18px] w-[18px] accent-[#1a5f7a]" checked={renewalForm.sendEmail} onChange={e => setRenewalForm(f => ({ ...f, sendEmail: e.target.checked }))} />
+                <Mail size={13} /> Envoyer un email de confirmation
+              </label>
+            ) : (
+              <p className="mb-5 flex items-center gap-2 text-[10px] italic text-slate-400"><Mail size={12} /> Aucun email renseigné — confirmation impossible.</p>
+            )}
+
+            <div className="flex flex-col gap-2.5">
               <button
-                onClick={handleSaveRenewal}
-                disabled={savingRenewal}
-                className={`w-full py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg flex items-center justify-center gap-3 transition-all active:scale-95 ${savingRenewal ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
+                onClick={handleSaveRenewal} disabled={savingRenewal}
+                className={`flex items-center justify-center gap-2.5 rounded-[18px] border-2 border-[#0f172a] py-4 text-[11px] font-extrabold uppercase tracking-[0.16em] transition-[transform,box-shadow] duration-200 ${
+                  savingRenewal ? 'cursor-not-allowed bg-slate-100 text-slate-300' : 'bg-[#10b981] text-white shadow-[5px_5px_0_#0f172a] hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a]'
+                }`}
               >
-                {savingRenewal ? <><Loader2 size={16} className="animate-spin"/> Enregistrement...</> : <><CheckCircle2 size={16}/> Confirmer le renouvellement</>}
+                {savingRenewal ? <><Loader2 size={16} className="animate-spin" /> Enregistrement...</> : <><CheckCircle2 size={16} /> Confirmer le renouvellement</>}
               </button>
-              <button onClick={() => setRenewalModal({ show: false, member: null })} className="w-full py-3 text-slate-400 font-bold text-[10px] uppercase">Annuler</button>
+              <button onClick={() => setRenewalModal({ show: false, member: null })} className="rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] py-4 text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500 transition-colors hover:bg-slate-100">
+                Annuler
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODALE DE RELANCE */}
+      {/* ---------- RELANCE ---------- */}
       {renewalAction && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-[#1a5f7a]/80 backdrop-blur-md">
-          <div data-tutorial="adherents-relance-modal" className="bg-white rounded-[3rem] p-10 max-w-lg w-full shadow-2xl border-b-8 border-amber-500 animate-in zoom-in-95">
-            <h2 className="text-2xl font-black text-slate-900 uppercase mb-6">Relancer l'adhérent</h2>
-            <div className="space-y-4 mb-8">
-                <div className="bg-slate-50 p-4 rounded-xl flex gap-3 text-sm font-bold text-slate-600 truncate"><Mail size={18} className="text-[#1a5f7a] shrink-0"/> {renewalAction.email || 'N/A'}</div>
-                <div className="bg-slate-50 p-4 rounded-xl flex gap-3 text-sm font-bold text-slate-600"><Phone size={18} className="text-[#1a5f7a] shrink-0"/> {renewalAction.phone || 'N/A'}</div>
-                <div className="bg-slate-50 p-4 rounded-xl flex gap-3 text-sm font-bold text-slate-600"><MapPin size={18} className="text-[#1a5f7a] shrink-0"/> {renewalAction.address || 'N/A'}</div>
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-[22px]">
+          <div className="anim-fade-in absolute inset-0 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }} onClick={() => setRenewalAction(null)} />
+          <div data-tutorial="adherents-relance-modal" className="anim-modal-in relative max-h-[88vh] w-full max-w-[600px] overflow-y-auto rounded-[36px] border-2 border-[#0f172a] bg-white p-7 shadow-[12px_12px_0_#f59e0b] md:p-9">
+            <button
+              onClick={() => setRenewalAction(null)} aria-label="Fermer"
+              className="absolute right-4 top-4 flex h-[42px] w-[42px] items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[15px] font-extrabold text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"
+            >
+              ✕
+            </button>
+
+            <h2 className="mb-5 pr-12 font-display text-[24px] font-extrabold uppercase tracking-[-0.04em]">Relancer l'adhérent</h2>
+
+            <div className="mb-6 flex flex-col gap-2.5">
+              <div className={A_INFO_ROW}><Mail size={18} className="shrink-0 text-[#1a5f7a]" /> <span className="truncate">{renewalAction.email || 'N/A'}</span></div>
+              <div className={A_INFO_ROW}><Phone size={18} className="shrink-0 text-[#1a5f7a]" /> {renewalAction.phone || 'N/A'}</div>
+              <div className={`${A_INFO_ROW} items-start`}><MapPin size={18} className="mt-0.5 shrink-0 text-[#1a5f7a]" /> <span className="leading-[1.5]">{renewalAction.address || 'N/A'}</span></div>
             </div>
-            <button onClick={() => openComposeMember(renewalAction)} className="w-full p-5 bg-[#1a5f7a] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95"><Mail size={18} /> Envoyer une relance par mail</button>
-            <button onClick={async () => {
+
+            <button onClick={() => openComposeMember(renewalAction)} className={`${BTN_TEAL} mb-3 w-full py-5`}>
+              <Mail size={16} /> Envoyer une relance par mail
+            </button>
+            <button
+              onClick={async () => {
                 const today = new Date().toISOString().split('T')[0];
                 await supabase.from('members').update({ last_reminder_date: today }).eq('id', renewalAction.id);
                 fetchMembers(); setRenewalAction(null);
                 addToast('Relance marquée comme effectuée.', 'success')
-            }} className="w-full mt-4 py-3 bg-amber-50 text-amber-600 rounded-xl font-black uppercase text-[9px] tracking-widest">Marquer comme relancé aujourd'hui</button>
-            <button onClick={() => setRenewalAction(null)} className="w-full mt-2 py-3 text-slate-400 font-bold text-[10px] uppercase">Annuler</button>
+              }}
+              className="mb-2 w-full rounded-[16px] border-2 border-[#f59e0b] bg-[#fffbeb] py-3.5 text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-[#b45309] transition-colors hover:bg-[#f59e0b] hover:text-white"
+            >
+              Marquer comme relancé aujourd'hui
+            </button>
+            <button onClick={() => setRenewalAction(null)} className="w-full py-3.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400 transition-colors hover:text-[#0f172a]">
+              Annuler
+            </button>
           </div>
         </div>
       )}
 
-      {/* MODALE VUE DÉTAILLÉE (AVEC FOYER) */}
+      {/* ---------- FICHE DÉTAILLÉE ---------- */}
       {viewMember && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
-          <div className="relative bg-white rounded-[2.5rem] p-8 md:p-12 max-w-lg w-full shadow-2xl animate-in fade-in zoom-in-95 overflow-y-auto max-h-[90vh]">
-            <h3 className="font-black text-slate-900 uppercase text-2xl mb-8 flex items-center gap-4">
-              <div className="p-3 bg-[#1a5f7a]/10 rounded-2xl text-[#1a5f7a]"><User size={24}/></div>
-              <span>{viewMember.first_name !== 'Association' ? viewMember.first_name : ''} {viewMember.last_name}</span>
-            </h3>
-            
-            <div className="space-y-4 mb-8 text-sm font-bold text-slate-600">
-              <div className="bg-slate-50 p-5 rounded-2xl flex items-center gap-4 border border-slate-100"><Mail size={20} className="text-[#1a5f7a] shrink-0"/> <span className="truncate">{viewMember.email || 'N/A'}</span></div>
-              <div className="bg-slate-50 p-5 rounded-2xl flex items-center gap-4 border border-slate-100"><Phone size={20} className="text-[#1a5f7a] shrink-0"/> <span>{viewMember.phone || 'N/A'}</span></div>
-              <div className="bg-slate-50 p-5 rounded-2xl flex items-start gap-4 border border-slate-100"><MapPin size={20} className="text-[#1a5f7a] shrink-0 mt-0.5"/> <span className="leading-relaxed">{viewMember.address || 'N/A'}</span></div>
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-[22px]">
+          <div className="anim-fade-in absolute inset-0 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }} onClick={() => setViewMember(null)} />
+          <div className="anim-modal-in relative max-h-[88vh] w-full max-w-[620px] overflow-y-auto rounded-[36px] border-2 border-[#0f172a] bg-white p-7 shadow-[12px_12px_0_#e38154] md:p-9">
+            <button
+              onClick={() => setViewMember(null)} aria-label="Fermer"
+              className="absolute right-4 top-4 flex h-[42px] w-[42px] items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[15px] font-extrabold text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"
+            >
+              ✕
+            </button>
 
-              {viewMember.type === 'Particulier' && (
-                <div className="mt-8 pt-6 border-t border-slate-100">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2"><Users size={14}/> Membres du foyer</h4>
-                  {viewMember.family_members?.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {viewMember.family_members.map((name, i) => (
-                        <div key={i} className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-[11px] font-black uppercase border border-emerald-100 shadow-sm">{name}</div>
-                      ))}
-                    </div>
-                  ) : <p className="text-[11px] text-slate-300 italic">Seul membre</p>}
+            <div className="mb-6 flex items-center gap-4 pr-12">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] border-2 border-[#0f172a] bg-[#f0f7f9] font-display text-[17px] font-extrabold text-[#1a5f7a]">
+                {viewMember.member_number}
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-display text-[22px] font-extrabold uppercase leading-none tracking-[-0.04em] md:text-[26px]">
+                  {viewMember.last_name} {viewMember.first_name !== 'Association' ? viewMember.first_name : ''}
+                </h3>
+                <p className="mt-1.5 text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
+                  {viewMember.type} · {getExpirationStatus(viewMember).message}
+                </p>
+              </div>
+            </div>
+
+            <div className="mb-6 flex flex-col gap-2.5">
+              <div className={A_INFO_ROW}><Mail size={19} className="shrink-0 text-[#1a5f7a]" /> <span className="truncate">{viewMember.email || 'N/A'}</span></div>
+              <div className={A_INFO_ROW}><Phone size={19} className="shrink-0 text-[#1a5f7a]" /> {viewMember.phone || 'N/A'}</div>
+              <div className={`${A_INFO_ROW} items-start`}><MapPin size={19} className="mt-0.5 shrink-0 text-[#1a5f7a]" /> <span className="leading-[1.55]">{viewMember.address || 'N/A'}</span></div>
+              <div className="flex items-center gap-3.5 rounded-[20px] border-2 border-slate-200 bg-[#f0f7f9] px-5 py-4 text-[13.5px] font-bold text-[#1a5f7a]">
+                <CreditCard size={19} className="shrink-0" /> Cotisation {viewMember.fee_amount}€
+              </div>
+            </div>
+
+            {viewMember.type === 'Particulier' && (
+              <>
+                <div className="mb-3.5 flex items-center gap-2.5 border-t-2 border-slate-100 pt-5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400">
+                  <Users size={15} /> Membres du foyer
                 </div>
-              )}
-            </div>
-            <button onClick={() => setViewMember(null)} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg">Fermer</button>
+                {viewMember.family_members?.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {viewMember.family_members.map((name, i) => (
+                      <span key={i} className="rounded-[12px] border-2 border-[#10b981] bg-[#ecfdf5] px-3.5 py-2 text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#047857]">
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                ) : <p className="text-[11px] italic text-slate-300">Seul membre</p>}
+              </>
+            )}
           </div>
         </div>
       )}
 
-      {/* MODALE SUPPRESSION */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-[#1a5f7a]/80 backdrop-blur-md">
-          <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl border-b-8 border-rose-500 animate-in slide-in-from-bottom-4">
-             <div className="mx-auto w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mb-6"><Trash2 size={28} /></div>
-             <h3 className="text-xl font-black uppercase text-slate-900 mb-2">Supprimer ?</h3>
-             <p className="text-xs text-slate-500 mb-8 italic">"{deleteConfirm.last_name} {deleteConfirm.first_name}"</p>
-             <div className="flex flex-col gap-3">
-               <button onClick={async () => { await supabase.from('members').delete().eq('id', deleteConfirm.id); setDeleteConfirm(null); fetchMembers(); addToast('Adhérent supprimé avec succès.', 'success') }} className="w-full py-5 bg-rose-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg">Confirmer</button>
-               <button onClick={() => setDeleteConfirm(null)} className="w-full py-5 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase text-[10px]">Annuler</button>
-             </div>
-          </div>
-        </div>
-      )}
+      {/* ---------- SUPPRESSION ---------- */}
+      <ConfirmModal
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={async () => { await supabase.from('members').delete().eq('id', deleteConfirm.id); setDeleteConfirm(null); fetchMembers(); addToast('Adhérent supprimé avec succès.', 'success') }}
+        title="Supprimer ?"
+        message={deleteConfirm ? `« ${deleteConfirm.last_name} ${deleteConfirm.first_name} » sera définitivement retiré du fichier des adhérents.` : ''}
+        confirmLabel="Oui, supprimer"
+        cancelLabel="Conserver"
+        tone="danger"
+        icon={<Trash2 size={26} />}
+      />
 
-      {composeModal.show && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
-            <div className="sticky top-0 bg-white rounded-t-[2.5rem] p-8 pb-4 border-b border-slate-100 flex items-center justify-between z-10">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-amber-50 text-amber-500 rounded-xl"><Mail size={20} /></div>
-                <div>
-                  <h3 className="text-base font-black uppercase text-slate-900">Relance cotisation</h3>
-                  <p className="text-[10px] text-slate-400">{composeModal.member?.email}</p>
-                </div>
-              </div>
-              <button onClick={() => setComposeModal({ show: false, member: null })} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-all"><X size={20} /></button>
-            </div>
-            <div className="p-8 space-y-6 flex-1">
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Objet</label>
-                <input className="w-full p-4 rounded-2xl bg-slate-50 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
-                  value={composeData.subject} onChange={e => setComposeData(prev => ({ ...prev, subject: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-[#1a5f7a] uppercase tracking-widest">Message</label>
-                <textarea rows={10} className="w-full p-4 rounded-2xl bg-slate-50 font-medium text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a] resize-y"
-                  value={composeData.body} onChange={e => setComposeData(prev => ({ ...prev, body: e.target.value }))} />
-              </div>
-            </div>
-            <div className="sticky bottom-0 bg-white rounded-b-[2.5rem] p-8 pt-4 border-t border-slate-100 flex gap-3">
-              <button onClick={() => setComposeModal({ show: false, member: null })}
-                className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest">Annuler</button>
-              <button onClick={handleSendRenewal} disabled={sendingMail}
-                className={'flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 ' +
-                  (sendingMail ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-[#1a5f7a] text-white hover:bg-[#134a5e]')}>
-                {sendingMail ? <><Loader2 size={14} className="animate-spin" /> Envoi...</> : <><Send size={14} /> Envoyer</>}
-              </button>
-            </div>
+      {/* ---------- RÉDACTION DE LA RELANCE ---------- */}
+      <FormModal
+        open={composeModal.show}
+        onClose={() => setComposeModal({ show: false, member: null })}
+        title="Relance" titleAccent="cotisation"
+        subtitle={composeModal.member?.email}
+        accent="#f59e0b"
+        maxWidth={680}
+        footer={
+          <div className="flex flex-wrap gap-2.5">
+            <button onClick={() => setComposeModal({ show: false, member: null })} className="flex-1 basis-[140px] rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] py-4 text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500 transition-colors hover:bg-slate-100">
+              Annuler
+            </button>
+            <button
+              onClick={handleSendRenewal} disabled={sendingMail}
+              className={`flex flex-1 basis-[180px] items-center justify-center gap-2 rounded-[18px] border-2 border-[#0f172a] py-4 text-[11px] font-extrabold uppercase tracking-[0.16em] transition-[transform,box-shadow] duration-200 ${
+                sendingMail ? 'cursor-not-allowed bg-slate-100 text-slate-300' : 'bg-[#1a5f7a] text-white shadow-[5px_5px_0_#0f172a] hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a]'
+              }`}
+            >
+              {sendingMail ? <><Loader2 size={14} className="animate-spin" /> Envoi...</> : <><Send size={14} /> Envoyer</>}
+            </button>
           </div>
-        </div>
-      )}
+        }
+      >
+        <div className={`${A_SECTION} text-[#1a5f7a]`}>Objet</div>
+        <input className={`${A_INPUT} mb-4`} value={composeData.subject} onChange={e => setComposeData(prev => ({ ...prev, subject: e.target.value }))} />
+        <div className={`${A_SECTION} text-[#1a5f7a]`}>Message</div>
+        <textarea
+          rows={10}
+          className="w-full resize-y rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 text-[13px] font-medium text-[#0f172a] outline-none focus:bg-white"
+          value={composeData.body} onChange={e => setComposeData(prev => ({ ...prev, body: e.target.value }))}
+        />
+      </FormModal>
 
       {sendingMail && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full text-center shadow-2xl">
-            <Loader2 className="animate-spin mx-auto text-[#1a5f7a] mb-6" size={40} />
-            <h3 className="text-lg font-black uppercase text-slate-900">Envoi en cours...</h3>
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }}>
+          <div className="anim-modal-in flex flex-col items-center gap-4 rounded-[34px] border-2 border-[#0f172a] bg-white px-10 py-9 shadow-[12px_12px_0_#1a5f7a]">
+            <Loader2 className="animate-spin text-[#1a5f7a]" size={38} />
+            <h3 className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Envoi en cours...</h3>
           </div>
         </div>
       )}
