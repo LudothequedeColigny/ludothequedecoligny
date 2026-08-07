@@ -14,7 +14,7 @@ export function TutorialButton({ onClick }) {
     <button
       onClick={onClick}
       title="Aide & tutoriel"
-      className="fixed bottom-6 right-6 z-[900] flex items-center gap-2 px-4 py-3 bg-[#1a5f7a] text-white rounded-full font-black uppercase text-[10px] tracking-widest shadow-2xl hover:bg-[#154f67] hover:scale-105 active:scale-95 transition-all duration-200"
+      className="fixed bottom-6 right-6 z-[900] flex items-center gap-2.5 rounded-[20px] border-2 border-[#0f172a] bg-[#1a5f7a] px-5 py-4 text-[10px] font-extrabold uppercase tracking-[0.14em] text-white shadow-[4px_4px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0f172a]"
     >
       <BookOpen size={16} strokeWidth={2.5} />
       Tutoriel
@@ -219,7 +219,7 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
 
   if (!open || !step) return null
 
-  const dark = '#1a5f7a', orange = '#e38154', green = '#10b981', white = '#fff'
+  const dark = '#1a5f7a', orange = '#e38154', green = '#10b981', white = '#fff', ink = '#0f172a'
   const isMobileTip = tipPos?.placement === 'bottom-fixed'
 
   // ── SVG mask : on perce un trou pour chaque spotlight ────────────────────
@@ -233,13 +233,13 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
           <mask id="tuto-holes">
             <rect width="100%" height="100%" fill="white" />
             {spots.map((s, i) => (
-              <rect key={i} x={s.left} y={s.top} width={s.width} height={s.height} rx="12" fill="black" />
+              <rect key={i} x={s.left} y={s.top} width={s.width} height={s.height} rx="14" fill="black" />
             ))}
           </mask>
         </defs>
         <rect width="100%" height="100%" fill="rgba(8,24,40,0.78)" mask="url(#tuto-holes)" />
         {spots.map((s, i) => (
-          <rect key={i} x={s.left} y={s.top} width={s.width} height={s.height} rx="12" fill="none" stroke={orange} strokeWidth="2.5" />
+          <rect key={i} x={s.left} y={s.top} width={s.width} height={s.height} rx="14" fill="none" stroke={orange} strokeWidth="3" />
         ))}
       </svg>
     )
@@ -256,9 +256,10 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
     flexShrink: 0, display: 'flex', alignItems: 'center', gap: 3,
     padding: isMobileTip ? '10px 14px' : '7px 11px',
     minHeight: isMobileTip ? 44 : undefined,
-    borderRadius: 9, cursor: 'pointer', fontSize: 10, fontWeight: 900,
-    textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap',
-    border: 'none',
+    borderRadius: 13, cursor: 'pointer', fontSize: 9.5, fontWeight: 800,
+    fontFamily: 'Poppins, sans-serif',
+    textTransform: 'uppercase', letterSpacing: '0.12em', whiteSpace: 'nowrap',
+    border: '2px solid #0f172a',
     ...extra,
   })
 
@@ -277,41 +278,50 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
         <div style={tipContainerStyle} onClick={e => e.stopPropagation()}>
           {/* Flèche (desktop uniquement — la bulle mobile est ancrée en bas, sans flèche) */}
           {spots.length > 0 && !isMobileTip && tipPos.placement !== 'center' && (
-            <div style={{
-              position: 'absolute', left: '50%', transform: 'translateX(-50%)', width: 0, height: 0,
-              ...(tipPos.placement === 'bottom'
-                ? { top: -10, borderLeft: '9px solid transparent', borderRight: '9px solid transparent', borderBottom: `10px solid ${white}` }
-                : { bottom: -10, borderLeft: '9px solid transparent', borderRight: '9px solid transparent', borderTop: `10px solid ${white}` })
-            }} />
+            <>
+              {/* Triangle encre (le contour), puis triangle blanc légèrement décalé par-dessus */}
+              <div style={{
+                position: 'absolute', left: '50%', transform: 'translateX(-50%)', width: 0, height: 0,
+                ...(tipPos.placement === 'bottom'
+                  ? { top: -12, borderLeft: '11px solid transparent', borderRight: '11px solid transparent', borderBottom: `12px solid ${ink}` }
+                  : { bottom: -12, borderLeft: '11px solid transparent', borderRight: '11px solid transparent', borderTop: `12px solid ${ink}` })
+              }} />
+              <div style={{
+                position: 'absolute', left: '50%', transform: 'translateX(-50%)', width: 0, height: 0,
+                ...(tipPos.placement === 'bottom'
+                  ? { top: -8, borderLeft: '9px solid transparent', borderRight: '9px solid transparent', borderBottom: `9px solid ${dark}` }
+                  : { bottom: -8, borderLeft: '9px solid transparent', borderRight: '9px solid transparent', borderTop: `9px solid ${white}` })
+              }} />
+            </>
           )}
 
-          <div style={{ background: white, borderRadius: 18, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.40)' }}>
+          <div style={{ background: white, borderRadius: 24, overflow: 'hidden', border: `2px solid ${ink}`, boxShadow: `6px 6px 0 ${orange}` }}>
             {/* En-tête */}
-            <div style={{ background: dark, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <BookOpen size={13} color="rgba(255,255,255,0.6)" strokeWidth={2.5} />
-                <span style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.18em', color: 'rgba(255,255,255,0.6)' }}>
+            <div style={{ background: dark, padding: '11px 14px', borderBottom: `2px solid ${ink}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <BookOpen size={14} color={white} strokeWidth={2.5} />
+                <span style={{ fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.16em', color: white }}>
                   Étape {current + 1} / {steps.length}
                 </span>
               </div>
-              <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 7, padding: '3px 6px', cursor: 'pointer', display: 'flex', color: 'rgba(255,255,255,0.75)' }}>
-                <X size={13} strokeWidth={2.5} />
+              <button onClick={onClose} aria-label="Fermer le tutoriel" style={{ background: white, border: `2px solid ${ink}`, borderRadius: 10, width: 28, height: 28, flexShrink: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: ink, padding: 0 }}>
+                <X size={14} strokeWidth={2.5} />
               </button>
             </div>
 
             {/* Progression */}
-            <div style={{ height: 3, background: '#f1f5f9' }}>
+            <div style={{ height: 6, background: '#fdfaf6', borderBottom: `2px solid ${ink}` }}>
               <div style={{ height: '100%', background: orange, width: `${(current + 1) / steps.length * 100}%`, transition: 'width 0.35s ease' }} />
             </div>
 
             {/* Contenu — compact sur mobile */}
             <div style={{ padding: isMobileTip ? '10px 14px 6px' : '14px 16px 10px' }}>
-              <p style={{ fontSize: isMobileTip ? 13 : 14, fontWeight: 800, color: '#0f172a', margin: '0 0 4px', lineHeight: 1.3 }}>{step.title}</p>
+              <p style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: isMobileTip ? 15 : 17, fontWeight: 800, letterSpacing: '-0.03em', color: ink, margin: '0 0 5px', lineHeight: 1.2 }}>{step.title}</p>
               <p style={{ fontSize: 12, color: '#64748b', margin: 0, lineHeight: 1.5, fontWeight: 500,
                 display: '-webkit-box', WebkitLineClamp: isMobileTip ? 3 : 10, WebkitBoxOrient: 'vertical', overflow: 'hidden'
               }}>{step.description}</p>
               {step.tip && !isMobileTip && (
-                <div style={{ marginTop: 10, padding: '8px 11px', background: '#fffbeb', borderRadius: 9, border: '1px solid #fde68a', display: 'flex', gap: 7 }}>
+                <div style={{ marginTop: 10, padding: '9px 12px', background: '#fffbeb', borderRadius: 14, border: '2px solid #f59e0b', display: 'flex', gap: 7 }}>
                   <span style={{ fontSize: 13 }}>💡</span>
                   <p style={{ fontSize: 12, color: '#92400e', margin: 0, lineHeight: 1.5, fontWeight: 500 }}>{step.tip}</p>
                 </div>
@@ -322,24 +332,24 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
             <div style={{ padding: isMobileTip ? '0 12px 10px' : '0 16px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <button
                 onClick={() => goTo(current - 1)} disabled={isFirst}
-                style={navBtnStyle({ background: isFirst ? '#f8fafc' : '#f1f5f9', color: isFirst ? '#cbd5e1' : '#475569', cursor: isFirst ? 'not-allowed' : 'pointer' })}
+                style={navBtnStyle({ background: white, color: isFirst ? '#cbd5e1' : ink, cursor: isFirst ? 'not-allowed' : 'pointer', opacity: isFirst ? 0.45 : 1, boxShadow: isFirst ? 'none' : `3px 3px 0 ${ink}` })}
               >
                 <ChevronLeft size={12} strokeWidth={3} /> Préc.
               </button>
 
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              <span style={{ fontSize: 10.5, fontWeight: 800, color: '#94a3b8', whiteSpace: 'nowrap', flexShrink: 0 }}>
                 {current + 1} / {steps.length}
               </span>
 
               {isLast ? (
                 <button onClick={onClose}
-                  style={navBtnStyle({ background: green, color: white, boxShadow: '0 3px 10px rgba(16,185,129,0.3)' })}
+                  style={navBtnStyle({ background: green, color: white, boxShadow: `3px 3px 0 ${ink}` })}
                 >
                   Terminer ✓
                 </button>
               ) : (
                 <button onClick={() => goTo(current + 1)}
-                  style={navBtnStyle({ background: dark, color: white, boxShadow: '0 3px 10px rgba(26,95,122,0.25)' })}
+                  style={navBtnStyle({ background: dark, color: white, boxShadow: `3px 3px 0 ${ink}` })}
                 >
                   Suiv. <ChevronRight size={12} strokeWidth={3} />
                 </button>
