@@ -35,6 +35,7 @@ import AdminBanner from '../../components/admin/AdminBanner'
 import SearchField from '../../components/admin/SearchField'
 import IconButton from '../../components/admin/IconButton'
 import ConfirmModal from '../../components/admin/ConfirmModal'
+import { CAMERA_CONSTRAINTS, createNativeDetector, logCameraSettings } from '../../services/barcodeScanner'
 import FormModal, { FieldLabel, FIELD } from '../../components/admin/FormModal'
 import { BTN_ORANGE, BTN_INK } from '../../components/admin/buttons'
 
@@ -240,6 +241,7 @@ export default function Prets() {
   const intervalRef = useRef(null)
   const isProcessingRef = useRef(false)
   const [scanFlash, setScanFlash] = useState(false)
+  const [scanError, setScanError] = useState('')
 
   useEffect(() => {
     fetchInitialData()
@@ -256,6 +258,7 @@ export default function Prets() {
   useEffect(() => {
     if (!showScanner) return
     isProcessingRef.current = false
+    setScanError('')
 
     if (isIOS() && !isSafari()) {
       setIosWarning(true)
@@ -266,18 +269,15 @@ export default function Prets() {
     const timeoutId = setTimeout(async () => {
       if (!videoRef.current) return
 
-      if ('BarcodeDetector' in window) {
+      const detector = await createNativeDetector()
+
+      if (detector) {
         // ── BRANCHE ANDROID : BarcodeDetector natif ──────────────────────
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { ideal: 'environment' } }
-          })
+          const stream = await navigator.mediaDevices.getUserMedia(CAMERA_CONSTRAINTS)
           streamRef.current = stream
           videoRef.current.srcObject = stream
-
-          const detector = new (window as any).BarcodeDetector({
-            formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'qr_code', 'code_128', 'code_39']
-          })
+          logCameraSettings(stream)
 
           intervalRef.current = setInterval(async () => {
             if (!videoRef.current) { clearInterval(intervalRef.current); return }
@@ -300,6 +300,7 @@ export default function Prets() {
           }, 100)
         } catch (err) {
           console.error('BarcodeDetector – erreur caméra :', err)
+          setScanError("La caméra n'a pas pu être ouverte. Vérifiez l'autorisation dans le navigateur.")
         }
 
       } else {
@@ -309,7 +310,7 @@ export default function Prets() {
         codeReaderRef.current = codeReader
 
         codeReader.decodeFromConstraints(
-          { video: { facingMode: { ideal: 'environment' } } },
+          CAMERA_CONSTRAINTS,
           videoRef.current,
           async (result, error) => {
             if (result) {
@@ -330,6 +331,7 @@ export default function Prets() {
           }
         ).catch(err => {
           console.error('zxing – impossible de démarrer la caméra :', err)
+          setScanError("La caméra n'a pas pu être ouverte. Vérifiez l'autorisation dans le navigateur.")
         })
       }
     }, 100)
@@ -877,6 +879,12 @@ www.ludothequedecoligny.fr`
             {iosWarning && (
               <div className="mb-4 rounded-[18px] border-2 border-[#f59e0b] bg-[#fffbeb] p-4 text-center text-[10px] font-extrabold uppercase leading-tight tracking-[0.08em] text-[#b45309]">
                 Sur iPhone, le scan nécessite Safari. Veuillez ouvrir cette page dans Safari.
+              </div>
+            )}
+
+            {scanError && (
+              <div className="mb-4 rounded-[18px] border-2 border-[#f43f5e] bg-[#fff1f2] p-4 text-center text-[10px] font-extrabold uppercase leading-tight tracking-[0.08em] text-[#be123c]">
+                {scanError}
               </div>
             )}
 

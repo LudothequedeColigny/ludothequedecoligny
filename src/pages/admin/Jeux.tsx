@@ -5,6 +5,7 @@ import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverla
 import { useToast } from '../../components/ToastContext'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import AdminBanner from '../../components/admin/AdminBanner'
+import { CAMERA_CONSTRAINTS, createNativeDetector, logCameraSettings } from '../../services/barcodeScanner'
 import SearchField from '../../components/admin/SearchField'
 import IconButton from '../../components/admin/IconButton'
 import ConfirmModal from '../../components/admin/ConfirmModal'
@@ -314,6 +315,7 @@ export default function Jeux() {
   const [deleteModal, setDeleteModal] = useState({ show: false, id: null, name: '' })
   const [showScanner, setShowScanner] = useState(false)
   const [iosWarning, setIosWarning] = useState(false)
+  const [scanError, setScanError] = useState('')
   const [showEtiquettes, setShowEtiquettes] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
@@ -434,15 +436,17 @@ export default function Jeux() {
 
   useEffect(() => {
     if (!showScanner) return
+    setScanError('')
     if (isIOS() && !isSafari()) { setIosWarning(true) } else { setIosWarning(false) }
     const timeoutId = setTimeout(async () => {
       if (!videoRef.current) return
-      if ('BarcodeDetector' in window) {
+      const detector = await createNativeDetector()
+      if (detector) {
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
+          const stream = await navigator.mediaDevices.getUserMedia(CAMERA_CONSTRAINTS)
           streamRef.current = stream
           videoRef.current.srcObject = stream
-          const detector = new (window as any).BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'qr_code', 'code_128', 'code_39'] })
+          logCameraSettings(stream)
           intervalRef.current = setInterval(async () => {
             if (!videoRef.current) { clearInterval(intervalRef.current); return }
             try {
@@ -450,19 +454,25 @@ export default function Jeux() {
               if (barcodes.length > 0) { clearInterval(intervalRef.current); stopScanner(); handleBarcodeDetected(barcodes[0].rawValue) }
             } catch (e) {}
           }, 100)
-        } catch (err) { console.error('BarcodeDetector – erreur caméra :', err) }
+        } catch (err) {
+          console.error('BarcodeDetector – erreur caméra :', err)
+          setScanError("La caméra n'a pas pu être ouverte. Vérifiez l'autorisation dans le navigateur.")
+        }
       } else {
         const { BrowserMultiFormatReader } = await import('@zxing/browser')
         const codeReader = new BrowserMultiFormatReader()
         codeReaderRef.current = codeReader
         codeReader.decodeFromConstraints(
-          { video: { facingMode: { ideal: 'environment' } } },
+          CAMERA_CONSTRAINTS,
           videoRef.current,
           (result, error) => {
             if (result) { handleBarcodeDetected(result.getText()); stopScanner() }
             if (error && error?.name !== 'NotFoundException') console.warn('zxing:', error)
           }
-        ).catch(err => console.error('zxing – démarrage impossible :', err))
+        ).catch(err => {
+          console.error('zxing – démarrage impossible :', err)
+          setScanError("La caméra n'a pas pu être ouverte. Vérifiez l'autorisation dans le navigateur.")
+        })
       }
     }, 100)
     return () => { clearTimeout(timeoutId); stopScanner() }
@@ -1034,6 +1044,7 @@ export default function Jeux() {
               {iosWarning && (
                 <AdminBanner tone="warn">⚠️ Sur iPhone, le scan nécessite Safari.</AdminBanner>
               )}
+              {scanError && <AdminBanner tone="danger">{scanError}</AdminBanner>}
               <video
                 ref={videoRef}
                 className="w-full overflow-hidden rounded-[22px] border-2 border-[#0f172a] bg-slate-900"
