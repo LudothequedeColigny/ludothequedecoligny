@@ -29,6 +29,60 @@ import {
 
 const VIEW_MODE_STORAGE_KEY = 'evenements_view_mode'
 
+// ─── Mise au format carré avant publication sur les réseaux ──────────────────
+// Instagram et Facebook rognent les images qui ne sont pas carrées : une affiche
+// A4 en hauteur y perd son haut et son bas. On la recentre donc sur un carré
+// blanc avant l'envoi. Renvoie null si l'image n'a pas pu être lue, l'appelant
+// se rabat alors sur l'image d'origine plutôt que d'échouer.
+const toSquareBlob = (srcUrl) => new Promise((resolve) => {
+  const img = new window.Image()
+  img.crossOrigin = 'anonymous'
+  img.onload = () => {
+    const size = Math.max(img.width, img.height)
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, size, size)
+    // Arrondi : un décalage d'un demi-pixel rééchantillonnerait toute l'affiche
+    // et la rendrait légèrement floue.
+    const offsetX = Math.round((size - img.width) / 2)
+    const offsetY = Math.round((size - img.height) / 2)
+    ctx.drawImage(img, offsetX, offsetY, img.width, img.height)
+    try {
+      canvas.toBlob(blob => resolve(blob), 'image/png')
+    } catch {
+      resolve(null)   // image d'un autre domaine : le canvas est verrouillé
+    }
+  }
+  img.onerror = () => resolve(null)
+  img.src = srcUrl
+})
+
+// Nom du fichier carré dérivé d'une adresse publique Supabase : « affiche.png »
+// devient « affiche-social.png ».
+function socialFileNameFrom(publicUrl) {
+  const path = publicUrl?.split('/event-images/')[1]?.split('?')[0]
+  if (!path) return null
+  return decodeURIComponent(path).replace(/\.[a-z0-9]+$/i, '') + '-social.png'
+}
+
+// Dépose la version carrée d'une image dans Storage et renvoie son adresse
+// publique, ou null si la conversion ou l'envoi n'ont pas abouti.
+async function uploadSquareVersion(srcUrl, fileName) {
+  const blob = await toSquareBlob(srcUrl)
+  if (!blob) return null
+  const { error } = await supabase.storage
+    .from('event-images').upload(fileName, blob, { contentType: 'image/png', upsert: true })
+  if (error) {
+    console.warn('Version carrée non enregistrée :', error.message)
+    return null
+  }
+  const { data } = supabase.storage.from('event-images').getPublicUrl(fileName)
+  return data.publicUrl
+}
+
 // ─── Helpers MyLudo (via Edge Function Supabase — même pattern que Jeux.tsx) ──
 const BGG_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bgg-proxy`
 
@@ -711,15 +765,16 @@ www.ludothequedecoligny.fr`
     setPublishingFb(true)
     try {
       let image_url = fbModal.event.image_url || null
+      const originalUrl = image_url          // source de la mise au carré
+      const safeName = (fbModal.event.title || 'affiche')
+        .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').substring(0, 50)
 
       // Si dataURL → upload avec nom basé sur le titre (upsert pour éviter les doublons)
       // Si déjà URL publique Supabase → réutiliser directement sans créer de nouveau fichier
       if (image_url && image_url.startsWith('data:')) {
         const fetchRes = await fetch(image_url)
         const blob = await fetchRes.blob()
-        const safeName = (fbModal.event.title || 'affiche')
-          .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-          .replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').substring(0, 50)
         const fileName = safeName + '.png'
         const { error: uploadError } = await supabase.storage
           .from('event-images').upload(fileName, blob, { contentType: 'image/png', upsert: true })
@@ -730,13 +785,24 @@ www.ludothequedecoligny.fr`
         }
       }
 
-            console.log('📤 Envoi à Make - message:', fbText.substring(0, 50), '| image_url:', image_url?.substring(0, 80))
+      // L'affiche part au format carré : Instagram et Facebook rognent le reste.
+      // L'affiche A4 d'origine reste inchangée sur la fiche de l'événement.
+      let social_image_url = image_url
+      if (image_url && !image_url.startsWith('data:')) {
+        const squareUrl = await uploadSquareVersion(
+          originalUrl,   // l'affiche telle qu'on l'a sous la main, sans re-téléchargement
+          socialFileNameFrom(image_url) || safeName + '-social.png'
+        )
+        if (squareUrl) social_image_url = squareUrl
+      }
+
+            console.log('📤 Envoi à Make - message:', fbText.substring(0, 50), '| image_url:', social_image_url?.substring(0, 80))
       const res = await fetch('https://hook.eu1.make.com/f67dbu4u19znh05m9tmkak3wx5hqeqf9', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: fbText,
-          image_url,
+          image_url: social_image_url,
           event_title: fbModal.event.title || '',
           event_date: fbModal.event.date || '',
           event_location: fbModal.event.location || '',
@@ -1148,12 +1214,22 @@ www.ludothequedecoligny.fr`
     setBilanFbSuccess(false)
     setBilanFbError('')
     try {
+      // Même mise au carré que pour les affiches : la photo choisie part en 1:1
+      // pour ne pas être rognée par Instagram et Facebook. La photo d'origine
+      // reste inchangée dans l'album de l'événement.
+      let image_url = bilanSelectedPhotoUrl
+      const socialFileName = socialFileNameFrom(bilanSelectedPhotoUrl)
+      if (socialFileName) {
+        const squareUrl = await uploadSquareVersion(bilanSelectedPhotoUrl, socialFileName)
+        if (squareUrl) image_url = squareUrl
+      }
+
       const res = await fetch('https://hook.eu1.make.com/f67dbu4u19znh05m9tmkak3wx5hqeqf9', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: bilanFbText,
-          image_url: bilanSelectedPhotoUrl,
+          image_url,
         }),
       })
       if (!res.ok) throw new Error('Erreur Make: ' + res.status)
