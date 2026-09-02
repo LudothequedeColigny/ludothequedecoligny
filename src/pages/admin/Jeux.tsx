@@ -563,27 +563,39 @@ export default function Jeux() {
     if (!navigator.onLine) { addToast("Impossible d'uploader en mode hors-ligne.", 'warning'); return }
     setUploading(true)
     try {
-      const compressedFile = await new Promise((resolve) => {
+      const compressed = await new Promise<{ blob: Blob; ext: string }>((resolve, reject) => {
         const reader = new FileReader()
+        reader.onerror = () => reject(new Error('Fichier illisible'))
         reader.readAsDataURL(file)
         reader.onload = (event) => {
           const img = new Image()
+          img.onerror = () => reject(new Error('Image illisible'))
           img.src = event.target.result as string
           img.onload = () => {
             const canvas = document.createElement('canvas')
+            // On réduit à 800 px de large, sans jamais AGRANDIR une image
+            // déjà plus petite : l'agrandir la rendrait floue et plus lourde.
             const MAX_WIDTH = 800
-            const scaleSize = MAX_WIDTH / img.width
-            canvas.width = MAX_WIDTH
-            canvas.height = img.height * scaleSize
+            const scale = Math.min(1, MAX_WIDTH / img.width)
+            canvas.width = Math.round(img.width * scale)
+            canvas.height = Math.round(img.height * scale)
             canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height)
+            // Certains navigateurs ne savent pas fabriquer de WebP et renvoient
+            // alors un PNG, dix fois plus lourd et sans qu'on s'en aperçoive.
+            // On vérifie donc ce qu'on a obtenu, et on se rabat sur du JPEG.
             canvas.toBlob(blob => {
-              if (blob) resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.webp'), { type: 'image/webp' }))
+              if (blob && blob.type === 'image/webp') { resolve({ blob, ext: 'webp' }); return }
+              canvas.toBlob(jpg => {
+                if (jpg) resolve({ blob: jpg, ext: 'jpg' })
+                else reject(new Error('Compression impossible'))
+              }, 'image/jpeg', 0.82)
             }, 'image/webp', 0.82)
           }
         }
       })
-      const fileName = `${Math.random()}-${Date.now()}.webp`
-      const { error: uploadError } = await supabase.storage.from('game-images').upload(fileName, compressedFile as File)
+      const fileName = `${Math.random()}-${Date.now()}.${compressed.ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('game-images').upload(fileName, compressed.blob, { contentType: compressed.blob.type })
       if (uploadError) throw uploadError
       const { data: { publicUrl } } = supabase.storage.from('game-images').getPublicUrl(fileName)
       setNewGame({ ...newGame, image_url: publicUrl })
