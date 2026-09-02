@@ -315,8 +315,13 @@ export default function Evenements() {
   const [newEvent, setNewEvent] = useState(initialEventState)
 
   useEffect(() => {
-    fetchEvents()
-    fetchArchivedEvents()
+    // On archive d'abord les événements trop anciens, puis on charge la liste,
+    // pour qu'ils apparaissent tout de suite au bon endroit.
+    archiveOldEvents().then(nb => {
+      if (nb > 0) addToast(`${nb} événement${nb > 1 ? 's' : ''} de plus de trois mois archivé${nb > 1 ? 's' : ''}.`, 'success')
+      fetchEvents()
+      fetchArchivedEvents()
+    })
     fetchPhotoEventIds()
   }, [])
 
@@ -388,6 +393,25 @@ export default function Evenements() {
     setNewEvent(prev => ({ ...prev, description: event.description }))
     setShowImportDesc(false)
     setImportDescSearch('')
+  }
+
+  // Archivage automatique des événements passés depuis plus de trois mois.
+  // Ils ne sont plus supprimés : ils rejoignent simplement les archives, où ils
+  // restent consultables et désarchivables. Ce ménage tournait auparavant sur la
+  // page d'accueil publique — donc à chaque visite d'un inconnu, et en
+  // supprimant réellement les événements. Il se fait désormais ici, à
+  // l'ouverture de l'écran Communication, par un bénévole connecté.
+  const archiveOldEvents = async () => {
+    const troisMois = new Date()
+    troisMois.setMonth(troisMois.getMonth() - 3)
+    const { data, error } = await supabase
+      .from('events')
+      .update({ archived_at: new Date().toISOString() })
+      .lt('date', troisMois.toISOString())
+      .is('archived_at', null)
+      .select('id')
+    if (error) { console.warn('Archivage automatique impossible :', error.message); return 0 }
+    return data?.length || 0
   }
 
   const archiveEvent = async (eventId) => {

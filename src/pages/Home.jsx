@@ -107,11 +107,6 @@ export default function Home() {
           setPlayerCount(total)
         }
 
-        // Supprimer les événements de plus de 3 mois (les événements archivés sont préservés)
-        const threeMonthsAgo = new Date()
-        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
-        await supabase.from('events').delete().lt('date', threeMonthsAgo.toISOString()).is('archived_at', null)
-
         // Un seul appel : l'agenda n'affiche que les événements non archivés,
         // tandis que les compteurs « vie de la ludothèque » portent sur tout l'historique.
         const [{ data: eventData }, { data: photosData }, { data: gamesPlayedData }] = await Promise.all([
