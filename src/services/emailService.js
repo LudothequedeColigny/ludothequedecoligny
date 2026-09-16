@@ -16,6 +16,19 @@ export async function sendEmail({ to, subject, html, image_url = null, image_url
 }
 
 /**
+ * Formulaire de contact du site public (visiteur non connecté).
+ * Le destinataire et la mise en forme sont décidés par le serveur.
+ */
+export async function sendContactMessage({ nom, email, message }) {
+  const { data, error } = await supabase.functions.invoke('send-email', {
+    body: { contact: { nom, email, message } },
+  })
+
+  if (error) throw error
+  return data
+}
+
+/**
  * Génère la liste complète des destinataires (mairies + adhérents)
  * @returns {Promise<string[]>}
  */

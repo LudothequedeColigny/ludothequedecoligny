@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Loader2, AlertTriangle, Phone, User } from 'lucide-react'
 import { supabase } from '../services/supabaseClient'
-import { sendEmail } from '../services/emailService'
+import { sendContactMessage } from '../services/emailService'
 import Modal from './site/Modal'
 import SuccessModal from './site/SuccessModal'
 
@@ -31,19 +31,7 @@ export default function ContactModal({ open, onClose }) {
     if (!nom.trim() || !email.trim() || !message.trim()) return
     setStatus('loading')
     try {
-      const recipients = ['ludothequedecoligny@outlook.fr']
-      if (contact.email && contact.email !== 'ludothequedecoligny@outlook.fr') {
-        recipients.push(contact.email)
-      }
-      await sendEmail({
-        to: recipients,
-        subject: `Message de ${nom} via le site`,
-        html: `
-          <p><strong>De :</strong> ${nom} (${email})</p>
-          <p><strong>Message :</strong></p>
-          <p>${message.replace(/\n/g, '<br>')}</p>
-        `,
-      })
+      await sendContactMessage({ nom, email, message })
       setStatus('success')
       setNom('')
       setEmail('')

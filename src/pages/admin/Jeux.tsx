@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { Dice5, Plus, Trash2, Edit2, X, Hash, AlertCircle, Search, CheckCircle, ImageIcon, Link as LinkIcon, Tag, ExternalLink, Users, PlayCircle, Clock, FileText, WifiOff, Eye, Loader2, Camera, ScanLine, Sparkles, QrCode, Printer } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
+import { volunteerHeaders } from '../../services/functionHeaders'
 import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
 import { useToast } from '../../components/ToastContext'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
@@ -18,9 +19,8 @@ const BGG_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bgg-
 
 async function bggCall(endpoint: string, params: Record<string, string>): Promise<any> {
   const qs = new URLSearchParams({ endpoint, ...params }).toString()
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
   const res = await fetch(`${BGG_FUNCTION_URL}?${qs}`, {
-    headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+    headers: await volunteerHeaders(),
     signal: AbortSignal.timeout(10000)
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -404,8 +404,7 @@ export default function Jeux() {
       setBggLoading(true)
       try {
         const qs = new URLSearchParams({ endpoint: 'search-by-barcode', barcode }).toString()
-        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-        const res = await fetch(`${BGG_FUNCTION_URL}?${qs}`, { headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` } })
+        const res = await fetch(`${BGG_FUNCTION_URL}?${qs}`, { headers: await volunteerHeaders() })
         const details = await res.json()
         if (details) {
           setNewGame(prev => ({
@@ -611,8 +610,7 @@ export default function Jeux() {
       if (finalImageUrl && finalImageUrl.includes('myludo.fr')) {
         try {
           const qs = new URLSearchParams({ endpoint: 'upload-image', imageUrl: finalImageUrl }).toString()
-          const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-          const res = await fetch(`${BGG_FUNCTION_URL}?${qs}`, { headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` } })
+          const res = await fetch(`${BGG_FUNCTION_URL}?${qs}`, { headers: await volunteerHeaders() })
           if (res.ok) { const data = await res.json(); finalImageUrl = data.url || finalImageUrl }
         } catch (e) { console.warn('Image upload skipped:', e) }
       }

@@ -21,7 +21,16 @@ async function sendPush(payload: { title: string; body: string; url: string }) {
   }
 }
 
-serve(async (_req) => {
+// Mot de passe partagé avec la tâche planifiée (cron.job « check-events-notify »)
+const CRON_SECRET = Deno.env.get('CRON_SECRET') || ''
+
+serve(async (req) => {
+  if (!CRON_SECRET || req.headers.get('x-cron-secret') !== CRON_SECRET) {
+    return new Response(JSON.stringify({ error: 'Non autorisé' }), {
+      status: 401, headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
   try {
     const now = new Date()
 

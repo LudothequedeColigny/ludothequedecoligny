@@ -1,6 +1,9 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const FROM_EMAIL = 'Ludothèque de Coligny <contact@ludothequedecoligny.fr>'
 const REPLY_TO = 'ludothequedecoligny@outlook.fr'
 
@@ -45,13 +48,20 @@ function toIcsUtc(date: Date): string {
   )
 }
 
-// Si end_time est absent, on utilise date + 2 heures par défaut
+// Si end_time est absent, on utilise date + 2 heures par défaut.
+// end_time est une heure de Coligny (« 22:00 ») : on mesure l'écart avec l'heure
+// de début lue à Paris, le serveur tournant à l'heure universelle.
 function computeEventTimes(ev: CalendarEventInput): { start: Date; end: Date } {
   const start = new Date(ev.date)
   let end: Date
   if (ev.end_time) {
     const [h, m] = ev.end_time.split(':').map(Number)
-    end = new Date(start.getFullYear(), start.getMonth(), start.getDate(), h || 0, m || 0, 0)
+    const [sh, sm] = new Intl.DateTimeFormat('fr-FR', {
+      timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).format(start).split(':').map(Number)
+    let minutes = ((h || 0) * 60 + (m || 0)) - (sh * 60 + sm)
+    if (minutes <= 0) minutes += 24 * 60   // fin après minuit
+    end = new Date(start.getTime() + minutes * 60 * 1000)
   } else {
     end = new Date(start.getTime() + 2 * 60 * 60 * 1000)
   }
@@ -139,6 +149,50 @@ function base64EncodeUtf8(str: string): string {
   return btoa(binary)
 }
 
+// ── Qui appelle ? ───────────────────────────────────────────────────────────
+// La clé publique du site suffit à joindre cette fonction : elle ne prouve rien.
+// Seul un bénévole connecté peut choisir destinataires, contenu et pièces jointes.
+
+async function isVolunteer(req: Request): Promise<boolean> {
+  const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '')
+  if (!token || token === SUPABASE_ANON_KEY) return false
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) return false
+  const user = await res.json()
+  return !!user?.id && user?.role === 'authenticated'
+}
+
+// Formulaire de contact du site public : destinataire imposé (la ludothèque),
+// message mis en forme ici et échappé, aucune pièce jointe.
+async function buildContactEmail(contact: { nom?: string; email?: string; message?: string }) {
+  const nom = String(contact?.nom || '').trim().slice(0, 100)
+  const email = String(contact?.email || '').trim().slice(0, 200)
+  const message = String(contact?.message || '').trim().slice(0, 5000)
+  if (!nom || !message || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email)) return null
+
+  const recipients = [REPLY_TO]
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?id=eq.contact_email&select=value`, {
+    headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+  })
+  const rows = res.ok ? await res.json() : []
+  const contactEmail = String(rows?.[0]?.value || '').replace(/^"|"$/g, '').trim()
+  if (contactEmail.includes('@') && contactEmail !== REPLY_TO) recipients.push(contactEmail)
+
+  return {
+    from: FROM_EMAIL,
+    reply_to: email,
+    to: recipients,
+    subject: `Message de ${nom.replace(/[\r\n]/g, ' ')} via le site`,
+    html: `
+      <p><strong>De :</strong> ${escapeHtml(nom)} (${escapeHtml(email)})</p>
+      <p><strong>Message :</strong></p>
+      <p>${escapeHtml(message).replace(/\n/g, '<br>')}</p>
+    `,
+  }
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 
 async function urlToBase64Attachment(image_url: string, index: number) {
@@ -182,7 +236,29 @@ serve(async (req) => {
   }
 
   try {
-    const { to, subject, html, image_url, image_urls, calendar_events } = await req.json()
+    const payload = await req.json()
+
+    if (!(await isVolunteer(req))) {
+      // Visiteur non connecté : seul le formulaire de contact est accepté
+      const contactBody = payload?.contact ? await buildContactEmail(payload.contact) : null
+      if (!contactBody) {
+        return new Response(JSON.stringify({ error: 'Non autorisé' }), {
+          status: 401, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+        })
+      }
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${RESEND_API_KEY}` },
+        body: JSON.stringify(contactBody),
+      })
+      const data = await res.json()
+      return new Response(JSON.stringify(res.ok ? { success: true, id: data.id } : { error: data }), {
+        status: res.ok ? 200 : res.status,
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+      })
+    }
+
+    const { to, subject, html, image_url, image_urls, calendar_events } = payload
 
     if (!to || !subject || !html) {
       return new Response(

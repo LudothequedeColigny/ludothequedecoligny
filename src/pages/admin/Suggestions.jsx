@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../services/supabaseClient'
+import { volunteerHeaders } from '../../services/functionHeaders'
 import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
 import { useToast } from '../../components/ToastContext'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
@@ -17,9 +18,8 @@ const BGG_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bgg-
 
 async function bggCall(endpoint, params) {
   const qs = new URLSearchParams({ endpoint, ...params }).toString()
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
   const res = await fetch(`${BGG_FUNCTION_URL}?${qs}`, {
-    headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` },
+    headers: await volunteerHeaders(),
     signal: AbortSignal.timeout(10000)
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)

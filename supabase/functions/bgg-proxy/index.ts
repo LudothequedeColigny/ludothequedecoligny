@@ -288,8 +288,28 @@ async function uploadImageToSupabase(imageUrl: string): Promise<string> {
 }
 
 // ── Serveur ────────────────────────────────────────────────────────
+// Réservé aux bénévoles connectés : sans ce contrôle, n'importe qui pouvait
+// faire déposer n'importe quelle image dans le stockage de la ludothèque.
+async function isVolunteer(req: Request): Promise<boolean> {
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || ''
+  const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '')
+  if (!token || token === anonKey) return false
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { apikey: anonKey, Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) return false
+  const user = await res.json()
+  return !!user?.id && user?.role === 'authenticated'
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+  if (!(await isVolunteer(req))) {
+    return new Response(JSON.stringify({ error: 'Non autorisé' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
+  }
 
   try {
     const url      = new URL(req.url)

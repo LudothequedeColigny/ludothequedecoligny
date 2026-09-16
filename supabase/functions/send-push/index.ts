@@ -20,6 +20,15 @@ serve(async (req) => {
     return new Response('ok', { headers: CORS_HEADERS })
   }
 
+  // Seule la fonction de rappel check-events-notify, qui détient la clé de
+  // service, peut envoyer une notification : la clé publique du site ne suffit pas.
+  const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '')
+  if (!token || token !== SUPABASE_SERVICE_ROLE_KEY) {
+    return new Response(JSON.stringify({ error: 'Non autorisé' }), {
+      status: 401, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+    })
+  }
+
   try {
     const { title, body, url } = await req.json()
 
