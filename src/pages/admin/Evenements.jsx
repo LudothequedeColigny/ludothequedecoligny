@@ -34,11 +34,17 @@ const VIEW_MODE_STORAGE_KEY = 'evenements_view_mode'
 // A4 en hauteur y perd son haut et son bas. On la recentre donc sur un carré
 // blanc avant l'envoi. Renvoie null si l'image n'a pas pu être lue, l'appelant
 // se rabat alors sur l'image d'origine plutôt que d'échouer.
+const SOCIAL_MAX_SIZE = 1440
 const toSquareBlob = (srcUrl) => new Promise((resolve) => {
   const img = new window.Image()
   img.crossOrigin = 'anonymous'
   img.onload = () => {
-    const size = Math.max(img.width, img.height)
+    // Instagram réduit tout ce qui dépasse 1440 px et refuse les fichiers de plus
+    // de 8 Mo : les grandes photos sont donc réduites dès ici.
+    const scale = Math.min(1, SOCIAL_MAX_SIZE / Math.max(img.width, img.height))
+    const w = Math.round(img.width * scale)
+    const h = Math.round(img.height * scale)
+    const size = Math.max(w, h)
     const canvas = document.createElement('canvas')
     canvas.width = size
     canvas.height = size
@@ -47,11 +53,11 @@ const toSquareBlob = (srcUrl) => new Promise((resolve) => {
     ctx.fillRect(0, 0, size, size)
     // Arrondi : un décalage d'un demi-pixel rééchantillonnerait toute l'affiche
     // et la rendrait légèrement floue.
-    const offsetX = Math.round((size - img.width) / 2)
-    const offsetY = Math.round((size - img.height) / 2)
-    ctx.drawImage(img, offsetX, offsetY, img.width, img.height)
+    const offsetX = Math.round((size - w) / 2)
+    const offsetY = Math.round((size - h) / 2)
+    ctx.drawImage(img, offsetX, offsetY, w, h)
     try {
-      canvas.toBlob(blob => resolve(blob), 'image/png')
+      canvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.9)
     } catch {
       resolve(null)   // image d'un autre domaine : le canvas est verrouillé
     }
@@ -61,11 +67,11 @@ const toSquareBlob = (srcUrl) => new Promise((resolve) => {
 })
 
 // Nom du fichier carré dérivé d'une adresse publique Supabase : « affiche.png »
-// devient « affiche-social.png ».
+// devient « affiche-social.jpg » (JPEG : seul format accepté par Instagram).
 function socialFileNameFrom(publicUrl) {
   const path = publicUrl?.split('/event-images/')[1]?.split('?')[0]
   if (!path) return null
-  return decodeURIComponent(path).replace(/\.[a-z0-9]+$/i, '') + '-social.png'
+  return decodeURIComponent(path).replace(/\.[a-z0-9]+$/i, '') + '-social.jpg'
 }
 
 // Dépose la version carrée d'une image dans Storage et renvoie son adresse
@@ -74,7 +80,7 @@ async function uploadSquareVersion(srcUrl, fileName) {
   const blob = await toSquareBlob(srcUrl)
   if (!blob) return null
   const { error } = await supabase.storage
-    .from('event-images').upload(fileName, blob, { contentType: 'image/png', upsert: true })
+    .from('event-images').upload(fileName, blob, { contentType: 'image/jpeg', upsert: true })
   if (error) {
     console.warn('Version carrée non enregistrée :', error.message)
     return null
@@ -121,19 +127,24 @@ const getEventType = (title) => {
   return 'permanence'
 }
 
-const buildBilanFbText = (event, participantsOverride) => {
+const buildBilanFbText = (event, participantsOverride, games = []) => {
   const moment = getEventType(event.title) === 'soiree' ? 'soirée' : 'après-midi'
   const raw = participantsOverride !== undefined ? participantsOverride : event.participants_count
   const count = raw !== null && raw !== undefined && raw !== '' ? raw : 0
+  const names = games.map(g => g.name).filter(Boolean)
+  const gamesLine = names.length > 0 ? `\n\n🃏 Jeux joués : ${names.join(', ')}.` : ''
   return `🎲 ${event.title} — Retour sur notre dernière édition !
 
-👥 ${count} personnes nous ont rejoints pour cette ${moment}.
+👥 ${count} personnes nous ont rejoints pour cette ${moment}.${gamesLine}
 
 Merci à tous les participants ! On se retrouve très vite pour la prochaine édition 🎉
 
 Ludothèque de Coligny
 www.ludothequedecoligny.fr`
 }
+
+// Instagram et Facebook limitent un carrousel à 10 images
+const MAX_SOCIAL_PHOTOS = 10
 
 // Effet mosaïque : moyenne les couleurs par bloc de BLOCK_SIZE px
 const BLUR_BLOCK_SIZE = 15
@@ -158,7 +169,8 @@ function pixelateRegion(ctx, x, y, w, h) {
 
 // Aperçu simulé d'un post Facebook/Instagram — utilisé par la modale de bilan,
 // la modale de partage d'affiche et la modale "Nouveau post"
-function SocialPostPreview({ text, imageUrl, games }) {
+function SocialPostPreview({ text, imageUrl, imageUrls }) {
+  const urls = imageUrls || (imageUrl ? [imageUrl] : [])
   return (
     <div className="space-y-2">
       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Aperçu</label>
@@ -182,35 +194,33 @@ function SocialPostPreview({ text, imageUrl, games }) {
         </div>
 
         {/* Photo */}
-        <div className="w-full aspect-square bg-slate-100 flex items-center justify-center">
-          {imageUrl ? (
-            <img src={imageUrl} alt="" className="w-full h-full object-cover" />
+        <div className="relative w-full aspect-square bg-slate-100 flex items-center justify-center">
+          {urls.length > 1 && (
+            <span className="absolute top-3 left-3 z-10 bg-slate-900/70 text-white text-[9px] font-black px-2 py-1 rounded-full">
+              1 / {urls.length}
+            </span>
+          )}
+          {urls.length > 0 ? (
+            <img src={urls[0]} alt="" className="w-full h-full object-cover" />
           ) : (
             <ImageIcon size={40} className="text-slate-300" />
           )}
         </div>
 
-        {/* Texte + jeux joués */}
-        <div className="p-4 space-y-4">
+        {/* Points du carrousel */}
+        {urls.length > 1 && (
+          <div className="flex justify-center gap-1 pt-2.5">
+            {urls.map((u, i) => (
+              <span key={u} className={'h-1.5 w-1.5 rounded-full ' + (i === 0 ? 'bg-[#1a5f7a]' : 'bg-slate-300')} />
+            ))}
+          </div>
+        )}
+
+        {/* Texte */}
+        <div className="p-4">
           <p className="text-xs text-slate-800 whitespace-pre-line leading-relaxed">
             {text || 'Votre texte apparaîtra ici...'}
           </p>
-
-          {games && games.length > 0 && (
-            <div>
-              <p className="text-[10px] font-black text-slate-500 mb-2">🎲 Jeux de la soirée :</p>
-              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-                {games.map(game => (
-                  <div key={game.id} className="flex flex-col items-center shrink-0 w-14">
-                    <div className="w-14 h-14 rounded-lg overflow-hidden bg-slate-50 border border-slate-100 flex items-center justify-center">
-                      {game.image_url ? <img src={game.image_url} alt={game.name} className="w-full h-full object-cover" /> : <Dice5 size={20} className="text-slate-200" />}
-                    </div>
-                    <p className="text-[8px] text-slate-500 mt-1 text-center line-clamp-1 w-full">{game.name}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -298,7 +308,8 @@ export default function Evenements() {
   // Publication du bilan sur Facebook & Instagram
   const [bilanFbText, setBilanFbText] = useState('')
   const [bilanFbTextEdited, setBilanFbTextEdited] = useState(false)
-  const [bilanSelectedPhotoUrl, setBilanSelectedPhotoUrl] = useState('')
+  // Photos à publier, dans l'ordre où elles apparaîtront dans le carrousel
+  const [bilanSelectedPhotoUrls, setBilanSelectedPhotoUrls] = useState([])
   const [publishingBilanFb, setPublishingBilanFb] = useState(false)
   const [bilanFbSuccess, setBilanFbSuccess] = useState(false)
   const [bilanFbError, setBilanFbError] = useState('')
@@ -815,7 +826,7 @@ www.ludothequedecoligny.fr`
       if (image_url && !image_url.startsWith('data:')) {
         const squareUrl = await uploadSquareVersion(
           originalUrl,   // l'affiche telle qu'on l'a sous la main, sans re-téléchargement
-          socialFileNameFrom(image_url) || safeName + '-social.png'
+          socialFileNameFrom(image_url) || safeName + '-social.jpg'
         )
         if (squareUrl) social_image_url = squareUrl
       }
@@ -938,6 +949,7 @@ www.ludothequedecoligny.fr`
   const fetchBilanGames = async (eventId) => {
     const { data } = await supabase.from('event_games_played').select('*').eq('event_id', eventId)
     setBilanGames(data || [])
+    return data || []
   }
 
   const openBilanModal = async (event) => {
@@ -947,22 +959,39 @@ www.ludothequedecoligny.fr`
     setGameSearchResults([])
     setBilanFbText(buildBilanFbText(event))
     setBilanFbTextEdited(false)
-    setBilanSelectedPhotoUrl('')
+    setBilanSelectedPhotoUrls([])
     setBilanFbSuccess(false)
     setBilanFbError('')
     cancelPhotoQueue()
     const [photos] = await Promise.all([fetchBilanPhotos(event.id), fetchBilanGames(event.id)])
-    setBilanSelectedPhotoUrl(photos.length > 0 ? photos[0].url : '')
+    setBilanSelectedPhotoUrls(photos.slice(0, MAX_SOCIAL_PHOTOS).map(p => p.url))
   }
 
-  // Regénère le texte de publication quand le nombre de participants change,
-  // sauf si l'utilisateur a déjà modifié le texte manuellement (ne pas écraser sa rédaction).
+  // Regénère le texte de publication quand le nombre de participants ou la liste
+  // des jeux change, sauf si l'utilisateur a déjà modifié le texte manuellement
+  // (ne pas écraser sa rédaction).
   useEffect(() => {
     if (!bilanFbTextEdited && bilanModal.event) {
-      setBilanFbText(buildBilanFbText(bilanModal.event, bilanParticipants))
+      setBilanFbText(buildBilanFbText(bilanModal.event, bilanParticipants, bilanGames))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bilanParticipants])
+  }, [bilanParticipants, bilanGames])
+
+  // Remet le texte proposé à jour (participants + jeux), en abandonnant les retouches
+  const resetBilanFbText = () => {
+    if (!bilanModal.event) return
+    setBilanFbText(buildBilanFbText(bilanModal.event, bilanParticipants, bilanGames))
+    setBilanFbTextEdited(false)
+  }
+
+  // Ajoute ou retire une photo du carrousel ; les nouvelles se placent à la fin
+  const toggleBilanPhoto = (url) => {
+    setBilanSelectedPhotoUrls(prev => {
+      if (prev.includes(url)) return prev.filter(u => u !== url)
+      if (prev.length >= MAX_SOCIAL_PHOTOS) return prev
+      return [...prev, url]
+    })
+  }
 
   const closeBilanModal = () => {
     setBilanModal({ show: false, event: null })
@@ -971,7 +1000,7 @@ www.ludothequedecoligny.fr`
     setGameSearchQuery('')
     setGameSearchResults([])
     setBilanFbText('')
-    setBilanSelectedPhotoUrl('')
+    setBilanSelectedPhotoUrls([])
     setBilanFbSuccess(false)
     setBilanFbError('')
     cancelPhotoQueue()
@@ -1002,7 +1031,7 @@ www.ludothequedecoligny.fr`
       }
       await supabase.from('event_photos').delete().eq('id', photo.id)
       setBilanPhotos(prev => prev.filter(p => p.id !== photo.id))
-      setBilanSelectedPhotoUrl(prev => prev === photo.url ? '' : prev)
+      setBilanSelectedPhotoUrls(prev => prev.filter(u => u !== photo.url))
       fetchPhotoEventIds()
     } catch (err) {
       console.error('Erreur suppression photo:', err)
@@ -1147,8 +1176,11 @@ www.ludothequedecoligny.fr`
         const { data } = supabase.storage.from('event-images').getPublicUrl(fileName)
         await supabase.from('event_photos').insert({ event_id: bilanModal.event.id, url: data.publicUrl })
       }
+      // Les photos qui viennent d'être ajoutées rejoignent la publication
+      const knownUrls = new Set(bilanPhotos.map(p => p.url))
       const photos = await fetchBilanPhotos(bilanModal.event.id)
-      setBilanSelectedPhotoUrl(prev => prev || (photos[0]?.url || ''))
+      const newUrls = photos.filter(p => !knownUrls.has(p.url)).map(p => p.url)
+      setBilanSelectedPhotoUrls(prev => [...prev, ...newUrls.filter(u => !prev.includes(u))].slice(0, MAX_SOCIAL_PHOTOS))
       fetchPhotoEventIds()
     } catch (err) {
       console.error('Erreur upload photos bilan:', err)
@@ -1233,19 +1265,21 @@ www.ludothequedecoligny.fr`
 
   // ── Publication du bilan sur Facebook & Instagram ──
   const publishBilanToSocial = async () => {
-    if (!bilanFbText.trim() || !bilanSelectedPhotoUrl) return
+    if (!bilanFbText.trim() || bilanSelectedPhotoUrls.length === 0) return
     setPublishingBilanFb(true)
     setBilanFbSuccess(false)
     setBilanFbError('')
     try {
-      // Même mise au carré que pour les affiches : la photo choisie part en 1:1
-      // pour ne pas être rognée par Instagram et Facebook. La photo d'origine
-      // reste inchangée dans l'album de l'événement.
-      let image_url = bilanSelectedPhotoUrl
-      const socialFileName = socialFileNameFrom(bilanSelectedPhotoUrl)
-      if (socialFileName) {
-        const squareUrl = await uploadSquareVersion(bilanSelectedPhotoUrl, socialFileName)
-        if (squareUrl) image_url = squareUrl
+      // Même mise au carré que pour les affiches : chaque photo part en 1:1
+      // pour ne pas être rognée par Instagram et Facebook. Les photos d'origine
+      // restent inchangées dans l'album de l'événement.
+      // Une à la fois : plusieurs grandes photos décodées en même temps
+      // saturent la mémoire des téléphones.
+      const image_urls = []
+      for (const url of bilanSelectedPhotoUrls) {
+        const socialFileName = socialFileNameFrom(url)
+        const squareUrl = socialFileName ? await uploadSquareVersion(url, socialFileName) : null
+        image_urls.push(squareUrl || url)
       }
 
       const res = await fetch('https://hook.eu1.make.com/f67dbu4u19znh05m9tmkak3wx5hqeqf9', {
@@ -1253,7 +1287,16 @@ www.ludothequedecoligny.fr`
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: bilanFbText,
-          image_url,
+          // Première photo seule : ce que le scénario Make utilisait jusqu'ici
+          image_url: image_urls[0],
+          // Toutes les photos, pour le carrousel (voir le scénario Make)
+          image_urls,
+          // Noms imposés par le module Make « Instagram — Create a Carousel Post »
+          images: image_urls.map(url => ({ media_type: 'IMAGE', image_url: url })),
+          // Noms imposés par le module Make « Facebook Pages — Create a Post with Photos »
+          facebook_photos: image_urls.map(url => ({ type: 'url', url })),
+          photo_count: image_urls.length,
+          games: bilanGames.map(g => g.name).filter(Boolean),
         }),
       })
       if (!res.ok) throw new Error('Erreur Make: ' + res.status)
@@ -1457,7 +1500,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
       </div>
 
       {/* Onglets */}
-      <div data-tutorial="evt-tabs" className="mb-6 grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+      <div data-tutorial="evt-tabs" className="mb-6 grid grid-cols-3 gap-2.5 sm:gap-3.5">
         {COMM_TABS.map(tab => {
           const active = activeTab === tab.id
           const count = tab.id === 'events' ? upcomingEventsCount : tab.id === 'affiche' ? templatesCount : postsCount
@@ -1466,15 +1509,15 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className="flex flex-col items-center gap-3 rounded-[28px] border-2 border-[#0f172a] p-5 transition-[transform,box-shadow] duration-200 hover:translate-x-[2px] hover:translate-y-[2px]"
+              className="flex flex-col items-center justify-center gap-2 rounded-[20px] border-2 border-[#0f172a] px-1.5 py-3.5 transition-[transform,box-shadow] sm:gap-3 sm:rounded-[28px] sm:p-5 duration-200 hover:translate-x-[2px] hover:translate-y-[2px]"
               style={{
                 background: active ? `${tab.shadow}1a` : '#fff',
                 boxShadow: `${active ? 2 : 4}px ${active ? 2 : 4}px 0 ${tab.shadow}`,
                 transform: active ? 'translate(2px, 2px)' : undefined,
               }}
             >
-              <Icon size={26} style={{ color: active ? tab.shadow : '#94a3b8' }} />
-              <span className="inline-flex items-center gap-2 text-center text-[10px] font-extrabold uppercase tracking-[0.16em]" style={{ color: active ? '#0f172a' : '#64748b' }}>
+              <Icon size={26} className="h-5 w-5 sm:h-[26px] sm:w-[26px]" style={{ color: active ? tab.shadow : '#94a3b8' }} />
+              <span className="inline-flex flex-wrap items-center justify-center gap-1.5 text-center text-[8.5px] font-extrabold uppercase leading-snug tracking-[0.08em] sm:gap-2 sm:text-[10px] sm:tracking-[0.16em]" style={{ color: active ? '#0f172a' : '#64748b' }}>
                 {tab.label}
                 {count > 0 && (
                   <span className="rounded-full px-2.5 py-0.5 text-[9px] font-extrabold text-white" style={{ background: tab.shadow }}>
@@ -1777,10 +1820,10 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
 
               {/* Corps — onglets Collectivités / Adhérents */}
               <div className="space-y-3">
-                <div data-tutorial="evt-compose-tabs" className="flex w-fit gap-1.5 rounded-[18px] border-2 border-[#0f172a] bg-slate-100 p-1.5">
+                <div data-tutorial="evt-compose-tabs" className="flex w-full gap-1.5 rounded-[18px] border-2 border-[#0f172a] bg-slate-100 p-1.5 sm:w-fit">
                   <button
                     onClick={() => setActiveMailTab('collectivites')}
-                    className={'flex items-center gap-2 rounded-[12px] px-4 py-2.5 text-[9.5px] font-extrabold uppercase tracking-[0.14em] transition-colors ' +
+                    className={'flex flex-1 items-center justify-center gap-1.5 rounded-[12px] px-2 py-2.5 text-[9px] font-extrabold uppercase tracking-[0.08em] transition-colors sm:flex-none sm:gap-2 sm:px-4 sm:text-[9.5px] sm:tracking-[0.14em] ' +
                       (activeMailTab === 'collectivites' ? 'bg-white text-[#1a5f7a] shadow-sm' : 'text-slate-400 hover:text-slate-600')}>
                     <Building2 size={11} />
                     Collectivités
@@ -1790,7 +1833,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                   </button>
                   <button
                     onClick={() => setActiveMailTab('adherents')}
-                    className={'flex items-center gap-2 rounded-[12px] px-4 py-2.5 text-[9.5px] font-extrabold uppercase tracking-[0.14em] transition-colors ' +
+                    className={'flex flex-1 items-center justify-center gap-1.5 rounded-[12px] px-2 py-2.5 text-[9px] font-extrabold uppercase tracking-[0.08em] transition-colors sm:flex-none sm:gap-2 sm:px-4 sm:text-[9.5px] sm:tracking-[0.14em] ' +
                       (activeMailTab === 'adherents' ? 'bg-white text-[#1a5f7a] shadow-sm' : 'text-slate-400 hover:text-slate-600')}>
                     <Users size={11} />
                     Adhérents
@@ -1837,7 +1880,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
 
               {/* Événements — blocs éditables */}
               <div data-tutorial="evt-compose-events" className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <label className="text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-[#1a5f7a] flex items-center gap-2">
                     <Calendar size={12} /> Événements ({selectedEvents.length})
                   </label>
@@ -1892,7 +1935,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                         )}
                       </div>
                       <div className="p-4 space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                           <div>
                             <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Titre</label>
                             <input value={b.titre} onChange={e => updateEventBlock(b.event.id, 'titre', e.target.value)}
@@ -1904,7 +1947,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                               className="mt-1.5 w-full rounded-[12px] border-2 border-[#0f172a] bg-[#fdfaf6] p-2.5 text-xs font-bold outline-none focus:bg-white" />
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                           <div>
                             <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Date</label>
                             <input value={b.date} onChange={e => updateEventBlock(b.event.id, 'date', e.target.value)}
@@ -1969,11 +2012,13 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                       {showMairies && (
                         <div className="divide-y divide-slate-50">
                           {composeData.recipients.filter(r => r.group === 'mairie').map(r => (
-                            <label key={r.email} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 cursor-pointer">
+                            <label key={r.email} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer sm:px-5">
                               <input type="checkbox" checked={r.checked} onChange={() => toggleRecipient(r.email)}
                                 className="w-4 h-4 accent-[#1a5f7a] cursor-pointer flex-shrink-0" />
-                              <span className="text-xs font-bold text-slate-700 flex-1">{r.label}</span>
-                              <span className="text-[9px] text-slate-400">{r.email}</span>
+                              <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
+                                <span className="text-xs font-bold text-slate-700 sm:flex-1">{r.label}</span>
+                                <span className="break-all text-[9px] text-slate-400">{r.email}</span>
+                              </span>
                             </label>
                           ))}
                         </div>
@@ -2003,11 +2048,13 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                         {showAdherents && (
                           <div className="divide-y divide-slate-50">
                             {composeData.recipients.filter(r => r.group === 'adherent').map(r => (
-                              <label key={r.email} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 cursor-pointer">
+                              <label key={r.email} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer sm:px-5">
                                 <input type="checkbox" checked={r.checked} onChange={() => toggleRecipient(r.email)}
                                   className="w-4 h-4 accent-[#1a5f7a] cursor-pointer flex-shrink-0" />
-                                <span className="text-xs font-bold text-slate-700 flex-1">{r.label}</span>
-                                <span className="text-[9px] text-slate-400">{r.email}</span>
+                                <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
+                                  <span className="text-xs font-bold text-slate-700 sm:flex-1">{r.label}</span>
+                                  <span className="break-all text-[9px] text-slate-400">{r.email}</span>
+                                </span>
                               </label>
                             ))}
                           </div>
@@ -2268,7 +2315,9 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
       )}
 
       {/* ── TUTORIEL ─────────────────────────────────────────────────────── */}
-      <TutorialButton onClick={() => setShowTuto(true)} />
+      {!(composeModal.show || fbModal.show || bilanModal.show || collectivitesModal || showImportDesc || deleteModal.show) && (
+        <TutorialButton onClick={() => setShowTuto(true)} />
+      )}
       <TutorialOverlay
         steps={evtSteps}
         open={showTuto}
@@ -2382,15 +2431,15 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 <h4 className="text-[10px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2">
                   <Users size={14} /> Participants
                 </h4>
-                <div className="flex gap-3">
+                <div className="flex gap-2.5 sm:gap-3">
                   <input
-                    type="number" min={0} placeholder="Nombre de participants"
-                    className="flex-1 rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-bold text-sm outline-none border-2 border-transparent focus:border-[#1a5f7a]"
+                    type="number" inputMode="numeric" min={0} placeholder="Nombre"
+                    className="w-0 min-w-0 flex-1 rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-bold text-sm outline-none focus:border-[#1a5f7a] focus:bg-white"
                     value={bilanParticipants}
                     onChange={e => setBilanParticipants(e.target.value)}
                   />
                   <button onClick={saveParticipants} disabled={savingParticipants}
-                    className={'px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center gap-2 ' +
+                    className={'flex shrink-0 items-center justify-center gap-2 rounded-2xl px-4 text-[10px] font-black uppercase tracking-widest transition-all sm:px-6 ' +
                       (savingParticipants ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-[#1a5f7a] text-white hover:bg-[#134a5e]')}>
                     {savingParticipants ? <Loader2 size={14} className="animate-spin" /> : 'Enregistrer'}
                   </button>
@@ -2458,7 +2507,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                       <div key={photo.id} className="relative aspect-square rounded-2xl overflow-hidden bg-slate-100 group">
                         <img src={photo.url} alt="" className="w-full h-full object-cover" />
                         <button onClick={() => deleteBilanPhoto(photo)}
-                          className="absolute top-1.5 right-1.5 p-1.5 bg-white/90 text-rose-500 rounded-lg shadow opacity-0 group-hover:opacity-100 transition-opacity">
+                          className="absolute top-1.5 right-1.5 p-1.5 bg-white/90 text-rose-500 rounded-lg shadow transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                           <Trash2 size={12} />
                         </button>
                       </div>
@@ -2532,33 +2581,60 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
 
                 <textarea
                   rows={8}
-                  className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-medium text-sm outline-none border-2 border-transparent focus:border-blue-400 resize-y"
+                  className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-medium text-sm outline-none focus:border-blue-400 resize-y"
                   value={bilanFbText}
                   onChange={e => { setBilanFbText(e.target.value); setBilanFbTextEdited(true) }}
                 />
 
+                {bilanFbTextEdited && (
+                  <button type="button" onClick={resetBilanFbText}
+                    className="ml-1 text-[9px] font-black uppercase tracking-widest text-[#1a5f7a] underline underline-offset-2 hover:text-[#e38154]">
+                    Remettre le texte proposé (participants et jeux à jour)
+                  </button>
+                )}
+
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Photo à publier</label>
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                    Photos à publier ({bilanSelectedPhotoUrls.length}/{Math.min(bilanPhotos.length, MAX_SOCIAL_PHOTOS)})
+                  </label>
                   {bilanPhotos.length === 0 ? (
                     <p className="text-[10px] text-slate-300 italic px-1">Ajoutez d'abord des photos dans la section Photos.</p>
                   ) : (
-                    <div className="flex flex-wrap gap-3">
-                      {bilanPhotos.map(photo => (
-                        <button
-                          key={photo.id}
-                          type="button"
-                          onClick={() => setBilanSelectedPhotoUrl(photo.url)}
-                          className={'w-16 h-16 rounded-xl overflow-hidden border-2 transition-all shrink-0 ' +
-                            (bilanSelectedPhotoUrl === photo.url ? 'border-blue-500 ring-2 ring-blue-200' : 'border-transparent opacity-70 hover:opacity-100')}
-                        >
-                          <img src={photo.url} alt="" className="w-full h-full object-cover" />
-                        </button>
-                      ))}
-                    </div>
+                    <>
+                      <p className="text-[10px] text-slate-400 px-1">
+                        Touchez une photo pour l'ajouter ou la retirer. Le numéro indique l'ordre du carrousel (10 photos au plus).
+                      </p>
+                      <div className="flex flex-wrap gap-2.5">
+                        {bilanPhotos.map(photo => {
+                          const position = bilanSelectedPhotoUrls.indexOf(photo.url)
+                          const selected = position !== -1
+                          const full = !selected && bilanSelectedPhotoUrls.length >= MAX_SOCIAL_PHOTOS
+                          return (
+                            <button
+                              key={photo.id}
+                              type="button"
+                              onClick={() => toggleBilanPhoto(photo.url)}
+                              disabled={full}
+                              aria-pressed={selected}
+                              className={'relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition-all ' +
+                                (selected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-transparent opacity-50 hover:opacity-100') +
+                                (full ? ' cursor-not-allowed' : '')}
+                            >
+                              <img src={photo.url} alt="" className="h-full w-full object-cover" />
+                              {selected && (
+                                <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-[10px] font-black text-white">
+                                  {position + 1}
+                                </span>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </>
                   )}
                 </div>
 
-                <SocialPostPreview text={bilanFbText} imageUrl={bilanSelectedPhotoUrl} games={bilanGames} />
+                <SocialPostPreview text={bilanFbText} imageUrls={bilanSelectedPhotoUrls} />
 
                 {bilanFbSuccess ? (
                   <div className="py-4 bg-emerald-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2">
@@ -2568,9 +2644,9 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                   <>
                     <button
                       onClick={publishBilanToSocial}
-                      disabled={publishingBilanFb || !bilanFbText.trim() || !bilanSelectedPhotoUrl}
+                      disabled={publishingBilanFb || !bilanFbText.trim() || bilanSelectedPhotoUrls.length === 0}
                       className={'w-full py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all ' +
-                        (publishingBilanFb || !bilanFbText.trim() || !bilanSelectedPhotoUrl
+                        (publishingBilanFb || !bilanFbText.trim() || bilanSelectedPhotoUrls.length === 0
                           ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
                           : 'bg-blue-500 text-white hover:bg-blue-600')}>
                       {publishingBilanFb ? <><Loader2 size={14} className="animate-spin" /> Publication...</> : <><Share2 size={14} /> Publier sur Facebook & Instagram</>}
