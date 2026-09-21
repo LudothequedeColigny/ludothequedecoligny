@@ -10,7 +10,7 @@ import { BTN_TEAL, BTN_ORANGE } from '../../components/admin/buttons'
 import { useRef, useState as useStateRef } from 'react'
 import { 
   Settings, UserPlus, Save, Loader2, UserCheck, Ban, Euro, 
-  ShieldCheck, X, ChevronRight, Users, CreditCard, Info, Mail, Lock, ShieldAlert, CheckCircle2, User, Hash, Trash2, Phone, Wallet, Clock, MapPin, Image, Plus, Edit2, Target, Eye, Download, CheckCircle
+  ShieldCheck, X, ChevronRight, Users, CreditCard, Info, Mail, Lock, ShieldAlert, CheckCircle2, User, Hash, Trash2, Phone, Wallet, Clock, MapPin, Image, Plus, Edit2, Target, Eye, Download, CheckCircle, KeyRound
 } from 'lucide-react'
 
 export default function Parametres() {
@@ -18,6 +18,10 @@ export default function Parametres() {
   const [loading, setLoading] = useState(false)
   const [saveLoading, setSaveLoading] = useState(false)
   const [volunteers, setVolunteers] = useState([])
+  // Envoi du lien « nouveau mot de passe » : id du bénévole en cours, et ceux déjà servis
+  const [resetSendingId, setResetSendingId] = useState(null)
+  const [resetSentIds, setResetSentIds] = useState([])
+  const [resetConfirm, setResetConfirm] = useState(null)
   
   const [newEmail, setNewEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -415,6 +419,21 @@ export default function Parametres() {
       fetchVolunteers()
     } else { addToast("Erreur : " + error.message, 'error') }
     setLoading(false)
+  }
+
+  // Envoie au bénévole un email avec un lien pour choisir un nouveau mot de passe
+  const handleSendPasswordReset = async (volunteer) => {
+    setResetConfirm(null)
+    setResetSendingId(volunteer.id)
+    const { error } = await supabase.functions.invoke('send-password-reset', { body: { email: volunteer.email } })
+    setResetSendingId(null)
+    if (error) {
+      console.error('Erreur envoi lien mot de passe:', error)
+      addToast("L'email n'a pas pu être envoyé. Réessayez dans un instant.", 'error')
+      return
+    }
+    setResetSentIds(ids => [...ids, volunteer.id])
+    addToast(`Email envoyé à ${volunteer.first_name || volunteer.email}. Le lien est valable 1 heure.`, 'success')
   }
 
   const handleRemoveVolunteer = async () => {
@@ -882,6 +901,10 @@ export default function Parametres() {
 
               <div className="space-y-4">
                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Accès Actifs ({volunteers.length})</h4>
+                <p className="ml-4 flex items-center gap-2 text-[11px] text-slate-500">
+                  <KeyRound size={13} className="shrink-0 text-[#1a5f7a]" />
+                  Mot de passe oublié ? La clé envoie un email pour en choisir un nouveau.
+                </p>
                 <div className="grid grid-cols-1 gap-3">
                   {volunteers.map(v => (
                     <div key={v.id} className="flex items-center justify-between p-5 bg-white border border-slate-100 rounded-3xl shadow-sm">
@@ -892,7 +915,18 @@ export default function Parametres() {
                           <p className="text-[10px] font-bold text-slate-400 truncate">{v.email}</p>
                         </div>
                       </div>
-                      <button onClick={() => setDeleteConfirm({ show: true, id: v.id })} className="p-3 text-rose-500 hover:bg-rose-50 rounded-xl transition-all shrink-0"><Trash2 size={18} /></button>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          onClick={() => setResetConfirm(v)}
+                          disabled={!v.email || resetSendingId === v.id}
+                          title="Envoyer un lien pour changer de mot de passe"
+                          aria-label={`Envoyer à ${v.first_name || v.email} un lien pour changer de mot de passe`}
+                          className={'rounded-xl p-3 transition-all disabled:cursor-not-allowed disabled:opacity-40 ' +
+                            (resetSentIds.includes(v.id) ? 'text-emerald-500 hover:bg-emerald-50' : 'text-[#1a5f7a] hover:bg-[#f0f7f9]')}>
+                          {resetSendingId === v.id ? <Loader2 size={18} className="animate-spin" /> : <KeyRound size={18} />}
+                        </button>
+                        <button onClick={() => setDeleteConfirm({ show: true, id: v.id })} aria-label="Retirer l'accès" className="p-3 text-rose-500 hover:bg-rose-50 rounded-xl transition-all"><Trash2 size={18} /></button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1072,6 +1106,18 @@ export default function Parametres() {
           </div>
         </div>
       )}
+
+      {/* LIEN « NOUVEAU MOT DE PASSE » */}
+      <ConfirmModal
+        open={!!resetConfirm}
+        onClose={() => setResetConfirm(null)}
+        onConfirm={() => handleSendPasswordReset(resetConfirm)}
+        title="Nouveau mot de passe"
+        message={resetConfirm ? `${resetConfirm.first_name || 'La personne'} recevra à l'adresse ${resetConfirm.email} un lien pour choisir un nouveau mot de passe, valable 1 heure. L'ancien mot de passe reste valable tant qu'un nouveau n'a pas été choisi.` : ''}
+        confirmLabel="Envoyer l'email"
+        cancelLabel="Annuler"
+        icon={<KeyRound size={26} />}
+      />
 
       {/* SUPPRESSION */}
       {deleteConfirm.show && (

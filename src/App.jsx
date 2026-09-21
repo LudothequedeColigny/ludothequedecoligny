@@ -13,6 +13,7 @@ import Catalogue from './pages/Catalogue'
 import Evenements from './pages/Evenements'
 import VieAssociation from './pages/VieAssociation'
 import Login from './pages/Login'
+import NouveauMotDePasse from './pages/NouveauMotDePasse'
 import HowToBorrow from './pages/HowToBorrow.jsx'
 import InscriptionPermanence from './pages/InscriptionPermanence'
 import NotFound from './pages/NotFound'
@@ -71,6 +72,7 @@ function App() {
         <Route path="/vie-association" element={<VieAssociation />} />
         <Route path="/comment-emprunter" element={<HowToBorrow />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/nouveau-mot-de-passe" element={<NouveauMotDePasse />} />
         <Route path="/inscription-permanence" element={<InscriptionPermanence />} /> 
         
         {/* --- ROUTES PRIVÉES (ADMIN) --- */}
