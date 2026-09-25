@@ -1,10 +1,11 @@
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '../services/supabaseClient'
-import { Calendar, Users, Dice5, ImageIcon, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { Calendar, Users, Dice5, ImageIcon, ChevronDown, ChevronUp } from 'lucide-react'
 import PublicLayout from '../components/site/PublicLayout'
 import FloatingIcons from '../components/site/FloatingIcons'
 import Reveal from '../components/site/Reveal'
 import CountUp from '../components/site/CountUp'
+import MediaLightbox from '../components/site/MediaLightbox'
 import { EYEBROW } from '../components/site/styles'
 
 // Détecte le type d'un événement à partir de son titre (insensible aux accents/casse)
@@ -91,15 +92,10 @@ function FrequentationChart({ config, points }) {
   )
 }
 
-/** Vignette carrée d'un jeu joué, cliquable si une fiche externe est renseignée. */
-function GameThumb({ game }) {
-  const Wrapper = game.external_url ? 'a' : 'div'
-  const wrapperProps = game.external_url
-    ? { href: game.external_url, target: '_blank', rel: 'noopener noreferrer' }
-    : {}
-
+/** Vignette carrée d'un jeu joué : au clic, la boîte s'affiche en grand avec son nom. */
+function GameThumb({ game, onOpen }) {
   return (
-    <Wrapper {...wrapperProps} className="flex w-full max-w-[76px] shrink-0 flex-col items-center text-center">
+    <button type="button" onClick={onOpen} className="flex w-full max-w-[76px] shrink-0 flex-col items-center text-center">
       <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-[16px] border-2 border-[#0f172a] bg-white">
         {game.image_url ? (
           <img src={game.image_url} alt={game.name} loading="lazy" className="h-full w-full object-contain" />
@@ -113,7 +109,7 @@ function GameThumb({ game }) {
           Dispo
         </span>
       )}
-    </Wrapper>
+    </button>
   )
 }
 
@@ -122,7 +118,8 @@ export default function VieAssociation() {
   const [photos, setPhotos] = useState([])
   const [gamesPlayed, setGamesPlayed] = useState([])
   const [loading, setLoading] = useState(true)
-  const [lightboxPhoto, setLightboxPhoto] = useState(null)
+  // { items: [...], index, fit } — photos d'un événement ou jeux d'un événement
+  const [lightbox, setLightbox] = useState(null)
   const [sectionOpen, setSectionOpen] = useState({}) // { [eventId]: { photos: boolean, games: boolean } } — accordéons indépendants par carte
 
   const toggleSection = (eventId, section) => setSectionOpen(prev => ({
@@ -334,6 +331,14 @@ export default function VieAssociation() {
                   const gamesExpanded = !!sectionOpen[event.id]?.games
                   const visiblePhotos = photosExpanded ? evPhotos : evPhotos.slice(0, 3)
                   const visibleGames = gamesExpanded ? evGames : evGames.slice(0, 3)
+                  // Agrandissement des jeux : seuls ceux qui ont une image en font partie
+                  const gameItems = evGames.filter(g => g.image_url).map(g => ({
+                    id: g.id,
+                    src: g.image_url,
+                    title: g.name,
+                    badge: g.in_catalogue ? 'Dispo à la ludothèque' : null,
+                    href: g.external_url || null,
+                  }))
                   const eventType = getEventType(event.title)
                   const typeColor = TYPE_COLORS[eventType]
                   const coverPhoto = evPhotos[0]?.url
@@ -405,7 +410,11 @@ export default function VieAssociation() {
                                       {visiblePhotos.map((photo, index) => (
                                         <button
                                           key={photo.id}
-                                          onClick={() => setLightboxPhoto(photo.url)}
+                                          onClick={() => setLightbox({
+                                            fit: 'cover',
+                                            index,
+                                            items: evPhotos.map(p => ({ id: p.id, src: p.url })),
+                                          })}
                                           className="h-[62px] w-[62px] shrink-0 overflow-hidden rounded-[16px] border-2 border-[#0f172a]"
                                           style={{ transform: `rotate(${((index * 7 + eventIndex * 13) % 9) - 4}deg)` }}
                                         >
@@ -437,7 +446,16 @@ export default function VieAssociation() {
                                       Jeux joués
                                     </p>
                                     <div className="flex flex-wrap gap-2">
-                                      {visibleGames.map(game => <GameThumb key={game.id} game={game} />)}
+                                      {visibleGames.map(game => (
+                                        <GameThumb
+                                          key={game.id}
+                                          game={game}
+                                          onOpen={() => {
+                                            const start = gameItems.findIndex(g => g.id === game.id)
+                                            if (start !== -1) setLightbox({ fit: 'contain', index: start, items: gameItems })
+                                          }}
+                                        />
+                                      ))}
                                     </div>
                                     {evGames.length > 3 && (
                                       <button
@@ -470,25 +488,16 @@ export default function VieAssociation() {
         </section>
       </main>
 
-      {lightboxPhoto && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-[#1a5f7a]/90 p-4 backdrop-blur-sm"
-          onClick={() => setLightboxPhoto(null)}
-        >
-          <button
-            onClick={() => setLightboxPhoto(null)}
-            className="absolute right-4 top-4 z-20 rounded-full border-2 border-[#0f172a] bg-white p-2 text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"
-          >
-            <X size={24} />
-          </button>
-          <img
-            src={lightboxPhoto}
-            alt=""
-            className="max-h-[90vh] max-w-full rounded-[22px] border-2 border-[#0f172a]"
-            onClick={e => e.stopPropagation()}
-          />
-        </div>
+      {lightbox && lightbox.items.length > 0 && (
+        <MediaLightbox
+          items={lightbox.items}
+          index={lightbox.index}
+          fit={lightbox.fit}
+          onIndex={i => setLightbox(prev => ({ ...prev, index: i }))}
+          onClose={() => setLightbox(null)}
+        />
       )}
+
     </PublicLayout>
   )
 }
