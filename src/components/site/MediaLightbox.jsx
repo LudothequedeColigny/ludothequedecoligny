@@ -151,9 +151,8 @@ export default function MediaLightbox({ items, index, onIndex, onClose, fit = 'c
         {count > 1 && (
           <>
             {/* Téléphone : flèches côte à côte sous l'image, en plus du glissement */}
-            <div className="flex items-center gap-4 sm:hidden">
+            <div className="flex items-center gap-6 sm:hidden">
               <button onClick={() => go(-1)} aria-label="Image précédente" className={ARROW}><ChevronLeft size={22} /></button>
-              <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-white">Glissez le doigt</span>
               <button onClick={() => go(1)} aria-label="Image suivante" className={ARROW}><ChevronRight size={22} /></button>
             </div>
 
