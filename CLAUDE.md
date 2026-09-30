@@ -145,6 +145,7 @@ Pour l'espace de gestion, dans `src/components/admin/` :
 |---|---|
 | `AdminPageHeader` | en-tête d'écran : pastille d'icône + titre en deux tons |
 | `ConfirmModal` | fenêtre de confirmation (supprimer, quitter, valider un retour) |
+| `BarcodeCamera` | caméra + lecture des codes-barres (zoom ×2 d'office, lampe, choix d'objectif), pour les deux scanners |
 
 `Reveal`, `CountUp`, `Modal`, `MaskIcon` de `components/site/` servent aussi côté
 gestion : malgré son nom, ce dossier contient les briques communes aux deux parties.
