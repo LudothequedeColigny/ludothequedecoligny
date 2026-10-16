@@ -200,6 +200,9 @@ Les animations et effets sont définis dans `src/index.css`.
   `usePageMeta` (titre, description ; `noindex` pour les pages privées). L'accueil
   transmet la fiche d'identité de la ludothèque et les événements à venir
   (`useJsonLd`). Une nouvelle page publique doit appeler `usePageMeta`.
+- **Google Search Console** validée le 16 octobre 2026 (propriété « Domaine ») grâce à
+  une entrée TXT `google-site-verification=…` dans la zone DNS chez OVH : ne pas la
+  supprimer. La même valeur est aussi dans `index.html` (balise meta), en secours.
 - **Horaires des permanences : une seule source, les Paramètres.** Ne jamais les écrire
   en dur dans une page (la page « Comment emprunter » a longtemps affiché 10h-12h
   pendant que les Paramètres disaient 10h-14h).
