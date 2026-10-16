@@ -3,14 +3,11 @@ import * as XLSX from 'xlsx'
 import { supabase } from '../../services/supabaseClient'
 import { useToast } from '../../components/ToastContext'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
-import IconButton from '../../components/admin/IconButton'
 import ConfirmModal from '../../components/admin/ConfirmModal'
-import FormModal, { FieldLabel, FIELD } from '../../components/admin/FormModal'
-import { BTN_TEAL, BTN_ORANGE } from '../../components/admin/buttons'
-import { useRef, useState as useStateRef } from 'react'
+import { useRef } from 'react'
 import { 
-  Settings, UserPlus, Save, Loader2, UserCheck, Ban, Euro, 
-  ShieldCheck, X, ChevronRight, Users, CreditCard, Info, Mail, Lock, ShieldAlert, CheckCircle2, User, Hash, Trash2, Phone, Wallet, Clock, MapPin, Image, Plus, Edit2, Target, Eye, Download, CheckCircle, KeyRound
+  UserPlus, Save, Loader2, Euro, 
+  ShieldCheck, X, ChevronRight, Users, CreditCard, Info, ShieldAlert, CheckCircle2, User, Hash, Trash2, Wallet, Clock, MapPin, Image, Plus, Edit2, Target, Eye, Download, KeyRound
 } from 'lucide-react'
 
 export default function Parametres() {
@@ -50,8 +47,7 @@ export default function Parametres() {
   const [activeZone, setActiveZone] = useState(1) // 1 = date, 2 = lieu
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState(null)
-  const [dragCurrent, setDragCurrent] = useState(null)
-  const [uploadingFont, setUploadingFont] = useState(false)
+  const [, setDragCurrent] = useState(null)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [previewImg, setPreviewImg] = useState(null)
   const [savingTemplate, setSavingTemplate] = useState(false)

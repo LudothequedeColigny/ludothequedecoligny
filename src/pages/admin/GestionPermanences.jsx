@@ -2,9 +2,9 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../services/supabaseClient'
 import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
 import { 
-  Calendar, Clock, Plus, Trash2, Users, Link as LinkIcon, 
+  Clock, Plus, Trash2, Link as LinkIcon, 
   CheckCircle, CalendarDays, UserCheck, Loader2, AlertTriangle,
-  Search, X, Edit2, Info, Share2, Send, ExternalLink, WifiOff
+  X, Edit2, Share2, WifiOff
 } from 'lucide-react'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import AdminBanner from '../../components/admin/AdminBanner'
@@ -233,7 +233,7 @@ const PERMANENCES_TUTORIAL_STEPS = (openFormFn, closeFormFn, openLinkFn) => [
     () => openForm(null),
     () => setShowFormModal(false),
     (open) => setShowLinkModal(open)
-  ), []) // eslint-disable-line react-hooks/exhaustive-deps
+  ), [])
 
   if (loading) return <div className="flex h-screen items-center justify-center font-black text-[#1a5f7a] uppercase text-[10px] tracking-[0.3em]">Synchronisation du planning...</div>
 
@@ -263,6 +263,11 @@ const PERMANENCES_TUTORIAL_STEPS = (openFormFn, closeFormFn, openLinkFn) => [
         {!navigator.onLine && (
           <AdminBanner tone="warn" icon={<WifiOff size={18} />}>
             Planning en mode lecture seule (hors-ligne)
+          </AdminBanner>
+        )}
+        {errorMsg && (
+          <AdminBanner tone="danger" icon={<AlertTriangle size={18} />}>
+            {errorMsg}. Vérifiez la connexion internet, puis rechargez la page.
           </AdminBanner>
         )}
 

@@ -17,7 +17,6 @@ export default function InstallationApp() {
     const ua = navigator.userAgent.toLowerCase()
     const isIOS = /iphone|ipad|ipod/.test(ua)
     const isAndroid = /android/.test(ua)
-    const isDesktop = !isIOS && !isAndroid
 
     if (isIOS) setDeviceType('ios')
     else if (isAndroid) setDeviceType('android')

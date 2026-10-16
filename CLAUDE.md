@@ -45,7 +45,10 @@ Le site est publié via Vercel.
 | `/inscription-permanence` | Inscription aux permanences | `src/pages/InscriptionPermanence.jsx` |
 | toute autre | Page 404 | `src/pages/NotFound.jsx` |
 
-`src/pages/Evenements.jsx` (`/evenements`) est une page inachevée, non reliée au site.
+L'ancienne adresse `/evenements` (page inachevée, supprimée en octobre 2026) renvoie vers `/vie-association`.
+
+Les pages sont téléchargées seulement quand on les ouvre (`lazy` dans `src/App.jsx`),
+sauf l'accueil. Une nouvelle page s'ajoute de la même façon.
 
 ### Les écrans de gestion et leur fichier
 
@@ -163,7 +166,9 @@ Les animations et effets sont définis dans `src/index.css`.
   servait à rien. Ne pas le remettre dans l'historique.
   Pour vérifier que le site se construit, utiliser un dossier temporaire :
   `npx vite build --outDir /tmp/verif --emptyOutDir`
-- **`npm run lint` est cassé** (fichier de configuration absent) — inutile de l'exécuter.
+- **`npm run lint`** relit le code (réparé en octobre 2026, réglages dans `.eslintrc.cjs`) :
+  il doit afficher 0 erreur. Les 5 avertissements restants sont connus et volontairement
+  laissés (les corriger changerait le comportement de pages qui marchent).
 - **Les fichiers SVG doivent garder leurs attributs `width` et `height`.** Sans eux,
   les icônes disparaissent complètement sur Safari (elles servent de pochoir de couleur).
 - **Ne jamais empiler deux réglages d'espacement contradictoires** sur un même élément
@@ -175,10 +180,14 @@ Les animations et effets sont définis dans `src/index.css`.
 - **Scanner de codes-barres : laisser la caméra faire sa mise au point seule.**
   En septembre 2026, un zoom ×2 imposé, un objectif mémorisé et une mise au point
   au toucher ont empêché toute mise au point, sur Android comme sur iPhone.
-  Retirés en octobre 2026 : Android lit de nouveau parfaitement (testé par Victor).
-  Ne pas les remettre. **iPhone pas encore testé** : en cas d'échec, demander une
-  capture de la ligne grise sous l'image (objectif, définition, lecteur).
+  Retirés en octobre 2026 : Android et iPhone lisent de nouveau parfaitement (testés
+  par Victor). Ne pas les remettre. En cas d'échec, demander une capture de la ligne
+  grise sous l'image (objectif, définition, lecteur).
   Changer de lecteur ne sert à rien : mesuré, aucun ne lit une image floue.
+- **Un visiteur ne peut pas lire la table `members`** (données personnelles, verrouillée
+  en septembre 2026). Le compteur « Joueurs passionnés » de l'accueil passe par la
+  fonction `nombre_joueurs()` (`supabase/migrations/20261016_compteur_joueurs.sql`),
+  qui ne renvoie que le nombre ; si elle manque, la case est masquée.
 - **Ne pas renommer la couleur `teal`** dans `tailwind.config.js` : l'espace
   d'administration s'en sert.
 - **`src/.DS_Store` apparaît toujours comme modifié** : fichier système macOS, à ignorer.

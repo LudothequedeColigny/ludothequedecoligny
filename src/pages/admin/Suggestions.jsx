@@ -4,10 +4,9 @@ import { volunteerHeaders } from '../../services/functionHeaders'
 import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
 import { useToast } from '../../components/ToastContext'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
-import IconButton from '../../components/admin/IconButton'
 import { BTN_ORANGE, BTN_OUTLINE } from '../../components/admin/buttons'
 import {
-  Lightbulb, Dices, Wrench, MessageSquarePlus, Send, CheckCircle2,
+  Lightbulb, Dices, Wrench, MessageSquarePlus, CheckCircle2,
   Loader2, Sparkles, CalendarDays, AlertTriangle, Link2, Megaphone,
   MoreHorizontal, Plus, Trash2, Check, X, ChevronDown, Search, Pencil,
   Euro, PiggyBank, HelpCircle, Edit2, FileDown
@@ -542,7 +541,7 @@ export default function Suggestions() {
   const suggSteps = useMemo(() => SUGGESTIONS_TUTORIAL_STEPS(
     () => setShowModal(true),
     () => setShowModal(false)
-  ), []) // eslint-disable-line react-hooks/exhaustive-deps
+  ), [])
 
   return (
     <div className="min-h-screen bg-[#fdfaf6] p-5 font-body text-[#0f172a] md:p-11">

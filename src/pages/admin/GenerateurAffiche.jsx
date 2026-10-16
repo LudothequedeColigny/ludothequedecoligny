@@ -60,7 +60,6 @@ function drawTextInZone(ctx, lines, zx, zy, zw, zh, fontSize, fontFamily, color,
   ctx.fillStyle = color
   ctx.textAlign = textAlign
   ctx.textBaseline = 'middle'
-  const cx = textAlign === 'left' ? zx + 10 : textAlign === 'right' ? zx + zw - 10 : zx + zw / 2
   const lh = fontSize * 1.3
 
   // Expand each input line into wrapped sub-lines
@@ -76,7 +75,7 @@ function drawTextInZone(ctx, lines, zx, zy, zw, zh, fontSize, fontFamily, color,
   const totalH = (allLines.length - 1) * lh
   const startY = zy + zh / 2 - totalH / 2
 
-  allLines.forEach(({ text, fs, fontStr }, i) => {
+  allLines.forEach(({ text, fontStr }, i) => {
     ctx.font = fontStr
     // Pour left: ancrage à gauche+padding, right: ancrage à droite-padding
     const tx = textAlign === 'left' ? zx + 10 : textAlign === 'right' ? zx + zw - 10 : zx + zw / 2
@@ -84,7 +83,7 @@ function drawTextInZone(ctx, lines, zx, zy, zw, zh, fontSize, fontFamily, color,
   })
 }
 
-export default function GenerateurAffiche({ events = [], onCreateEvent }) {
+export default function GenerateurAffiche({ onCreateEvent }) {
   const [templates, setTemplates] = useState([])
   const [selectedId, setSelectedId] = useState(null)
   const [selectedDate, setSelectedDate] = useState('')

@@ -25,7 +25,7 @@ const COMM_TABS = [
 ]
 import {
   Calendar, MapPin, Plus, Trash2, Clock, ImageIcon,
-  Upload, X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2, Users, ChevronDown, ChevronUp, PlusCircle, Paperclip, GripVertical, Building2, Trash, Share2, Megaphone, BarChart2, Search, Dice5, Facebook, Instagram, Archive, ArchiveRestore, LayoutGrid, List, ImagePlus, Copy
+  X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2, Users, ChevronDown, ChevronUp, PlusCircle, Paperclip, GripVertical, Building2, Trash, Share2, Megaphone, BarChart2, Search, Dice5, Facebook, Instagram, Archive, ArchiveRestore, LayoutGrid, List, ImagePlus, Copy
 } from 'lucide-react'
 
 const VIEW_MODE_STORAGE_KEY = 'evenements_view_mode'
@@ -517,16 +517,13 @@ export default function Evenements() {
       image_url: newEvent.image_url
     }
 
-    let savedEvent = null;
     let error = null;
 
     if (editingId) {
-      const { data, error: err } = await supabase.from('events').update(eventToSave).eq('id', editingId).select()
-      savedEvent = data ? data[0] : null
+      const { error: err } = await supabase.from('events').update(eventToSave).eq('id', editingId).select()
       error = err
     } else {
-      const { data, error: err } = await supabase.from('events').insert([eventToSave]).select()
-      savedEvent = data ? data[0] : null
+      const { error: err } = await supabase.from('events').insert([eventToSave]).select()
       error = err
     }
     
@@ -718,7 +715,6 @@ L'équipe de la Ludothèque de Coligny
       for (let i = 0; i < activeRecipients.length; i++) {
         const r = activeRecipients[i]
         const html = r.group === 'mairie' ? htmlCollectivites : htmlAdherents
-        const isLast = i === activeRecipients.length - 1
         try {
           await sendEmail({
             to: [r.email],
