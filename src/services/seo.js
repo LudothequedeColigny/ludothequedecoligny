@@ -114,6 +114,8 @@ export function ficheLudotheque({ adresse, horaires, telephone, facebook = FACEB
     image: `${SITE_URL}/partage.png`,
     ...(telephone ? { telephone } : {}),
     ...(adresse?.rue ? { address: ADRESSE(adresse) } : {}),
+    // Niveau de prix : adhésion annuelle modeste
+    priceRange: '€',
     areaServed: ['Coligny', 'Bresse', 'Ain'],
     parentOrganization: { '@type': 'Organization', name: 'Association PACTES' },
     ...(facebook ? { sameAs: [facebook] } : {}),
@@ -192,5 +194,8 @@ export function evenementsPourGoogle(evenements, adresse) {
     // Les images collées directement dans la fiche (data:…) ne sont pas des adresses web
     ...(e.image_url && e.image_url.startsWith('http') ? { image: [e.image_url] } : {}),
     organizer: { '@type': 'Organization', name: NOM_SITE, url: SITE_URL },
+    performer: { '@type': 'Organization', name: NOM_SITE, url: SITE_URL },
+    // Pas de prix (« offers ») : les animations sont gratuites pour les adhérents
+    // seulement, et Google afficherait « Gratuit » pour tout le monde.
   }))
 }
