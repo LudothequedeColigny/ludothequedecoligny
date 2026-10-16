@@ -95,17 +95,11 @@ export default function Home() {
           .select('*', { count: 'exact', head: true })
         if (gCount) setGameCount(gCount)
 
-        const { data: membersData } = await supabase
-          .from('members')
-          .select('family_members')
-
-        if (membersData) {
-          const total = membersData.reduce((acc, current) => {
-            const familyCount = Array.isArray(current.family_members) ? current.family_members.length : 0
-            return acc + 1 + familyCount
-          }, 0)
-          setPlayerCount(total)
-        }
+        // Un visiteur n'a pas le droit de lire la liste des adhérents : la base
+        // lui donne seulement leur nombre (supabase/migrations/20261016_compteur_joueurs.sql).
+        // Si ce calcul n'est pas disponible, la case « Joueurs passionnés » est masquée.
+        const { data: nbJoueurs, error: errJoueurs } = await supabase.rpc('nombre_joueurs')
+        if (!errJoueurs && nbJoueurs) setPlayerCount(nbJoueurs)
 
         // Un seul appel : l'agenda n'affiche que les événements non archivés,
         // tandis que les compteurs « vie de la ludothèque » portent sur tout l'historique.
@@ -255,7 +249,7 @@ export default function Home() {
 
         {/* ---------- CHIFFRES CLÉS ---------- */}
         <section className="px-4 pb-8 md:px-10 md:pb-14">
-          <div className="mx-auto grid max-w-[900px] grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className={`mx-auto grid gap-4 ${loading || playerCount > 0 ? 'max-w-[900px] grid-cols-1 sm:grid-cols-2' : 'max-w-[440px] grid-cols-1'}`}>
             <Reveal
               as="button"
               variant="scale"
@@ -270,20 +264,22 @@ export default function Home() {
               </div>
             </Reveal>
 
-            <Reveal
-              as="button"
-              variant="scale"
-              delay={90}
-              onClick={() => navigate('/comment-emprunter')}
-              className="rounded-[30px] border-2 border-[#0f172a] bg-white px-6 py-7 text-center shadow-[5px_5px_0_#e38154] transition-transform duration-300 hover:-translate-y-1 hover:rotate-[1.5deg] md:px-8 md:py-8"
-            >
-              <div className="font-display text-[40px] font-extrabold leading-none tracking-[-0.05em] text-[#e38154] md:text-[58px]">
-                {loading ? '···' : <CountUp value={playerCount} />}
-              </div>
-              <div className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-500">
-                Joueurs passionnés
-              </div>
-            </Reveal>
+            {(loading || playerCount > 0) && (
+              <Reveal
+                as="button"
+                variant="scale"
+                delay={90}
+                onClick={() => navigate('/comment-emprunter')}
+                className="rounded-[30px] border-2 border-[#0f172a] bg-white px-6 py-7 text-center shadow-[5px_5px_0_#e38154] transition-transform duration-300 hover:-translate-y-1 hover:rotate-[1.5deg] md:px-8 md:py-8"
+              >
+                <div className="font-display text-[40px] font-extrabold leading-none tracking-[-0.05em] text-[#e38154] md:text-[58px]">
+                  {loading ? '···' : <CountUp value={playerCount} />}
+                </div>
+                <div className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-500">
+                  Joueurs passionnés
+                </div>
+              </Reveal>
+            )}
           </div>
         </section>
 
