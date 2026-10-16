@@ -12,16 +12,21 @@ import { buildConstraints, createDecoder, logCameraSettings } from '../../servic
  * - `continuous` : la caméra reste ouverte après une lecture (prêts, plusieurs
  *   jeux d'affilée). Le même code n'est relu qu'après l'avoir perdu de vue.
  *
- * Boutons affichés seulement si le téléphone les permet : zoom (×1 ×2 ×3),
- * lampe, changement d'objectif. L'objectif choisi est mémorisé sur l'appareil.
+ * La caméra est ouverte telle quelle et laissée faire sa mise au point seule :
+ * c'est le fonctionnement qui lisait bien sur Android. Le zoom imposé, l'objectif
+ * mémorisé et la mise au point au toucher ajoutés ensuite la bloquaient.
+ * Boutons, seulement si le téléphone les permet : lampe, changement d'objectif
+ * (le temps de la fenêtre, jamais mémorisé).
+ *
+ * Sous l'image, une ligne grise dit ce que la caméra a réellement accordé :
+ * une capture d'écran suffit à diagnostiquer un téléphone qui ne lit pas.
  */
 
-const CLE_OBJECTIF = 'scanner_camera_id'
-const ZOOM_PAR_DEFAUT = 2
 const RELIRE_APRES_MS = 4000
 
-const lireObjectif = () => { try { return localStorage.getItem(CLE_OBJECTIF) || null } catch { return null } }
-const garderObjectif = id => { try { id ? localStorage.setItem(CLE_OBJECTIF, id) : localStorage.removeItem(CLE_OBJECTIF) } catch { /* navigation privée */ } }
+// Ancien réglage « objectif mémorisé » : un objectif sans mise au point restait
+// imposé à chaque ouverture. On l'efface sur les téléphones qui l'ont gardé.
+try { localStorage.removeItem('scanner_camera_id') } catch { /* navigation privée */ }
 
 const estFrontale = label => /\bfront\b|avant|facetime|selfie/i.test(label || '')
 
@@ -42,31 +47,34 @@ export default function BarcodeCamera({ onDetected, continuous = false }) {
   const onDetectedRef = useRef(onDetected)
   onDetectedRef.current = onDetected
 
-  const [deviceId, setDeviceId] = useState(lireObjectif)
+  const [deviceId, setDeviceId] = useState(null)   // null = caméra arrière par défaut
   const [ready, setReady] = useState(false)
   const [error, setError] = useState('')
   const [flash, setFlash] = useState(false)
   const [cameras, setCameras] = useState([])        // objectifs arrière disponibles
-  const [zoom, setZoom] = useState(null)            // { base, levels, current }
   const [torch, setTorch] = useState(null)          // null = pas de lampe, sinon allumée ou non
-  const [canRefocus, setCanRefocus] = useState(false)
+  const [infos, setInfos] = useState(null)          // ce que la caméra a accordé
+  const [analysees, setAnalysees] = useState(0)     // images examinées
 
   useEffect(() => {
     let cancelled = false
     let timer = null
+    let compteur = null
     let stream = null
     let busy = false
     let done = false
+    let images = 0
     let last = { code: null, seen: 0 }
 
     setReady(false)
     setError('')
-    setZoom(null)
     setTorch(null)
-    setCanRefocus(false)
+    setInfos(null)
+    setAnalysees(0)
 
     const stop = () => {
       clearTimeout(timer)
+      clearInterval(compteur)
       stream?.getTracks().forEach(t => t.stop())
       trackRef.current = null
     }
@@ -103,23 +111,9 @@ export default function BarcodeCamera({ onDetected, continuous = false }) {
       }
     }
 
-    const ouvrir = async id => {
-      try {
-        return await navigator.mediaDevices.getUserMedia(buildConstraints(id))
-      } catch (err) {
-        // Objectif mémorisé disparu (autre téléphone, mise à jour) : on repart
-        // sur la caméra arrière par défaut.
-        if (id && (err?.name === 'OverconstrainedError' || err?.name === 'NotFoundError')) {
-          garderObjectif(null)
-          return navigator.mediaDevices.getUserMedia(buildConstraints(null))
-        }
-        throw err
-      }
-    }
-
     ;(async () => {
       try {
-        stream = await ouvrir(deviceId)
+        stream = await navigator.mediaDevices.getUserMedia(buildConstraints(deviceId))
         if (cancelled) { stop(); return }
         const video = videoRef.current
         const track = stream.getVideoTracks()[0]
@@ -134,29 +128,25 @@ export default function BarcodeCamera({ onDetected, continuous = false }) {
         setCameras(devices.filter(d => d.kind === 'videoinput' && d.deviceId && !estFrontale(d.label)))
 
         const caps = track.getCapabilities?.() || {}
-        const settings = track.getSettings?.() || {}
-
-        if (caps.zoom && caps.zoom.max > caps.zoom.min) {
-          const base = settings.zoom || caps.zoom.min || 1
-          const levels = [1, 2, 3].filter(f => base * f <= caps.zoom.max + 0.01)
-          if (levels.length > 1) {
-            const current = levels.includes(ZOOM_PAR_DEFAUT) ? ZOOM_PAR_DEFAUT : 1
-            if (current !== 1) await track.applyConstraints({ advanced: [{ zoom: base * current }] }).catch(() => {})
-            if (cancelled) return
-            setZoom({ base, levels, current })
-          }
-        }
         if (caps.torch) setTorch(false)
-        if (caps.focusMode?.includes('single-shot')) setCanRefocus(true)
 
         const decode = await createDecoder()
         if (cancelled) return
+        const s = track.getSettings?.() || {}
+        setInfos({
+          objectif: track.label || 'caméra',
+          definition: s.width && s.height ? `${s.width}×${s.height}` : '?',
+          lecteur: decode.kind,
+          miseAuPoint: s.focusMode || (caps.focusMode ? caps.focusMode.join('/') : 'auto'),
+        })
         setReady(true)
+        compteur = setInterval(() => setAnalysees(images), 1000)
 
         const tick = async () => {
           if (cancelled || done) return
           if (!busy && video.readyState >= 2 && video.videoWidth) {
             let code = null
+            images++
             try { code = await decode(video, zoneVisible(video)) } catch { /* image pas prête */ }
             if (code && !cancelled) await handle(code)
           }
@@ -172,13 +162,6 @@ export default function BarcodeCamera({ onDetected, continuous = false }) {
     return () => { cancelled = true; stop() }
   }, [deviceId, continuous])
 
-  const choisirZoom = async f => {
-    const track = trackRef.current
-    if (!track || !zoom) return
-    setZoom(z => ({ ...z, current: f }))
-    await track.applyConstraints({ advanced: [{ zoom: zoom.base * f }] }).catch(() => {})
-  }
-
   const basculerLampe = async () => {
     const track = trackRef.current
     if (!track || torch === null) return
@@ -191,19 +174,7 @@ export default function BarcodeCamera({ onDetected, continuous = false }) {
     if (cameras.length < 2) return
     const actuel = trackRef.current?.getSettings?.().deviceId || deviceId
     const i = cameras.findIndex(c => c.deviceId === actuel)
-    const suivant = cameras[(i + 1) % cameras.length].deviceId
-    garderObjectif(suivant)
-    setDeviceId(suivant)
-  }
-
-  // Toucher l'image relance la mise au point (téléphones qui le permettent).
-  const refaireMiseAuPoint = async () => {
-    const track = trackRef.current
-    if (!track || !canRefocus) return
-    await track.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] }).catch(() => {})
-    setTimeout(() => {
-      trackRef.current?.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {})
-    }, 1500)
+    setDeviceId(cameras[(i + 1) % cameras.length].deviceId)
   }
 
   const ROUND = 'flex h-11 min-w-11 items-center justify-center rounded-[14px] border-2 border-[#0f172a] px-3 text-[12px] font-extrabold transition-colors'
@@ -218,7 +189,6 @@ export default function BarcodeCamera({ onDetected, continuous = false }) {
 
       <div
         ref={boxRef}
-        onClick={refaireMiseAuPoint}
         className={`relative aspect-[4/3] w-full overflow-hidden rounded-[20px] border-2 bg-[#0f172a] transition-colors ${flash ? 'border-[#10b981]' : 'border-[#0f172a]'}`}
       >
         <video ref={videoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
@@ -240,23 +210,8 @@ export default function BarcodeCamera({ onDetected, continuous = false }) {
         )}
       </div>
 
-      {(zoom || torch !== null || cameras.length > 1) && (
+      {(torch !== null || cameras.length > 1) && (
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          {zoom && (
-            <div className="flex gap-1.5" role="group" aria-label="Zoom">
-              {zoom.levels.map(f => (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => choisirZoom(f)}
-                  aria-pressed={zoom.current === f}
-                  className={`${ROUND} ${zoom.current === f ? 'bg-[#1a5f7a] text-white' : 'bg-white text-[#0f172a] hover:bg-[#fdfaf6]'}`}
-                >
-                  ×{f}
-                </button>
-              ))}
-            </div>
-          )}
           {torch !== null && (
             <button
               type="button"
@@ -285,10 +240,13 @@ export default function BarcodeCamera({ onDetected, continuous = false }) {
 
       {!error && (
         <p className="mt-3 text-center text-[11px] font-medium leading-[1.55] text-slate-500">
-          {zoom
-            ? 'Tenez le téléphone à 20-30 cm de la boîte : le zoom grossit le code.'
-            : "Si l'image est floue, éloignez un peu le téléphone."}
-          {cameras.length > 1 && ' Toujours flou ? Changez d’objectif.'}
+          Placez le code-barres dans le cadre. S'il reste flou, éloignez un peu le téléphone.
+        </p>
+      )}
+
+      {infos && (
+        <p className="mt-2 break-words text-center text-[9px] leading-[1.5] text-slate-400">
+          {infos.objectif} · {infos.definition} · lecteur {infos.lecteur} · mise au point {infos.miseAuPoint} · {analysees} images
         </p>
       )}
     </div>

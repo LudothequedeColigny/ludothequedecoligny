@@ -10,12 +10,12 @@
 //   1280 × 720  → 24 / 27
 //   1920 × 1080 → 27 / 27
 //
-// Distance : l'objectif principal des téléphones récents (iPhone Pro, Samsung,
-// Pixel…) ne sait pas faire la mise au point à moins de 15-20 cm. Approcher le
-// téléphone d'un petit code-barres donne donc une image floue ; sur iPhone, le
-// téléphone bascule en plus d'un objectif à l'autre, et l'image clignote.
-// Parade : zoomer (×2 par défaut) et tenir le téléphone à 20-30 cm, là où
-// tous les objectifs sont nets. C'est la méthode recommandée par Apple.
+// Mise au point : on laisse la caméra la faire seule. Sur Android, la caméra
+// ouverte telle quelle lisait bien ; le scan a cessé de marcher quand on a
+// ajouté un zoom imposé, un objectif mémorisé et la mise au point au toucher
+// (septembre 2026). Ces trois réglages ont été retirés.
+// Mesuré en octobre 2026 : sur une image floue, aucun lecteur (zxing, ni celui
+// intégré au navigateur) ne lit le code ; seule la netteté compte.
 
 /** Contraintes de caméra ; `deviceId` pour imposer un objectif précis. */
 export function buildConstraints(deviceId) {
@@ -50,10 +50,12 @@ async function createNativeDecoder() {
     const formats = FORMATS_SOUHAITES.filter(f => supportes.includes(f))
     if (!formats.includes('ean_13')) return null   // sans EAN-13, inutile
     const detector = new window.BarcodeDetector({ formats })
-    return async video => {
+    const decode = async video => {
       const codes = await detector.detect(video)
       return codes[0]?.rawValue || null
     }
+    decode.kind = 'natif'
+    return decode
   } catch (err) {
     console.warn('Lecteur de codes-barres natif indisponible :', err)
     return null
@@ -83,7 +85,7 @@ async function createZxingDecoder() {
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
 
-  return async (video, zone) => {
+  const decode = async (video, zone) => {
     const { x, y, w, h } = zone
     if (!w || !h) return null
     canvas.width = w
@@ -95,9 +97,11 @@ async function createZxingDecoder() {
       return null   // pas de code-barres dans cette image : on réessaie à la suivante
     }
   }
+  decode.kind = 'zxing'
+  return decode
 }
 
-/** Le meilleur lecteur disponible sur cet appareil. */
+/** Le meilleur lecteur disponible sur cet appareil ; `kind` dit lequel. */
 export async function createDecoder() {
   return (await createNativeDecoder()) || (await createZxingDecoder())
 }
