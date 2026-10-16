@@ -43,6 +43,7 @@ Le site est publié via Vercel.
 | `/vie-association` | Vie de la ludothèque | `src/pages/VieAssociation.jsx` |
 | `/login` | Connexion bénévoles | `src/pages/Login.jsx` |
 | `/inscription-permanence` | Inscription aux permanences | `src/pages/InscriptionPermanence.jsx` |
+| `/desabonnement` | Lien « ne plus recevoir nos actualités » des mails | `src/pages/Desabonnement.jsx` |
 | toute autre | Page 404 | `src/pages/NotFound.jsx` |
 
 L'ancienne adresse `/evenements` (page inachevée, supprimée en octobre 2026) renvoie vers `/vie-association`.
@@ -188,6 +189,13 @@ Les animations et effets sont définis dans `src/index.css`.
   en septembre 2026). Le compteur « Joueurs passionnés » de l'accueil passe par la
   fonction `nombre_joueurs()` (`supabase/migrations/20261016_compteur_joueurs.sql`),
   qui ne renvoie que le nombre ; si elle manque, la case est masquée.
+- **Pas de Google Analytics ni de cookie de mesure** (retirés en octobre 2026, RGPD) :
+  les visites sont comptées par `src/services/visites.js` (numéro de visiteur au hasard,
+  13 mois au plus, refus possible). C'est ce qui dispense le site de bandeau cookies :
+  n'ajouter aucun outil de mesure, publicité ou vidéo intégrée sans en reparler.
+- **Mails d'actualités aux adhérents** : chacun porte un lien personnel de
+  désabonnement (`[LIEN_DESABONNEMENT]`, colonne `jeton_desabonnement`) ; les adhérents
+  avec `refuse_actualites` sont exclus des envois. Ne pas retirer ce lien.
 - **Ne pas renommer la couleur `teal`** dans `tailwind.config.js` : l'espace
   d'administration s'en sert.
 - **`src/.DS_Store` apparaît toujours comme modifié** : fichier système macOS, à ignorer.

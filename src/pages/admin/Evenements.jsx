@@ -612,11 +612,11 @@ L'équipe de la Ludothèque de Coligny
     const subject = `Communication Événement - Association PACTES - ${event.title}`
     const { bodyCollectivites, bodyAdherents } = buildBodies([makeEventBlock(event)])
     try {
-      const { data: members } = await supabase.from('members').select('email, first_name, last_name, refuse_actualites')
+      const { data: members } = await supabase.from('members').select('email, first_name, last_name, refuse_actualites, jeton_desabonnement')
       // Les adhérents qui ont demandé à ne plus recevoir les actualités sont retirés
       const memberRecipients = members
         ? members.filter(m => m.email && m.email.includes('@') && !m.refuse_actualites)
-            .map(m => ({ email: m.email, label: `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email, group: 'adherent', checked: true }))
+            .map(m => ({ email: m.email, label: `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email, group: 'adherent', checked: true, jeton: m.jeton_desabonnement }))
         : []
       const collectiviteRecipients = collectivites.map(c => ({ ...c, group: 'mairie', checked: true }))
       setComposeData({ subject, bodyCollectivites, bodyAdherents, recipients: [...collectiviteRecipients, ...memberRecipients] })
@@ -676,11 +676,16 @@ L'équipe de la Ludothèque de Coligny
   }
 
   // Dernière ligne de chaque mail : comment ne plus le recevoir (obligation RGPD).
-  // Les réponses arrivent sur la boîte de la ludothèque.
+  // Adhérents : lien personnel vers la page /desabonnement (le repère
+  // [LIEN_DESABONNEMENT] est remplacé pour chaque destinataire au moment de l'envoi).
+  // Collectivités : réponse au mail, qui arrive sur la boîte de la ludothèque.
   const MENTION_DESABONNEMENT = {
-    adherent: "Vous recevez ce message en tant qu'adhérent de la ludothèque. Pour ne plus recevoir nos actualités, répondez simplement à ce mail.",
+    adherent: `Vous recevez ce message en tant qu'adhérent de la ludothèque. <a href="[LIEN_DESABONNEMENT]" style="color:#64748b;">Ne plus recevoir nos actualités</a>`,
     mairie: "Vous recevez ce message car votre structure figure dans la liste de diffusion de la ludothèque. Pour ne plus le recevoir, répondez simplement à ce mail.",
   }
+  const lienDesabonnement = jeton => jeton
+    ? `https://www.ludothequedecoligny.fr/desabonnement?jeton=${encodeURIComponent(jeton)}`
+    : 'mailto:ludothequedecoligny@outlook.fr?subject=Ne%20plus%20recevoir%20les%20actualit%C3%A9s'
 
   const bodyToHtml = (bodyText, blocksHtml, groupe) => {
     const withBlocks = bodyText.replace('[BLOCS_EVENEMENTS]', blocksHtml)
@@ -723,7 +728,9 @@ L'équipe de la Ludothèque de Coligny
       const failed = []
       for (let i = 0; i < activeRecipients.length; i++) {
         const r = activeRecipients[i]
-        const html = r.group === 'mairie' ? htmlCollectivites : htmlAdherents
+        const html = r.group === 'mairie'
+          ? htmlCollectivites
+          : htmlAdherents.replaceAll('[LIEN_DESABONNEMENT]', lienDesabonnement(r.jeton))
         try {
           await sendEmail({
             to: [r.email],

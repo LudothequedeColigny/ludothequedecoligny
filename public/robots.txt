@@ -4,5 +4,6 @@ Allow: /
 Disallow: /admin
 Disallow: /login
 Disallow: /nouveau-mot-de-passe
+Disallow: /desabonnement
 
 Sitemap: https://www.ludothequedecoligny.fr/sitemap.xml

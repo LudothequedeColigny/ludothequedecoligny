@@ -20,6 +20,7 @@ const NouveauMotDePasse = lazy(() => import('./pages/NouveauMotDePasse'))
 const HowToBorrow = lazy(() => import('./pages/HowToBorrow.jsx'))
 const InscriptionPermanence = lazy(() => import('./pages/InscriptionPermanence'))
 const NotFound = lazy(() => import('./pages/NotFound'))
+const Desabonnement = lazy(() => import('./pages/Desabonnement'))
 
 // Pages Admin
 const AdminLayout = lazy(() => import('./components/AdminLayout'))
@@ -80,7 +81,8 @@ function App() {
         <Route path="/comment-emprunter" element={<HowToBorrow />} />
         <Route path="/login" element={<Login />} />
         <Route path="/nouveau-mot-de-passe" element={<NouveauMotDePasse />} />
-        <Route path="/inscription-permanence" element={<InscriptionPermanence />} /> 
+        <Route path="/inscription-permanence" element={<InscriptionPermanence />} />
+        <Route path="/desabonnement" element={<Desabonnement />} />
         
         {/* --- ROUTES PRIVÉES (ADMIN) --- */}
         <Route path="/admin" element={<ProtectedRoute><AdminLayout><Dashboard /></AdminLayout></ProtectedRoute>} />
