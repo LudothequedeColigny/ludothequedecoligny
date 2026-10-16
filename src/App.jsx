@@ -1,35 +1,39 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { supabase } from './services/supabaseClient'
 
 // Layouts
-import AdminLayout from './components/AdminLayout'
 import AppIntro from './components/AppIntro'
 import { ToastProvider } from './components/ToastContext'
 
-// Pages Publiques
+// L'accueil est chargé tout de suite : c'est la page la plus visitée.
+// Les autres pages ne sont téléchargées qu'au moment où on les ouvre : un
+// habitant qui consulte l'accueil ne télécharge plus l'espace de gestion
+// (scanner, finances, affiches, export Excel…).
 import Home from './pages/Home'
-import Catalogue from './pages/Catalogue'
-import Evenements from './pages/Evenements'
-import VieAssociation from './pages/VieAssociation'
-import Login from './pages/Login'
-import NouveauMotDePasse from './pages/NouveauMotDePasse'
-import HowToBorrow from './pages/HowToBorrow.jsx'
-import InscriptionPermanence from './pages/InscriptionPermanence'
-import NotFound from './pages/NotFound'
+
+// Pages Publiques
+const Catalogue = lazy(() => import('./pages/Catalogue'))
+const VieAssociation = lazy(() => import('./pages/VieAssociation'))
+const Login = lazy(() => import('./pages/Login'))
+const NouveauMotDePasse = lazy(() => import('./pages/NouveauMotDePasse'))
+const HowToBorrow = lazy(() => import('./pages/HowToBorrow.jsx'))
+const InscriptionPermanence = lazy(() => import('./pages/InscriptionPermanence'))
+const NotFound = lazy(() => import('./pages/NotFound'))
 
 // Pages Admin
-import Dashboard from './pages/admin/Dashboard'
-import Adherents from './pages/admin/Adherents'
-import Jeux from './pages/admin/Jeux'
-import Prets from './pages/admin/Prets'
-import HistoriquePrets from './pages/admin/HistoriquePrets'
-import EvenementsAdmin from './pages/admin/Evenements'
-import GestionPermanences from './pages/admin/GestionPermanences'
-import InstallationApp from './pages/admin/InstallationApp'
-import Parametres from './pages/admin/Parametres'
-import Suggestions from './pages/admin/Suggestions'
-import SuiviFinancier from './pages/admin/SuiviFinancier'
+const AdminLayout = lazy(() => import('./components/AdminLayout'))
+const Dashboard = lazy(() => import('./pages/admin/Dashboard'))
+const Adherents = lazy(() => import('./pages/admin/Adherents'))
+const Jeux = lazy(() => import('./pages/admin/Jeux'))
+const Prets = lazy(() => import('./pages/admin/Prets'))
+const HistoriquePrets = lazy(() => import('./pages/admin/HistoriquePrets'))
+const EvenementsAdmin = lazy(() => import('./pages/admin/Evenements'))
+const GestionPermanences = lazy(() => import('./pages/admin/GestionPermanences'))
+const InstallationApp = lazy(() => import('./pages/admin/InstallationApp'))
+const Parametres = lazy(() => import('./pages/admin/Parametres'))
+const Suggestions = lazy(() => import('./pages/admin/Suggestions'))
+const SuiviFinancier = lazy(() => import('./pages/admin/SuiviFinancier'))
 
 /**
  * COMPOSANT DE PROTECTION
@@ -64,11 +68,14 @@ function App() {
     <div className="min-h-screen bg-[#fdfaf6]">
       <AppIntro />
 
+      {/* Pendant le court téléchargement d'une page : le fond crème, sans rien d'autre */}
+      <Suspense fallback={null}>
       <Routes>
         {/* --- ROUTES PUBLIQUES --- */}
         <Route path="/" element={<Home />} />
         <Route path="/catalogue" element={<Catalogue />} />
-        <Route path="/evenements" element={<Evenements />} />
+        {/* Ancienne page inachevée : l'agenda est sur « Vie de la ludothèque » */}
+        <Route path="/evenements" element={<Navigate to="/vie-association" replace />} />
         <Route path="/vie-association" element={<VieAssociation />} />
         <Route path="/comment-emprunter" element={<HowToBorrow />} />
         <Route path="/login" element={<Login />} />
@@ -91,6 +98,7 @@ function App() {
         {/* Page 404 personnalisée pour toute route inexistante */}
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
     </div>
     </ToastProvider>
   )
