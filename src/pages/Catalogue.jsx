@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState, useRef } from 'react'
 import { supabase } from '../services/supabaseClient'
+import { compterVisite } from '../services/visites'
 import PublicLayout from '../components/site/PublicLayout'
 import Reveal from '../components/site/Reveal'
 import Modal from '../components/site/Modal'
@@ -136,16 +137,8 @@ function Catalogue() {
     fetchJeux()
   }, [])
 
-  // Tracking des visites de la page catalogue
-  useEffect(() => {
-    supabase.from('page_views').insert({
-      page: 'catalogue',
-      user_agent: navigator.userAgent,
-      referrer: document.referrer || null
-    }).then(({ error }) => {
-      if (error) console.error("Erreur tracking page_views:", error.message)
-    })
-  }, [])
+  // Comptage des visites (src/services/visites.js)
+  useEffect(() => { compterVisite('catalogue') }, [])
 
   useEffect(() => {
     function handleClickOutside(event) {

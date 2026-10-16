@@ -12,11 +12,14 @@ interface WeekBucket {
   count: number
 }
 
+// « Visiteurs » = navigateurs différents ; « pages » = pages affichées.
 interface PageViewStats {
   thisWeek: number
   lastWeek: number
   thisMonth: number
   lastMonth: number
+  pagesThisWeek: number
+  pagesThisMonth: number
   weeks: WeekBucket[] // 4 dernières semaines, de la plus ancienne à la plus récente
 }
 
@@ -25,6 +28,8 @@ const emptyPageViewStats: PageViewStats = {
   lastWeek: 0,
   thisMonth: 0,
   lastMonth: 0,
+  pagesThisWeek: 0,
+  pagesThisMonth: 0,
   weeks: [],
 }
 
@@ -34,11 +39,12 @@ function pctChange(current: number, previous: number): number {
 }
 
 /** Encadré « cette semaine / ce mois » avec sa comparaison à la période précédente. */
-function StatComparisonBlock({ label, current, previous, previousLabel }: {
+function StatComparisonBlock({ label, current, previous, previousLabel, detail }: {
   label: string
   current: number
   previous: number
   previousLabel: string
+  detail?: string
 }) {
   const diff = pctChange(current, previous)
   const isFlat = diff === 0
@@ -58,6 +64,7 @@ function StatComparisonBlock({ label, current, previous, previousLabel }: {
       <p className="mt-2.5 text-[10.5px] text-slate-400">
         {previousLabel} : <strong className="text-slate-600">{previous}</strong>
       </p>
+      {detail && <p className="mt-1 text-[10.5px] text-slate-400">{detail}</p>}
     </div>
   )
 }
@@ -202,13 +209,22 @@ export default function Dashboard() {
           return date
         }
 
-        const countBetween = async (start: Date, end: Date) => {
-          const { count } = await supabase
-            .from('page_views')
-            .select('*', { count: 'exact', head: true })
-            .gte('visited_at', start.toISOString())
-            .lt('visited_at', end.toISOString())
-          return count || 0
+        // Toutes les pages vues de la période, par paquets de 1000 (limite de la base)
+        const fetchViews = async (start: Date, end: Date) => {
+          const rows: { visited_at: string; visitor_id: string | null }[] = []
+          for (let from = 0; ; from += 1000) {
+            const { data, error } = await supabase
+              .from('page_views')
+              .select('visited_at, visitor_id')
+              .gte('visited_at', start.toISOString())
+              .lt('visited_at', end.toISOString())
+              .order('visited_at')
+              .range(from, from + 999)
+            if (error) throw error
+            rows.push(...(data || []))
+            if (!data || data.length < 1000) break
+          }
+          return rows
         }
 
         const now = new Date()
@@ -230,11 +246,23 @@ export default function Dashboard() {
         const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
         const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1)
 
-        const [weekCounts, thisMonth, lastMonth] = await Promise.all([
-          Promise.all(weekStarts.map((start, i) => countBetween(start, weekEnds[i]))),
-          countBetween(thisMonthStart, nextMonthStart),
-          countBetween(lastMonthStart, thisMonthStart),
-        ])
+        const firstStart = weekStarts[0] < lastMonthStart ? weekStarts[0] : lastMonthStart
+        const views = await fetchViews(firstStart, nextMonthStart)
+
+        const inPeriod = (start: Date, end: Date) => views.filter(v => {
+          const t = new Date(v.visited_at)
+          return t >= start && t < end
+        })
+        // Visiteurs différents. Les visites d'avant octobre 2026 n'ont pas de numéro
+        // de visiteur : chacune compte alors pour un visiteur, comme auparavant.
+        const visitorsIn = (rows: typeof views) =>
+          new Set(rows.filter(v => v.visitor_id).map(v => v.visitor_id)).size +
+          rows.filter(v => !v.visitor_id).length
+        const countBetween = (start: Date, end: Date) => visitorsIn(inPeriod(start, end))
+
+        const weekCounts = weekStarts.map((start, i) => countBetween(start, weekEnds[i]))
+        const thisMonth = countBetween(thisMonthStart, nextMonthStart)
+        const lastMonth = countBetween(lastMonthStart, thisMonthStart)
 
         const weeks: WeekBucket[] = weekStarts.map((start, i) => ({
           label: start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
@@ -246,6 +274,8 @@ export default function Dashboard() {
           lastWeek: weekCounts[2],
           thisMonth,
           lastMonth,
+          pagesThisWeek: inPeriod(weekStarts[3], weekEnds[3]).length,
+          pagesThisMonth: inPeriod(thisMonthStart, nextMonthStart).length,
           weeks,
         })
       } catch (error) {
@@ -347,7 +377,7 @@ export default function Dashboard() {
                 <div>
                   <h3 className="font-display text-[20px] font-extrabold uppercase tracking-[-0.03em]">Visites du site</h3>
                   <p className="mt-1 text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
-                    Suivi de la fréquentation publique
+                    Visiteurs différents du site public
                   </p>
                 </div>
               </div>
@@ -364,16 +394,18 @@ export default function Dashboard() {
                       current={pageViewStats.thisWeek}
                       previous={pageViewStats.lastWeek}
                       previousLabel="Semaine dernière"
+                      detail={`${pageViewStats.pagesThisWeek} pages vues`}
                     />
                     <StatComparisonBlock
                       label="Ce mois-ci"
                       current={pageViewStats.thisMonth}
                       previous={pageViewStats.lastMonth}
                       previousLabel="Mois dernier"
+                      detail={`${pageViewStats.pagesThisMonth} pages vues`}
                     />
                   </div>
                   <p className="mb-4 text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
-                    4 dernières semaines
+                    Visiteurs des 4 dernières semaines
                   </p>
                   <WeeksChart data={pageViewStats.weeks} />
                 </>

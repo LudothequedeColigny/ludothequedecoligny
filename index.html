@@ -33,14 +33,9 @@
     <meta property="og:image:alt" content="Ludothèque de Coligny — le jeu pour tous, à partager" />
     <meta name="twitter:card" content="summary_large_image" />
 
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-3VCCYPE2N4"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-3VCCYPE2N4');
-    </script>
+    <!-- Pas de Google Analytics : les visites sont comptées par le site lui-même,
+         sans cookie (src/services/visites.js). Aucun bandeau cookies n'est donc
+         nécessaire. -->
   </head>
   <body>
     <div id="root"></div>

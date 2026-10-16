@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '../services/supabaseClient'
+import { compterVisite } from '../services/visites'
 import { Calendar, Users, Dice5, ImageIcon, ChevronDown, ChevronUp } from 'lucide-react'
 import PublicLayout from '../components/site/PublicLayout'
 import FloatingIcons from '../components/site/FloatingIcons'
@@ -156,16 +157,8 @@ export default function VieAssociation() {
     fetchData()
   }, [])
 
-  // Tracking des visites de la page
-  useEffect(() => {
-    supabase.from('page_views').insert({
-      page: 'vie-association',
-      user_agent: navigator.userAgent,
-      referrer: document.referrer || null
-    }).then(({ error }) => {
-      if (error) console.error("Erreur tracking page_views:", error.message)
-    })
-  }, [])
+  // Comptage des visites (src/services/visites.js)
+  useEffect(() => { compterVisite('vie-association') }, [])
 
   const photosByEvent = useMemo(() => {
     const map = {}

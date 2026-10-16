@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { supabase } from '../services/supabaseClient'
+import { compterVisite } from '../services/visites'
 import TitrePactes from '../components/TitrePactes'
 import PublicLayout from '../components/site/PublicLayout'
 import FloatingIcons from '../components/site/FloatingIcons'
@@ -144,16 +145,8 @@ export default function Home() {
     fetchHomeData()
   }, [])
 
-  // Tracking des visites de la page d'accueil
-  useEffect(() => {
-    supabase.from('page_views').insert({
-      page: 'home',
-      user_agent: navigator.userAgent,
-      referrer: document.referrer || null
-    }).then(({ error }) => {
-      if (error) console.error("Erreur tracking page_views:", error.message)
-    })
-  }, [])
+  // Comptage des visites (src/services/visites.js)
+  useEffect(() => { compterVisite('home') }, [])
 
   const formatEventDuration = (dateIso, endTime) => {
     if (!dateIso) return "H-NC";
