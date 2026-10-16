@@ -145,7 +145,7 @@ Pour l'espace de gestion, dans `src/components/admin/` :
 |---|---|
 | `AdminPageHeader` | en-tête d'écran : pastille d'icône + titre en deux tons |
 | `ConfirmModal` | fenêtre de confirmation (supprimer, quitter, valider un retour) |
-| `BarcodeCamera` | caméra + lecture des codes-barres (zoom ×2 d'office, lampe, choix d'objectif), pour les deux scanners |
+| `BarcodeCamera` | caméra + lecture des codes-barres (lampe, choix d'objectif, ligne grise de diagnostic), pour les deux scanners |
 
 `Reveal`, `CountUp`, `Modal`, `MaskIcon` de `components/site/` servent aussi côté
 gestion : malgré son nom, ce dossier contient les briques communes aux deux parties.
@@ -172,6 +172,13 @@ Les animations et effets sont définis dans `src/index.css`.
   Tailwind lit le texte des fichiers : il ne verrait pas la classe et produirait en
   plus une règle invalide. Écrire chaque variante en toutes lettres, ou passer par
   `style={{ boxShadow: … }}`.
+- **Scanner de codes-barres : laisser la caméra faire sa mise au point seule.**
+  En septembre 2026, un zoom ×2 imposé, un objectif mémorisé et une mise au point
+  au toucher ont empêché toute mise au point, sur Android comme sur iPhone.
+  Retirés en octobre 2026 : Android lit de nouveau parfaitement (testé par Victor).
+  Ne pas les remettre. **iPhone pas encore testé** : en cas d'échec, demander une
+  capture de la ligne grise sous l'image (objectif, définition, lecteur).
+  Changer de lecteur ne sert à rien : mesuré, aucun ne lit une image floue.
 - **Ne pas renommer la couleur `teal`** dans `tailwind.config.js` : l'espace
   d'administration s'en sert.
 - **`src/.DS_Store` apparaît toujours comme modifié** : fichier système macOS, à ignorer.
