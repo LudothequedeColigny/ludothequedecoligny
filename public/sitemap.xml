@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Liste des pages publiques, pour Google -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://www.ludothequedecoligny.fr/</loc></url>
+  <url><loc>https://www.ludothequedecoligny.fr/catalogue</loc></url>
+  <url><loc>https://www.ludothequedecoligny.fr/comment-emprunter</loc></url>
+  <url><loc>https://www.ludothequedecoligny.fr/vie-association</loc></url>
+</urlset>

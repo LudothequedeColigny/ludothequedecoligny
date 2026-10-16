@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+# L'espace de gestion est réservé aux bénévoles : inutile de le montrer sur Google
+Disallow: /admin
+Disallow: /login
+Disallow: /nouveau-mot-de-passe
+
+Sitemap: https://www.ludothequedecoligny.fr/sitemap.xml
