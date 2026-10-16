@@ -196,6 +196,13 @@ Les animations et effets sont définis dans `src/index.css`.
 - **Mails d'actualités aux adhérents** : chacun porte un lien personnel de
   désabonnement (`[LIEN_DESABONNEMENT]`, colonne `jeton_desabonnement`) ; les adhérents
   avec `refuse_actualites` sont exclus des envois. Ne pas retirer ce lien.
+- **Référencement Google** (`src/services/seo.js`) : chaque page publique appelle
+  `usePageMeta` (titre, description ; `noindex` pour les pages privées). L'accueil
+  transmet la fiche d'identité de la ludothèque et les événements à venir
+  (`useJsonLd`). Une nouvelle page publique doit appeler `usePageMeta`.
+- **Horaires des permanences : une seule source, les Paramètres.** Ne jamais les écrire
+  en dur dans une page (la page « Comment emprunter » a longtemps affiché 10h-12h
+  pendant que les Paramètres disaient 10h-14h).
 - **Ne pas renommer la couleur `teal`** dans `tailwind.config.js` : l'espace
   d'administration s'en sert.
 - **`src/.DS_Store` apparaît toujours comme modifié** : fichier système macOS, à ignorer.

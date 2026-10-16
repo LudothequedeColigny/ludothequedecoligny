@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState, useRef } from 'react'
 import { supabase } from '../services/supabaseClient'
 import { compterVisite } from '../services/visites'
+import { usePageMeta } from '../services/seo'
 import PublicLayout from '../components/site/PublicLayout'
 import Reveal from '../components/site/Reveal'
 import Modal from '../components/site/Modal'
@@ -85,6 +86,12 @@ function SliderFilter({ icon, filterKey, value, setter, max, unit, accentColor, 
 }
 
 function Catalogue() {
+  usePageMeta({
+    title: 'Catalogue des jeux de société',
+    description: "Plus de 300 jeux de société à emprunter à la ludothèque de Coligny (Ain) : jeux en famille, d'ambiance, de stratégie, pour les petits… Recherchez par âge, nombre de joueurs et durée.",
+    path: '/catalogue',
+  })
+
   const [jeux, setJeux] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedJeu, setSelectedJeu] = useState(null)

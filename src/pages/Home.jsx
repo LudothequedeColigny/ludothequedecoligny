@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { supabase } from '../services/supabaseClient'
 import { compterVisite } from '../services/visites'
+import { usePageMeta, useJsonLd, ficheLudotheque, evenementsPourGoogle } from '../services/seo'
 import TitrePactes from '../components/TitrePactes'
 import PublicLayout from '../components/site/PublicLayout'
 import FloatingIcons from '../components/site/FloatingIcons'
@@ -50,6 +51,17 @@ export default function Home() {
     code_postal: '01270'
   })
 
+  const [telephone, setTelephone] = useState('')
+
+  // Ce que Google lit : titre, description, fiche d'identité, événements à venir
+  usePageMeta({
+    title: 'Prêt de jeux de société dans l’Ain',
+    description: "Ludothèque associative de Coligny (Ain) : plus de 300 jeux de société à emprunter, après-midis et soirées jeux pour petits et grands. Permanences deux samedis par mois.",
+    path: '/',
+  })
+  useJsonLd('ludotheque', loading ? null : ficheLudotheque({ adresse, horaires, telephone }))
+  useJsonLd('evenements-accueil', loading || !events.upcoming.length ? null : evenementsPourGoogle(events.upcoming, adresse))
+
   // Adresse dynamique pour Google Maps
   const addressQuery = `${adresse.rue}, ${adresse.code_postal} ${adresse.ville}`.replace(/ /g, '+')
   const adresseComplete = `${adresse.rue}, ${adresse.code_postal} ${adresse.ville}`
@@ -86,6 +98,7 @@ export default function Home() {
             if (s.id === 'adresse_rue') a.rue = s.value
             if (s.id === 'adresse_ville') a.ville = s.value
             if (s.id === 'adresse_code_postal') a.code_postal = s.value
+            if (s.id === 'contact_tel') setTelephone(s.value)
           })
           setHoraires(h)
           setAdresse(a)

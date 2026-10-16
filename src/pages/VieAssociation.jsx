@@ -8,6 +8,7 @@ import Reveal from '../components/site/Reveal'
 import CountUp from '../components/site/CountUp'
 import MediaLightbox from '../components/site/MediaLightbox'
 import { EYEBROW } from '../components/site/styles'
+import { usePageMeta } from '../services/seo'
 
 // Détecte le type d'un événement à partir de son titre (insensible aux accents/casse)
 // Plage Unicode des signes diacritiques combinants (0x0300-0x036f), construite
@@ -115,6 +116,12 @@ function GameThumb({ game, onOpen }) {
 }
 
 export default function VieAssociation() {
+  usePageMeta({
+    title: 'La vie de la ludothèque',
+    description: "Après-midis jeux, soirées et animations de la ludothèque de Coligny (Ain) : photos, bilans et jeux joués lors de nos événements.",
+    path: '/vie-association',
+  })
+
   const [pastEvents, setPastEvents] = useState([])
   const [photos, setPhotos] = useState([])
   const [gamesPlayed, setGamesPlayed] = useState([])

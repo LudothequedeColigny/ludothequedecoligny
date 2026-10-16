@@ -7,6 +7,7 @@ import FloatingIcons from '../components/site/FloatingIcons'
 import MaskIcon from '../components/site/MaskIcon'
 import Reveal from '../components/site/Reveal'
 import { BTN_TEAL, INPUT } from '../components/site/styles'
+import { usePageMeta } from '../services/seo'
 
 const FIELD_LABEL = 'mb-2.5 block text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400'
 const MIN_LENGTH = 8
@@ -16,6 +17,12 @@ const MIN_LENGTH = 8
  * Le lien connecte la personne le temps de choisir son nouveau mot de passe.
  */
 export default function NouveauMotDePasse() {
+  usePageMeta({
+    title: 'Nouveau mot de passe',
+    path: '/nouveau-mot-de-passe',
+    noindex: true,
+  })
+
   const navigate = useNavigate()
   // 'checking' → lien en cours de lecture ; 'ready' → formulaire ; 'invalid' → lien expiré ou déjà utilisé ; 'done'
   const [step, setStep] = useState('checking')

@@ -5,6 +5,7 @@ import { supabase } from '../services/supabaseClient'
 import PublicLayout from '../components/site/PublicLayout'
 import FloatingIcons from '../components/site/FloatingIcons'
 import { BTN_PRIMARY, BTN_TEAL } from '../components/site/styles'
+import { usePageMeta } from '../services/seo'
 
 /**
  * Page ouverte par le lien « Ne plus recevoir nos actualités » en bas des mails
@@ -15,6 +16,12 @@ import { BTN_PRIMARY, BTN_TEAL } from '../components/site/styles'
  * l'adhérent à son insu si la simple ouverture de la page suffisait.
  */
 export default function Desabonnement() {
+  usePageMeta({
+    title: 'Ne plus recevoir nos actualités',
+    path: '/desabonnement',
+    noindex: true,
+  })
+
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const jeton = params.get('jeton') || ''

@@ -5,8 +5,15 @@ import TitrePactes from '../components/TitrePactes'
 import PublicLayout from '../components/site/PublicLayout'
 import Reveal from '../components/site/Reveal'
 import MaskIcon from '../components/site/MaskIcon'
+import { usePageMeta } from '../services/seo'
 
 export default function HowToBorrow() {
+  usePageMeta({
+    title: 'Comment emprunter des jeux',
+    description: "Adhésion, tarifs et conditions de prêt de la ludothèque de Coligny (Ain) : inscription sur place lors des permanences, plusieurs jeux à emprunter pour un mois.",
+    path: '/comment-emprunter',
+  })
+
   const [appSettings, setAppSettings] = useState({
     prix_particulier: 0,
     degressivite_mensuelle: 0,
@@ -24,8 +31,26 @@ export default function HowToBorrow() {
     quota_association: 5,
     contact_nom: 'Victor Guyon',
     contact_tel: '06 71 41 56 96',
-    contact_email: 'victor.guyon@hotmail.fr'
+    contact_email: 'victor.guyon@hotmail.fr',
+    horaire_1_jour: 'Samedi',
+    horaire_1_rang: '1',
+    horaire_1_debut: '10:00',
+    horaire_1_fin: '12:00',
+    horaire_2_actif: 'true',
+    horaire_2_jour: 'Samedi',
+    horaire_2_rang: '3',
+    horaire_2_debut: '14:00',
+    horaire_2_fin: '16:00',
   })
+
+  // Permanences, lues dans les Paramètres comme sur l'accueil (« 1ers samedis (10h-12h) »)
+  const RANGS = { '1': '1ers', '2': '2es', '3': '3es', '4': '4es', '5': 'Derniers' }
+  const heure = h => (h || '').slice(0, 5).replace(':00', 'h').replace(':', 'h')
+  const creneau = n => {
+    const jour = appSettings[`horaire_${n}_jour`] || 'Samedi'
+    return `${RANGS[appSettings[`horaire_${n}_rang`]] || ''} ${jour}s (${heure(appSettings[`horaire_${n}_debut`])}-${heure(appSettings[`horaire_${n}_fin`])})`
+  }
+  const permanences = [creneau(1), ...(appSettings.horaire_2_actif === 'true' ? [creneau(2)] : [])]
 
   const now = new Date()
   const currentMonth = now.getMonth()
@@ -244,12 +269,11 @@ export default function HowToBorrow() {
               nos permanences. L'inscription se fait directement sur place.
             </p>
             <div className="flex flex-wrap justify-center gap-3">
-              <div className="rounded-full border border-white/30 bg-white/10 px-5 py-3.5 text-[10px] font-extrabold uppercase tracking-[0.16em]">
-                1ers Samedis (10h-12h)
-              </div>
-              <div className="rounded-full border border-white/30 bg-white/10 px-5 py-3.5 text-[10px] font-extrabold uppercase tracking-[0.16em]">
-                3es Samedis (14h-16h)
-              </div>
+              {permanences.map(texte => (
+                <div key={texte} className="rounded-full border border-white/30 bg-white/10 px-5 py-3.5 text-[10px] font-extrabold uppercase tracking-[0.16em]">
+                  {texte}
+                </div>
+              ))}
             </div>
           </Reveal>
         </div>

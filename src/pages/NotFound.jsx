@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import PublicLayout from '../components/site/PublicLayout'
 import FloatingIcons from '../components/site/FloatingIcons'
 import { BTN_TEAL, BTN_PRIMARY } from '../components/site/styles'
+import { usePageMeta } from '../services/seo'
 
 const DIGITS = [
   { char: '4', color: '#1a5f7a', delay: '0.2s' },
@@ -10,6 +11,12 @@ const DIGITS = [
 ]
 
 export default function NotFound() {
+  usePageMeta({
+    title: 'Page introuvable',
+    path: '/',
+    noindex: true,
+  })
+
   const navigate = useNavigate()
 
   return (

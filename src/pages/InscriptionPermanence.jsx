@@ -6,10 +6,17 @@ import MaskIcon from '../components/site/MaskIcon'
 import Reveal from '../components/site/Reveal'
 import SuccessModal from '../components/site/SuccessModal'
 import { BTN_PRIMARY, INPUT } from '../components/site/styles'
+import { usePageMeta } from '../services/seo'
 
 const MAX_VOLUNTEERS = 4
 
 export default function InscriptionPermanence() {
+  usePageMeta({
+    title: 'Inscription aux permanences',
+    description: "Bénévoles de la ludothèque de Coligny : inscrivez-vous aux prochaines permanences.",
+    path: '/inscription-permanence',
+  })
+
   const [shifts, setShifts] = useState([])
   const [loading, setLoading] = useState(true)
   const [name, setName] = useState('')
