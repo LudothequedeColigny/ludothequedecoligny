@@ -612,9 +612,10 @@ L'équipe de la Ludothèque de Coligny
     const subject = `Communication Événement - Association PACTES - ${event.title}`
     const { bodyCollectivites, bodyAdherents } = buildBodies([makeEventBlock(event)])
     try {
-      const { data: members } = await supabase.from('members').select('email, first_name, last_name')
+      const { data: members } = await supabase.from('members').select('email, first_name, last_name, refuse_actualites')
+      // Les adhérents qui ont demandé à ne plus recevoir les actualités sont retirés
       const memberRecipients = members
-        ? members.filter(m => m.email && m.email.includes('@'))
+        ? members.filter(m => m.email && m.email.includes('@') && !m.refuse_actualites)
             .map(m => ({ email: m.email, label: `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email, group: 'adherent', checked: true }))
         : []
       const collectiviteRecipients = collectivites.map(c => ({ ...c, group: 'mairie', checked: true }))
@@ -674,7 +675,14 @@ L'équipe de la Ludothèque de Coligny
     setSelectedEvents(prev => prev.map(b => b.event.id === eventId ? { ...b, [field]: value } : b))
   }
 
-  const bodyToHtml = (bodyText, blocksHtml) => {
+  // Dernière ligne de chaque mail : comment ne plus le recevoir (obligation RGPD).
+  // Les réponses arrivent sur la boîte de la ludothèque.
+  const MENTION_DESABONNEMENT = {
+    adherent: "Vous recevez ce message en tant qu'adhérent de la ludothèque. Pour ne plus recevoir nos actualités, répondez simplement à ce mail.",
+    mairie: "Vous recevez ce message car votre structure figure dans la liste de diffusion de la ludothèque. Pour ne plus le recevoir, répondez simplement à ce mail.",
+  }
+
+  const bodyToHtml = (bodyText, blocksHtml, groupe) => {
     const withBlocks = bodyText.replace('[BLOCS_EVENEMENTS]', blocksHtml)
     const htmlBody = withBlocks.split('\n')
       .map(line => line.trim() === '' ? '<br/>' : `<p style="margin:0 0 6px 0;">${line}</p>`)
@@ -688,6 +696,7 @@ L'équipe de la Ludothèque de Coligny
         <p style="margin-top:24px;font-size:12px;">
           <a href="https://www.ludothequedecoligny.fr" style="color:#1a5f7a;">www.ludothequedecoligny.fr</a>
         </p>
+        <p style="margin-top:16px;font-size:11px;line-height:1.5;color:#64748b;">${MENTION_DESABONNEMENT[groupe]}</p>
       </div>
     </div>`
   }
@@ -699,8 +708,8 @@ L'équipe de la Ludothèque de Coligny
     setSendingMail(true)
     try {
       const { blocksHtml } = buildBodies(selectedEvents)
-      const htmlCollectivites = bodyToHtml(composeData.bodyCollectivites, blocksHtml)
-      const htmlAdherents = bodyToHtml(composeData.bodyAdherents, blocksHtml)
+      const htmlCollectivites = bodyToHtml(composeData.bodyCollectivites, blocksHtml, 'mairie')
+      const htmlAdherents = bodyToHtml(composeData.bodyAdherents, blocksHtml, 'adherent')
       const image_urls = selectedEvents.map(b => b.event.image_url).filter(Boolean)
       const calendarEvents = selectedEvents.map(b => ({
         title: b.titre,

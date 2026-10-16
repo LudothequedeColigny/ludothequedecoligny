@@ -206,6 +206,7 @@ export default function Adherents() {
     type: 'Particulier', 
     has_paid: true, 
     caution_received: false,
+    refuse_actualites: false,
     family_members: [], 
     membership_date: todayStr,
     fee_amount: 0,
@@ -835,6 +836,14 @@ www.ludothequedecoligny.fr`
                     <label className={`${A_CHECK} mb-3`}>
                       <input type="checkbox" className="h-[18px] w-[18px] accent-[#1a5f7a]" checked={sendWelcomeEmail} onChange={e => setSendWelcomeEmail(e.target.checked)} />
                       <Mail size={13} /> Envoyer un email de bienvenue
+                    </label>
+                  )}
+
+                  {/* Demande de désabonnement reçue en réponse à un mail d'actualités */}
+                  {newMember.email && (
+                    <label className={`${A_CHECK} mb-3`}>
+                      <input type="checkbox" className="h-[18px] w-[18px] accent-[#1a5f7a]" checked={!!newMember.refuse_actualites} onChange={e => setNewMember({ ...newMember, refuse_actualites: e.target.checked })} />
+                      <Mail size={13} /> Ne plus recevoir les actualités
                     </label>
                   )}
                 </div>
