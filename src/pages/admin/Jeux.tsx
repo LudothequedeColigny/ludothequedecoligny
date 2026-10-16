@@ -314,7 +314,6 @@ export default function Jeux() {
   const [searchTerm, setSearchTerm] = useState('')
   const [deleteModal, setDeleteModal] = useState({ show: false, id: null, name: '' })
   const [showScanner, setShowScanner] = useState(false)
-  const [iosWarning, setIosWarning] = useState(false)
   const [showEtiquettes, setShowEtiquettes] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
@@ -425,13 +424,7 @@ export default function Jeux() {
     }
   }
 
-  const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent)
-  const isSafari = () => /safari/i.test(navigator.userAgent) && !/chrome/i.test(navigator.userAgent)
-
   // La caméra et la lecture des codes sont gérées par la brique BarcodeCamera.
-  useEffect(() => {
-    if (showScanner) setIosWarning(isIOS() && !isSafari())
-  }, [showScanner])
 
   const stopScanner = () => setShowScanner(false)
 
@@ -999,9 +992,6 @@ export default function Jeux() {
             </div>
 
             <div className="p-6">
-              {iosWarning && (
-                <AdminBanner tone="warn">⚠️ Sur iPhone, le scan nécessite Safari.</AdminBanner>
-              )}
               <BarcodeCamera onDetected={code => { stopScanner(); handleBarcodeDetected(code) }} />
               <button
                 onClick={stopScanner}

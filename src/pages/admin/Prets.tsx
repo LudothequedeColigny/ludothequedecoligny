@@ -82,7 +82,7 @@ const PRETS_TUTORIAL_STEPS = (openForm, closeForm, openRelance) => [
     title: `Scan rapide : prêt ou retour`,
     description: `Ce bouton ouvre la caméra. Scannez le code-barres d'un jeu disponible pour le prêter, ou d'un jeu déjà emprunté pour enregistrer son retour — sans chercher dans la liste.`,
     action: () => { closeForm(); openRelance(false) },
-    tip: `Sur iPhone, le scanner fonctionne uniquement dans Safari. Autorisez l'accès caméra dans Réglages > Safari si nécessaire.`,
+    tip: `La première fois, le téléphone demande l'autorisation d'utiliser la caméra : acceptez-la.`,
   },
   {
     id: 'prets-add-btn',
@@ -231,7 +231,6 @@ export default function Prets() {
   const [showScanner, setShowScanner] = useState(false)
   const [scannedGamesForLoan, setScannedGamesForLoan] = useState([])
   const [scanReturnConfirm, setScanReturnConfirm] = useState(null)
-  const [iosWarning, setIosWarning] = useState(false)
   const [showTuto, setShowTuto] = useState(false)
 
   useEffect(() => {
@@ -239,15 +238,8 @@ export default function Prets() {
     fetchQuotas()
   }, [])
 
-  // --- DÉTECTION NAVIGATEUR ---
-  const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent)
-  const isSafari = () => /safari/i.test(navigator.userAgent) && !/chrome/i.test(navigator.userAgent)
-
   // --- SCANNER ---
   // La caméra et la lecture des codes sont gérées par la brique BarcodeCamera.
-  useEffect(() => {
-    if (showScanner) setIosWarning(isIOS() && !isSafari())
-  }, [showScanner])
 
   const stopScanner = () => setShowScanner(false)
 
@@ -774,12 +766,6 @@ www.ludothequedecoligny.fr`
             <h3 className="mb-5 pr-12 font-display text-xl font-extrabold tracking-[-0.03em] text-[#0f172a]">
               Scan rapide <span className="text-[#1a5f7a]">(prêt / retour)</span>
             </h3>
-
-            {iosWarning && (
-              <div className="mb-4 rounded-[18px] border-2 border-[#f59e0b] bg-[#fffbeb] p-4 text-center text-[10px] font-extrabold uppercase leading-tight tracking-[0.08em] text-[#b45309]">
-                Sur iPhone, le scan nécessite Safari. Veuillez ouvrir cette page dans Safari.
-              </div>
-            )}
 
             <div className="mb-5">
               <BarcodeCamera continuous onDetected={handleSmartScan} />
