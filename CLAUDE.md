@@ -211,6 +211,8 @@ Les animations et effets sont définis dans `src/index.css`.
   (sans ce dernier : refus 401), et la requête exacte `bib.ean all <code>`.
   Il remplace l'apostrophe ’ par « ? » : la fonction la rétablit.
   Wikiludo ne donne la durée qu'en « court/moyen/long » : les minutes viennent de MyLudo.
+  Wikiludo ne sait chercher **que par code-barres** (titre, auteur… ignorés) : la
+  recherche par nom passe par MyLudo, puis le code-barres trouvé interroge Wikiludo.
 - **Horaires des permanences : une seule source, les Paramètres.** Ne jamais les écrire
   en dur dans une page (la page « Comment emprunter » a longtemps affiché 10h-12h
   pendant que les Paramètres disaient 10h-14h).
