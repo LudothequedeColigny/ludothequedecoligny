@@ -350,7 +350,8 @@ export default function Jeux() {
   const [bggResults, setBggResults] = useState<{ id: string; name: string; year: string; language?: string }[]>([])
   const [bggLoading, setBggLoading] = useState(false)
   const [bggFilled, setBggFilled] = useState<false | string>(false) // false, ou la source : « MyLudo », « Wikiludo »…
-  const [absentWikiludo, setAbsentWikiludo] = useState(false) // jeu scanné inconnu de Wikiludo : proposer de l'y ajouter
+  const [absentWikiludo, setAbsentWikiludo] = useState(false) // jeu inconnu de Wikiludo : proposer de l'y ajouter
+  const wikiludoConnu = useRef<Map<string, boolean>>(new Map())  // code-barres → présent dans Wikiludo ?
   const [scanToAdd, setScanToAdd] = useState(false)
   const bggDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const bggDropdownRef = useRef(null)
@@ -434,6 +435,7 @@ export default function Jeux() {
       const m = myludo.status === 'fulfilled' ? myludo.value : null
       if (wiki.status === 'rejected') console.warn('Wikiludo :', wiki.reason)
       if (myludo.status === 'rejected') console.warn('MyLudo :', myludo.reason)
+      if (wiki.status === 'fulfilled') wikiludoConnu.current.set(barcode, !!w)
       setAbsentWikiludo(wiki.status === 'fulfilled' && !w)
 
       if (w || m) {
@@ -459,6 +461,24 @@ export default function Jeux() {
     } catch (e) { console.warn('Barcode search error:', e); setShowForm(true) }
     finally { setBggLoading(false); setScanToAdd(false) }
   }
+
+  // Fenêtre d'un jeu ouverte : on demande à Wikiludo s'il connaît ce code-barres,
+  // pour proposer « Copier la fiche » sinon. Réponses gardées le temps de la page.
+  useEffect(() => {
+    const ean = (newGame.barcode || '').trim()
+    if (!showForm || !/^\d{8,14}$/.test(ean)) { setAbsentWikiludo(false); return }
+    const deja = wikiludoConnu.current.get(ean)
+    if (deja !== undefined) { setAbsentWikiludo(!deja); return }
+    let annule = false
+    const t = setTimeout(async () => {
+      try {
+        const fiche = await wikiludoParCodeBarres(ean)
+        wikiludoConnu.current.set(ean, !!fiche)
+        if (!annule) setAbsentWikiludo(!fiche)
+      } catch { if (!annule) setAbsentWikiludo(false) }   // Wikiludo injoignable : on ne sait pas
+    }, 600)
+    return () => { annule = true; clearTimeout(t) }
+  }, [showForm, newGame.barcode])
 
   // « Copier la fiche » : le jeu n'est pas dans Wikiludo ; on prépare le texte à
   // recopier dans la grille de catalogage Wikiludo (même ordre que la grille,
@@ -748,7 +768,7 @@ export default function Jeux() {
                   {editingId ? <>Modifier le <span className="text-[#1a5f7a]">jeu</span></> : <>Ajouter un <span className="text-[#1a5f7a]">jeu</span></>}
                 </h2>
 
-                {absentWikiludo && !editingId && (
+                {absentWikiludo && (
                   <div className="mb-6 hidden flex-wrap items-center gap-3 rounded-[20px] border-2 border-[#1a5f7a] bg-[#f0f7f9] px-5 py-4 lg:flex">
                     <p className="flex-1 basis-[260px] text-[12px] font-semibold leading-snug text-[#1a5f7a]">
                       Ce jeu n'est pas encore dans <strong>Wikiludo</strong>. Vous pouvez l'y ajouter pour les autres ludothèques :
