@@ -203,6 +203,13 @@ Les animations et effets sont définis dans `src/index.css`.
 - **Google Search Console** validée le 16 octobre 2026 (propriété « Domaine ») grâce à
   une entrée TXT `google-site-verification=…` dans la zone DNS chez OVH : ne pas la
   supprimer. La même valeur est aussi dans `index.html` (balise meta), en secours.
+- **Fiches de jeux : Wikiludo d'abord, MyLudo en complément** (« Ajouter par scan »).
+  Wikiludo = base de l'ALF, fonction serveur `supabase/functions/wikiludo`, identifiants
+  dans les secrets `WIKILUDO_IDENTIFIANT` / `WIKILUDO_MOT_DE_PASSE`. Le serveur SRU
+  exige les en-têtes `username`, `password` **et** `Content-Type: application/xml`
+  (sans ce dernier : refus 401), et la requête exacte `bib.ean all <code>`.
+  Il remplace l'apostrophe ’ par « ? » : la fonction la rétablit.
+  Wikiludo ne donne la durée qu'en « court/moyen/long » : les minutes viennent de MyLudo.
 - **Horaires des permanences : une seule source, les Paramètres.** Ne jamais les écrire
   en dur dans une page (la page « Comment emprunter » a longtemps affiché 10h-12h
   pendant que les Paramètres disaient 10h-14h).

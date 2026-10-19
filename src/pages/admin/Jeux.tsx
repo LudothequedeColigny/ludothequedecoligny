@@ -54,11 +54,38 @@ async function bggGetDetails(id: string) {
   }
 }
 
+// ─── Wikiludo (base de notices de l'ALF, via Edge Function Supabase) ───────────
+// Fiche du jeu à partir de son code-barres. Wikiludo donne la durée en « court /
+// moyen / long » seulement : la durée en minutes vient de MyLudo quand il connaît le jeu.
+
+const WIKILUDO_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wikiludo`
+
+async function wikiludoParCodeBarres(ean: string): Promise<any | null> {
+  const res = await fetch(`${WIKILUDO_FUNCTION_URL}?ean=${encodeURIComponent(ean)}`, {
+    headers: await volunteerHeaders(),
+    signal: AbortSignal.timeout(15000)
+  })
+  if (!res.ok) throw new Error(`Wikiludo HTTP ${res.status}`)
+  return res.json()
+}
+
+async function myludoParCodeBarres(ean: string): Promise<any | null> {
+  const qs = new URLSearchParams({ endpoint: 'search-by-barcode', barcode: ean }).toString()
+  const res = await fetch(`${BGG_FUNCTION_URL}?${qs}`, { headers: await volunteerHeaders(), signal: AbortSignal.timeout(15000) })
+  if (!res.ok) throw new Error(`MyLudo HTTP ${res.status}`)
+  return res.json()
+}
+
+// Durée approximative quand seul Wikiludo connaît le jeu (le bénévole peut corriger)
+const DUREE_WIKILUDO: Record<string, number> = { court: 20, moyen: 45, long: 90 }
+const dureeDepuisLibelle = (libelle: string) =>
+  DUREE_WIKILUDO[Object.keys(DUREE_WIKILUDO).find(k => (libelle || '').toLowerCase().includes(k)) || ''] || 0
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 const JEUX_TUTORIAL_STEPS = (openForm, cancelForm) => [
   { id: 'jeux-header', noSpotlight: true, title: 'Bienvenue sur la page Jeux', description: `Cette page centralise tout le catalogue de la ludothèque : ajouter, modifier, supprimer des jeux et suivre leur disponibilité.`, action: () => cancelForm() },
-  { id: 'jeux-scanner-btn', title: 'Scanner un jeu par code-barres', description: `Ce bouton ouvre la caméra pour scanner le code-barres d'une boîte. Si le jeu est reconnu dans la base de données en ligne, la fiche est pré-remplie automatiquement.`, action: () => cancelForm() },
+  { id: 'jeux-scanner-btn', title: 'Scanner un jeu par code-barres', description: `Ce bouton ouvre la caméra pour scanner le code-barres d'une boîte. Si le jeu est connu de Wikiludo (la base des ludothèques) ou de MyLudo, la fiche est pré-remplie automatiquement.`, action: () => cancelForm() },
   { id: 'jeux-etiquettes-btn', title: 'Générer des étiquettes QR', description: `Ce bouton ouvre le générateur d'étiquettes à coller sur les boîtes des jeux ayant une vidéo de règles renseignée : un QR code renvoie directement vers la vidéo YouTube. Imprimable en A3, 3 étiquettes par page.`, action: () => cancelForm(), tip: `Ce bouton est masqué sur smartphone — la génération d'étiquettes se fait depuis un ordinateur.` },
   { id: 'jeux-add-btn', title: 'Ajouter un jeu manuellement', description: `Cliquez ici pour ouvrir le formulaire de création. Le numéro d'inventaire est pré-rempli automatiquement.`, action: () => cancelForm() },
   { id: 'jeux-form-modal', title: `Formulaire d'ajout d'un jeu`, description: `Ce formulaire permet de saisir toutes les informations d'un jeu.`, action: () => openForm(), actionDelay: 350 },
@@ -322,7 +349,7 @@ export default function Jeux() {
 
   const [bggResults, setBggResults] = useState<{ id: string; name: string; year: string; language?: string }[]>([])
   const [bggLoading, setBggLoading] = useState(false)
-  const [bggFilled, setBggFilled] = useState(false)
+  const [bggFilled, setBggFilled] = useState<false | string>(false) // false, ou la source : « MyLudo », « Wikiludo »…
   const [scanToAdd, setScanToAdd] = useState(false)
   const bggDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const bggDropdownRef = useRef(null)
@@ -387,41 +414,48 @@ export default function Jeux() {
         category:    details.categories?.join(', ') || prev.category,
         barcode:     details.barcode     || prev.barcode
       }))
-      setBggFilled(true)
+      setBggFilled('MyLudo')
     } catch (e) { console.warn('MyLudo details error:', e) }
     finally { setBggLoading(false) }
   }
 
+  // Scan « Ajouter par scan » : Wikiludo (base des ludothèques) et MyLudo sont
+  // interrogés ensemble. Wikiludo a la priorité pour le titre, le résumé, l'âge,
+  // les joueurs, l'image et la vidéo-règle ; MyLudo apporte la durée en minutes,
+  // la catégorie habituelle du catalogue, et tout ce que Wikiludo n'a pas.
   const handleBarcodeDetected = async (barcode: string) => {
     setNewGame(prev => ({ ...prev, barcode }))
-    if (scanToAdd) {
-      setBggLoading(true)
-      try {
-        const qs = new URLSearchParams({ endpoint: 'search-by-barcode', barcode }).toString()
-        const res = await fetch(`${BGG_FUNCTION_URL}?${qs}`, { headers: await volunteerHeaders() })
-        const details = await res.json()
-        if (details) {
-          setNewGame(prev => ({
-            ...prev, barcode,
-            name:        details.name        || prev.name,
-            description: details.description || prev.description,
-            min_players: details.minPlayers  || prev.min_players,
-            max_players: details.maxPlayers  || prev.max_players,
-            min_age:     details.minAge      || prev.min_age,
-            duration:    details.duration    || prev.duration,
-            image_url:   details.image       || prev.image_url,
-            category:    details.categories?.join(', ') || prev.category,
-            registration_number: prev.registration_number || getNextRegistrationNumber()
-          }))
-          setBggFilled(true)
-          setShowForm(true)
-        } else {
-          setShowForm(true)
-          addToast(`Jeu non trouvé sur MyLudo pour le code-barres ${barcode}. Remplissez les informations manuellement.`, 'warning')
-        }
-      } catch (e) { console.warn('Barcode search error:', e); setShowForm(true) }
-      finally { setBggLoading(false); setScanToAdd(false) }
-    }
+    if (!scanToAdd) return
+    setBggLoading(true)
+    try {
+      const [wiki, myludo] = await Promise.allSettled([wikiludoParCodeBarres(barcode), myludoParCodeBarres(barcode)])
+      const w = wiki.status === 'fulfilled' ? wiki.value : null
+      const m = myludo.status === 'fulfilled' ? myludo.value : null
+      if (wiki.status === 'rejected') console.warn('Wikiludo :', wiki.reason)
+      if (myludo.status === 'rejected') console.warn('MyLudo :', myludo.reason)
+
+      if (w || m) {
+        const motsWikiludo = [...(w?.mechanisms || []), ...(w?.keywords || [])].map((x: string) => x.toLowerCase())
+        setNewGame(prev => ({
+          ...prev, barcode,
+          name:        w?.name        || m?.name        || prev.name,
+          description: w?.description || m?.description || prev.description,
+          min_players: w?.minPlayers  || m?.minPlayers  || prev.min_players,
+          max_players: w?.maxPlayers  || m?.maxPlayers  || prev.max_players,
+          min_age:     w?.minAge      || m?.minAge      || prev.min_age,
+          duration:    m?.duration    || dureeDepuisLibelle(w?.durationLabel) || prev.duration,
+          image_url:   w?.image       || m?.image       || prev.image_url,
+          category:    m?.categories?.join(', ') || motsWikiludo.join(', ') || prev.category,
+          youtube_url: w?.video       || prev.youtube_url,
+          registration_number: prev.registration_number || getNextRegistrationNumber()
+        }))
+        setBggFilled(w && m ? 'Wikiludo et MyLudo' : w ? 'Wikiludo' : 'MyLudo')
+      } else {
+        addToast(`Jeu non trouvé sur Wikiludo ni sur MyLudo pour le code-barres ${barcode}. Remplissez les informations manuellement.`, 'warning')
+      }
+      setShowForm(true)
+    } catch (e) { console.warn('Barcode search error:', e); setShowForm(true) }
+    finally { setBggLoading(false); setScanToAdd(false) }
   }
 
   // La caméra et la lecture des codes sont gérées par la brique BarcodeCamera.
@@ -548,7 +582,9 @@ export default function Jeux() {
     if (isNumberDuplicate) return
     if (navigator.onLine) {
       let finalImageUrl = newGame.image_url || ''
-      if (finalImageUrl && finalImageUrl.includes('myludo.fr')) {
+      // Image venue d'un autre site (MyLudo, Wikiludo…) : copiée dans le stockage de la
+      // ludothèque, pour qu'elle ne disparaisse pas si le site d'origine la retire.
+      if (finalImageUrl && /^https?:\/\//.test(finalImageUrl) && !finalImageUrl.includes('.supabase.co/')) {
         try {
           const qs = new URLSearchParams({ endpoint: 'upload-image', imageUrl: finalImageUrl }).toString()
           const res = await fetch(`${BGG_FUNCTION_URL}?${qs}`, { headers: await volunteerHeaders() })
@@ -712,7 +748,7 @@ export default function Jeux() {
                       <label className={F_LABEL}>
                         Titre du jeu
                         {bggLoading && <Loader2 size={10} className="animate-spin text-[#1a5f7a]" />}
-                        {bggFilled && !bggLoading && <span className="flex items-center gap-1 text-emerald-500"><Sparkles size={10} /> Rempli via MyLudo</span>}
+                        {bggFilled && !bggLoading && <span className="flex items-center gap-1 text-emerald-500"><Sparkles size={10} /> Rempli via {bggFilled}</span>}
                       </label>
                       <div className="relative">
                         <input required placeholder="Ex : Catan, Ticket to Ride..." className={F_INPUT} value={newGame.name} onChange={e => handleNameChange(e.target.value)} />
@@ -964,7 +1000,7 @@ export default function Jeux() {
         <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }}>
           <div className="anim-modal-in flex flex-col items-center gap-4 rounded-[34px] border-2 border-[#0f172a] bg-white px-10 py-9 shadow-[12px_12px_0_#1a5f7a]">
             <Loader2 size={38} className="animate-spin text-[#1a5f7a]" />
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Recherche sur MyLudo...</p>
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Recherche sur Wikiludo et MyLudo…</p>
           </div>
         </div>
       )}
