@@ -121,14 +121,42 @@ function lireNotice(xml: string, ean: string) {
   }
 }
 
+// ── ESAR dans le Sudoc ─────────────────────────────────────────────
+// Le Sudoc (catalogue public des bibliothèques universitaires) catalogue aussi des
+// jeux, et indique parfois leur classification ESAR : en codes (« A410 ») ou en
+// libellé (« Jeu de stratégie »). Mesuré en octobre 2026 : présent pour environ
+// un jeu sur dix absents de Wikiludo. Service public, sans identifiants.
+async function esarSudoc(ean: string) {
+  const liste = await fetch(`https://www.sudoc.fr/services/ean2ppn/${ean}`, { signal: AbortSignal.timeout(10000) }).then(r => r.text())
+  const ppns = [...liste.matchAll(/<ppn>(\w+)<\/ppn>/g)].map(m => m[1]).slice(0, 4)
+  const codes = new Set<string>(), libelles = new Set<string>()
+  for (const ppn of ppns) {
+    const notice = await fetch(`https://www.sudoc.fr/${ppn}.xml`, { signal: AbortSignal.timeout(10000) }).then(r => r.text())
+    for (const [, corps] of notice.matchAll(/<datafield tag="6\d\d"[^>]*>([\s\S]*?)<\/datafield>/g)) {
+      if (!/code="2">\s*esar/i.test(corps)) continue
+      const valeur = decode((corps.match(/code="a">([^<]*)/) || [])[1] || '')
+      if (/^[A-F]\d{3,4}$/i.test(valeur)) codes.add(valeur.toUpperCase())
+      else if (valeur) libelles.add(valeur)
+    }
+  }
+  return { notices: ppns.length, codes: [...codes].sort(), libelles: [...libelles] }
+}
+
 // ── Serveur ────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   if (!(await isVolunteer(req))) return json({ error: 'Non autorisé' }, 401)
 
-  const ean = (new URL(req.url).searchParams.get('ean') || '').trim()
+  const params = new URL(req.url).searchParams
+  const ean = (params.get('ean') || '').trim()
   if (!/^\d{8,14}$/.test(ean)) return json({ error: 'Code-barres invalide' }, 400)
+
+  // ?source=sudoc : classification ESAR trouvée dans le Sudoc
+  if (params.get('source') === 'sudoc') {
+    try { return json(await esarSudoc(ean)) }
+    catch (err) { console.error('Erreur Sudoc :', err); return json({ error: 'Sudoc ne répond pas' }, 504) }
+  }
 
   // Espaces ou retours à la ligne collés par erreur avec le secret : retirés
   const identifiant = (Deno.env.get('WIKILUDO_IDENTIFIANT') || '').trim()

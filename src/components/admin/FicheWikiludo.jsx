@@ -18,13 +18,71 @@ import { volunteerHeaders } from '../../services/functionHeaders'
  */
 
 const MYLUDO_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bgg-proxy`
+const WIKILUDO_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wikiludo`
+
+// ── ESAR, facette A (types de jeux) — annexe 2 du guide de catalogage Wikiludo ──
+const FACETTE_A = {
+  A101: 'Jeu sensoriel sonore', A102: 'Jeu sensoriel visuel', A103: 'Jeu sensoriel tactile',
+  A104: 'Jeu sensoriel olfactif', A105: 'Jeu sensoriel gustatif', A106: 'Jeu moteur',
+  A107: 'Jeu de manipulation', A108: "Jeu d'action-réaction virtuel",
+  A201: 'Jeu de rôle', A202: 'Jeu de mise en scène', A203: 'Jeu de production graphique à deux dimensions',
+  A204: 'Jeu de production à trois dimensions', A205: 'Jeu de simulation virtuel',
+  A301: 'Jeu de construction à trois dimensions', A302: "Jeu d'agencement à deux dimensions",
+  A303: 'Jeu de montage scientifique', A304: 'Jeu de montage virtuel',
+  A401: "Jeu d'association", A402: 'Jeu de séquence', A403: 'Jeu de circuit et de parcours',
+  A404: "Jeu d'adresse", A405: 'Jeu sportif et moteur', A406: 'Jeu de stratégie', A407: 'Jeu de hasard',
+  A408: 'Jeu questionnaire', A409: 'Jeu mathématique', A410: "Jeu de langage et d'expression",
+  A411: "Jeu d'énigme", A412: 'Jeu de règles virtuel',
+}
+const avecLibelle = code => FACETTE_A[code] ? `${code} – ${FACETTE_A[code]}` : code
+
+// Suggestion de facette A d'après les mécanismes et thèmes MyLudo et la catégorie du
+// catalogue. Simple correspondance de mots : une SUGGESTION, que le bénévole vérifie.
+// « =mot » : le mécanisme entier doit être ce mot (« Dés », et non « placement des cartes »).
+const INDICES_FACETTE_A = [
+  ['A411', ['enigme', 'deduction', 'casse-tete', 'logique', 'escape', 'enquete', 'mystere']],
+  ['A408', ['quiz', 'question', 'culture generale', 'connaissance']],
+  ['A410', ['=mots', 'lettre', 'vocabulaire', 'langage', 'narration', 'mime', 'dessin', 'communication']],
+  ['A409', ['calcul', 'chiffre', 'nombre', 'mathemat']],
+  ['A404', ['adresse', 'dexterite', 'pichenette', 'equilibre', 'empilement', 'rapidite', 'reflexe', 'vitesse']],
+  ['A405', ['sport', 'motricite', 'exterieur']],
+  ['A403', ['parcours', 'course', 'circuit', 'roll and move', 'deplacement']],
+  ['A402', ['sequence', 'domino']],
+  ['A401', ['association', 'memory', 'memoire', 'collection', 'jeu de familles', 'paire', 'observation']],
+  ['A407', ['hasard', '=des', 'lancer de des', 'pari', 'stop ou encore', 'loto', 'bataille', 'bluff']],
+  ['A406', ['strategie', 'majorite', 'placement', 'ouvrier', 'gestion', 'deck', 'draft', 'controle', 'territoire', 'tuile', 'enchere', 'negociation', 'combinaison', 'programmation']],
+  ['A301', ['construction', 'assemblage']],
+  ['A302', ['puzzle']],
+]
+const sansAccent = t => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+function suggestionFacetteA(mots) {
+  const scores = {}
+  const raisons = {}
+  for (const mot of mots.filter(Boolean)) {
+    const m = sansAccent(mot).trim()
+    for (const [code, indices] of INDICES_FACETTE_A) {
+      if (indices.some(i => i.startsWith('=') ? m === i.slice(1) : m.includes(i))) {
+        scores[code] = (scores[code] || 0) + 1
+        ;(raisons[code] ||= []).push(mot)
+      }
+    }
+  }
+  const meilleur = Object.entries(scores).sort((a, b) => b[1] - a[1])[0]
+  return meilleur ? { code: meilleur[0], raisons: [...new Set(raisons[meilleur[0]])] } : null
+}
 
 // Durée en minutes → catégories de Wikiludo (guide : court 0-20 min, moyen 20-60, long au-delà)
 const categorieDuree = minutes => !minutes ? '' : minutes <= 20 ? 'Jeu court' : minutes <= 60 ? 'Jeu moyen' : 'Jeu long'
 const liste = valeurs => (valeurs || []).filter(Boolean).join(', ')
 
-function sections(jeu, ml) {
+function sections(jeu, ml, sudoc) {
   const m = ml || {}
+  const suggestion = suggestionFacetteA([...(m.mechanisms || []), ...(m.themes || []), ...(jeu.category || '').split(',')])
+  const sudocCodes = sudoc?.codes || []
+  const sudocTexte = sudocCodes.length || sudoc?.libelles?.length
+    ? [sudocCodes.map(avecLibelle).join(' ; '), sudoc.libelles?.length ? `(libellé : ${sudoc.libelles.join(', ')})` : ''].filter(Boolean).join(' ')
+    : ''
   const minutes = parseInt(jeu.duration) || m.durationMax || m.duration || 0
   const image = /^https?:/.test(jeu.image_url || '') ? jeu.image_url : m.image
   return [
@@ -48,7 +106,20 @@ function sections(jeu, ml) {
       { label: 'Prix public', valeur: m.price ? `${Number(m.price).toFixed(2).replace('.', ',')} EUR` : '' },
     ] },
     { titre: 'Classifications et indexations', champs: [
-      { label: 'ESAR', valeur: '', aide: 'Non disponible : à déterminer (facette A obligatoire, voir l’annexe 2 du guide)' },
+      {
+        label: 'ESAR – trouvé dans le Sudoc',
+        valeur: sudocTexte,
+        copie: sudocCodes.join(', ') || sudoc?.libelles?.join(', '),
+        aide: sudoc === undefined ? 'Recherche dans le Sudoc…' : 'Absent du Sudoc (catalogue des bibliothèques universitaires)',
+        note: 'À vérifier : les classifications varient d’une bibliothèque à l’autre.',
+      },
+      {
+        label: 'ESAR – suggestion facette A',
+        valeur: suggestion ? `${avecLibelle(suggestion.code)} (d’après : ${suggestion.raisons.join(', ')})` : '',
+        copie: suggestion?.code,
+        aide: 'Pas de suggestion : à déterminer (facette A obligatoire, voir l’annexe 2 du guide)',
+        note: 'Suggestion automatique, à vérifier avant de la reporter dans Wikiludo.',
+      },
       { label: 'Durée de partie', valeur: categorieDuree(minutes) },
       { label: 'Âge minimum conseillé', valeur: jeu.min_age ? `A partir de ${jeu.min_age} ans` : '' },
       { label: 'Nombre de joueurs minimum', valeur: jeu.min_players ? String(jeu.min_players) : '' },
@@ -70,6 +141,7 @@ export default function FicheWikiludo({ open, onClose, jeu }) {
   const [myludo, setMyludo] = useState(null)
   const [etat, setEtat] = useState('attente')   // attente | ok | absent | erreur
   const [copie, setCopie] = useState('')
+  const [sudoc, setSudoc] = useState(undefined)   // undefined = en cours, null = indisponible
 
   // À l'ouverture : la fiche MyLudo du même code-barres, pour les champs que le
   // catalogue de la ludothèque ne contient pas
@@ -92,6 +164,26 @@ export default function FicheWikiludo({ open, onClose, jeu }) {
       } catch (e) {
         console.warn('Fiche Wikiludo – MyLudo :', e)
         if (!annule) setEtat('erreur')
+      }
+    })()
+    return () => { annule = true }
+  }, [open, jeu?.barcode])
+
+  // À l'ouverture : la classification ESAR éventuellement donnée par le Sudoc
+  useEffect(() => {
+    if (!open) return
+    const ean = (jeu?.barcode || '').trim()
+    setSudoc(undefined)
+    if (!/^\d{8,14}$/.test(ean)) { setSudoc(null); return }
+    let annule = false
+    ;(async () => {
+      try {
+        const res = await fetch(`${WIKILUDO_URL}?source=sudoc&ean=${encodeURIComponent(ean)}`, { headers: await volunteerHeaders(), signal: AbortSignal.timeout(25000) })
+        const r = res.ok ? await res.json() : null
+        if (!annule) setSudoc(r)
+      } catch (e) {
+        console.warn('Fiche Wikiludo – Sudoc :', e)
+        if (!annule) setSudoc(null)
       }
     })()
     return () => { annule = true }
@@ -141,13 +233,14 @@ export default function FicheWikiludo({ open, onClose, jeu }) {
       )}
 
       <div className="space-y-6">
-        {sections(jeu, myludo).map(section => (
+        {sections(jeu, myludo, sudoc).map(section => (
           <section key={section.titre}>
             <h3 className="mb-2.5 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#e38154]">{section.titre}</h3>
             <div className="overflow-hidden rounded-[18px] border-2 border-[#0f172a]">
               {section.champs.map((champ, i) => {
                 const cle = `${section.titre}-${champ.label}`
                 const valeur = (champ.valeur || '').toString().trim()
+                const aCopier = (champ.copie || valeur).toString().trim()
                 return (
                   <div key={cle} className={`flex items-start gap-4 px-4 py-3 ${i > 0 ? 'border-t border-slate-200' : ''} ${valeur ? 'bg-white' : 'bg-[#fdfaf6]'}`}>
                     <div className="w-[190px] shrink-0 pt-0.5 text-[9.5px] font-extrabold uppercase leading-snug tracking-[0.1em] text-slate-400">
@@ -157,11 +250,12 @@ export default function FicheWikiludo({ open, onClose, jeu }) {
                       {valeur
                         ? <span className="break-words font-semibold text-[#0f172a]">{valeur}</span>
                         : <span className="italic text-slate-400">{champ.aide || 'Non trouvé'}</span>}
+                      {valeur && champ.note && <span className="mt-1 block text-[10.5px] italic text-[#b45309]">{champ.note}</span>}
                     </div>
                     {valeur && (
                       <button
                         type="button"
-                        onClick={() => copier(cle, valeur)}
+                        onClick={() => copier(cle, aCopier)}
                         className={`flex shrink-0 items-center gap-1.5 rounded-[10px] border-2 border-[#0f172a] px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-[0.08em] transition-colors ${
                           copie === cle ? 'bg-[#10b981] text-white' : 'bg-white text-[#1a5f7a] hover:bg-[#1a5f7a] hover:text-white'
                         }`}
