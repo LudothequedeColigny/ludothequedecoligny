@@ -7,6 +7,7 @@ import { useToast } from '../../components/ToastContext'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import AdminBanner from '../../components/admin/AdminBanner'
 import BarcodeCamera from '../../components/admin/BarcodeCamera'
+import FicheWikiludo from '../../components/admin/FicheWikiludo'
 import SearchField from '../../components/admin/SearchField'
 import IconButton from '../../components/admin/IconButton'
 import ConfirmModal from '../../components/admin/ConfirmModal'
@@ -352,6 +353,7 @@ export default function Jeux() {
   const [bggFilled, setBggFilled] = useState<false | string>(false) // false, ou la source : « MyLudo », « Wikiludo »…
   const [absentWikiludo, setAbsentWikiludo] = useState(false) // jeu inconnu de Wikiludo : proposer de l'y ajouter
   const wikiludoConnu = useRef<Map<string, boolean>>(new Map())  // code-barres → présent dans Wikiludo ?
+  const [showFicheWikiludo, setShowFicheWikiludo] = useState(false) // fenêtre « Fiche pour Wikiludo »
   const [scanToAdd, setScanToAdd] = useState(false)
   const bggDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const bggDropdownRef = useRef(null)
@@ -463,7 +465,7 @@ export default function Jeux() {
   }
 
   // Fenêtre d'un jeu ouverte : on demande à Wikiludo s'il connaît ce code-barres,
-  // pour proposer « Copier la fiche » sinon. Réponses gardées le temps de la page.
+  // pour proposer « Préparer la fiche Wikiludo » sinon. Réponses gardées le temps de la page.
   useEffect(() => {
     const ean = (newGame.barcode || '').trim()
     if (!showForm || !/^\d{8,14}$/.test(ean)) { setAbsentWikiludo(false); return }
@@ -479,31 +481,6 @@ export default function Jeux() {
     }, 600)
     return () => { annule = true; clearTimeout(t) }
   }, [showForm, newGame.barcode])
-
-  // « Copier la fiche » : le jeu n'est pas dans Wikiludo ; on prépare le texte à
-  // recopier dans la grille de catalogage Wikiludo (même ordre que la grille,
-  // guide de catalogage pages 7 à 13). Proposé sur ordinateur seulement.
-  const copierFichePourWikiludo = async () => {
-    const g = newGame as any
-    const minutes = parseInt(g.duration) || 0
-    const duree = !minutes ? '' : minutes <= 20 ? 'Jeu court' : minutes <= 60 ? 'Jeu moyen' : 'Jeu long'
-    const lignes = [
-      ['EAN', g.barcode],
-      ['Titre', g.name],
-      ['Âge minimum conseillé', g.min_age ? `A partir de ${g.min_age} ans` : ''],
-      ['Nombre de joueurs', g.min_players ? (g.max_players && g.max_players !== g.min_players ? `${g.min_players} à ${g.max_players}` : `${g.min_players}`) : ''],
-      ['Durée de partie', duree ? `${duree} (${minutes} min)` : ''],
-      ['Résumé', g.description],
-      ['Image (lien externe)', /^https?:/.test(g.image_url || '') ? g.image_url : ''],
-      ['Vidéo-règle (lien externe)', g.youtube_url],
-    ].filter(([, v]) => v)
-    try {
-      await navigator.clipboard.writeText(lignes.map(([k, v]) => `${k} : ${v}`).join('\n'))
-      addToast('Fiche copiée : collez-la dans la grille Wikiludo.', 'success')
-    } catch {
-      addToast("La copie n'a pas fonctionné sur ce navigateur.", 'error')
-    }
-  }
 
   // La caméra et la lecture des codes sont gérées par la brique BarcodeCamera.
 
@@ -772,14 +749,14 @@ export default function Jeux() {
                   <div className="mb-6 hidden flex-wrap items-center gap-3 rounded-[20px] border-2 border-[#1a5f7a] bg-[#f0f7f9] px-5 py-4 lg:flex">
                     <p className="flex-1 basis-[260px] text-[12px] font-semibold leading-snug text-[#1a5f7a]">
                       Ce jeu n'est pas encore dans <strong>Wikiludo</strong>. Vous pouvez l'y ajouter pour les autres ludothèques :
-                      copiez la fiche, puis collez chaque information dans la grille de catalogage.
+                      la fiche préparée présente chaque champ de la grille Wikiludo, à copier un par un.
                     </p>
                     <button
                       type="button"
-                      onClick={copierFichePourWikiludo}
+                      onClick={() => setShowFicheWikiludo(true)}
                       className="flex items-center gap-2 rounded-[12px] border-2 border-[#0f172a] bg-white px-4 py-2 text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#1a5f7a] transition-colors hover:bg-[#1a5f7a] hover:text-white"
                     >
-                      <FileText size={13} /> Copier la fiche
+                      <FileText size={13} /> Préparer la fiche Wikiludo
                     </button>
                     <a
                       href="https://sigb01.decalog.net"
@@ -1110,6 +1087,9 @@ export default function Jeux() {
           </div>
         </div>
       )}
+
+      {/* FICHE POUR WIKILUDO (ordinateur) */}
+      <FicheWikiludo open={showFicheWikiludo} onClose={() => setShowFicheWikiludo(false)} jeu={newGame} />
 
       {/* MODALE SUPPRESSION */}
       <ConfirmModal

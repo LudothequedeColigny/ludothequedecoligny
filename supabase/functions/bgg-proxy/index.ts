@@ -245,8 +245,33 @@ async function getGameDetails(id: string) {
   const offerNum = parseFloat(info.offer)
   const price = (offerNum && offerNum > 0) ? offerNum : null
 
+  // ── Détails supplémentaires, pour préparer une fiche Wikiludo ─────
+  const sansHtml = (h: string) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  const personnes = Object.entries(info.people || {}) as [string, any][]
+  const avecRole = (re: RegExp) => personnes.filter(([, p]) => (p.roles || []).some((r: string) => re.test(r))).map(([nom]) => nom)
+  // Inventaire : liste HTML → « 1 plateau + 40 cartes + … » (convention Wikiludo)
+  const contenu = [...String(info.content || '').matchAll(/<li>([\s\S]*?)<\/li>/g)].map(m => sansHtml(m[1])).filter(Boolean)
+  const m = info.metrics || {}
+  const cm = (v: any) => Math.ceil(parseFloat(v) || 0)   // Wikiludo : arrondi au centimètre supérieur
+  const format = m.len && m.width && m.height ? `${cm(m.len)} x ${cm(m.width)} x ${cm(m.height)}` : ''
+
   return {
     name:        game.title || '',
+    subtitle:    game.subtitle || '',
+    year:        game.edition ? String(game.edition) : '',
+    languages:   Object.values(game.languages || {}) as string[],
+    durationMin: parseInt(game.time_min) || 0,
+    durationMax: parseInt(game.time_max) || 0,
+    authors:      avecRole(/auteur|autrice/i),
+    illustrators: avecRole(/illustrat/i),
+    publishers:   avecRole(/éditeur|editeur/i),
+    distributors: avecRole(/distribut/i),
+    contents:    contenu.length ? contenu.join(' + ') : sansHtml(String(info.content || '')),
+    format,
+    weight:      m.weight ? `${m.weight} ${m.unit || ''}`.trim() : '',
+    themes:      Object.values(themes.theme || {}) as string[],
+    mechanisms:  Object.values(themes.mecanisme || {}) as string[],
+    awards:      (info.awards || []).map((a: any) => [a.title, a.category?.title, a.edition].filter(Boolean).join(' – ')),
     description,
     minPlayers:  parseInt(game.players_min) || 1,
     maxPlayers:  parseInt(game.players_max) || 4,

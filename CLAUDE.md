@@ -150,6 +150,7 @@ Pour l'espace de gestion, dans `src/components/admin/` :
 | `AdminPageHeader` | en-tête d'écran : pastille d'icône + titre en deux tons |
 | `ConfirmModal` | fenêtre de confirmation (supprimer, quitter, valider un retour) |
 | `BarcodeCamera` | caméra + lecture des codes-barres (lampe, choix d'objectif, ligne grise de diagnostic), pour les deux scanners |
+| `FicheWikiludo` | fenêtre « Fiche pour Wikiludo » : chaque champ de la grille Wikiludo avec un bouton Copier (catalogue + MyLudo), ordinateur seulement |
 
 `Reveal`, `CountUp`, `Modal`, `MaskIcon` de `components/site/` servent aussi côté
 gestion : malgré son nom, ce dossier contient les briques communes aux deux parties.
