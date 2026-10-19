@@ -350,6 +350,7 @@ export default function Jeux() {
   const [bggResults, setBggResults] = useState<{ id: string; name: string; year: string; language?: string }[]>([])
   const [bggLoading, setBggLoading] = useState(false)
   const [bggFilled, setBggFilled] = useState<false | string>(false) // false, ou la source : « MyLudo », « Wikiludo »…
+  const [absentWikiludo, setAbsentWikiludo] = useState(false) // jeu scanné inconnu de Wikiludo : proposer de l'y ajouter
   const [scanToAdd, setScanToAdd] = useState(false)
   const bggDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const bggDropdownRef = useRef(null)
@@ -383,7 +384,7 @@ export default function Jeux() {
 
   const handleNameChange = (value: string) => {
     setNewGame(prev => ({ ...prev, name: value }))
-    setBggFilled(false)
+    setBggFilled(false); setAbsentWikiludo(false)
     setBggResults([])
     if (bggDebounceRef.current) clearTimeout(bggDebounceRef.current)
     if (value.trim().length < 2) return
@@ -433,6 +434,7 @@ export default function Jeux() {
       const m = myludo.status === 'fulfilled' ? myludo.value : null
       if (wiki.status === 'rejected') console.warn('Wikiludo :', wiki.reason)
       if (myludo.status === 'rejected') console.warn('MyLudo :', myludo.reason)
+      setAbsentWikiludo(wiki.status === 'fulfilled' && !w)
 
       if (w || m) {
         const motsWikiludo = [...(w?.mechanisms || []), ...(w?.keywords || [])].map((x: string) => x.toLowerCase())
@@ -456,6 +458,31 @@ export default function Jeux() {
       setShowForm(true)
     } catch (e) { console.warn('Barcode search error:', e); setShowForm(true) }
     finally { setBggLoading(false); setScanToAdd(false) }
+  }
+
+  // « Copier la fiche » : le jeu n'est pas dans Wikiludo ; on prépare le texte à
+  // recopier dans la grille de catalogage Wikiludo (même ordre que la grille,
+  // guide de catalogage pages 7 à 13). Proposé sur ordinateur seulement.
+  const copierFichePourWikiludo = async () => {
+    const g = newGame as any
+    const minutes = parseInt(g.duration) || 0
+    const duree = !minutes ? '' : minutes <= 20 ? 'Jeu court' : minutes <= 60 ? 'Jeu moyen' : 'Jeu long'
+    const lignes = [
+      ['EAN', g.barcode],
+      ['Titre', g.name],
+      ['Âge minimum conseillé', g.min_age ? `A partir de ${g.min_age} ans` : ''],
+      ['Nombre de joueurs', g.min_players ? (g.max_players && g.max_players !== g.min_players ? `${g.min_players} à ${g.max_players}` : `${g.min_players}`) : ''],
+      ['Durée de partie', duree ? `${duree} (${minutes} min)` : ''],
+      ['Résumé', g.description],
+      ['Image (lien externe)', /^https?:/.test(g.image_url || '') ? g.image_url : ''],
+      ['Vidéo-règle (lien externe)', g.youtube_url],
+    ].filter(([, v]) => v)
+    try {
+      await navigator.clipboard.writeText(lignes.map(([k, v]) => `${k} : ${v}`).join('\n'))
+      addToast('Fiche copiée : collez-la dans la grille Wikiludo.', 'success')
+    } catch {
+      addToast("La copie n'a pas fonctionné sur ce navigateur.", 'error')
+    }
   }
 
   // La caméra et la lecture des codes sont gérées par la brique BarcodeCamera.
@@ -496,7 +523,7 @@ export default function Jeux() {
   }
 
   const handleOpenForm = () => {
-    if (!showForm) { setNewGame({ ...initialGameState, registration_number: getNextRegistrationNumber() }); setBggResults([]); setBggFilled(false) }
+    if (!showForm) { setNewGame({ ...initialGameState, registration_number: getNextRegistrationNumber() }); setBggResults([]); setBggFilled(false); setAbsentWikiludo(false) }
     setShowForm(!showForm)
     setEditingId(null)
   }
@@ -524,11 +551,11 @@ export default function Jeux() {
 
   const startEdit = (jeu) => {
     if (!navigator.onLine) { addToast("La modification est désactivée en mode hors-ligne.", 'warning'); return }
-    setNewGame(jeu); setEditingId(jeu.id); setShowForm(true); setBggFilled(false); setBggResults([])
+    setNewGame(jeu); setEditingId(jeu.id); setShowForm(true); setBggFilled(false); setAbsentWikiludo(false); setBggResults([])
   }
 
   const cancelEdit = () => {
-    setNewGame(initialGameState); setEditingId(null); setShowForm(false); setBggResults([]); setBggFilled(false)
+    setNewGame(initialGameState); setEditingId(null); setShowForm(false); setBggResults([]); setBggFilled(false); setAbsentWikiludo(false)
   }
 
   const handleFileUpload = async (e) => {
@@ -624,7 +651,7 @@ export default function Jeux() {
   const jeuxSteps = useMemo(() => JEUX_TUTORIAL_STEPS(
     () => {
       setNewGame(g => ({ ...initialGameState, registration_number: g.registration_number || getNextRegistrationNumber() }))
-      setBggResults([]); setBggFilled(false); setEditingId(null); setShowForm(true)
+      setBggResults([]); setBggFilled(false); setAbsentWikiludo(false); setEditingId(null); setShowForm(true)
     },
     () => { setShowForm(false); setEditingId(null) }
   ), []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -653,7 +680,7 @@ export default function Jeux() {
               onClick={() => {
                 setScanToAdd(true)
                 setNewGame({ ...initialGameState, registration_number: getNextRegistrationNumber() })
-                setBggFilled(false)
+                setBggFilled(false); setAbsentWikiludo(false)
                 setShowScanner(true)
               }}
               className={`${BTN_TEAL} flex-1 md:flex-none`}
@@ -720,6 +747,30 @@ export default function Jeux() {
                 <h2 className="mb-6 pr-14 font-display text-[24px] font-extrabold uppercase tracking-[-0.04em] md:text-[27px]">
                   {editingId ? <>Modifier le <span className="text-[#1a5f7a]">jeu</span></> : <>Ajouter un <span className="text-[#1a5f7a]">jeu</span></>}
                 </h2>
+
+                {absentWikiludo && !editingId && (
+                  <div className="mb-6 hidden flex-wrap items-center gap-3 rounded-[20px] border-2 border-[#1a5f7a] bg-[#f0f7f9] px-5 py-4 lg:flex">
+                    <p className="flex-1 basis-[260px] text-[12px] font-semibold leading-snug text-[#1a5f7a]">
+                      Ce jeu n'est pas encore dans <strong>Wikiludo</strong>. Vous pouvez l'y ajouter pour les autres ludothèques :
+                      copiez la fiche, puis collez chaque information dans la grille de catalogage.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={copierFichePourWikiludo}
+                      className="flex items-center gap-2 rounded-[12px] border-2 border-[#0f172a] bg-white px-4 py-2 text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#1a5f7a] transition-colors hover:bg-[#1a5f7a] hover:text-white"
+                    >
+                      <FileText size={13} /> Copier la fiche
+                    </button>
+                    <a
+                      href="https://sigb01.decalog.net"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-2 rounded-[12px] border-2 border-[#0f172a] bg-white px-4 py-2 text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#1a5f7a] transition-colors hover:bg-[#1a5f7a] hover:text-white"
+                    >
+                      <ExternalLink size={13} /> Ouvrir Wikiludo
+                    </a>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-7">
                   <div>
