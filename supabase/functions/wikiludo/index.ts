@@ -124,13 +124,15 @@ function lireNotice(xml: string, ean: string) {
 // ── Serveur ────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
   if (!(await isVolunteer(req))) return json({ error: 'Non autorisé' }, 401)
 
   const ean = (new URL(req.url).searchParams.get('ean') || '').trim()
   if (!/^\d{8,14}$/.test(ean)) return json({ error: 'Code-barres invalide' }, 400)
 
-  const identifiant = Deno.env.get('WIKILUDO_IDENTIFIANT') || ''
-  const motDePasse = Deno.env.get('WIKILUDO_MOT_DE_PASSE') || ''
+  // Espaces ou retours à la ligne collés par erreur avec le secret : retirés
+  const identifiant = (Deno.env.get('WIKILUDO_IDENTIFIANT') || '').trim()
+  const motDePasse = (Deno.env.get('WIKILUDO_MOT_DE_PASSE') || '').trim()
   if (!identifiant || !motDePasse) return json({ error: 'Identifiants Wikiludo absents des secrets' }, 500)
 
   // Paramètres dans l'ordre exact de l'exemple de l'ALF
