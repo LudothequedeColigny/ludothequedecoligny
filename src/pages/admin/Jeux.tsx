@@ -91,7 +91,7 @@ const JEUX_TUTORIAL_STEPS = (openForm, cancelForm) => [
   { id: 'jeux-add-btn', title: 'Ajouter un jeu manuellement', description: `Cliquez ici pour ouvrir le formulaire de création. Le numéro d'inventaire est pré-rempli automatiquement.`, action: () => cancelForm() },
   { id: 'jeux-form-modal', title: `Formulaire d'ajout d'un jeu`, description: `Ce formulaire permet de saisir toutes les informations d'un jeu.`, action: () => openForm(), actionDelay: 350 },
   { id: 'jeux-form-numero', title: `Numéro d'inventaire et code-barres`, description: `Le numéro d'inventaire identifie le jeu de façon unique. Le code-barres peut être scanné via la caméra ou saisi manuellement.`, action: () => openForm(), actionDelay: 350 },
-  { id: 'jeux-form-titre', title: 'Titre avec autocomplétion MyLudo', description: `En tapant le nom du jeu, MyLudo propose des suggestions et remplit la fiche complète.`, action: () => openForm(), actionDelay: 350 },
+  { id: 'jeux-form-titre', title: 'Titre avec autocomplétion MyLudo', description: `En tapant le nom du jeu, MyLudo propose des suggestions. Une fois le jeu choisi, la fiche est remplie avec Wikiludo (la base des ludothèques), complétée par MyLudo.`, action: () => openForm(), actionDelay: 350 },
   { id: 'jeux-form-desc-obs', title: 'Description et observations', description: `La description présente le thème. Les observations servent à noter l'état du jeu.`, action: () => openForm(), actionDelay: 350 },
   { id: 'jeux-form-joueurs-age', id2: 'jeux-form-age-duree', title: 'Nombre de joueurs, âge et durée', description: `Ces informations s'affichent dans le catalogue public.`, action: () => openForm(), actionDelay: 350 },
   { id: 'jeux-form-medias', title: 'Image et vidéo', description: `Ajoutez une image et un lien YouTube de règles.`, action: () => openForm(), actionDelay: 350 },
@@ -399,26 +399,47 @@ export default function Jeux() {
     }, 1000)
   }
 
+  // Remplit la fiche à partir de Wikiludo (prioritaire) et de MyLudo (complément).
+  // Utilisé par le scan et par le choix d'un jeu dans la liste des noms.
+  // `wikiRepondu` : Wikiludo a bien répondu (même « inconnu ») — sinon on ne sait pas.
+  const remplirFiche = (w: any, m: any, barcode: string, wikiRepondu: boolean) => {
+    if (wikiRepondu && barcode) wikiludoConnu.current.set(barcode, !!w)
+    setAbsentWikiludo(wikiRepondu && !w)
+    const motsWikiludo = [...(w?.mechanisms || []), ...(w?.keywords || [])].map((x: string) => x.toLowerCase())
+    setNewGame(prev => ({
+      ...prev,
+      barcode:     barcode            || prev.barcode,
+      name:        w?.name            || m?.name        || prev.name,
+      description: w?.description     || m?.description || prev.description,
+      min_players: w?.minPlayers      || m?.minPlayers  || prev.min_players,
+      max_players: w?.maxPlayers      || m?.maxPlayers  || prev.max_players,
+      min_age:     w?.minAge          || m?.minAge      || prev.min_age,
+      duration:    m?.duration        || dureeDepuisLibelle(w?.durationLabel) || prev.duration,
+      image_url:   w?.image           || m?.image       || prev.image_url,
+      category:    m?.categories?.join(', ') || motsWikiludo.join(', ') || prev.category,
+      youtube_url: w?.video           || prev.youtube_url,
+      registration_number: prev.registration_number || getNextRegistrationNumber()
+    }))
+    setBggFilled(w && m ? 'Wikiludo et MyLudo' : w ? 'Wikiludo' : 'MyLudo')
+  }
+
   const handleBggSelect = async (result: { id: string; name: string; year: string; language: string }) => {
     setBggResults([])
     setBggLoading(true)
     setNewGame(prev => ({ ...prev, name: result.name }))
+    // Wikiludo ne sait chercher que par code-barres (essayé en octobre 2026 : titre,
+    // auteur, éditeur… sont ignorés). MyLudo trouve donc le jeu par son nom et donne
+    // son code-barres ; la fiche Wikiludo est ensuite demandée avec ce code.
     try {
       const details = await bggGetDetails(result.id)
       if (!details) return
-      setNewGame(prev => ({
-        ...prev,
-        name: result.name,
-        description: details.description || prev.description,
-        min_players: details.minPlayers  || prev.min_players,
-        max_players: details.maxPlayers  || prev.max_players,
-        min_age:     details.minAge      || prev.min_age,
-        duration:    details.duration    || prev.duration,
-        image_url:   details.image       || prev.image_url,
-        category:    details.categories?.join(', ') || prev.category,
-        barcode:     details.barcode     || prev.barcode
-      }))
-      setBggFilled('MyLudo')
+      const m = { ...details, name: details.name || result.name }
+      let w = null, wikiRepondu = false
+      if (details.barcode) {
+        try { w = await wikiludoParCodeBarres(details.barcode); wikiRepondu = true }
+        catch (e) { console.warn('Wikiludo :', e) }
+      }
+      remplirFiche(w, m, details.barcode || '', wikiRepondu)
     } catch (e) { console.warn('MyLudo details error:', e) }
     finally { setBggLoading(false) }
   }
@@ -437,26 +458,10 @@ export default function Jeux() {
       const m = myludo.status === 'fulfilled' ? myludo.value : null
       if (wiki.status === 'rejected') console.warn('Wikiludo :', wiki.reason)
       if (myludo.status === 'rejected') console.warn('MyLudo :', myludo.reason)
-      if (wiki.status === 'fulfilled') wikiludoConnu.current.set(barcode, !!w)
-      setAbsentWikiludo(wiki.status === 'fulfilled' && !w)
-
       if (w || m) {
-        const motsWikiludo = [...(w?.mechanisms || []), ...(w?.keywords || [])].map((x: string) => x.toLowerCase())
-        setNewGame(prev => ({
-          ...prev, barcode,
-          name:        w?.name        || m?.name        || prev.name,
-          description: w?.description || m?.description || prev.description,
-          min_players: w?.minPlayers  || m?.minPlayers  || prev.min_players,
-          max_players: w?.maxPlayers  || m?.maxPlayers  || prev.max_players,
-          min_age:     w?.minAge      || m?.minAge      || prev.min_age,
-          duration:    m?.duration    || dureeDepuisLibelle(w?.durationLabel) || prev.duration,
-          image_url:   w?.image       || m?.image       || prev.image_url,
-          category:    m?.categories?.join(', ') || motsWikiludo.join(', ') || prev.category,
-          youtube_url: w?.video       || prev.youtube_url,
-          registration_number: prev.registration_number || getNextRegistrationNumber()
-        }))
-        setBggFilled(w && m ? 'Wikiludo et MyLudo' : w ? 'Wikiludo' : 'MyLudo')
+        remplirFiche(w, m, barcode, wiki.status === 'fulfilled')
       } else {
+        if (wiki.status === 'fulfilled') { wikiludoConnu.current.set(barcode, false); setAbsentWikiludo(true) }
         addToast(`Jeu non trouvé sur Wikiludo ni sur MyLudo pour le code-barres ${barcode}. Remplissez les informations manuellement.`, 'warning')
       }
       setShowForm(true)
@@ -821,7 +826,7 @@ export default function Jeux() {
                         )}
                       </div>
                       {bggLoading && bggResults.length === 0 && (
-                        <p className="mt-2 flex items-center gap-1 text-[9px] font-extrabold text-[#1a5f7a]"><Loader2 size={10} className="animate-spin" /> Récupération des informations MyLudo...</p>
+                        <p className="mt-2 flex items-center gap-1 text-[9px] font-extrabold text-[#1a5f7a]"><Loader2 size={10} className="animate-spin" /> Récupération des informations (Wikiludo, MyLudo)…</p>
                       )}
                     </div>
 
