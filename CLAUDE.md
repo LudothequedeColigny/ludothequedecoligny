@@ -186,6 +186,13 @@ Les animations et effets sont définis dans `src/index.css`.
   par Victor). Ne pas les remettre. En cas d'échec, demander une capture de la ligne
   grise sous l'image (objectif, définition, lecteur).
   Changer de lecteur ne sert à rien : mesuré, aucun ne lit une image floue.
+- **Toute nouvelle table doit recevoir ses droits d'accès explicitement.** Depuis le
+  30 octobre 2026, Supabase ne donne plus automatiquement l'accès à l'API aux tables
+  créées dans `public` (mail Supabase du 20/10/2026). Dans la migration qui crée la
+  table : `enable row level security`, ses règles (policies), puis les `grant`
+  nécessaires — au strict minimum pour `anon` (le visiteur), comme les verrous
+  posés en septembre 2026. Sans grant, l'application reçoit « permission denied ».
+  Les tables existantes ne sont pas concernées.
 - **Un visiteur ne peut pas lire la table `members`** (données personnelles, verrouillée
   en septembre 2026). Le compteur « Joueurs passionnés » de l'accueil passe par la
   fonction `nombre_joueurs()` (`supabase/migrations/20261016_compteur_joueurs.sql`),
