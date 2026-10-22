@@ -33,7 +33,7 @@ export default function InscritsActualites({ liste, onSupprimer }) {
           <span className="block font-display text-[18px] font-extrabold uppercase tracking-[-0.03em]">
             Inscrits <span className="text-[#1a5f7a]">aux actualités</span>
           </span>
-          <span className="block text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-400">
+          <span className="hidden text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-400 sm:block">
             Non adhérents · reçoivent les mails de Communication
           </span>
         </span>
