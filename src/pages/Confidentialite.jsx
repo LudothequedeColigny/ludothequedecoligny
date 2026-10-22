@@ -56,6 +56,11 @@ export default function Confidentialite() {
             par e-mail. Rien n'est conservé sur le site.
           </li>
           <li>
+            <strong>Contacts des mairies, de la presse et des écoles</strong> : nom de la structure et adresse
+            e-mail professionnelle, pour leur annoncer nos événements. Retrait sur simple réponse à l'un de nos
+            messages.
+          </li>
+          <li>
             <strong>Inscription des bénévoles aux permanences</strong> : le nom saisi apparaît sur la page
             d'inscription, visible de tous, pour que les bénévoles s'organisent.
           </li>

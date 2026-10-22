@@ -25,8 +25,67 @@ const COMM_TABS = [
 ]
 import {
   Calendar, MapPin, Plus, Trash2, Clock, ImageIcon,
-  X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2, Users, ChevronDown, ChevronUp, PlusCircle, Paperclip, GripVertical, Building2, Trash, Share2, Megaphone, BarChart2, Search, Dice5, Facebook, Instagram, Archive, ArchiveRestore, LayoutGrid, List, ImagePlus, Copy
+  X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2, Users, ChevronDown, ChevronUp, PlusCircle, Paperclip, GripVertical, Building2, Trash, Share2, Megaphone, BarChart2, Search, Dice5, Facebook, Instagram, Archive, ArchiveRestore, LayoutGrid, List, ImagePlus, Copy,
+  Newspaper, School, FileText
 } from 'lucide-react'
+import ModelesMessages from '../../components/admin/ModelesMessages'
+
+// Destinataires enregistrés : trois catégories, chacune avec son propre texte
+// d'annonce. À l'envoi, seules les mairies sont cochées d'office (choix de
+// Victor) : la presse et les écoles se cochent à la demande.
+const CATEGORIES_CONTACT = [
+  { id: 'mairie', label: 'Mairie', groupe: 'Mairies & Collectivités' },
+  { id: 'presse', label: 'Presse', groupe: 'Presse' },
+  { id: 'ecole', label: 'École', groupe: 'Écoles' },
+]
+const CONTACT_VIDE = { nom: '', email: '', categorie: 'mairie' }
+
+// Onglets de la fenêtre d'envoi : un texte par public
+const MAIL_TABS = [
+  { id: 'collectivites', label: 'Mairies', icon: Building2, field: 'bodyCollectivites', groups: ['mairie'], aide: "Message envoyé aux mairies & collectivités — invite à communiquer sur l'événement" },
+  { id: 'presse', label: 'Presse', icon: Newspaper, field: 'bodyPresse', groups: ['presse'], aide: "Message envoyé à la presse — annonce l'événement et invite à venir" },
+  { id: 'ecole', label: 'École', icon: School, field: 'bodyEcole', groups: ['ecole'], aide: 'Message envoyé aux écoles — à transmettre aux familles' },
+  { id: 'adherents', label: 'Adhérents', icon: Users, field: 'bodyAdherents', groups: ['adherent', 'abonne'], aide: 'Message envoyé aux adhérents et aux inscrits aux dates — invite à venir participer' },
+]
+
+/** Groupe repliable de contacts enregistrés dans la fenêtre d'envoi (mairies, presse, écoles). */
+function GroupeContacts({ titre, destinataires, ouvert, onBasculerOuvert, onBasculerGroupe, onBasculerContact }) {
+  return (
+    <div className="border border-slate-100 rounded-2xl overflow-hidden">
+      <button
+        onClick={onBasculerOuvert}
+        className="flex w-full items-center justify-between border-b-2 border-[#0f172a] bg-[#fdfaf6] p-4 transition-colors hover:bg-slate-100"
+      >
+        <div className="flex items-center gap-3">
+          <input type="checkbox" readOnly
+            checked={destinataires.every(r => r.checked)}
+            onClick={e => { e.stopPropagation(); onBasculerGroupe() }}
+            className="w-4 h-4 accent-[#1a5f7a] cursor-pointer"
+          />
+          <span className="text-xs font-black text-slate-700 uppercase tracking-wide">{titre}</span>
+          <span className="text-[9px] font-bold text-slate-400">
+            ({destinataires.filter(r => r.checked).length}/{destinataires.length})
+          </span>
+        </div>
+        {ouvert ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+      </button>
+      {ouvert && (
+        <div className="divide-y divide-slate-50">
+          {destinataires.map(r => (
+            <label key={r.email} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer sm:px-5">
+              <input type="checkbox" checked={r.checked} onChange={() => onBasculerContact(r.email)}
+                className="w-4 h-4 accent-[#1a5f7a] cursor-pointer flex-shrink-0" />
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
+                <span className="text-xs font-bold text-slate-700 sm:flex-1">{r.label}</span>
+                <span className="break-all text-[9px] text-slate-400">{r.email}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 const VIEW_MODE_STORAGE_KEY = 'evenements_view_mode'
 
@@ -255,8 +314,8 @@ export default function Evenements() {
   const [deleteModal, setDeleteModal] = useState({ show: false, id: null, title: '' })
   // Modale de composition email
   const [composeModal, setComposeModal] = useState({ show: false, event: null })
-  const [composeData, setComposeData] = useState({ subject: '', bodyCollectivites: '', bodyAdherents: '', recipients: [] })
-  const [activeMailTab, setActiveMailTab] = useState('collectivites') // 'collectivites' | 'adherents'
+  const [composeData, setComposeData] = useState({ subject: '', bodyCollectivites: '', bodyPresse: '', bodyEcole: '', bodyAdherents: '', recipients: [] })
+  const [activeMailTab, setActiveMailTab] = useState('collectivites') // un des MAIL_TABS
   const [loadingRecipients, setLoadingRecipients] = useState(false)
   const [sendingMail, setSendingMail] = useState(false)
   // Modale publication Facebook/Instagram
@@ -270,14 +329,15 @@ export default function Evenements() {
   const [postUploading, setPostUploading] = useState(false)
   const [publishingPost, setPublishingPost] = useState(false)
   const [postSuccess, setPostSuccess] = useState(false)
-  const [showMairies, setShowMairies] = useState(true)
+  const [groupesOuverts, setGroupesOuverts] = useState({ mairie: true, presse: true, ecole: true })
+  const [modelesOpen, setModelesOpen] = useState(false)
   const [showAdherents, setShowAdherents] = useState(true)
   const [showAbonnes, setShowAbonnes] = useState(true)
   const [selectedEvents, setSelectedEvents] = useState([])
   const [showEventPicker, setShowEventPicker] = useState(false)
   const [collectivites, setCollectivites] = useState([])
   const [collectivitesModal, setCollectivitesModal] = useState(false)
-  const [newCollectivite, setNewCollectivite] = useState({ nom: '', email: '' })
+  const [newCollectivite, setNewCollectivite] = useState(CONTACT_VIDE)
   const [editingCollectivite, setEditingCollectivite] = useState(null)
   const [showTuto, setShowTuto] = useState(false)
   // Import de description depuis un événement précédent
@@ -539,7 +599,7 @@ export default function Evenements() {
 
   const fetchCollectivites = async () => {
     const { data } = await supabase.from('collectivites').select('*').order('nom')
-    if (data) setCollectivites(data.map(c => ({ id: c.id, email: c.email, label: c.nom })))
+    if (data) setCollectivites(data.map(c => ({ id: c.id, email: c.email, label: c.nom, categorie: c.categorie || 'mairie' })))
   }
 
   useEffect(() => { fetchCollectivites() }, [])
@@ -547,11 +607,11 @@ export default function Evenements() {
   const saveCollectivite = async () => {
     if (!newCollectivite.nom || !newCollectivite.email) return
     if (editingCollectivite) {
-      await supabase.from('collectivites').update({ nom: newCollectivite.nom, email: newCollectivite.email }).eq('id', editingCollectivite)
+      await supabase.from('collectivites').update({ nom: newCollectivite.nom, email: newCollectivite.email, categorie: newCollectivite.categorie }).eq('id', editingCollectivite)
     } else {
-      await supabase.from('collectivites').insert({ nom: newCollectivite.nom, email: newCollectivite.email })
+      await supabase.from('collectivites').insert({ nom: newCollectivite.nom, email: newCollectivite.email, categorie: newCollectivite.categorie })
     }
-    setNewCollectivite({ nom: '', email: '' })
+    setNewCollectivite(CONTACT_VIDE)
     setEditingCollectivite(null)
     fetchCollectivites()
   }
@@ -586,6 +646,40 @@ Bonne journée.
 Victor Guyon
 06 71 41 56 96`
 
+    const avecAffiche = eventsBlocks.some(b => b.event.image_url)
+
+    const bodyPresse = `Bonjour,
+
+La ludothèque de Coligny (association PACTES) organise ${n > 1 ? 'les événements suivants, ouverts' : "l'événement suivant, ouvert"} à tous :
+
+[BLOCS_EVENEMENTS]
+
+${avecAffiche ? "Vous trouverez l'affiche en pièce jointe. " : ''}Nous serions heureux que vous puissiez ${n > 1 ? 'les annoncer' : "l'annoncer"} dans vos pages, ou venir nous rencontrer sur place pour un reportage.
+
+Je reste à votre disposition pour tout renseignement.
+
+Bien cordialement,
+
+Victor Guyon
+Ludothèque de Coligny – association PACTES
+06 71 41 56 96`
+
+    const bodyEcole = `Bonjour,
+
+La ludothèque de Coligny (association PACTES) organise ${n > 1 ? 'les événements suivants, ouverts' : "l'événement suivant, ouvert"} à tous, petits et grands :
+
+[BLOCS_EVENEMENTS]
+
+Pourriez-vous transmettre cette information aux familles de l'école (cahier de liaison, panneau d'affichage ou messagerie de l'école) ?${avecAffiche ? " L'affiche est jointe à ce message." : ''}
+
+Merci beaucoup pour votre aide.
+
+Bonne journée,
+
+Victor Guyon
+Ludothèque de Coligny – association PACTES
+06 71 41 56 96`
+
     const bodyAdherents = `Bonjour,
 
 Nous avons le plaisir de vous inviter à ${n > 1 ? 'nos prochains événements' : 'notre prochain événement'} :
@@ -601,7 +695,7 @@ Nous espérons vous y retrouver nombreux.
 L'équipe de la Ludothèque de Coligny
 06 71 41 56 96`
 
-    return { bodyCollectivites, bodyAdherents, blocksHtml }
+    return { bodyCollectivites, bodyPresse, bodyEcole, bodyAdherents, blocksHtml }
   }
 
   const openComposeModal = async (event) => {
@@ -611,7 +705,10 @@ L'équipe de la Ludothèque de Coligny
     setShowEventPicker(false)
     setActiveMailTab('collectivites')
     const subject = `Communication Événement - Association PACTES - ${event.title}`
-    const { bodyCollectivites, bodyAdherents } = buildBodies([makeEventBlock(event)])
+    const { bodyCollectivites, bodyPresse, bodyEcole, bodyAdherents } = buildBodies([makeEventBlock(event)])
+    const bodies = { bodyCollectivites, bodyPresse, bodyEcole, bodyAdherents }
+    // Mairies cochées d'office ; presse et écoles décochées (cochées à la demande)
+    const contactRecipients = collectivites.map(c => ({ ...c, group: c.categorie, checked: c.categorie === 'mairie' }))
     try {
       const [{ data: members }, { data: abonnes }] = await Promise.all([
         supabase.from('members').select('email, first_name, last_name, refuse_actualites, jeton_desabonnement'),
@@ -628,10 +725,9 @@ L'équipe de la Ludothèque de Coligny
       const abonneRecipients = (abonnes || [])
         .filter(a => !adressesAdherents.has(a.email.toLowerCase()))
         .map(a => ({ email: a.email, label: a.email, group: 'abonne', checked: true, jeton: a.jeton_desabonnement }))
-      const collectiviteRecipients = collectivites.map(c => ({ ...c, group: 'mairie', checked: true }))
-      setComposeData({ subject, bodyCollectivites, bodyAdherents, recipients: [...collectiviteRecipients, ...memberRecipients, ...abonneRecipients] })
+      setComposeData({ subject, ...bodies, recipients: [...contactRecipients, ...memberRecipients, ...abonneRecipients] })
     } catch (e) {
-      setComposeData({ subject, bodyCollectivites, bodyAdherents, recipients: collectivites.map(c => ({ ...c, group: 'mairie', checked: true })) })
+      setComposeData({ subject, ...bodies, recipients: contactRecipients })
     } finally {
       setLoadingRecipients(false)
     }
@@ -667,11 +763,13 @@ L'équipe de la Ludothèque de Coligny
     if (selectedEvents.find(b => b.event.id === event.id)) return
     const newBlocks = [...selectedEvents, makeEventBlock(event)]
     setSelectedEvents(newBlocks)
-    const { bodyCollectivites, bodyAdherents } = buildBodies(newBlocks)
+    const { bodyCollectivites, bodyPresse, bodyEcole, bodyAdherents } = buildBodies(newBlocks)
     setComposeData(prev => ({
       ...prev,
       subject: newBlocks.length > 1 ? 'Communication Événements - Association PACTES' : prev.subject,
       bodyCollectivites,
+      bodyPresse,
+      bodyEcole,
       bodyAdherents,
     }))
     setShowEventPicker(false)
@@ -693,6 +791,8 @@ L'équipe de la Ludothèque de Coligny
     adherent: `Vous recevez ce message en tant qu'adhérent de la ludothèque. <a href="[LIEN_DESABONNEMENT]" style="color:#64748b;">Ne plus recevoir nos actualités</a>`,
     abonne: `Vous recevez ce message car vous avez demandé à recevoir nos prochaines dates. <a href="[LIEN_DESABONNEMENT]" style="color:#64748b;">Ne plus recevoir nos actualités</a>`,
     mairie: "Vous recevez ce message car votre structure figure dans la liste de diffusion de la ludothèque. Pour ne plus le recevoir, répondez simplement à ce mail.",
+    presse: "Vous recevez ce message car votre rédaction figure dans la liste de diffusion de la ludothèque. Pour ne plus le recevoir, répondez simplement à ce mail.",
+    ecole: "Vous recevez ce message car votre établissement figure dans la liste de diffusion de la ludothèque. Pour ne plus le recevoir, répondez simplement à ce mail.",
   }
   const lienDesabonnement = jeton => jeton
     ? `https://www.ludothequedecoligny.fr/desabonnement?jeton=${encodeURIComponent(jeton)}`
@@ -724,7 +824,12 @@ L'équipe de la Ludothèque de Coligny
     setSendingMail(true)
     try {
       const { blocksHtml } = buildBodies(selectedEvents)
-      const htmlCollectivites = bodyToHtml(composeData.bodyCollectivites, blocksHtml, 'mairie')
+      // Contacts enregistrés : un message par catégorie, identique pour tous
+      const htmlContacts = {
+        mairie: bodyToHtml(composeData.bodyCollectivites, blocksHtml, 'mairie'),
+        presse: bodyToHtml(composeData.bodyPresse, blocksHtml, 'presse'),
+        ecole: bodyToHtml(composeData.bodyEcole, blocksHtml, 'ecole'),
+      }
       const htmlAdherents = bodyToHtml(composeData.bodyAdherents, blocksHtml, 'adherent')
       const htmlAbonnes = bodyToHtml(composeData.bodyAdherents, blocksHtml, 'abonne')
       const image_urls = selectedEvents.map(b => b.event.image_url).filter(Boolean)
@@ -740,8 +845,9 @@ L'équipe de la Ludothèque de Coligny
       const failed = []
       for (let i = 0; i < activeRecipients.length; i++) {
         const r = activeRecipients[i]
-        const html = r.group === 'mairie'
-          ? htmlCollectivites
+        const estContact = r.group in htmlContacts
+        const html = estContact
+          ? htmlContacts[r.group]
           : (r.group === 'abonne' ? htmlAbonnes : htmlAdherents).replaceAll('[LIEN_DESABONNEMENT]', lienDesabonnement(r.jeton))
         try {
           await sendEmail({
@@ -749,7 +855,7 @@ L'équipe de la Ludothèque de Coligny
             subject: composeData.subject,
             html,
             image_urls,
-            ...(r.group !== 'mairie' ? { calendar_events: calendarEvents } : {}),
+            ...(!estContact ? { calendar_events: calendarEvents } : {}),
           })
         } catch (err) {
           console.error('Échec envoi à', r.email, ':', err)
@@ -1443,7 +1549,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
   {
     id: 'evt-compose-tabs',
     title: `Deux messages distincts`,
-    description: `L'onglet "Collectivités" rédige un message destiné aux mairies et partenaires (invitation à relayer l'événement). L'onglet "Adhérents" rédige un message d'invitation à participer. Les deux peuvent être modifiés avant envoi.`,
+    description: `Un onglet par public, chacun avec son message : "Mairies" (invitation à relayer l'événement), "Presse" (annonce et invitation à venir), "École" (information à transmettre aux familles) et "Adhérents" (invitation à participer). Tous peuvent être modifiés avant envoi.`,
     action: () => { closeForm(); openCompose(true); openCollectivites(false) },
     actionDelay: 450,
   },
@@ -1457,7 +1563,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
   {
     id: 'evt-compose-recipients',
     title: `Sélection des destinataires`,
-    description: `Les destinataires sont regroupés en deux listes : Mairies & Collectivités et Adhérents. Cochez ou décochez chaque contact individuellement, ou cochez la case de groupe pour tout sélectionner d'un clic.`,
+    description: `Les destinataires sont regroupés par liste : Mairies & Collectivités, Presse, Écoles, Adhérents et Inscrits aux dates. La presse et les écoles ne sont pas cochées d'office : cochez-les quand l'événement les concerne. Cochez la case d'un groupe pour tout sélectionner d'un clic.`,
     action: () => { closeForm(); openCompose(true); openCollectivites(false) },
     actionDelay: 450,
   },
@@ -1471,13 +1577,13 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
   {
     id: 'evt-collectivites-btn',
     title: `Gérer les destinataires enregistrés`,
-    description: `Ce bouton ouvre la fenêtre de gestion des collectivités — nous allons l'explorer ensemble à l'étape suivante.`,
+    description: `Ce bouton ouvre la liste des contacts (mairies, presse, écoles) — nous allons l'explorer ensemble à l'étape suivante. Le bouton "Modèles de messages", juste à côté, propose deux textes de présentation de la ludothèque à copier, pour la presse et pour les écoles.`,
     action: () => { closeForm(); openCompose(false); openCollectivites(false) },
   },
   {
     id: 'evt-collectivites-modal',
-    title: `Fenêtre des collectivités`,
-    description: `Cette fenêtre liste les mairies et organismes partenaires enregistrés comme destinataires permanents. Ajoutez une collectivité en renseignant son nom et email. Les adhérents, eux, sont automatiquement récupérés depuis la base de données lors de l'envoi.`,
+    title: `Fenêtre des contacts`,
+    description: `Cette fenêtre liste les mairies, journaux et écoles enregistrés comme destinataires permanents. Ajoutez un contact en choisissant sa catégorie, puis en renseignant son nom et son email. Les adhérents, eux, sont automatiquement récupérés depuis la base de données lors de l'envoi.`,
     action: () => { closeForm(); openCompose(false); openCollectivites(true) },
     actionDelay: 450,
   },
@@ -1842,64 +1948,41 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 />
               </div>
 
-              {/* Corps — onglets Collectivités / Adhérents */}
+              {/* Corps — un onglet par public (mairies, presse, école, adhérents) */}
               <div className="space-y-3">
-                <div data-tutorial="evt-compose-tabs" className="flex w-full gap-1.5 rounded-[18px] border-2 border-[#0f172a] bg-slate-100 p-1.5 sm:w-fit">
-                  <button
-                    onClick={() => setActiveMailTab('collectivites')}
-                    className={'flex flex-1 items-center justify-center gap-1.5 rounded-[12px] px-2 py-2.5 text-[9px] font-extrabold uppercase tracking-[0.08em] transition-colors sm:flex-none sm:gap-2 sm:px-4 sm:text-[9.5px] sm:tracking-[0.14em] ' +
-                      (activeMailTab === 'collectivites' ? 'bg-white text-[#1a5f7a] shadow-sm' : 'text-slate-400 hover:text-slate-600')}>
-                    <Building2 size={11} />
-                    Collectivités
-                    <span className="text-[8px] font-bold opacity-60">
-                      ({composeData.recipients.filter(r => r.group === 'mairie' && r.checked).length})
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => setActiveMailTab('adherents')}
-                    className={'flex flex-1 items-center justify-center gap-1.5 rounded-[12px] px-2 py-2.5 text-[9px] font-extrabold uppercase tracking-[0.08em] transition-colors sm:flex-none sm:gap-2 sm:px-4 sm:text-[9.5px] sm:tracking-[0.14em] ' +
-                      (activeMailTab === 'adherents' ? 'bg-white text-[#1a5f7a] shadow-sm' : 'text-slate-400 hover:text-slate-600')}>
-                    <Users size={11} />
-                    Adhérents
-                    <span className="text-[8px] font-bold opacity-60">
-                      ({composeData.recipients.filter(r => r.group !== 'mairie' && r.checked).length})
-                    </span>
-                  </button>
+                <div data-tutorial="evt-compose-tabs" className="grid w-full grid-cols-2 gap-1.5 rounded-[18px] border-2 border-[#0f172a] bg-slate-100 p-1.5 sm:flex sm:w-fit">
+                  {MAIL_TABS.map(tab => {
+                    const Icone = tab.icon
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveMailTab(tab.id)}
+                        className={'flex items-center justify-center gap-1.5 rounded-[12px] px-2 py-2.5 text-[9px] font-extrabold uppercase tracking-[0.08em] transition-colors sm:gap-2 sm:px-4 sm:text-[9.5px] sm:tracking-[0.14em] ' +
+                          (activeMailTab === tab.id ? 'bg-white text-[#1a5f7a] shadow-sm' : 'text-slate-400 hover:text-slate-600')}>
+                        <Icone size={11} />
+                        {tab.label}
+                        <span className="text-[8px] font-bold opacity-60">
+                          ({composeData.recipients.filter(r => tab.groups.includes(r.group) && r.checked).length})
+                        </span>
+                      </button>
+                    )
+                  })}
                 </div>
 
-                {activeMailTab === 'collectivites' && (
-                  <div className="space-y-1">
-                    <p className="text-[9px] text-slate-400 font-medium ml-1">
-                      Message envoyé aux mairies & collectivités — invite à communiquer sur l'événement
-                    </p>
+                {MAIL_TABS.filter(tab => tab.id === activeMailTab).map(tab => (
+                  <div key={tab.id} className="space-y-1">
+                    <p className="text-[9px] text-slate-400 font-medium ml-1">{tab.aide}</p>
                     <textarea
                       rows={8}
                       className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-medium text-sm outline-none focus:bg-white resize-y"
-                      value={composeData.bodyCollectivites}
-                      onChange={e => setComposeData(prev => ({ ...prev, bodyCollectivites: e.target.value }))}
+                      value={composeData[tab.field]}
+                      onChange={e => setComposeData(prev => ({ ...prev, [tab.field]: e.target.value }))}
                     />
                     <p className="text-[8px] text-slate-300 ml-1 italic">
                       [BLOCS_EVENEMENTS] sera remplacé par les détails des événements sélectionnés
                     </p>
                   </div>
-                )}
-
-                {activeMailTab === 'adherents' && (
-                  <div className="space-y-1">
-                    <p className="text-[9px] text-slate-400 font-medium ml-1">
-                      Message envoyé aux adhérents et aux inscrits aux dates — invite à venir participer
-                    </p>
-                    <textarea
-                      rows={8}
-                      className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-medium text-sm outline-none focus:bg-white resize-y"
-                      value={composeData.bodyAdherents}
-                      onChange={e => setComposeData(prev => ({ ...prev, bodyAdherents: e.target.value }))}
-                    />
-                    <p className="text-[8px] text-slate-300 ml-1 italic">
-                      [BLOCS_EVENEMENTS] sera remplacé par les détails des événements sélectionnés
-                    </p>
-                  </div>
-                )}
+                ))}
               </div>
 
               {/* Événements — blocs éditables */}
@@ -2012,42 +2095,23 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 ) : (
                   <div className="space-y-2">
 
-                    {/* Groupe Mairies */}
-                    <div className="border border-slate-100 rounded-2xl overflow-hidden">
-                      <button
-                        onClick={() => setShowMairies(v => !v)}
-                        className="flex w-full items-center justify-between border-b-2 border-[#0f172a] bg-[#fdfaf6] p-4 transition-colors hover:bg-slate-100"
-                      >
-                        <div className="flex items-center gap-3">
-                          <input type="checkbox" readOnly
-                            checked={composeData.recipients.filter(r => r.group === 'mairie').every(r => r.checked)}
-                            onClick={e => { e.stopPropagation(); toggleGroup('mairie') }}
-                            className="w-4 h-4 accent-[#1a5f7a] cursor-pointer"
+                    {/* Contacts enregistrés : mairies toujours affichées, presse et écoles si la liste en contient */}
+                    {CATEGORIES_CONTACT.map(cat => {
+                      const destinataires = composeData.recipients.filter(r => r.group === cat.id)
+                      if (cat.id !== 'mairie' && destinataires.length === 0) return null
+                      return (
+                        <div key={cat.id} className={cat.id === 'mairie' ? '' : 'mt-4'}>
+                          <GroupeContacts
+                            titre={cat.groupe}
+                            destinataires={destinataires}
+                            ouvert={groupesOuverts[cat.id]}
+                            onBasculerOuvert={() => setGroupesOuverts(g => ({ ...g, [cat.id]: !g[cat.id] }))}
+                            onBasculerGroupe={() => toggleGroup(cat.id)}
+                            onBasculerContact={toggleRecipient}
                           />
-                          <span className="text-xs font-black text-slate-700 uppercase tracking-wide">
-                            Mairies & Collectivités
-                          </span>
-                          <span className="text-[9px] font-bold text-slate-400">
-                            ({composeData.recipients.filter(r => r.group === 'mairie' && r.checked).length}/{composeData.recipients.filter(r => r.group === 'mairie').length})
-                          </span>
                         </div>
-                        {showMairies ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
-                      </button>
-                      {showMairies && (
-                        <div className="divide-y divide-slate-50">
-                          {composeData.recipients.filter(r => r.group === 'mairie').map(r => (
-                            <label key={r.email} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer sm:px-5">
-                              <input type="checkbox" checked={r.checked} onChange={() => toggleRecipient(r.email)}
-                                className="w-4 h-4 accent-[#1a5f7a] cursor-pointer flex-shrink-0" />
-                              <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
-                                <span className="text-xs font-bold text-slate-700 sm:flex-1">{r.label}</span>
-                                <span className="break-all text-[9px] text-slate-400">{r.email}</span>
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                      )
+                    })}
 
                     {/* Groupe Adhérents */}
                     {composeData.recipients.filter(r => r.group === 'adherent').length > 0 && (
@@ -2220,8 +2284,13 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
         </div>
       )}
 
-      {/* BOUTON DESTINATAIRES ENREGISTRÉS en bas de page */}
-      <div className="mx-auto mb-4 mt-8 flex max-w-[1240px] justify-end px-5 md:px-11">
+      {/* BOUTONS MODÈLES DE MESSAGES ET DESTINATAIRES ENREGISTRÉS en bas de page */}
+      <div className="mx-auto mb-4 mt-8 flex max-w-[1240px] flex-wrap justify-end gap-2.5 px-5 md:px-11">
+        <button
+          onClick={() => setModelesOpen(true)}
+          className="flex items-center gap-2 rounded-[16px] border-2 border-[#0f172a] bg-white px-5 py-3 text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-slate-500 transition-colors hover:bg-[#1a5f7a] hover:text-white">
+          <FileText size={14} /> Modèles de messages
+        </button>
         <button
           data-tutorial="evt-collectivites-btn"
           onClick={() => setCollectivitesModal(true)}
@@ -2273,7 +2342,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
       {/* MODALE GESTION COLLECTIVITÉS */}
       {collectivitesModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-[22px]">
-          <div className="anim-fade-in absolute inset-0 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }} onClick={() => { setCollectivitesModal(false); setEditingCollectivite(null); setNewCollectivite({ nom: '', email: '' }) }} />
+          <div className="anim-fade-in absolute inset-0 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }} onClick={() => { setCollectivitesModal(false); setEditingCollectivite(null); setNewCollectivite(CONTACT_VIDE) }} />
           <div data-tutorial="evt-collectivites-modal" className="anim-modal-in relative flex max-h-[90vh] w-full max-w-[680px] flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a]">
 
             <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
@@ -2281,10 +2350,10 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#f0f7f9] text-[#1a5f7a]"><Building2 size={20} /></div>
                 <div>
                   <h3 className="font-display text-[21px] font-extrabold tracking-[-0.04em]">Destinataires <span className="text-[#1a5f7a]">enregistrés</span></h3>
-                  <p className="mt-1.5 text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-400">{collectivites.length} collectivité{collectivites.length > 1 ? 's' : ''}</p>
+                  <p className="mt-1.5 text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-400">{collectivites.length} contact{collectivites.length > 1 ? 's' : ''} : mairies, presse, écoles</p>
                 </div>
               </div>
-              <button onClick={() => { setCollectivitesModal(false); setEditingCollectivite(null); setNewCollectivite({ nom: '', email: '' }) }} aria-label="Fermer"
+              <button onClick={() => { setCollectivitesModal(false); setEditingCollectivite(null); setNewCollectivite(CONTACT_VIDE) }} aria-label="Fermer"
                 className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[15px] font-extrabold text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white">✕</button>
             </div>
 
@@ -2301,11 +2370,26 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
               {/* Formulaire ajout/édition */}
               <div id="collectivite-form" className="scroll-mt-4 space-y-3 rounded-[22px] border-2 border-[#0f172a] bg-[#fdfaf6] p-5">
                 <p className="text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-[#1a5f7a]">
-                  {editingCollectivite ? '✏️ Modifier la collectivité' : 'Ajouter une collectivité'}
+                  {editingCollectivite ? '✏️ Modifier le contact' : 'Ajouter un contact'}
                 </p>
+                <div className="flex gap-1.5" role="radiogroup" aria-label="Catégorie du contact">
+                  {CATEGORIES_CONTACT.map(cat => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={newCollectivite.categorie === cat.id}
+                      onClick={() => setNewCollectivite(prev => ({ ...prev, categorie: cat.id }))}
+                      className={'flex-1 rounded-[12px] border-2 border-[#0f172a] py-2.5 text-[9.5px] font-extrabold uppercase tracking-[0.12em] transition-colors ' +
+                        (newCollectivite.categorie === cat.id ? 'bg-[#1a5f7a] text-white' : 'bg-white text-slate-500 hover:bg-slate-100')}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <input
-                    placeholder="Nom (ex: Mairie de Beaupont)"
+                    placeholder={newCollectivite.categorie === 'presse' ? 'Nom (ex: Le Progrès, Voix de l’Ain)' : newCollectivite.categorie === 'ecole' ? 'Nom (ex: École de Coligny)' : 'Nom (ex: Mairie de Beaupont)'}
                     className="rounded-[14px] border-2 border-[#0f172a] bg-white p-3 text-sm font-bold outline-none"
                     value={newCollectivite.nom}
                     onChange={e => setNewCollectivite(prev => ({ ...prev, nom: e.target.value }))}
@@ -2328,7 +2412,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                     {editingCollectivite ? 'Enregistrer les modifications' : 'Ajouter'}
                   </button>
                   {editingCollectivite && (
-                    <button onClick={() => { setEditingCollectivite(null); setNewCollectivite({ nom: '', email: '' }) }}
+                    <button onClick={() => { setEditingCollectivite(null); setNewCollectivite(CONTACT_VIDE) }}
                       className="rounded-[14px] border-2 border-[#0f172a] bg-white px-4 py-3 text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-slate-500 hover:bg-slate-100">
                       Annuler
                     </button>
@@ -2341,14 +2425,20 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 {collectivites.map(c => (
                   <div key={c.id} className="flex items-center gap-3 rounded-[18px] border-2 border-slate-200 bg-white px-4 py-3">
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-extrabold uppercase">{c.label}</p>
+                      <p className="flex min-w-0 items-center gap-2">
+                        <span className="truncate text-sm font-extrabold uppercase">{c.label}</span>
+                        <span className={'shrink-0 rounded-full border-2 border-[#0f172a] px-2 py-0.5 text-[7.5px] font-extrabold uppercase tracking-[0.1em] ' +
+                          (c.categorie === 'presse' ? 'bg-[#fdf1ea] text-[#e38154]' : c.categorie === 'ecole' ? 'bg-[#ecfdf5] text-[#10b981]' : 'bg-[#f0f7f9] text-[#1a5f7a]')}>
+                          {CATEGORIES_CONTACT.find(cat => cat.id === c.categorie)?.label}
+                        </span>
+                      </p>
                       <p className="mt-0.5 truncate text-[10.5px] font-bold text-slate-400">{c.email}</p>
                     </div>
                     <IconButton
                       title="Modifier"
                       onClick={() => {
                         setEditingCollectivite(c.id)
-                        setNewCollectivite({ nom: c.label, email: c.email })
+                        setNewCollectivite({ nom: c.label, email: c.email, categorie: c.categorie })
                         document.getElementById('collectivite-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                       }}
                     >
@@ -2358,7 +2448,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                   </div>
                 ))}
                 {collectivites.length === 0 && (
-                  <p className="py-6 text-center text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Aucune collectivité enregistrée</p>
+                  <p className="py-6 text-center text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Aucun contact enregistré</p>
                 )}
               </div>
             </div>
@@ -2367,13 +2457,15 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
       )}
 
 
+      <ModelesMessages open={modelesOpen} onClose={() => setModelesOpen(false)} />
+
       {/* Force l'affichage des boutons de carte pendant le tutoriel */}
       {showTuto && (
         <style>{`.evt-card-actions { opacity: 1 !important; }`}</style>
       )}
 
       {/* ── TUTORIEL ─────────────────────────────────────────────────────── */}
-      {!(composeModal.show || fbModal.show || bilanModal.show || collectivitesModal || showImportDesc || deleteModal.show) && (
+      {!(composeModal.show || fbModal.show || bilanModal.show || collectivitesModal || modelesOpen || showImportDesc || deleteModal.show) && (
         <TutorialButton onClick={() => setShowTuto(true)} />
       )}
       <TutorialOverlay
