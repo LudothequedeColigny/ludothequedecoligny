@@ -87,6 +87,7 @@ export default function Parametres() {
   })
 
   const [prices, setPrices] = useState({
+    cotisation_pactes: 10,
     prix_particulier: 24,
     degressivite_mensuelle: 2,
     prix_minimum: 10,
@@ -805,6 +806,13 @@ export default function Parametres() {
               <button onClick={() => setShowFinanceModal(false)} className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"><X size={24} /></button>
             </div>
             <form onSubmit={handleUpdatePrice} className="p-8 overflow-y-auto space-y-10">
+              {/* ADHÉSION À L'ASSOCIATION — affichée sur « Comment emprunter » et « Adhérer » */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-[#1a5f7a] font-black text-[11px] uppercase tracking-widest"><Euro size={18}/> Adhésion à l'association PACTES</div>
+                <HelpBox text="Contribution annuelle à l'association, payée en plus de la cotisation ludothèque. Le site public l'affiche et l'ajoute au prix total sur la page « Adhérer »." />
+                <div className="sm:w-1/3"><label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-1 block">Montant par an</label><input type="number" min="0" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-extrabold outline-none focus:bg-white" value={prices.cotisation_pactes} onChange={e => setPrices({...prices, cotisation_pactes: e.target.value})} /></div>
+              </div>
+
               {/* PARTIE PARTICULIERS */}
               <div className="space-y-6">
                 <div className="flex items-center gap-2 text-[#1a5f7a] font-black text-[11px] uppercase tracking-widest"><Euro size={18}/> Particuliers</div>

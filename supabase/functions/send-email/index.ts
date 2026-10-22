@@ -349,6 +349,18 @@ async function traiterAbonnement(adresse: string): Promise<boolean> {
       <p>À très bientôt autour d'une table !<br/>L'équipe de la Ludothèque de Coligny</p>`,
       `Vous recevez ce message car vous avez demandé à recevoir nos prochaines dates. <a href="${lien}" style="color:#64748b;">Ne plus recevoir nos actualités</a>`),
   })
+
+  // Prévenir la ludothèque (les inscriptions faites avec une pré-inscription
+  // figurent déjà dans le mail « Nouvelle pré-inscription »)
+  const total = await rest('abonnes_dates?select=id')
+  await envoyer({
+    to: await destinatairesLudotheque(await lireReglages()),
+    subject: `Nouvel inscrit aux actualités : ${email}`,
+    html: habillage(`
+      <p><strong>${escapeHtml(email)}</strong> vient de s'inscrire sur le site pour recevoir les prochaines dates (encart de l'accueil).</p>
+      <p>${(total || []).length} personne(s) non adhérente(s) reçoivent désormais les actualités.
+      La liste est dans l'écran <a href="${SITE_URL}/admin/adherents" style="color:#1a5f7a;">Adhérents</a>, rubrique « Inscrits aux actualités ».</p>`),
+  })
   return true
 }
 

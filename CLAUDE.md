@@ -160,6 +160,7 @@ Pour l'espace de gestion, dans `src/components/admin/` :
 | `AdminPageHeader` | en-tête d'écran : pastille d'icône + titre en deux tons |
 | `ConfirmModal` | fenêtre de confirmation (supprimer, quitter, valider un retour) |
 | `BarcodeCamera` | caméra + lecture des codes-barres (lampe, choix d'objectif, ligne grise de diagnostic), pour les deux scanners |
+| `InscritsActualites` | bloc repliable de l'écran Adhérents : adresses inscrites aux actualités (non adhérents), avec retrait |
 | `PreinscriptionsAValider` | bloc de l'écran Adhérents : demandes faites sur `/adherer`, bouton « Valider l'adhésion » qui pré-remplit la fiche |
 | `FicheWikiludo` | fenêtre « Fiche pour Wikiludo » : chaque champ de la grille Wikiludo avec un bouton Copier (catalogue + MyLudo), ordinateur seulement |
 
@@ -241,6 +242,9 @@ Les animations et effets sont définis dans `src/index.css`.
   Wikiludo ne donne la durée qu'en « court/moyen/long » : les minutes viennent de MyLudo.
   Wikiludo ne sait chercher **que par code-barres** (titre, auteur… ignorés) : la
   recherche par nom passe par MyLudo, puis le code-barres trouvé interroge Wikiludo.
+- **Tarifs affichés : toujours lus dans les Paramètres**, y compris l'adhésion à PACTES
+  (`cotisation_pactes`, Paramètres → Finance, 10 € en octobre 2026). Ne jamais écrire un
+  montant en dur dans une page.
 - **Horaires des permanences : une seule source, les Paramètres.** Ne jamais les écrire
   en dur dans une page (la page « Comment emprunter » a longtemps affiché 10h-12h
   pendant que les Paramètres disaient 10h-14h).

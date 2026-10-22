@@ -17,6 +17,7 @@ export default function HowToBorrow() {
   })
 
   const [appSettings, setAppSettings] = useState({
+    cotisation_pactes: 10,
     prix_particulier: 0,
     degressivite_mensuelle: 0,
     prix_minimum: 0,
@@ -164,7 +165,7 @@ export default function HowToBorrow() {
               <p className="text-[15.5px] font-medium leading-[1.68] text-slate-600">
                 Pour profiter de la ludothèque, il faut d'abord être{' '}
                 <strong className="text-[#0f172a]">adhérent à l'Association <TitrePactes className="align-middle text-base" /></strong>{' '}
-                (contribution annuelle de <strong className="text-[#e38154]">10€</strong>).
+                (contribution annuelle de <strong className="text-[#e38154]">{appSettings.cotisation_pactes}€</strong>).
                 Une fois membre, vous pouvez adhérer à la ludothèque selon les tarifs ci-dessous.
               </p>
             </Reveal>

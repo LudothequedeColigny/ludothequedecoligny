@@ -14,6 +14,7 @@ import SearchField from '../../components/admin/SearchField'
 import IconButton from '../../components/admin/IconButton'
 import ConfirmModal from '../../components/admin/ConfirmModal'
 import PreinscriptionsAValider from '../../components/admin/PreinscriptionsAValider'
+import InscritsActualites from '../../components/admin/InscritsActualites'
 import FormModal from '../../components/admin/FormModal'
 import { DataCard, DataHeader, DataRow, DataEmpty } from '../../components/admin/DataCard'
 import { BTN_ORANGE, BTN_TEAL, BTN_INK } from '../../components/admin/buttons'
@@ -171,6 +172,9 @@ export default function Adherents() {
   const [preinscriptions, setPreinscriptions] = useState([])
   const [depuisPreinscription, setDepuisPreinscription] = useState(null) // id de la demande en cours de validation
   const [supprPreinscription, setSupprPreinscription] = useState(null)
+  // Personnes non adhérentes inscrites aux actualités (encart de l'accueil)
+  const [abonnes, setAbonnes] = useState([])
+  const [supprAbonne, setSupprAbonne] = useState(null)
 
   // ── MODALE RENOUVELLEMENT ADHÉSION ────────────────────────────────────────
   const [renewalModal, setRenewalModal] = useState({ show: false, member: null })
@@ -321,12 +325,14 @@ export default function Adherents() {
   async function fetchMembers() {
     setLoading(true)
     // TRIÉ PAR NUMÉRO D'ADHÉRENT
-    const [{ data }, { data: demandes }] = await Promise.all([
+    const [{ data }, { data: demandes }, { data: inscrits }] = await Promise.all([
       supabase.from('members').select('*').order('member_number', { ascending: true }),
       supabase.from('preinscriptions').select('*').order('created_at', { ascending: true }),
+      supabase.from('abonnes_dates').select('id, email, source, created_at').order('created_at', { ascending: false }),
     ])
     setMembers(data || [])
     setPreinscriptions(demandes || [])
+    setAbonnes(inscrits || [])
     setLoading(false)
   }
 
@@ -591,6 +597,8 @@ www.ludothequedecoligny.fr`
           onValider={validerPreinscription}
           onSupprimer={setSupprPreinscription}
         />
+
+        <InscritsActualites liste={abonnes} onSupprimer={setSupprAbonne} />
 
         <SearchField
           data-tutorial="adherents-search"
@@ -1167,6 +1175,18 @@ www.ludothequedecoligny.fr`
         title="Supprimer la demande ?"
         message={supprPreinscription ? `La pré-inscription de « ${supprPreinscription.nom} ${supprPreinscription.prenom || ''} » sera effacée. Elle disparaît d'elle-même au bout de 3 mois.` : ''}
         confirmLabel="Oui, supprimer"
+        cancelLabel="Conserver"
+        tone="danger"
+        icon={<Trash2 size={26} />}
+      />
+
+      <ConfirmModal
+        open={!!supprAbonne}
+        onClose={() => setSupprAbonne(null)}
+        onConfirm={async () => { await supabase.from('abonnes_dates').delete().eq('id', supprAbonne.id); setSupprAbonne(null); fetchMembers(); addToast('Adresse retirée de la liste.', 'success') }}
+        title="Retirer cette adresse ?"
+        message={supprAbonne ? `« ${supprAbonne.email} » ne recevra plus les actualités et sera effacée de la liste.` : ''}
+        confirmLabel="Oui, retirer"
         cancelLabel="Conserver"
         tone="danger"
         icon={<Trash2 size={26} />}

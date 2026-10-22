@@ -34,7 +34,7 @@ export default function Adherer() {
   })
 
   const [s, setS] = useState({})
-  const [gameCount, setGameCount] = useState(300)
+  const [gameCount, setGameCount] = useState(null)
   const [form, setForm] = useState({ type: 'Particulier', prenom: '', nom: '', email: '', tel: '', commune: '', foyer: '', origine: '', dates: true })
   const [etat, setEtat] = useState('saisie') // saisie | envoi | fait | erreur
 
@@ -52,7 +52,9 @@ export default function Adherer() {
   const fee = s.mode_adhesion_particulier === 'degressif'
     ? Math.max(base - new Date().getMonth() * (Number(s.degressivite_mensuelle) || 0), Number(s.prix_minimum) || 0)
     : base
-  const total = fee + 10
+  // Adhésion à l'association, réglée dans Paramètres → Finance (10 € jusqu'ici)
+  const pactes = Number(s.cotisation_pactes ?? 10) || 0
+  const total = fee + pactes
   const permanences = [1, 2]
     .filter(n => n === 1 || s.horaire_2_actif === 'true')
     .map(n => `${RANGS[s[`horaire_${n}_rang`]] || ''} ${(s[`horaire_${n}_jour`] || 'samedi').toLowerCase()}s (${heure(s[`horaire_${n}_debut`])}-${heure(s[`horaire_${n}_fin`])})`)
@@ -87,8 +89,8 @@ export default function Adherer() {
   const RAISONS = [
     { icon: '01.svg', color: '#1a5f7a', tint: '#e6f0f3', title: "Testez avant d'acheter", text: "Jouez un mois à la maison, et n'achetez que les jeux qui vous plaisent vraiment." },
     { icon: '03.svg', color: '#e38154', tint: '#fdf1ea', title: 'Les jeux à usage unique', text: "Unlock!, escape games, enquêtes : on n'y joue qu'une fois. Ici, ils s'empruntent." },
-    { icon: '05.svg', color: '#1a5f7a', tint: '#e6f0f3', title: `${gameCount} jeux à la maison`, text: 'Un nouveau jeu toutes les deux semaines, des tout-petits aux grands-parents.' },
-    { icon: '02.svg', color: '#e38154', tint: '#fdf1ea', title: "Le prix d'un seul jeu", text: pret ? `${total} € pour l'année : adhésion PACTES (10 €) et ludothèque (${fee} €) comprises.` : "L'adhésion de l'année coûte moins cher qu'un jeu neuf." },
+    { icon: '05.svg', color: '#1a5f7a', tint: '#e6f0f3', title: gameCount ? `${gameCount} jeux à la maison` : 'Des centaines de jeux', text: 'Un nouveau jeu toutes les deux semaines, des tout-petits aux grands-parents.' },
+    { icon: '02.svg', color: '#e38154', tint: '#fdf1ea', title: "Le prix d'un seul jeu", text: pret ? `${total} € pour l'année : adhésion PACTES (${pactes} €) et ludothèque (${fee} €) comprises.` : "L'adhésion de l'année coûte moins cher qu'un jeu neuf." },
   ]
 
   const ETAPES = [
