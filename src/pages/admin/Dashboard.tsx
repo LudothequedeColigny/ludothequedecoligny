@@ -6,6 +6,84 @@ import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import MaskIcon from '../../components/site/MaskIcon'
 import Reveal from '../../components/site/Reveal'
 import CountUp from '../../components/site/CountUp'
+import { ORIGINES } from '../../services/origines'
+
+// Objectifs d'adhérents à jour fixés par la stratégie de communication (oct. 2026).
+// La barre de progression vise la première échéance pas encore passée.
+const OBJECTIFS = [
+  { echeance: '2026-12-31', cible: 13 },
+  { echeance: '2027-06-30', cible: 18 },
+  { echeance: '2027-10-31', cible: 22 },
+]
+
+interface MemberRow {
+  type: string
+  membership_date: string
+  has_paid: boolean
+  created_at: string
+  origine: string | null
+  email: string | null
+  refuse_actualites: boolean | null
+}
+
+// Même règle que l'écran Adhérents : un particulier est à jour pour l'année
+// civile de son adhésion, une association pendant un an.
+function isMemberActive(member: MemberRow, now: Date): boolean {
+  if (!member.has_paid) return false
+  const dateAdhesion = new Date(member.membership_date)
+  if (member.type === 'Particulier') return dateAdhesion.getFullYear() >= now.getFullYear()
+  const expiryDate = new Date(dateAdhesion)
+  expiryDate.setFullYear(expiryDate.getFullYear() + 1)
+  return now <= expiryDate
+}
+
+interface StrategyStats {
+  loansThisYear: number
+  subscribers: number
+  membersReceivingNews: number
+  preinscriptionsReceived: number
+  preinscriptionsValidated: number
+  preinscriptionsPending: number
+  renewalEligible: number // adhérents inscrits avant le 1er janvier
+  renewed: number
+  origins: { label: string; count: number }[]
+}
+
+const emptyStrategyStats: StrategyStats = {
+  loansThisYear: 0,
+  subscribers: 0,
+  membersReceivingNews: 0,
+  preinscriptionsReceived: 0,
+  preinscriptionsValidated: 0,
+  preinscriptionsPending: 0,
+  renewalEligible: 0,
+  renewed: 0,
+  origins: [],
+}
+
+/** Petite case chiffrée du bloc « Objectifs ». */
+function StrategyTile({ label, value, suffix, total, detail }: {
+  label: string
+  value: number | null
+  suffix?: string
+  total?: number // affiché en gris après le chiffre : « 3 / 5 »
+  detail: string
+}) {
+  return (
+    <div className="rounded-[26px] border-2 border-[#0f172a] bg-[#fdfaf6] p-5">
+      <p className="mb-2.5 text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-400">{label}</p>
+      {value === null ? (
+        <span className="font-display text-[40px] font-extrabold leading-none tracking-[-0.05em] text-slate-300">—</span>
+      ) : (
+        <span className="font-display text-[40px] font-extrabold leading-none tracking-[-0.05em]">
+          <CountUp value={value} />{suffix}
+          {total !== undefined && <span className="text-slate-300"> / {total}</span>}
+        </span>
+      )}
+      <p className="mt-2.5 text-[10.5px] leading-[1.5] text-slate-500">{detail}</p>
+    </div>
+  )
+}
 
 interface WeekBucket {
   label: string
@@ -126,6 +204,7 @@ export default function Dashboard() {
     newEventsThisMonth: 0,
   })
   const [loading, setLoading] = useState(true)
+  const [strategyStats, setStrategyStats] = useState<StrategyStats>(emptyStrategyStats)
   const [pageViewStats, setPageViewStats] = useState<PageViewStats>(emptyPageViewStats)
   const [loadingViews, setLoadingViews] = useState(true)
 
@@ -137,45 +216,42 @@ export default function Dashboard() {
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const startOfMonthDateStr = startOfMonth.toISOString().split('T')[0];
-        const thirtyDaysAgo = new Date(now);
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const thirtyDaysAgoDateStr = thirtyDaysAgo.toISOString().split('T')[0];
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        const startOfYearDateStr = `${now.getFullYear()}-01-01`;
 
-        const [games, available, membersData, events, newGames, newMembers, newLoans, newEvents] = await Promise.all([
+        // Un prêt en cours est dans `loans` ; une fois le jeu rendu, il passe dans
+        // `loan_history`. Pour compter les prêts d'une période, il faut les deux.
+        const countLoansSince = (table: 'loans' | 'loan_history', dateStr: string) =>
+          supabase.from(table).select('*', { count: 'exact', head: true }).gte('loan_date', dateStr)
+
+        const [
+          games, available, membersData, events, newGames, newMembers,
+          loansMonth, historyMonth, newEvents,
+          loansYear, historyYear, subscribers, journal, pending,
+        ] = await Promise.all([
           supabase.from('games').select('*', { count: 'exact', head: true }),
           supabase.from('games').select('*', { count: 'exact', head: true }).eq('is_available', true),
-          supabase.from('members').select('type, membership_date, has_paid'), // On récupère les infos pour calculer le statut
+          supabase.from('members').select('type, membership_date, has_paid, created_at, origine, email, refuse_actualites'),
           supabase.from('events').select('*', { count: 'exact', head: true }),
           supabase.from('games').select('*', { count: 'exact', head: true }).gte('created_at', startOfMonth.toISOString()),
           supabase.from('members').select('*', { count: 'exact', head: true }).gte('membership_date', startOfMonthDateStr),
-          supabase.from('loans').select('*', { count: 'exact', head: true }).gte('loan_date', thirtyDaysAgoDateStr),
+          countLoansSince('loans', startOfMonthDateStr),
+          countLoansSince('loan_history', startOfMonthDateStr),
           // La table `events` n'a pas de date de création : on compte les événements
           // qui ont lieu dans le mois en cours (l'ancienne requête sur `created_at`
           // renvoyait une erreur et le compteur restait donc bloqué à 0).
           supabase.from('events').select('*', { count: 'exact', head: true })
             .gte('date', startOfMonth.toISOString())
             .lt('date', new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()),
+          countLoansSince('loans', startOfYearDateStr),
+          countLoansSince('loan_history', startOfYearDateStr),
+          supabase.from('abonnes_dates').select('*', { count: 'exact', head: true }),
+          supabase.from('preinscriptions_journal').select('validee_le'),
+          supabase.from('preinscriptions').select('*', { count: 'exact', head: true }),
         ])
 
-        // --- LOGIQUE DE CALCUL IDENTIQUE À LA PAGE ADHÉRENTS ---
-        const currentYear = now.getFullYear();
-
-        const activeMembersCount = (membersData.data || []).filter(member => {
-          if (!member.has_paid) return false;
-
-          const dateAdhesion = new Date(member.membership_date);
-
-          if (member.type === 'Particulier') {
-            // Un particulier est à jour si son adhésion est de l'année civile en cours
-            return dateAdhesion.getFullYear() >= currentYear;
-          } else {
-            // Une association est à jour pendant 1 an (365 jours)
-            const expiryDate = new Date(dateAdhesion);
-            expiryDate.setFullYear(expiryDate.getFullYear() + 1);
-            return now <= expiryDate;
-          }
-        }).length;
-        // -------------------------------------------------------
+        const members = (membersData.data || []) as MemberRow[]
+        const activeMembersCount = members.filter(m => isMemberActive(m, now)).length
 
         setStats({
           totalGames: games.count || 0,
@@ -184,8 +260,27 @@ export default function Dashboard() {
           totalEvents: events.count || 0,
           newGamesThisMonth: newGames.count || 0,
           newMembersThisMonth: newMembers.count || 0,
-          newLoansThisMonth: newLoans.count || 0,
+          newLoansThisMonth: (loansMonth.count || 0) + (historyMonth.count || 0),
           newEventsThisMonth: newEvents.count || 0,
+        })
+
+        // Renouvellement : parmi les adhérents inscrits avant le 1er janvier,
+        // ceux qui sont de nouveau à jour cette année.
+        const eligible = members.filter(m => new Date(m.created_at) < startOfYear)
+        const journalRows = journal.data || []
+        setStrategyStats({
+          loansThisYear: (loansYear.count || 0) + (historyYear.count || 0),
+          subscribers: subscribers.count || 0,
+          membersReceivingNews: members.filter(m => m.email?.includes('@') && !m.refuse_actualites).length,
+          preinscriptionsReceived: journalRows.length,
+          preinscriptionsValidated: journalRows.filter(r => r.validee_le).length,
+          preinscriptionsPending: pending.count || 0,
+          renewalEligible: eligible.length,
+          renewed: eligible.filter(m => isMemberActive(m, now)).length,
+          origins: ORIGINES
+            .map(label => ({ label, count: members.filter(m => m.origine === label).length }))
+            .filter(o => o.count > 0)
+            .sort((a, b) => b.count - a.count),
         })
       } catch (error) {
         console.error("Erreur stats:", error);
@@ -292,6 +387,14 @@ export default function Dashboard() {
     navigate('/')
   }
 
+  // Première échéance pas encore passée (la dernière une fois toutes passées)
+  const today = new Date()
+  const objectif = OBJECTIFS.find(o => new Date(`${o.echeance}T23:59:59`) >= today) ?? OBJECTIFS[OBJECTIFS.length - 1]
+  const objectifDateLabel = new Date(`${objectif.echeance}T12:00:00`)
+    .toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  const resteObjectif = Math.max(0, objectif.cible - stats.totalMembers)
+  const progressionObjectif = Math.min(100, Math.round((stats.totalMembers / objectif.cible) * 100))
+
   const cards = [
     { title: 'Jeux', value: stats.totalGames, trend: stats.newGamesThisMonth, icon: '02.svg', link: '/admin/jeux', accent: '#1a5f7a', tint: '#f0f7f9' },
     { title: 'Adhérents à jour', value: stats.totalMembers, trend: stats.newMembersThisMonth, icon: '04.svg', link: '/admin/adherents', accent: '#e38154', tint: '#fdf1ea' },
@@ -367,6 +470,111 @@ export default function Dashboard() {
                 </Reveal>
               ))}
             </div>
+
+            {/* OBJECTIFS DE LA STRATÉGIE DE COMMUNICATION */}
+            <Reveal className="rounded-[34px] border-2 border-[#0f172a] bg-white p-6 shadow-[6px_6px_0_#e38154] md:p-9">
+              <div className="mb-6 flex items-center gap-3.5">
+                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#fdf1ea]">
+                  <MaskIcon file="04.svg" size={20} color="#e38154" />
+                </div>
+                <div>
+                  <h3 className="font-display text-[20px] font-extrabold uppercase tracking-[-0.03em]">Objectifs</h3>
+                  <p className="mt-1 text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
+                    Adhésions et communication
+                  </p>
+                </div>
+              </div>
+
+              {/* Progression vers la prochaine échéance */}
+              <div className="mb-4 rounded-[26px] border-2 border-[#0f172a] bg-[#fdfaf6] p-6">
+                <p className="mb-2.5 text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
+                  Adhérents à jour — objectif du {objectifDateLabel}
+                </p>
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span className="font-display text-[40px] font-extrabold leading-none tracking-[-0.05em]">
+                    <CountUp value={stats.totalMembers} />
+                    <span className="text-slate-300"> / {objectif.cible}</span>
+                  </span>
+                  <span className={`text-xs font-extrabold ${resteObjectif === 0 ? 'text-emerald-500' : 'text-[#e38154]'}`}>
+                    {resteObjectif === 0
+                      ? 'Objectif atteint'
+                      : `Encore ${resteObjectif} adhérent${resteObjectif > 1 ? 's' : ''}`}
+                  </span>
+                </div>
+                <div className="mt-4 h-4 overflow-hidden rounded-full border-2 border-[#0f172a] bg-white">
+                  <div
+                    className="anim-grow-bar-x h-full rounded-full bg-[#e38154]"
+                    style={{ width: `${progressionObjectif}%` }}
+                  />
+                </div>
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+                  {OBJECTIFS.map(o => (
+                    <span
+                      key={o.echeance}
+                      className={`text-[10.5px] ${o === objectif ? 'font-extrabold text-[#0f172a]' : 'text-slate-400'}`}
+                    >
+                      {o.cible} au {new Date(`${o.echeance}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <StrategyTile
+                  label={`Prêts depuis le 1er janvier`}
+                  value={strategyStats.loansThisYear}
+                  detail="Jeux encore sortis et jeux déjà rendus"
+                />
+                <StrategyTile
+                  label="Inscrits aux actualités"
+                  value={strategyStats.subscribers}
+                  detail={`Non adhérents. S'y ajoutent ${strategyStats.membersReceivingNews} adhérent${strategyStats.membersReceivingNews > 1 ? 's' : ''} qui reçoivent les mails.`}
+                />
+                <StrategyTile
+                  label="Pré-inscriptions validées"
+                  value={strategyStats.preinscriptionsValidated}
+                  total={strategyStats.preinscriptionsReceived}
+                  detail={`Validées sur reçues depuis le 22 oct. 2026${strategyStats.preinscriptionsPending > 0 ? ` · ${strategyStats.preinscriptionsPending} en attente` : ''}`}
+                />
+                <StrategyTile
+                  label="Renouvellement"
+                  value={strategyStats.renewalEligible > 0
+                    ? Math.round((strategyStats.renewed / strategyStats.renewalEligible) * 100)
+                    : null}
+                  suffix="%"
+                  detail={strategyStats.renewalEligible > 0
+                    ? `${strategyStats.renewed} sur ${strategyStats.renewalEligible} adhérents inscrits avant le 1er janvier`
+                    : 'Mesuré à partir de janvier 2027, quand les premiers adhérents renouvelleront'}
+                />
+              </div>
+
+              <p className="mb-4 text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
+                Comment nous ont-ils connus ?
+              </p>
+              {strategyStats.origins.length === 0 ? (
+                <p className="rounded-[26px] border-2 border-dashed border-slate-300 p-6 text-center text-[12px] text-slate-500">
+                  Pas encore de réponse : la question est posée sur chaque fiche adhérent depuis le 22 octobre 2026.
+                </p>
+              ) : (
+                <div className="space-y-3 rounded-[26px] border-2 border-[#0f172a] bg-[#fdfaf6] p-6">
+                  {strategyStats.origins.map((o, i) => (
+                    <div key={o.label} className="flex items-center gap-3">
+                      <span className="w-[42%] shrink-0 text-[11.5px] font-semibold leading-tight text-slate-600 md:w-[220px]">{o.label}</span>
+                      <div className="h-3 flex-1 overflow-hidden rounded-full bg-white">
+                        <div
+                          className="anim-grow-bar-x h-full rounded-full"
+                          style={{
+                            width: `${(o.count / strategyStats.origins[0].count) * 100}%`,
+                            background: i === 0 ? '#e38154' : '#1a5f7a',
+                          }}
+                        />
+                      </div>
+                      <span className="w-6 shrink-0 text-right text-[12px] font-extrabold">{o.count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Reveal>
 
             {/* VISITES DU SITE */}
             <Reveal className="rounded-[34px] border-2 border-[#0f172a] bg-white p-6 shadow-[6px_6px_0_#1a5f7a] md:p-9">

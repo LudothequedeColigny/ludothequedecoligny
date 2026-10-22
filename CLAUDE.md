@@ -216,6 +216,9 @@ Les animations et effets sont définis dans `src/index.css`.
   formulaire, toute nouvelle donnée gardée ou tout nouveau service extérieur doit y
   être ajouté. Les pré-inscriptions sont effacées seules après 3 mois (tâche de nuit
   `effacer-preinscriptions-anciennes`) : c'est une promesse faite sur cette page.
+  Pour le tableau de bord, `preinscriptions_journal` garde seulement les dates
+  « reçue le / validée le » de chaque demande (rempli par un déclencheur, validation
+  notée par l'écran Adhérents) : aucune donnée personnelle, donc pas d'effacement.
 - **Inscrits aux dates** (`abonnes_dates`) : ils reçoivent le message « adhérents » de
   l'écran Communication, avec leur propre lien de désinscription, qui efface leur
   adresse. Une adresse déjà connue comme adhérent n'est pas reprise.

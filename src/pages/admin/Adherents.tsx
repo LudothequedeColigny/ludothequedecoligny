@@ -538,6 +538,10 @@ www.ludothequedecoligny.fr`
         }
 
         if (depuisPreinscription) {
+          // Le registre garde la date de validation (compteur du tableau de bord)
+          await supabase.from('preinscriptions_journal')
+            .update({ validee_le: new Date().toISOString() })
+            .eq('preinscription_id', depuisPreinscription)
           await supabase.from('preinscriptions').delete().eq('id', depuisPreinscription)
           setDepuisPreinscription(null)
         }
