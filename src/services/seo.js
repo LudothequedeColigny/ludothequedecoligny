@@ -116,7 +116,7 @@ export function ficheLudotheque({ adresse, horaires, telephone, facebook = FACEB
     ...(adresse?.rue ? { address: ADRESSE(adresse) } : {}),
     // Niveau de prix : adhésion annuelle modeste
     priceRange: '€',
-    areaServed: ['Coligny', 'Bresse', 'Ain'],
+    areaServed: ['Coligny', 'Saint-Amour', 'Marboz', 'Beaupont', 'Pirajoux', 'Bresse', 'Ain'],
     parentOrganization: { '@type': 'Organization', name: 'Association PACTES' },
     ...(facebook ? { sameAs: [facebook] } : {}),
     ...(creneaux.length ? { openingHoursSpecification: datesOuverture(creneaux) } : {}),

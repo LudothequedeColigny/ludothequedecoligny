@@ -56,7 +56,7 @@ export default function Home() {
   // Ce que Google lit : titre, description, fiche d'identité, événements à venir
   usePageMeta({
     title: 'Prêt de jeux de société dans l’Ain',
-    description: "Ludothèque associative de Coligny (Ain) : plus de 300 jeux de société à emprunter, après-midis et soirées jeux pour petits et grands. Permanences deux samedis par mois.",
+    description: "Ludothèque associative de Coligny (Ain), près de Saint-Amour et Marboz : plus de 300 jeux de société à emprunter, après-midis et soirées jeux pour petits et grands.",
     path: '/',
   })
   useJsonLd('ludotheque', loading ? null : ficheLudotheque({ adresse, horaires, telephone }))
@@ -236,7 +236,8 @@ export default function Home() {
               className="anim-soft-in mx-auto mb-7 max-w-[32em] text-[15px] font-medium leading-[1.65] text-slate-500 md:text-[19px]"
               style={{ animationDelay: '0.9s' }}
             >
-              Portée par l'association <TitrePactes />, notre ludothèque est un espace de rencontre et de partage.
+              Portée par l'association <TitrePactes />, notre ludothèque est un espace de rencontre et de partage,
+              ouvert aux habitants de Coligny, <span className="whitespace-nowrap">Saint-Amour</span>, Marboz, Beaupont, Pirajoux et des villages alentour.
             </p>
 
             <div

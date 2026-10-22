@@ -10,7 +10,7 @@ import { usePageMeta } from '../services/seo'
 export default function HowToBorrow() {
   usePageMeta({
     title: 'Comment emprunter des jeux',
-    description: "Adhésion, tarifs et conditions de prêt de la ludothèque de Coligny (Ain) : inscription sur place lors des permanences, plusieurs jeux à emprunter pour un mois.",
+    description: "Adhésion, tarifs et conditions de prêt de la ludothèque de Coligny (Ain), ouverte aux habitants de Saint-Amour, Marboz et alentours : plusieurs jeux à emprunter pour un mois.",
     path: '/comment-emprunter',
   })
 
@@ -118,7 +118,7 @@ export default function HowToBorrow() {
     {
       key: 'collectivite',
       title: 'Collectivités',
-      intro: 'Pour les structures (associations, écoles, mairies) de Coligny et alentours.',
+      intro: 'Pour les structures (associations, écoles, mairies) de Coligny, Saint-Amour, Marboz, Beaupont, Pirajoux et alentours.',
       icon: '02.svg',
       accent: '#e38154',
       tint: '#fdf1ea',
@@ -265,8 +265,9 @@ export default function HowToBorrow() {
               Prêt à jouer ?
             </h2>
             <p className="mx-auto mb-7 max-w-[34em] text-base font-medium leading-[1.65] text-white/80">
-              Passez nous voir au <strong className="text-[#e38154]">419 Grande Rue à Coligny</strong> durant
-              nos permanences. L'inscription se fait directement sur place.
+              Que vous habitiez Coligny, <span className="whitespace-nowrap">Saint-Amour</span>, Marboz, Beaupont, Pirajoux ou ailleurs, passez nous voir
+              au <strong className="text-[#e38154]">419 Grande Rue à Coligny</strong> durant nos permanences.
+              L'inscription se fait directement sur place.
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               {permanences.map(texte => (

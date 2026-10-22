@@ -26,6 +26,22 @@ const A_INPUT = 'w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px
 const A_CHECK = 'flex cursor-pointer items-center gap-2.5 rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-4 py-3.5 text-[10.5px] font-extrabold uppercase tracking-[0.1em] text-slate-600'
 const A_INFO_ROW = 'flex items-center gap-3.5 rounded-[20px] border-2 border-slate-200 bg-[#fdfaf6] px-5 py-4 text-[13.5px] font-bold text-slate-600'
 
+// « Comment nous avez-vous connus ? » — liste fixe pour pouvoir compter quel
+// canal amène les nouveaux adhérents (stratégie de communication, oct. 2026)
+const ORIGINES = [
+  'Soirée jeux',
+  'Après-midi jeux',
+  'Un proche, le bouche-à-oreille',
+  'PanneauPocket',
+  'Bulletin municipal',
+  'Affiche ou dépliant',
+  'Facebook ou Instagram',
+  'Site internet, Google',
+  'École ou bibliothèque',
+  'Presse ou radio',
+  'Autre',
+]
+
 
 const ADHERENTS_TUTORIAL_STEPS = (openForm, closeForm, openRelance, openRenewal) => [
   {
@@ -207,7 +223,8 @@ export default function Adherents() {
     has_paid: true, 
     caution_received: false,
     refuse_actualites: false,
-    family_members: [], 
+    origine: null,
+    family_members: [],
     membership_date: todayStr,
     fee_amount: 0,
     last_reminder_date: null
@@ -766,6 +783,16 @@ www.ludothequedecoligny.fr`
                     value={newMember.address} onChange={e => setNewMember({ ...newMember, address: e.target.value })}
                   />
                 </div>
+
+                <div className={`${A_SECTION} mt-5 text-[#1a5f7a]`}>Comment nous a-t-il connus ?</div>
+                <select
+                  className={`${A_INPUT} cursor-pointer`}
+                  value={newMember.origine || ''}
+                  onChange={e => setNewMember({ ...newMember, origine: e.target.value || null })}
+                >
+                  <option value="">Non renseigné</option>
+                  {ORIGINES.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
               </div>
 
               <div>
@@ -1067,6 +1094,9 @@ www.ludothequedecoligny.fr`
               <div className="flex items-center gap-3.5 rounded-[20px] border-2 border-slate-200 bg-[#f0f7f9] px-5 py-4 text-[13.5px] font-bold text-[#1a5f7a]">
                 <CreditCard size={19} className="shrink-0" /> Cotisation {viewMember.fee_amount}€
               </div>
+              {viewMember.origine && (
+                <div className={A_INFO_ROW}><Info size={19} className="shrink-0 text-[#1a5f7a]" /> Nous a connus : {viewMember.origine}</div>
+              )}
             </div>
 
             {viewMember.type === 'Particulier' && (
