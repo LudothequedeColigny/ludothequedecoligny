@@ -14,7 +14,7 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.js',
       injectManifest: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
       },
       includeAssets: ['logo-feuille.svg'],
       manifest: {

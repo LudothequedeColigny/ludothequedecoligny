@@ -132,10 +132,13 @@ export default function InscriptionPermanence() {
                 id="benevole-nom"
                 required
                 placeholder="Camille Martin"
-                className={`${INPUT} mb-7`}
+                className={`${INPUT} mb-2`}
                 value={name}
                 onChange={e => setName(e.target.value)}
               />
+              <p className="mb-7 text-[11.5px] leading-[1.5] text-slate-400">
+                Ton nom apparaîtra sur cette page, visible de tous, pour que l'équipe s'organise.
+              </p>
 
               <div className="mb-4 text-[10px] font-extrabold uppercase italic tracking-[0.16em] text-[#1a5f7a]">
                 2. Choisir tes dates de permanence

@@ -49,7 +49,7 @@ export default function Modal({
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-[22px]"
+      className={`fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-[22px] ${backdrop === 'ink' ? '' : 'font-body'}`}
     >
       <div
         onClick={onClose}

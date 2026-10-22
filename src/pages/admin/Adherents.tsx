@@ -13,9 +13,11 @@ import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import SearchField from '../../components/admin/SearchField'
 import IconButton from '../../components/admin/IconButton'
 import ConfirmModal from '../../components/admin/ConfirmModal'
+import PreinscriptionsAValider from '../../components/admin/PreinscriptionsAValider'
 import FormModal from '../../components/admin/FormModal'
 import { DataCard, DataHeader, DataRow, DataEmpty } from '../../components/admin/DataCard'
 import { BTN_ORANGE, BTN_TEAL, BTN_INK } from '../../components/admin/buttons'
+import { ORIGINES } from '../../services/origines'
 
 // Colonnes du tableau des adhérents : n°, adhérent, statut, caution, actions
 const MEMBERS_COLS = '62px minmax(0, 1.3fr) minmax(0, 1.1fr) minmax(0, .95fr) 236px'
@@ -26,21 +28,6 @@ const A_INPUT = 'w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px
 const A_CHECK = 'flex cursor-pointer items-center gap-2.5 rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-4 py-3.5 text-[10.5px] font-extrabold uppercase tracking-[0.1em] text-slate-600'
 const A_INFO_ROW = 'flex items-center gap-3.5 rounded-[20px] border-2 border-slate-200 bg-[#fdfaf6] px-5 py-4 text-[13.5px] font-bold text-slate-600'
 
-// « Comment nous avez-vous connus ? » — liste fixe pour pouvoir compter quel
-// canal amène les nouveaux adhérents (stratégie de communication, oct. 2026)
-const ORIGINES = [
-  'Soirée jeux',
-  'Après-midi jeux',
-  'Un proche, le bouche-à-oreille',
-  'PanneauPocket',
-  'Bulletin municipal',
-  'Affiche ou dépliant',
-  'Facebook ou Instagram',
-  'Site internet, Google',
-  'École ou bibliothèque',
-  'Presse ou radio',
-  'Autre',
-]
 
 
 const ADHERENTS_TUTORIAL_STEPS = (openForm, closeForm, openRelance, openRenewal) => [
@@ -180,6 +167,11 @@ export default function Adherents() {
   const [showPaymentInfoModal, setShowPaymentInfoModal] = useState(false)
   const [showTuto, setShowTuto] = useState(false)
 
+  // ── PRÉ-INSCRIPTIONS FAITES SUR LE SITE (/adherer) ────────────────────────
+  const [preinscriptions, setPreinscriptions] = useState([])
+  const [depuisPreinscription, setDepuisPreinscription] = useState(null) // id de la demande en cours de validation
+  const [supprPreinscription, setSupprPreinscription] = useState(null)
+
   // ── MODALE RENOUVELLEMENT ADHÉSION ────────────────────────────────────────
   const [renewalModal, setRenewalModal] = useState({ show: false, member: null })
   const [renewalForm, setRenewalForm] = useState({ membership_date: '', fee_amount: 0, has_paid: true, sendEmail: true })
@@ -279,7 +271,28 @@ export default function Adherents() {
     return (max + 1).toString().padStart(3, '0');
   }
 
+  // La fiche adhérent s'ouvre pré-remplie ; la demande sera effacée à l'enregistrement
+  const validerPreinscription = (p) => {
+    setEditingId(null)
+    setNewMember({
+      ...initialFormState,
+      type: p.type,
+      first_name: p.type === 'Association' ? 'Association' : (p.prenom || ''),
+      last_name: p.nom,
+      email: p.email,
+      phone: p.telephone || '',
+      address: p.commune || '',
+      family_members: (p.foyer || '').split(',').map(n => n.trim()).filter(Boolean),
+      origine: p.origine || null,
+      member_number: getNextAvailableNumber(members),
+      fee_amount: calculateFee(p.type, todayStr, appSettings),
+    })
+    setDepuisPreinscription(p.id)
+    setShowForm(true)
+  }
+
   const handleOpenForm = () => {
+    setDepuisPreinscription(null);
     setEditingId(null);
     setNewMember({
       ...initialFormState,
@@ -308,8 +321,12 @@ export default function Adherents() {
   async function fetchMembers() {
     setLoading(true)
     // TRIÉ PAR NUMÉRO D'ADHÉRENT
-    const { data } = await supabase.from('members').select('*').order('member_number', { ascending: true })
+    const [{ data }, { data: demandes }] = await Promise.all([
+      supabase.from('members').select('*').order('member_number', { ascending: true }),
+      supabase.from('preinscriptions').select('*').order('created_at', { ascending: true }),
+    ])
     setMembers(data || [])
+    setPreinscriptions(demandes || [])
     setLoading(false)
   }
 
@@ -514,6 +531,11 @@ www.ludothequedecoligny.fr`
           }
         }
 
+        if (depuisPreinscription) {
+          await supabase.from('preinscriptions').delete().eq('id', depuisPreinscription)
+          setDepuisPreinscription(null)
+        }
+
         setShowForm(false); setNewMember(initialFormState); fetchMembers(); setEditingId(null)
         addToast('Adhérent ajouté avec succès.', 'success')
       }
@@ -564,6 +586,12 @@ www.ludothequedecoligny.fr`
       </div>
 
       <main>
+        <PreinscriptionsAValider
+          liste={preinscriptions}
+          onValider={validerPreinscription}
+          onSupprimer={setSupprPreinscription}
+        />
+
         <SearchField
           data-tutorial="adherents-search"
           className="mb-6"
@@ -1126,6 +1154,18 @@ www.ludothequedecoligny.fr`
         onConfirm={async () => { await supabase.from('members').delete().eq('id', deleteConfirm.id); setDeleteConfirm(null); fetchMembers(); addToast('Adhérent supprimé avec succès.', 'success') }}
         title="Supprimer ?"
         message={deleteConfirm ? `« ${deleteConfirm.last_name} ${deleteConfirm.first_name} » sera définitivement retiré du fichier des adhérents.` : ''}
+        confirmLabel="Oui, supprimer"
+        cancelLabel="Conserver"
+        tone="danger"
+        icon={<Trash2 size={26} />}
+      />
+
+      <ConfirmModal
+        open={!!supprPreinscription}
+        onClose={() => setSupprPreinscription(null)}
+        onConfirm={async () => { await supabase.from('preinscriptions').delete().eq('id', supprPreinscription.id); setSupprPreinscription(null); fetchMembers(); addToast('Pré-inscription supprimée.', 'success') }}
+        title="Supprimer la demande ?"
+        message={supprPreinscription ? `La pré-inscription de « ${supprPreinscription.nom} ${supprPreinscription.prenom || ''} » sera effacée. Elle disparaît d'elle-même au bout de 3 mois.` : ''}
         confirmLabel="Oui, supprimer"
         cancelLabel="Conserver"
         tone="danger"

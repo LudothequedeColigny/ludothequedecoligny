@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { Loader2, AlertTriangle, Phone, User } from 'lucide-react'
 import { supabase } from '../services/supabaseClient'
@@ -116,8 +117,12 @@ export default function ContactModal({ open, onClose }) {
           placeholder="Votre message"
           value={message}
           onChange={e => setMessage(e.target.value)}
-          className="mb-5 w-full resize-none rounded-[20px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-4 text-sm font-medium text-[#0f172a] outline-none placeholder:text-slate-400 focus:bg-white"
+          className="mb-3 w-full resize-none rounded-[20px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-4 text-sm font-medium text-[#0f172a] outline-none placeholder:text-slate-400 focus:bg-white"
         />
+        <p className="mb-5 text-[11.5px] leading-[1.5] text-slate-400">
+          Votre message nous arrive par e-mail ; rien n'est gardé sur le site.{' '}
+          <Link to="/confidentialite" onClick={onClose} className="underline">Confidentialité</Link>
+        </p>
 
         {status === 'error' && (
           <div className="mb-4 flex items-center gap-2 rounded-[18px] border-2 border-rose-200 bg-rose-50 p-4 text-xs font-bold text-rose-600">

@@ -41,6 +41,9 @@ Le site est publié via Vercel.
 | `/catalogue` | Catalogue des jeux | `src/pages/Catalogue.jsx` |
 | `/comment-emprunter` | Modalités et tarifs | `src/pages/HowToBorrow.jsx` |
 | `/vie-association` | Vie de la ludothèque | `src/pages/VieAssociation.jsx` |
+| `/adherer` | Pourquoi adhérer + pré-inscription (adresse du QR code des soirées) | `src/pages/Adherer.jsx` |
+| `/mentions-legales` | Mentions légales | `src/pages/MentionsLegales.jsx` |
+| `/confidentialite` | Confidentialité (RGPD) + bouton « ne pas être compté » | `src/pages/Confidentialite.jsx` |
 | `/login` | Connexion bénévoles | `src/pages/Login.jsx` |
 | `/inscription-permanence` | Inscription aux permanences | `src/pages/InscriptionPermanence.jsx` |
 | `/desabonnement` | Lien « ne plus recevoir nos actualités » des mails | `src/pages/Desabonnement.jsx` |
@@ -73,6 +76,11 @@ Tous suivent la maquette `Admin 1C.dc.html`, **page et fenêtres comprises** (vo
 
 `settings` (horaires, adresse, tarifs, contact), `games`, `members`, `events`,
 `event_photos`, `event_games_played`, `shifts`, `page_views` (compteur de visites).
+
+Le visiteur **écrit sans pouvoir lire** dans `preinscriptions` et `abonnes_dates`
+(fonctions `preinscrire` et `inscrire_dates`, `supabase/migrations/20261022_preinscriptions.sql`).
+La fonction serveur `send-email` envoie alors la confirmation ou le mail de bienvenue,
+une seule fois par demande, et alerte les bénévoles (`send-push`).
 
 ---
 
@@ -125,13 +133,15 @@ Dans `src/components/site/` :
 | Brique | À quoi ça sert |
 |---|---|
 | `PublicLayout` | enveloppe commune : en-tête + pied de page + remontée en haut |
-| `SiteHeader` | en-tête ; menu déroulant en dessous de 1024 px |
+| `SiteHeader` | en-tête ; menu déroulant en dessous de 1280 px, bouton « Adhérer » toujours visible |
 | `Reveal` | fait apparaître un bloc quand on arrive dessus en défilant |
 | `CountUp` | compteur qui s'incrémente quand le chiffre devient visible |
 | `Modal` | fenêtre par-dessus la page (voile bleu, panneau contouré) |
 | `SuccessModal` | fenêtre de confirmation (coche verte) |
 | `MaskIcon` | icône de `public/icons/` recolorée à la charte |
 | `FloatingIcons` | icônes qui dérivent en fond de section |
+| `RecevoirDates` | encart « Recevoir les prochaines dates par e-mail » (accueil) |
+| `PageLegale` | mise en page des pages Mentions légales et Confidentialité |
 | `styles.js` | classes des boutons et champs (`BTN_PRIMARY`, `INPUT`…) |
 
 Également : `src/components/Footer.jsx`, `src/components/ContactModal.jsx`,
@@ -150,6 +160,7 @@ Pour l'espace de gestion, dans `src/components/admin/` :
 | `AdminPageHeader` | en-tête d'écran : pastille d'icône + titre en deux tons |
 | `ConfirmModal` | fenêtre de confirmation (supprimer, quitter, valider un retour) |
 | `BarcodeCamera` | caméra + lecture des codes-barres (lampe, choix d'objectif, ligne grise de diagnostic), pour les deux scanners |
+| `PreinscriptionsAValider` | bloc de l'écran Adhérents : demandes faites sur `/adherer`, bouton « Valider l'adhésion » qui pré-remplit la fiche |
 | `FicheWikiludo` | fenêtre « Fiche pour Wikiludo » : chaque champ de la grille Wikiludo avec un bouton Copier (catalogue + MyLudo), ordinateur seulement |
 
 `Reveal`, `CountUp`, `Modal`, `MaskIcon` de `components/site/` servent aussi côté
@@ -197,6 +208,16 @@ Les animations et effets sont définis dans `src/index.css`.
   en septembre 2026). Le compteur « Joueurs passionnés » de l'accueil passe par la
   fonction `nombre_joueurs()` (`supabase/migrations/20261016_compteur_joueurs.sql`),
   qui ne renvoie que le nombre ; si elle manque, la case est masquée.
+- **Les polices sont hébergées sur le site** (`public/fonts/`, règles en tête de
+  `src/index.css`) depuis octobre 2026 : plus aucun appel à Google Fonts, qui voyait
+  l'adresse IP de chaque visiteur. Ne pas remettre le lien Google dans `index.html`.
+- **La page Confidentialité décrit ce que le site enregistre vraiment.** Tout nouveau
+  formulaire, toute nouvelle donnée gardée ou tout nouveau service extérieur doit y
+  être ajouté. Les pré-inscriptions sont effacées seules après 3 mois (tâche de nuit
+  `effacer-preinscriptions-anciennes`) : c'est une promesse faite sur cette page.
+- **Inscrits aux dates** (`abonnes_dates`) : ils reçoivent le message « adhérents » de
+  l'écran Communication, avec leur propre lien de désinscription, qui efface leur
+  adresse. Une adresse déjà connue comme adhérent n'est pas reprise.
 - **Pas de Google Analytics ni de cookie de mesure** (retirés en octobre 2026, RGPD) :
   les visites sont comptées par `src/services/visites.js` (numéro de visiteur au hasard,
   13 mois au plus, refus possible). C'est ce qui dispense le site de bandeau cookies :

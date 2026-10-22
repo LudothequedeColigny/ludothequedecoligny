@@ -272,6 +272,7 @@ export default function Evenements() {
   const [postSuccess, setPostSuccess] = useState(false)
   const [showMairies, setShowMairies] = useState(true)
   const [showAdherents, setShowAdherents] = useState(true)
+  const [showAbonnes, setShowAbonnes] = useState(true)
   const [selectedEvents, setSelectedEvents] = useState([])
   const [showEventPicker, setShowEventPicker] = useState(false)
   const [collectivites, setCollectivites] = useState([])
@@ -612,14 +613,23 @@ L'équipe de la Ludothèque de Coligny
     const subject = `Communication Événement - Association PACTES - ${event.title}`
     const { bodyCollectivites, bodyAdherents } = buildBodies([makeEventBlock(event)])
     try {
-      const { data: members } = await supabase.from('members').select('email, first_name, last_name, refuse_actualites, jeton_desabonnement')
+      const [{ data: members }, { data: abonnes }] = await Promise.all([
+        supabase.from('members').select('email, first_name, last_name, refuse_actualites, jeton_desabonnement'),
+        supabase.from('abonnes_dates').select('email, jeton_desabonnement').order('created_at'),
+      ])
       // Les adhérents qui ont demandé à ne plus recevoir les actualités sont retirés
       const memberRecipients = members
         ? members.filter(m => m.email && m.email.includes('@') && !m.refuse_actualites)
             .map(m => ({ email: m.email, label: `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email, group: 'adherent', checked: true, jeton: m.jeton_desabonnement }))
         : []
+      // Inscrits aux dates depuis le site : même message que les adhérents.
+      // Une adresse déjà connue comme adhérent (même désabonné) n'est pas reprise.
+      const adressesAdherents = new Set((members || []).map(m => (m.email || '').trim().toLowerCase()))
+      const abonneRecipients = (abonnes || [])
+        .filter(a => !adressesAdherents.has(a.email.toLowerCase()))
+        .map(a => ({ email: a.email, label: a.email, group: 'abonne', checked: true, jeton: a.jeton_desabonnement }))
       const collectiviteRecipients = collectivites.map(c => ({ ...c, group: 'mairie', checked: true }))
-      setComposeData({ subject, bodyCollectivites, bodyAdherents, recipients: [...collectiviteRecipients, ...memberRecipients] })
+      setComposeData({ subject, bodyCollectivites, bodyAdherents, recipients: [...collectiviteRecipients, ...memberRecipients, ...abonneRecipients] })
     } catch (e) {
       setComposeData({ subject, bodyCollectivites, bodyAdherents, recipients: collectivites.map(c => ({ ...c, group: 'mairie', checked: true })) })
     } finally {
@@ -681,6 +691,7 @@ L'équipe de la Ludothèque de Coligny
   // Collectivités : réponse au mail, qui arrive sur la boîte de la ludothèque.
   const MENTION_DESABONNEMENT = {
     adherent: `Vous recevez ce message en tant qu'adhérent de la ludothèque. <a href="[LIEN_DESABONNEMENT]" style="color:#64748b;">Ne plus recevoir nos actualités</a>`,
+    abonne: `Vous recevez ce message car vous avez demandé à recevoir nos prochaines dates. <a href="[LIEN_DESABONNEMENT]" style="color:#64748b;">Ne plus recevoir nos actualités</a>`,
     mairie: "Vous recevez ce message car votre structure figure dans la liste de diffusion de la ludothèque. Pour ne plus le recevoir, répondez simplement à ce mail.",
   }
   const lienDesabonnement = jeton => jeton
@@ -715,6 +726,7 @@ L'équipe de la Ludothèque de Coligny
       const { blocksHtml } = buildBodies(selectedEvents)
       const htmlCollectivites = bodyToHtml(composeData.bodyCollectivites, blocksHtml, 'mairie')
       const htmlAdherents = bodyToHtml(composeData.bodyAdherents, blocksHtml, 'adherent')
+      const htmlAbonnes = bodyToHtml(composeData.bodyAdherents, blocksHtml, 'abonne')
       const image_urls = selectedEvents.map(b => b.event.image_url).filter(Boolean)
       const calendarEvents = selectedEvents.map(b => ({
         title: b.titre,
@@ -730,14 +742,14 @@ L'équipe de la Ludothèque de Coligny
         const r = activeRecipients[i]
         const html = r.group === 'mairie'
           ? htmlCollectivites
-          : htmlAdherents.replaceAll('[LIEN_DESABONNEMENT]', lienDesabonnement(r.jeton))
+          : (r.group === 'abonne' ? htmlAbonnes : htmlAdherents).replaceAll('[LIEN_DESABONNEMENT]', lienDesabonnement(r.jeton))
         try {
           await sendEmail({
             to: [r.email],
             subject: composeData.subject,
             html,
             image_urls,
-            ...(r.group === 'adherent' ? { calendar_events: calendarEvents } : {}),
+            ...(r.group !== 'mairie' ? { calendar_events: calendarEvents } : {}),
           })
         } catch (err) {
           console.error('Échec envoi à', r.email, ':', err)
@@ -1850,7 +1862,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                     <Users size={11} />
                     Adhérents
                     <span className="text-[8px] font-bold opacity-60">
-                      ({composeData.recipients.filter(r => r.group === 'adherent' && r.checked).length})
+                      ({composeData.recipients.filter(r => r.group !== 'mairie' && r.checked).length})
                     </span>
                   </button>
                 </div>
@@ -1875,7 +1887,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 {activeMailTab === 'adherents' && (
                   <div className="space-y-1">
                     <p className="text-[9px] text-slate-400 font-medium ml-1">
-                      Message envoyé aux adhérents — invite à venir participer
+                      Message envoyé aux adhérents et aux inscrits aux dates — invite à venir participer
                     </p>
                     <textarea
                       rows={8}
@@ -2067,6 +2079,40 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                                   <span className="text-xs font-bold text-slate-700 sm:flex-1">{r.label}</span>
                                   <span className="break-all text-[9px] text-slate-400">{r.email}</span>
                                 </span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Groupe Inscrits aux dates (site public, non adhérents) */}
+                    {composeData.recipients.filter(r => r.group === 'abonne').length > 0 && (
+                      <div className="mt-4 border border-slate-100 rounded-2xl overflow-hidden">
+                        <button
+                          onClick={() => setShowAbonnes(v => !v)}
+                          className="flex w-full items-center justify-between border-b-2 border-[#0f172a] bg-[#fdfaf6] p-4 transition-colors hover:bg-slate-100"
+                        >
+                          <div className="flex items-center gap-3">
+                            <input type="checkbox" readOnly
+                              checked={composeData.recipients.filter(r => r.group === 'abonne').every(r => r.checked)}
+                              onClick={e => { e.stopPropagation(); toggleGroup('abonne') }}
+                              className="w-4 h-4 accent-[#1a5f7a] cursor-pointer"
+                            />
+                            <span className="text-xs font-black text-slate-700 uppercase tracking-wide">Inscrits aux dates</span>
+                            <span className="text-[9px] font-bold text-slate-400">
+                              ({composeData.recipients.filter(r => r.group === 'abonne' && r.checked).length}/{composeData.recipients.filter(r => r.group === 'abonne').length})
+                            </span>
+                          </div>
+                          {showAbonnes ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+                        </button>
+                        {showAbonnes && (
+                          <div className="divide-y divide-slate-50">
+                            {composeData.recipients.filter(r => r.group === 'abonne').map(r => (
+                              <label key={r.email} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer sm:px-5">
+                                <input type="checkbox" checked={r.checked} onChange={() => toggleRecipient(r.email)}
+                                  className="w-4 h-4 accent-[#1a5f7a] cursor-pointer flex-shrink-0" />
+                                <span className="break-all text-xs font-bold text-slate-700">{r.email}</span>
                               </label>
                             ))}
                           </div>

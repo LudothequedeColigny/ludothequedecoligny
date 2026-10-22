@@ -18,13 +18,14 @@ export default function SiteHeader() {
   const { pathname } = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
 
-  // La navigation inline demande ~900px : en dessous, tout passe dans le menu déroulant.
+  // La navigation complète (avec « Adhérer » et « Espace Bénévole ») demande
+  // ~1200px : en dessous, menu déroulant, mais « Adhérer » reste toujours visible.
   useEffect(() => { setMenuOpen(false) }, [pathname])
 
   return (
     <header className="sticky top-0 z-50 bg-[#fdfaf6]/90 backdrop-blur-[14px]">
       <div className="mx-auto max-w-[1180px] px-3 py-3 md:px-8 md:py-3.5">
-        <div className="rounded-[2rem] border-2 border-[#0f172a] bg-white shadow-[4px_4px_0_#1a5f7a] lg:rounded-full">
+        <div className="rounded-[2rem] border-2 border-[#0f172a] bg-white shadow-[4px_4px_0_#1a5f7a] xl:rounded-full">
           <div className="flex items-center justify-between gap-3 p-2.5 pl-4">
             <Link to="/" className="flex min-w-0 items-center gap-3">
               <img
@@ -34,7 +35,7 @@ export default function SiteHeader() {
                 className="h-9 shrink-0"
               />
               <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="truncate font-display text-[15px] font-extrabold leading-none tracking-[-0.03em] text-[#0f172a] xl:text-[19px]">
+                <span className="font-display text-[15px] font-extrabold leading-[1.05] tracking-[-0.03em] text-[#0f172a] sm:truncate sm:leading-none xl:text-[19px]">
                   Ludothèque de Coligny
                 </span>
                 <span className="hidden truncate text-[9px] font-bold uppercase leading-none tracking-[0.16em] text-[#e38154] sm:block">
@@ -44,7 +45,7 @@ export default function SiteHeader() {
             </Link>
 
             {/* Navigation complète — écrans larges uniquement */}
-            <nav className="hidden shrink-0 items-center gap-1.5 lg:flex">
+            <nav className="hidden shrink-0 items-center gap-1.5 xl:flex">
               {NAV_LINKS.map((link) => {
                 const active = pathname === link.to
                 return (
@@ -63,6 +64,12 @@ export default function SiteHeader() {
                 )
               })}
               <Link
+                to="/adherer"
+                className={`${PILL} ml-1 border-2 border-[#0f172a] bg-[#e38154] px-5 py-3 text-white shadow-[3px_3px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[1px_1px_0_#0f172a]`}
+              >
+                Adhérer
+              </Link>
+              <Link
                 to="/login"
                 className={`${PILL} border-2 border-[#0f172a] bg-[#fdfaf6] px-5 py-3 text-[#0f172a] transition-transform duration-200 hover:-translate-y-0.5 hover:bg-[#1a5f7a] hover:text-white`}
               >
@@ -70,21 +77,29 @@ export default function SiteHeader() {
               </Link>
             </nav>
 
-            {/* Bouton menu — écrans étroits */}
-            <button
-              onClick={() => setMenuOpen(o => !o)}
-              aria-expanded={menuOpen}
-              aria-controls="menu-mobile"
-              aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[#0f172a] transition-colors hover:bg-[#1a5f7a] hover:text-white lg:hidden"
-            >
-              {menuOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
+            {/* Adhérer + menu — écrans étroits */}
+            <div className="flex shrink-0 items-center gap-2 xl:hidden">
+              <Link
+                to="/adherer"
+                className="flex h-11 items-center rounded-[14px] border-2 border-[#0f172a] bg-[#e38154] px-3 text-[10px] font-extrabold uppercase tracking-[0.12em] text-white shadow-[3px_3px_0_#0f172a]"
+              >
+                Adhérer
+              </Link>
+              <button
+                onClick={() => setMenuOpen(o => !o)}
+                aria-expanded={menuOpen}
+                aria-controls="menu-mobile"
+                aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[#0f172a] transition-colors hover:bg-[#1a5f7a] hover:text-white"
+              >
+                {menuOpen ? <X size={20} /> : <Menu size={20} />}
+              </button>
+            </div>
           </div>
 
           {/* Menu déroulant — écrans étroits */}
           {menuOpen && (
-            <div id="menu-mobile" className="border-t-2 border-[#0f172a] p-3 lg:hidden">
+            <div id="menu-mobile" className="border-t-2 border-[#0f172a] p-3 xl:hidden">
               <nav className="flex flex-col gap-1.5">
                 {NAV_LINKS.map((link) => {
                   const active = pathname === link.to

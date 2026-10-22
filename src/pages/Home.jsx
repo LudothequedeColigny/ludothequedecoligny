@@ -10,6 +10,7 @@ import MaskIcon from '../components/site/MaskIcon'
 import Reveal from '../components/site/Reveal'
 import CountUp from '../components/site/CountUp'
 import Modal from '../components/site/Modal'
+import RecevoirDates from '../components/site/RecevoirDates'
 import { BTN_PRIMARY, BTN_SECONDARY, BTN_ON_COLOR, EYEBROW } from '../components/site/styles'
 import { MapPin, Loader2, ImageIcon } from 'lucide-react'
 
@@ -445,6 +446,9 @@ export default function Home() {
             )}
           </div>
         </section>
+
+        {/* ---------- RECEVOIR LES DATES ---------- */}
+        <RecevoirDates />
 
         {/* ---------- ADRESSE & HORAIRES ---------- */}
         <section className="px-4 py-14 md:px-10 md:py-20">

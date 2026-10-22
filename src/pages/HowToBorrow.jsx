@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../services/supabaseClient'
 import { ShieldCheck, Download } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { BTN_ON_COLOR } from '../components/site/styles'
 import TitrePactes from '../components/TitrePactes'
 import PublicLayout from '../components/site/PublicLayout'
 import Reveal from '../components/site/Reveal'
@@ -267,7 +269,7 @@ export default function HowToBorrow() {
             <p className="mx-auto mb-7 max-w-[34em] text-base font-medium leading-[1.65] text-white/80">
               Que vous habitiez Coligny, <span className="whitespace-nowrap">Saint-Amour</span>, Marboz, Beaupont, Pirajoux ou ailleurs, passez nous voir
               au <strong className="text-[#e38154]">419 Grande Rue à Coligny</strong> durant nos permanences.
-              L'inscription se fait directement sur place.
+              Gagnez du temps : pré-inscrivez-vous en ligne, on finalise ensemble sur place.
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               {permanences.map(texte => (
@@ -276,6 +278,7 @@ export default function HowToBorrow() {
                 </div>
               ))}
             </div>
+            <Link to="/adherer" className={`${BTN_ON_COLOR} mt-7`}>Me pré-inscrire en ligne →</Link>
           </Reveal>
         </div>
       </main>

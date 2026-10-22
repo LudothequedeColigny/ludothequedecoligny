@@ -66,8 +66,11 @@ export default function Footer() {
       </div>
 
       <div className="mx-auto mt-9 max-w-[1180px] border-t border-slate-200 pt-5 text-center">
-        <p className="text-xs text-slate-400">© 2025 Association PACTES — Ludothèque de Coligny</p>
-        <p className="text-xs text-slate-400">Tous droits réservés</p>
+        <p className="text-xs text-slate-400">© {new Date().getFullYear()} Association PACTES — Ludothèque de Coligny</p>
+        <p className="mt-2 flex justify-center gap-4 text-xs text-slate-400">
+          <Link to="/mentions-legales" className="underline-offset-2 transition-colors hover:text-[#1a5f7a] hover:underline">Mentions légales</Link>
+          <Link to="/confidentialite" className="underline-offset-2 transition-colors hover:text-[#1a5f7a] hover:underline">Confidentialité</Link>
+        </p>
       </div>
 
       <ContactModal open={showContact} onClose={() => setShowContact(false)} />

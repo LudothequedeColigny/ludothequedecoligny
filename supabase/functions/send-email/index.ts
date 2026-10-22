@@ -195,6 +195,165 @@ async function buildContactEmail(contact: { nom?: string; email?: string; messag
 
 // ────────────────────────────────────────────────────────────────────────────
 
+
+// ── Pré-inscription et inscription aux dates (site public) ─────────────────
+// Le visiteur ne choisit ni le destinataire ni le texte : il donne seulement
+// le numéro de sa demande (ou son adresse). Le mail part une seule fois, et
+// seulement pour une demande enregistrée il y a moins de 15 minutes.
+
+const SITE_URL = 'https://www.ludothequedecoligny.fr'
+const SERVICE_HEADERS = {
+  apikey: SUPABASE_SERVICE_ROLE_KEY,
+  Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+  'Content-Type': 'application/json',
+}
+
+async function rest(path: string, init: RequestInit = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { ...init, headers: { ...SERVICE_HEADERS, ...(init.headers || {}) } })
+  if (!res.ok) throw new Error(`Base : ${res.status} ${await res.text()}`)
+  const text = await res.text()
+  return text ? JSON.parse(text) : null
+}
+
+async function lireReglages(): Promise<Record<string, string>> {
+  const rows = await rest('settings?select=id,value')
+  const obj: Record<string, string> = {}
+  for (const r of rows || []) obj[r.id] = String(r.value ?? '').replace(/^"|"$/g, '')
+  return obj
+}
+
+const RANGS: Record<string, string> = { '1': '1ers', '2': '2es', '3': '3es', '4': '4es', '5': 'derniers' }
+const heure = (h: string) => (h || '').slice(0, 5).replace(':00', 'h').replace(':', 'h')
+
+// « les 1ers samedis de 10h à 12h et les 3es samedis de 14h à 16h »
+function permanencesEnClair(r: Record<string, string>): string {
+  const creneau = (n: number) =>
+    `les ${RANGS[r[`horaire_${n}_rang`]] || ''} ${(r[`horaire_${n}_jour`] || 'samedi').toLowerCase()}s de ${heure(r[`horaire_${n}_debut`])} à ${heure(r[`horaire_${n}_fin`])}`
+  return r.horaire_2_actif === 'true' ? `${creneau(1)} et ${creneau(2)}` : creneau(1)
+}
+
+// Même habillage que les mails envoyés depuis l'espace de gestion
+function habillage(contenu: string, piedDePage = ''): string {
+  return `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
+    <div style="background:#1a5f7a;padding:24px;border-radius:12px 12px 0 0;">
+      <h1 style="color:white;margin:0;font-size:18px;">Ludothèque de Coligny</h1>
+    </div>
+    <div style="background:#fdfaf6;padding:32px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;line-height:1.55;">
+      ${contenu}
+      <p style="margin-top:24px;font-size:12px;"><a href="${SITE_URL}" style="color:#1a5f7a;">www.ludothequedecoligny.fr</a></p>
+      ${piedDePage ? `<p style="margin-top:16px;font-size:11px;line-height:1.5;color:#64748b;">${piedDePage}</p>` : ''}
+    </div>
+  </div>`
+}
+
+async function envoyer(body: Record<string, unknown>) {
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${RESEND_API_KEY}` },
+    body: JSON.stringify({ from: FROM_EMAIL, reply_to: REPLY_TO, ...body }),
+  })
+  if (!res.ok) console.error('Erreur Resend:', await res.text())
+  return res.ok
+}
+
+async function destinatairesLudotheque(r: Record<string, string>): Promise<string[]> {
+  const liste = [REPLY_TO]
+  const contact = (r.contact_email || '').trim()
+  if (contact.includes('@') && contact !== REPLY_TO) liste.push(contact)
+  return liste
+}
+
+async function alerterBenevoles(title: string, body: string, url: string) {
+  try {
+    await fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
+      method: 'POST', headers: SERVICE_HEADERS, body: JSON.stringify({ title, body, url }),
+    })
+  } catch (e) {
+    console.warn('Alerte bénévoles non envoyée :', e)
+  }
+}
+
+const RECENTE = () => new Date(Date.now() - 15 * 60 * 1000).toISOString()
+
+async function traiterPreinscription(id: string): Promise<boolean> {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return false
+  const rows = await rest(`preinscriptions?id=eq.${id}&confirmation_envoyee=eq.false&created_at=gte.${encodeURIComponent(RECENTE())}&select=*`)
+  const d = rows?.[0]
+  if (!d) return false
+  // Marquée d'abord : un second appel simultané ne renverra rien
+  await rest(`preinscriptions?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ confirmation_envoyee: true }) })
+
+  const r = await lireReglages()
+  const nomAffiche = d.type === 'Association' ? d.nom : `${d.prenom || ''} ${d.nom}`.trim()
+  const adresse = `${r.adresse_rue || '419 Grande Rue'} à ${r.adresse_ville || 'Coligny'}`
+
+  await envoyer({
+    to: [d.email],
+    subject: 'Votre pré-inscription à la ludothèque de Coligny',
+    html: habillage(`
+      <p>Bonjour ${escapeHtml(d.type === 'Association' ? d.nom : (d.prenom || d.nom))},</p>
+      <p>Merci ! Nous avons bien reçu votre pré-inscription à la ludothèque de Coligny.</p>
+      <p>Pour la finaliser, passez nous voir lors d'une permanence, au ${escapeHtml(adresse)} : ${escapeHtml(permanencesEnClair(r))}.
+      Nous ferons ensemble le règlement de la cotisation et la signature de la charte de prêt, et vous repartirez avec vos premiers jeux.
+      Vous pouvez aussi adhérer pendant l'une de nos soirées jeux.</p>
+      ${d.recevoir_dates ? '<p>Vous recevrez aussi nos prochaines dates par e-mail.</p>' : ''}
+      <p style="color:#64748b;font-size:13px;">Sans visite de votre part sous 3 mois, cette pré-inscription sera effacée.</p>
+      <p>À très bientôt !<br/>L'équipe de la Ludothèque de Coligny</p>`),
+  })
+
+  const lignes = [
+    ['Type', d.type], ['Nom', nomAffiche], ['E-mail', d.email], ['Téléphone', d.telephone],
+    ['Commune', d.commune], ['Foyer', d.foyer], ['Nous a connus', d.origine],
+    ['Recevoir les dates', d.recevoir_dates ? 'oui' : 'non'],
+  ].filter(([, v]) => v)
+  await envoyer({
+    to: await destinatairesLudotheque(r),
+    reply_to: d.email,
+    subject: `Nouvelle pré-inscription : ${nomAffiche.replace(/[\r\n]/g, ' ')}`,
+    html: habillage(`
+      <p><strong>Nouvelle pré-inscription reçue sur le site.</strong></p>
+      <table style="font-size:14px;border-collapse:collapse;">${lignes.map(([k, v]) =>
+        `<tr><td style="padding:4px 16px 4px 0;color:#64748b;">${k}</td><td style="padding:4px 0;"><strong>${escapeHtml(String(v))}</strong></td></tr>`).join('')}
+      </table>
+      <p>Elle attend dans l'écran <a href="${SITE_URL}/admin/adherents" style="color:#1a5f7a;">Adhérents</a>, rubrique « Pré-inscriptions à valider ».</p>`),
+  })
+
+  await alerterBenevoles('Nouvelle pré-inscription', `${nomAffiche}${d.commune ? ` (${d.commune})` : ''} veut adhérer.`, '/admin/adherents')
+  return true
+}
+
+async function traiterAbonnement(adresse: string): Promise<boolean> {
+  const email = String(adresse || '').trim().toLowerCase()
+  if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email)) return false
+  const rows = await rest(`abonnes_dates?email=eq.${encodeURIComponent(email)}&bienvenue_envoyee=eq.false&created_at=gte.${encodeURIComponent(RECENTE())}&select=id,jeton_desabonnement,source`)
+  const a = rows?.[0]
+  // Les inscrits par le formulaire d'adhésion ont déjà reçu la confirmation
+  if (!a || a.source === 'preinscription') return false
+  await rest(`abonnes_dates?id=eq.${a.id}`, { method: 'PATCH', body: JSON.stringify({ bienvenue_envoyee: true }) })
+
+  const events = await rest(`events?select=title,date,location&archived_at=is.null&date=gte.${encodeURIComponent(new Date().toISOString())}&order=date.asc&limit=3`)
+  const prochaines = (events || []).map((e: { title: string; date: string; location?: string }) => {
+    const jour = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }).format(new Date(e.date))
+    return `<li><strong>${escapeHtml(e.title)}</strong> — ${escapeHtml(jour)}${e.location ? `, ${escapeHtml(e.location)}` : ''}</li>`
+  }).join('')
+
+  const lien = `${SITE_URL}/desabonnement?jeton=${encodeURIComponent(a.jeton_desabonnement)}`
+  await envoyer({
+    to: [email],
+    subject: 'Vous recevrez nos prochaines dates',
+    html: habillage(`
+      <p>Bonjour,</p>
+      <p>C'est noté : vous recevrez désormais les dates de nos soirées et après-midi jeux par e-mail, une fois par mois au plus.</p>
+      ${prochaines ? `<p>Nos prochains rendez-vous :</p><ul>${prochaines}</ul>` : ''}
+      <p>Ces soirées sont ouvertes à tous. Et si l'envie vous prend d'emporter des jeux à la maison, l'adhésion se fait sur place ou en ligne : <a href="${SITE_URL}/adherer" style="color:#1a5f7a;">ludothequedecoligny.fr/adherer</a>.</p>
+      <p>À très bientôt autour d'une table !<br/>L'équipe de la Ludothèque de Coligny</p>`,
+      `Vous recevez ce message car vous avez demandé à recevoir nos prochaines dates. <a href="${lien}" style="color:#64748b;">Ne plus recevoir nos actualités</a>`),
+  })
+  return true
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+
 async function urlToBase64Attachment(image_url: string, index: number) {
   try {
     let base64: string
@@ -239,7 +398,16 @@ serve(async (req) => {
     const payload = await req.json()
 
     if (!(await isVolunteer(req))) {
-      // Visiteur non connecté : seul le formulaire de contact est accepté
+      // Visiteur : confirmation de pré-inscription ou bienvenue aux dates
+      if (payload?.preinscription || payload?.abonnement) {
+        const fait = payload.preinscription
+          ? await traiterPreinscription(String(payload.preinscription))
+          : await traiterAbonnement(String(payload.abonnement))
+        return new Response(JSON.stringify({ success: fait }), {
+          status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+        })
+      }
+      // Sinon, seul le formulaire de contact est accepté
       const contactBody = payload?.contact ? await buildContactEmail(payload.contact) : null
       if (!contactBody) {
         return new Response(JSON.stringify({ error: 'Non autorisé' }), {

@@ -21,6 +21,9 @@ const HowToBorrow = lazy(() => import('./pages/HowToBorrow.jsx'))
 const InscriptionPermanence = lazy(() => import('./pages/InscriptionPermanence'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 const Desabonnement = lazy(() => import('./pages/Desabonnement'))
+const MentionsLegales = lazy(() => import('./pages/MentionsLegales'))
+const Adherer = lazy(() => import('./pages/Adherer'))
+const Confidentialite = lazy(() => import('./pages/Confidentialite'))
 
 // Pages Admin
 const AdminLayout = lazy(() => import('./components/AdminLayout'))
@@ -79,6 +82,9 @@ function App() {
         <Route path="/evenements" element={<Navigate to="/vie-association" replace />} />
         <Route path="/vie-association" element={<VieAssociation />} />
         <Route path="/comment-emprunter" element={<HowToBorrow />} />
+        <Route path="/adherer" element={<Adherer />} />
+        <Route path="/mentions-legales" element={<MentionsLegales />} />
+        <Route path="/confidentialite" element={<Confidentialite />} />
         <Route path="/login" element={<Login />} />
         <Route path="/nouveau-mot-de-passe" element={<NouveauMotDePasse />} />
         <Route path="/inscription-permanence" element={<InscriptionPermanence />} />

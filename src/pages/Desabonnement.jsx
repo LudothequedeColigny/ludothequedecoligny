@@ -9,7 +9,7 @@ import { usePageMeta } from '../services/seo'
 
 /**
  * Page ouverte par le lien « Ne plus recevoir nos actualités » en bas des mails
- * envoyés aux adhérents. Le lien porte un jeton personnel (?jeton=…).
+ * envoyés aux adhérents et aux inscrits aux dates (l'adresse de ces derniers est effacée). Le lien porte un jeton personnel (?jeton=…).
  *
  * Le désabonnement attend un clic sur le bouton : certaines messageries ouvrent
  * d'elles-mêmes les liens des mails pour les vérifier, et désabonneraient
@@ -38,7 +38,7 @@ export default function Desabonnement() {
   const TEXTES = {
     attente: {
       titre: 'Ne plus recevoir nos actualités ?',
-      texte: "Vous ne recevrez plus les mails d'actualités de la ludothèque (animations, soirées jeux…). Les messages liés à votre adhésion, comme son renouvellement, continueront d'arriver.",
+      texte: "Vous ne recevrez plus les mails d'actualités de la ludothèque (animations, soirées jeux…). Si vous êtes adhérent, les messages liés à votre adhésion, comme son renouvellement, continueront d'arriver.",
     },
     envoi: { titre: 'Un instant…', texte: '' },
     fait: {
