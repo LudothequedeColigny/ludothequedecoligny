@@ -17,18 +17,25 @@ const E_SECTION = 'mb-4 flex items-center gap-2 text-[10px] font-extrabold upper
 const E_LABEL = 'mb-2 block text-[9px] font-extrabold uppercase italic tracking-[0.14em] text-slate-400'
 const E_INPUT = 'w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none placeholder:font-semibold placeholder:text-slate-300 focus:bg-white'
 
-// Les trois onglets de l'écran Communication
+// Les quatre onglets de l'écran Communication
 const COMM_TABS = [
   { id: 'events', label: 'Événements', shadow: '#1a5f7a' },
   { id: 'affiche', label: "Générateur d'affiches", shadow: '#e38154' },
   { id: 'posts', label: 'Posts', shadow: '#10b981' },
+  { id: 'jeux', label: 'Nouveaux jeux', shadow: '#f59e0b' },
 ]
 import {
   Calendar, MapPin, Plus, Trash2, Clock, ImageIcon,
-  X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2, Users, ChevronDown, ChevronUp, PlusCircle, Paperclip, GripVertical, Building2, Trash, Share2, Megaphone, BarChart2, Search, Dice5, Facebook, Instagram, Archive, ArchiveRestore, LayoutGrid, List, ImagePlus, Copy,
+  X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2, Users, ChevronDown, ChevronUp, PlusCircle, Paperclip, GripVertical, Building2, Trash, Share2, Megaphone, BarChart2, Search, Dice5, Archive, ArchiveRestore, LayoutGrid, List, ImagePlus, Copy,
   Newspaper, School, FileText
 } from 'lucide-react'
 import ModelesMessages from '../../components/admin/ModelesMessages'
+import SocialPostPreview from '../../components/admin/SocialPostPreview'
+import NouveauxJeux from '../../components/admin/NouveauxJeux'
+import { chargerJeuxAAnnoncer } from '../../services/nouveauxJeux'
+import {
+  MAKE_WEBHOOK_URL, MAX_SOCIAL_PHOTOS, socialFileNameFrom, uploadSquareVersion, publierSurReseaux,
+} from '../../services/reseauxSociaux'
 
 // Destinataires enregistrés : trois catégories, chacune avec son propre texte
 // d'annonce. À l'envoi, seules les mairies sont cochées d'office (choix de
@@ -89,66 +96,6 @@ function GroupeContacts({ titre, destinataires, ouvert, onBasculerOuvert, onBasc
 
 const VIEW_MODE_STORAGE_KEY = 'evenements_view_mode'
 
-// ─── Mise au format carré avant publication sur les réseaux ──────────────────
-// Instagram et Facebook rognent les images qui ne sont pas carrées : une affiche
-// A4 en hauteur y perd son haut et son bas. On la recentre donc sur un carré
-// blanc avant l'envoi. Renvoie null si l'image n'a pas pu être lue, l'appelant
-// se rabat alors sur l'image d'origine plutôt que d'échouer.
-const SOCIAL_MAX_SIZE = 1440
-const toSquareBlob = (srcUrl) => new Promise((resolve) => {
-  const img = new window.Image()
-  img.crossOrigin = 'anonymous'
-  img.onload = () => {
-    // Instagram réduit tout ce qui dépasse 1440 px et refuse les fichiers de plus
-    // de 8 Mo : les grandes photos sont donc réduites dès ici.
-    const scale = Math.min(1, SOCIAL_MAX_SIZE / Math.max(img.width, img.height))
-    const w = Math.round(img.width * scale)
-    const h = Math.round(img.height * scale)
-    const size = Math.max(w, h)
-    const canvas = document.createElement('canvas')
-    canvas.width = size
-    canvas.height = size
-    const ctx = canvas.getContext('2d')
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, size, size)
-    // Arrondi : un décalage d'un demi-pixel rééchantillonnerait toute l'affiche
-    // et la rendrait légèrement floue.
-    const offsetX = Math.round((size - w) / 2)
-    const offsetY = Math.round((size - h) / 2)
-    ctx.drawImage(img, offsetX, offsetY, w, h)
-    try {
-      canvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.9)
-    } catch {
-      resolve(null)   // image d'un autre domaine : le canvas est verrouillé
-    }
-  }
-  img.onerror = () => resolve(null)
-  img.src = srcUrl
-})
-
-// Nom du fichier carré dérivé d'une adresse publique Supabase : « affiche.png »
-// devient « affiche-social.jpg » (JPEG : seul format accepté par Instagram).
-function socialFileNameFrom(publicUrl) {
-  const path = publicUrl?.split('/event-images/')[1]?.split('?')[0]
-  if (!path) return null
-  return decodeURIComponent(path).replace(/\.[a-z0-9]+$/i, '') + '-social.jpg'
-}
-
-// Dépose la version carrée d'une image dans Storage et renvoie son adresse
-// publique, ou null si la conversion ou l'envoi n'ont pas abouti.
-async function uploadSquareVersion(srcUrl, fileName) {
-  const blob = await toSquareBlob(srcUrl)
-  if (!blob) return null
-  const { error } = await supabase.storage
-    .from('event-images').upload(fileName, blob, { contentType: 'image/jpeg', upsert: true })
-  if (error) {
-    console.warn('Version carrée non enregistrée :', error.message)
-    return null
-  }
-  const { data } = supabase.storage.from('event-images').getPublicUrl(fileName)
-  return data.publicUrl
-}
-
 // ─── Helpers MyLudo (via Edge Function Supabase — même pattern que Jeux.tsx) ──
 const BGG_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bgg-proxy`
 
@@ -202,9 +149,6 @@ Ludothèque de Coligny
 www.ludothequedecoligny.fr`
 }
 
-// Instagram et Facebook limitent un carrousel à 10 images
-const MAX_SOCIAL_PHOTOS = 10
-
 // Effet mosaïque : moyenne les couleurs par bloc de BLOCK_SIZE px
 const BLUR_BLOCK_SIZE = 15
 function pixelateRegion(ctx, x, y, w, h) {
@@ -226,74 +170,15 @@ function pixelateRegion(ctx, x, y, w, h) {
   }
 }
 
-// Aperçu simulé d'un post Facebook/Instagram — utilisé par la modale de bilan,
-// la modale de partage d'affiche et la modale "Nouveau post"
-function SocialPostPreview({ text, imageUrl, imageUrls }) {
-  const urls = imageUrls || (imageUrl ? [imageUrl] : [])
-  return (
-    <div className="space-y-2">
-      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Aperçu</label>
-      <div className="relative max-w-[400px] mx-auto bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
-        <span className="absolute top-3 right-3 z-10 bg-slate-900/70 text-white text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-full">
-          Aperçu
-        </span>
-
-        {/* En-tête */}
-        <div className="flex items-center gap-3 p-4">
-          <div className="w-10 h-10 rounded-full bg-[#1a5f7a] text-white flex items-center justify-center font-black text-xs shrink-0">
-            LC
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-slate-900 leading-tight truncate">Ludothèque de Coligny</p>
-            <div className="flex items-center gap-1.5 text-slate-400">
-              <Facebook size={11} />
-              <Instagram size={11} />
-            </div>
-          </div>
-        </div>
-
-        {/* Photo */}
-        <div className="relative w-full aspect-square bg-slate-100 flex items-center justify-center">
-          {urls.length > 1 && (
-            <span className="absolute top-3 left-3 z-10 bg-slate-900/70 text-white text-[9px] font-black px-2 py-1 rounded-full">
-              1 / {urls.length}
-            </span>
-          )}
-          {urls.length > 0 ? (
-            <img src={urls[0]} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <ImageIcon size={40} className="text-slate-300" />
-          )}
-        </div>
-
-        {/* Points du carrousel */}
-        {urls.length > 1 && (
-          <div className="flex justify-center gap-1 pt-2.5">
-            {urls.map((u, i) => (
-              <span key={u} className={'h-1.5 w-1.5 rounded-full ' + (i === 0 ? 'bg-[#1a5f7a]' : 'bg-slate-300')} />
-            ))}
-          </div>
-        )}
-
-        {/* Texte */}
-        <div className="p-4">
-          <p className="text-xs text-slate-800 whitespace-pre-line leading-relaxed">
-            {text || 'Votre texte apparaîtra ici...'}
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export default function Evenements() {
   const { addToast } = useToast()
   const [events, setEvents] = useState([])
-  const [activeTab, setActiveTab] = useState('events') // 'events' | 'affiche' | 'posts'
+  const [activeTab, setActiveTab] = useState('events') // 'events' | 'affiche' | 'posts' | 'jeux'
   const [loading, setLoading] = useState(true)
   // Compteurs des badges d'onglets
   const [templatesCount, setTemplatesCount] = useState(0)
   const [postsCount, setPostsCount] = useState(0)
+  const [jeuxAAnnoncerCount, setJeuxAAnnoncerCount] = useState(0)
   // Vue grille / liste des événements actifs — persistée en localStorage
   const [viewMode, setViewModeState] = useState(() => {
     if (typeof window === 'undefined') return 'grid'
@@ -413,6 +298,10 @@ export default function Evenements() {
         .select('*', { count: 'exact', head: true })
         .gte('created_at', startOfMonth)
       if (!postsError) setPostsCount(pCount || 0)
+
+      chargerJeuxAAnnoncer()
+        .then(({ aAnnoncer }) => setJeuxAAnnoncerCount(aAnnoncer.length))
+        .catch(() => {})   // badge simplement absent
     }
     fetchCounters()
   }, [])
@@ -962,7 +851,7 @@ www.ludothequedecoligny.fr`
       }
 
             console.log('📤 Envoi à Make - message:', fbText.substring(0, 50), '| image_url:', social_image_url?.substring(0, 80))
-      const res = await fetch('https://hook.eu1.make.com/f67dbu4u19znh05m9tmkak3wx5hqeqf9', {
+      const res = await fetch(MAKE_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1002,7 +891,7 @@ www.ludothequedecoligny.fr`
         imagePayloadUrl = tempBlobUrl
       }
 
-      const res = await fetch('https://hook.eu1.make.com/f67dbu4u19znh05m9tmkak3wx5hqeqf9', {
+      const res = await fetch(MAKE_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1412,24 +1301,11 @@ www.ludothequedecoligny.fr`
         image_urls.push(squareUrl || url)
       }
 
-      const res = await fetch('https://hook.eu1.make.com/f67dbu4u19znh05m9tmkak3wx5hqeqf9', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: bilanFbText,
-          // Première photo seule : ce que le scénario Make utilisait jusqu'ici
-          image_url: image_urls[0],
-          // Toutes les photos, pour le carrousel (voir le scénario Make)
-          image_urls,
-          // Noms imposés par le module Make « Instagram — Create a Carousel Post »
-          images: image_urls.map(url => ({ media_type: 'IMAGE', image_url: url })),
-          // Noms imposés par le module Make « Facebook Pages — Create a Post with Photos »
-          facebook_photos: image_urls.map(url => ({ type: 'url', url })),
-          photo_count: image_urls.length,
-          games: bilanGames.map(g => g.name).filter(Boolean),
-        }),
+      await publierSurReseaux({
+        message: bilanFbText,
+        imageUrls: image_urls,
+        extra: { games: bilanGames.map(g => g.name).filter(Boolean) },
       })
-      if (!res.ok) throw new Error('Erreur Make: ' + res.status)
       setBilanFbSuccess(true)
     } catch (err) {
       console.error('Erreur publication bilan réseaux sociaux:', err)
@@ -1451,7 +1327,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
   {
     id: 'evt-tabs',
     title: `Onglets Événements / Affiches`,
-    description: `Basculez entre la gestion des événements et le générateur d'affiches. Le générateur crée une affiche A4 haute résolution et peut pré-remplir automatiquement le formulaire d'événement avec la date et le lieu.`,
+    description: `Basculez entre la gestion des événements, le générateur d'affiches, les posts libres et l'annonce des nouveaux jeux. Le générateur crée une affiche A4 haute résolution et peut pré-remplir automatiquement le formulaire d'événement avec la date et le lieu. "Nouveaux jeux" prépare un carrousel Facebook & Instagram avec les jeux qui viennent d'arriver.`,
     action: () => { closeForm(); openCompose(false); openCollectivites(false) },
   },
   {
@@ -1630,11 +1506,11 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
       </div>
 
       {/* Onglets */}
-      <div data-tutorial="evt-tabs" className="mb-6 grid grid-cols-3 gap-2.5 sm:gap-3.5">
+      <div data-tutorial="evt-tabs" className="mb-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3.5">
         {COMM_TABS.map(tab => {
           const active = activeTab === tab.id
-          const count = tab.id === 'events' ? upcomingEventsCount : tab.id === 'affiche' ? templatesCount : postsCount
-          const Icon = tab.id === 'events' ? Calendar : tab.id === 'affiche' ? ImagePlus : Megaphone
+          const count = { events: upcomingEventsCount, affiche: templatesCount, posts: postsCount, jeux: jeuxAAnnoncerCount }[tab.id]
+          const Icon = { events: Calendar, affiche: ImagePlus, posts: Megaphone, jeux: Dice5 }[tab.id]
           return (
             <button
               key={tab.id}
@@ -1664,6 +1540,8 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
         {activeTab === 'affiche' && (
           <GenerateurAffiche events={events} onCreateEvent={handleCreateEventFromAffiche} />
         )}
+
+        {activeTab === 'jeux' && <NouveauxJeux onCountChange={setJeuxAAnnoncerCount} />}
 
         {activeTab === 'posts' && (
           <DataCard shadow="#10b981">

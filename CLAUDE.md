@@ -163,6 +163,17 @@ Pour l'espace de gestion, dans `src/components/admin/` :
 | `InscritsActualites` | bloc repliable de l'écran Adhérents : adresses inscrites aux actualités (non adhérents), avec retrait |
 | `PreinscriptionsAValider` | bloc de l'écran Adhérents : demandes faites sur `/adherer`, bouton « Valider l'adhésion » qui pré-remplit la fiche |
 | `FicheWikiludo` | fenêtre « Fiche pour Wikiludo » : chaque champ de la grille Wikiludo avec un bouton Copier (catalogue + MyLudo), ordinateur seulement |
+| `NouveauxJeux` | onglet « Nouveaux jeux » de Communication : jeux ajoutés depuis le 01/09/2026, couverture dessinée + jaquettes en carrousel ; cochés → « annonce », décochés → « ecarte » (table `annonces_jeux`, bénévoles seulement) |
+| `ModelesMessages` | fenêtre « Modèles de messages » : textes presse et école à copier, lus dans les Paramètres |
+| `SocialPostPreview` | aperçu d'une publication Facebook/Instagram |
+
+Toute publication vers Facebook/Instagram passe par `src/services/reseauxSociaux.js`
+(adresse du webhook Make, mise au carré des images, `publierSurReseaux`). Le scénario
+Make aiguille sur `photo_count` : 2 images ou plus → carrousel ; sinon → photo seule.
+Les images non carrées sont posées sur le fond bois bleu canard `public/social/fond-bois.jpg`
+(déjà flouté dans le fichier : le flou du navigateur ne marche pas sur Safari) — en grand
+pour les affiches et photos, encadrées (contour + ombre) pour les jaquettes. Choix de Victor,
+octobre 2026, à la place du fond blanc.
 
 `Reveal`, `CountUp`, `Modal`, `MaskIcon` de `components/site/` servent aussi côté
 gestion : malgré son nom, ce dossier contient les briques communes aux deux parties.
