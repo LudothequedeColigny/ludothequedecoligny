@@ -142,13 +142,16 @@ Ludothèque de Coligny
 www.ludothequedecoligny.fr`
 }
 
-// Effet mosaïque : moyenne les couleurs par bloc de BLOCK_SIZE px
+// Effet mosaïque : moyenne les couleurs par bloc. 15 px pour une photo de
+// 1 200 px de large ; le bloc grandit avec la photo, pour que le floutage
+// reste aussi fort quelle que soit sa définition.
 const BLUR_BLOCK_SIZE = 15
-function pixelateRegion(ctx, x, y, w, h) {
-  for (let by = y; by < y + h; by += BLUR_BLOCK_SIZE) {
-    for (let bx = x; bx < x + w; bx += BLUR_BLOCK_SIZE) {
-      const bw = Math.min(BLUR_BLOCK_SIZE, x + w - bx)
-      const bh = Math.min(BLUR_BLOCK_SIZE, y + h - by)
+const blocDeFloutage = largeurPhoto => Math.max(BLUR_BLOCK_SIZE, Math.round(BLUR_BLOCK_SIZE * largeurPhoto / 1200))
+function pixelateRegion(ctx, x, y, w, h, bloc = BLUR_BLOCK_SIZE) {
+  for (let by = y; by < y + h; by += bloc) {
+    for (let bx = x; bx < x + w; bx += bloc) {
+      const bw = Math.min(bloc, x + w - bx)
+      const bh = Math.min(bloc, y + h - by)
       if (bw <= 0 || bh <= 0) continue
       const block = ctx.getImageData(bx, by, bw, bh)
       let r = 0, g = 0, b = 0, a = 0
@@ -1091,8 +1094,11 @@ www.ludothequedecoligny.fr`
     const img = new Image()
     const objectUrl = URL.createObjectURL(file)
     img.onload = () => {
-      const maxW = 1200
-      const scale = Math.min(1, maxW / img.naturalWidth)
+      // 2 400 px au plus sur le grand côté (1 200 px de large auparavant) : une
+      // photo prise en largeur reste nette une fois recadrée en hauteur dans
+      // les diapositives du bilan (1 080 × 1 350).
+      const COTE_MAX = 2400
+      const scale = Math.min(1, COTE_MAX / Math.max(img.naturalWidth, img.naturalHeight))
       const w = Math.round(img.naturalWidth * scale)
       const h = Math.round(img.naturalHeight * scale)
       canvas.width = w
@@ -1191,7 +1197,7 @@ www.ludothequedecoligny.fr`
       const y = Math.max(0, Math.floor(r.y))
       const w = Math.min(canvas.width - x, Math.ceil(r.w))
       const h = Math.min(canvas.height - y, Math.ceil(r.h))
-      if (w > 0 && h > 0) pixelateRegion(ctx, x, y, w, h)
+      if (w > 0 && h > 0) pixelateRegion(ctx, x, y, w, h, blocDeFloutage(canvas.width))
     })
     basePixelsRef.current = ctx.getImageData(0, 0, canvas.width, canvas.height)
     pendingRectsRef.current = []

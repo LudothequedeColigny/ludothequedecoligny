@@ -151,13 +151,13 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
         const c = []
         await dessinerCarrousel(plan.carrousel, async canvas => {
           suite()
-          c.push(canvas.toDataURL('image/jpeg', 0.6))
+          c.push(canvas.toDataURL('image/jpeg', 0.9))
         })
         const s = []
         const blobs = []
         await dessinerStory(plan.story, async canvas => {
           suite()
-          s.push(canvas.toDataURL('image/jpeg', 0.6))
+          s.push(canvas.toDataURL('image/jpeg', 0.9))
           blobs.push(await versBlob(canvas))
         })
         suite()
