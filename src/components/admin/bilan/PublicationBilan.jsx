@@ -4,7 +4,7 @@ import { supabase } from '../../../services/supabaseClient'
 import { planCarrousel, planStory, prochainRendezVous, choisirJeux } from '../../../services/diapos/regles'
 import { dessinerCarrousel } from '../../../services/diapos/carrousel'
 import { dessinerStory } from '../../../services/diapos/story'
-import { jaquettesDuBilan } from '../../../services/diapos/jaquettes'
+import { jaquettesDuBilan, estChezNous } from '../../../services/diapos/jaquettes'
 import { versBlob } from '../../../services/diapos/dessin'
 import { publierSurReseaux, uploadSocialBlob } from '../../../services/reseauxSociaux'
 
@@ -37,17 +37,25 @@ function ChoixPhoto({ photos, valeur, onChoix, avecSans }) {
   )
 }
 
-export default function PublicationBilan({ event, photos, jeux, participants, texte, onTexteChange, texteModifie, onTexteReset, onJeuxChange }) {
+const ERREUR_APERCU = "L'aperçu n'a pas pu être fabriqué. Réessayez ou rechargez la page."
+const ERREUR_CHOIX = "Ce choix n'a pas pu être enregistré. Réessayez dans un instant."
+
+// Libère la mémoire d'images pleine taille (indispensable sur téléphone)
+const liberer = liste => liste.forEach(c => { c.width = 0; c.height = 0 })
+
+export default function PublicationBilan({ event, photos, jeux, participants, texte, onTexteChange, texteModifie, onTexteReset, onJeuxChange, onEventChange }) {
   const album = useMemo(() => [...photos].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)), [photos])
   const urls = album.map(p => p.url)
-  const [photoOuverture, setPhotoOuverture] = useState(event.bilan_photo_ouverture || null)
-  const [photoJeux, setPhotoJeux] = useState(event.bilan_photo_jeux || null)
+  // Choix enregistrés sur l'événement ; une photo retirée de l'album ne compte plus
+  const photoOuverture = urls.includes(event.bilan_photo_ouverture) ? event.bilan_photo_ouverture : null
+  const photoJeux = urls.includes(event.bilan_photo_jeux) ? event.bilan_photo_jeux : null
   const [prochain, setProchain] = useState(null)
   // Jaquettes calculées pour une liste de jeux donnée (cle) : à l'ouverture, la liste arrive après coup
   const [jaquettesDe, setJaquettesDe] = useState({ cle: null, map: null })
   const [apercuCarrousel, setApercuCarrousel] = useState([])
   const [apercuStory, setApercuStory] = useState([])
-  const [canvases, setCanvases] = useState({ carrousel: [], story: [] })
+  // Plans de l'aperçu affiché : publication et story sont redessinées à partir d'eux
+  const [plans, setPlans] = useState(null)
   const [calcul, setCalcul] = useState(false)
   const [agrandie, setAgrandie] = useState(null)
   const [etat, setEtat] = useState('') // '' | 'publication' | 'publie' | 'story'
@@ -64,7 +72,17 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
   const cleJeux = jeux.map(j => `${j.id}:${j.image_url}`).join(',')
   useEffect(() => {
     let annule = false
-    jaquettesDuBilan(jeux).catch(() => new Map()).then(m => { if (!annule) setJaquettesDe({ cle: cleJeux, map: m }) })
+    jaquettesDuBilan(jeux).catch(() => new Map()).then(m => {
+      if (annule) return
+      setJaquettesDe({ cle: cleJeux, map: m })
+      // Jaquettes copiées chez nous : la liste du bilan les reprend, pour ne plus les recopier
+      const copiees = new Map(jeux
+        .filter(j => m.get(j.id) && m.get(j.id) !== j.image_url && estChezNous(m.get(j.id)) && !estChezNous(j.image_url))
+        .map(j => [j.id, { avant: j.image_url, apres: m.get(j.id) }]))
+      if (copiees.size) {
+        onJeuxChange(prev => prev.map(g => (copiees.get(g.id)?.avant === g.image_url ? { ...g, image_url: copiees.get(g.id).apres } : g)))
+      }
+    })
     return () => { annule = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cleJeux])
@@ -77,7 +95,11 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
     photos: urls,
     photoOuverture,
     photoJeux,
-    jeux: jeux.map(j => ({ ...j, image: jaquettes?.get(j.id) || j.image_url })),
+    jeux: jeux.map(j => ({
+      ...j,
+      photo_url: urls.includes(j.photo_url) ? j.photo_url : null,
+      image: jaquettes?.get(j.id) || j.image_url,
+    })),
     prochain,
     maintenant: new Date(),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -87,45 +109,74 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
 
   // Aperçu recalculé (avec un court délai) à chaque changement
   useEffect(() => {
-    if (!urls.length) { setApercuCarrousel([]); setApercuStory([]); return }
+    if (!urls.length) { numero.current++; setApercuCarrousel([]); setApercuStory([]); setPlans(null); setCalcul(false); return }
     // Attendre les jaquettes copiées chez nous : celles de MyLudo ne se dessinent pas (CORS)
     if (!jaquettes) { numero.current++; setCalcul(true); return }
     const n = ++numero.current
     setCalcul(true)
     const minuterie = setTimeout(async () => {
-      const [c, s] = await Promise.all([dessinerCarrousel(planCarrousel(donnees)), dessinerStory(planStory(donnees))])
-      if (n !== numero.current) return
-      setCanvases({ carrousel: c, story: s })
-      setApercuCarrousel(c.map(x => x.toDataURL('image/jpeg', 0.6)))
-      setApercuStory(s.map(x => x.toDataURL('image/jpeg', 0.6)))
-      setCalcul(false)
+      let c = []
+      let s = []
+      try {
+        const plan = { carrousel: planCarrousel(donnees), story: planStory(donnees) }
+        // L'un après l'autre, et abandon dès qu'un aperçu plus récent est demandé
+        c = await dessinerCarrousel(plan.carrousel)
+        if (n !== numero.current) return
+        s = await dessinerStory(plan.story)
+        if (n !== numero.current) return
+        setApercuCarrousel(c.map(x => x.toDataURL('image/jpeg', 0.6)))
+        setApercuStory(s.map(x => x.toDataURL('image/jpeg', 0.6)))
+        setPlans(plan)
+        setErreur(e => (e === ERREUR_APERCU ? '' : e))
+      } catch (e) {
+        console.error('Aperçu du bilan :', e)
+        if (n === numero.current) setErreur(ERREUR_APERCU)
+      } finally {
+        liberer(c)
+        liberer(s)
+        if (n === numero.current) setCalcul(false)
+      }
     }, 400)
     return () => clearTimeout(minuterie)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [donnees])
 
-  const choisirOuverture = async url => {
-    setPhotoOuverture(url)
-    await supabase.from('events').update({ bilan_photo_ouverture: url }).eq('id', event.id)
-  }
-  const choisirPhotoJeux = async url => {
-    setPhotoJeux(url)
-    await supabase.from('events').update({ bilan_photo_jeux: url }).eq('id', event.id)
+  // Choix enregistrés tout de suite, annulés si l'enregistrement échoue
+  const choisirPhotoEvenement = async (champ, url) => {
+    const avant = event[champ] ?? null
+    setErreur('')
+    onEventChange({ [champ]: url })
+    const { error } = await supabase.from('events').update({ [champ]: url }).eq('id', event.id)
+    if (error) {
+      console.error('Choix de photo :', error)
+      onEventChange(e => (e[champ] === url ? { [champ]: avant } : {}))
+      setErreur(ERREUR_CHOIX)
+    }
   }
   const choisirPhotoDuJeu = async (jeu, url) => {
-    onJeuxChange(jeux.map(j => (j.id === jeu.id ? { ...j, photo_url: url } : j)))
-    await supabase.from('event_games_played').update({ photo_url: url }).eq('id', jeu.id)
+    const avant = jeu.photo_url ?? null
+    setErreur('')
+    onJeuxChange(prev => prev.map(j => (j.id === jeu.id ? { ...j, photo_url: url } : j)))
+    const { error } = await supabase.from('event_games_played').update({ photo_url: url }).eq('id', jeu.id)
+    if (error) {
+      console.error('Photo du jeu :', error)
+      onJeuxChange(prev => prev.map(j => (j.id === jeu.id && j.photo_url === url ? { ...j, photo_url: avant } : j)))
+      setErreur(ERREUR_CHOIX)
+    }
   }
 
   const publier = async () => {
     setEtat('publication')
     setErreur('')
+    let canvases = []
     try {
+      canvases = await dessinerCarrousel(plans.carrousel)
       const horodatage = Date.now()
       const adresses = []
-      // Une à la fois : mémoire des téléphones
-      for (let i = 0; i < canvases.carrousel.length; i++) {
-        const blob = await versBlob(canvases.carrousel[i])
+      // Une à la fois, chaque image libérée dès qu'elle est exportée : mémoire des téléphones
+      for (let i = 0; i < canvases.length; i++) {
+        const blob = await versBlob(canvases[i])
+        liberer([canvases[i]])
         const url = blob && await uploadSocialBlob(blob, `bilans/${event.id}/carrousel-${horodatage}-${String(i + 1).padStart(2, '0')}.jpg`)
         if (!url) throw new Error('Diapositive non enregistrée')
         adresses.push(url)
@@ -136,15 +187,20 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
       console.error('Publication du bilan :', e)
       setErreur('La publication a échoué. Réessayez dans un instant.')
       setEtat('')
+    } finally {
+      liberer(canvases)
     }
   }
 
   const enregistrerStory = async () => {
     setEtat('story')
+    let canvases = []
     try {
+      canvases = await dessinerStory(plans.story)
       const fichiers = []
-      for (let i = 0; i < canvases.story.length; i++) {
-        const blob = await versBlob(canvases.story[i])
+      for (let i = 0; i < canvases.length; i++) {
+        const blob = await versBlob(canvases[i])
+        liberer([canvases[i]])
         if (blob) fichiers.push(new File([blob], `story-${event.id}-${i + 1}.jpg`, { type: 'image/jpeg' }))
       }
       if (navigator.canShare?.({ files: fichiers })) {
@@ -161,6 +217,7 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
     } catch (e) {
       if (e?.name !== 'AbortError') console.error('Story :', e)
     } finally {
+      liberer(canvases)
       setEtat(actuel => (actuel === 'story' ? '' : actuel))
     }
   }
@@ -174,11 +231,11 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <p className={SECTION}>Photo d'ouverture</p>
-          <ChoixPhoto photos={album} valeur={photoOuverture || urls[0]} onChoix={choisirOuverture} />
+          <ChoixPhoto photos={album} valeur={photoOuverture || urls[0]} onChoix={url => choisirPhotoEvenement('bilan_photo_ouverture', url)} />
         </div>
         <div className="space-y-2">
           <p className={SECTION}>Photo « plein de jeux »</p>
-          <ChoixPhoto photos={album} valeur={photoJeux || urls.find(u => u !== (photoOuverture || urls[0])) || urls[0]} onChoix={choisirPhotoJeux} />
+          <ChoixPhoto photos={album} valeur={photoJeux || urls.find(u => u !== (photoOuverture || urls[0])) || urls[0]} onChoix={url => choisirPhotoEvenement('bilan_photo_jeux', url)} />
         </div>
       </div>
 
@@ -193,7 +250,7 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
                 </div>
                 <span className="text-[11px] font-bold leading-tight text-slate-700">{j.name}</span>
               </div>
-              <ChoixPhoto photos={album} valeur={j.photo_url} onChoix={url => choisirPhotoDuJeu(j, url)} avecSans />
+              <ChoixPhoto photos={album} valeur={urls.includes(j.photo_url) ? j.photo_url : null} onChoix={url => choisirPhotoDuJeu(j, url)} avecSans />
             </div>
           ))}
           {ecartes.length > 0 && (
@@ -242,12 +299,12 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
             <CheckCircle2 size={14} /> Publié avec succès !
           </div>
         ) : (
-          <button type="button" onClick={publier} disabled={etat === 'publication' || calcul || !texte.trim() || !canvases.carrousel.length}
+          <button type="button" onClick={publier} disabled={etat === 'publication' || calcul || !texte.trim() || !plans || !apercuCarrousel.length}
             className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 py-4 text-[10px] font-black uppercase tracking-widest text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-300">
-            {etat === 'publication' ? <><Loader2 size={14} className="animate-spin" /> Publication…</> : <><Share2 size={14} /> Publier le carrousel ({canvases.carrousel.length})</>}
+            {etat === 'publication' ? <><Loader2 size={14} className="animate-spin" /> Publication…</> : <><Share2 size={14} /> Publier sur Facebook & Instagram ({apercuCarrousel.length})</>}
           </button>
         )}
-        <button type="button" onClick={enregistrerStory} disabled={etat === 'story' || calcul || !canvases.story.length}
+        <button type="button" onClick={enregistrerStory} disabled={etat === 'story' || calcul || !plans || !apercuStory.length}
           className="flex items-center justify-center gap-2 rounded-2xl border-2 border-[#0f172a] bg-white py-4 text-[10px] font-black uppercase tracking-widest text-[#1a5f7a] transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
           {etat === 'story' ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} Enregistrer la story
         </button>

@@ -1014,20 +1014,39 @@ www.ludothequedecoligny.fr`
     }
   }
 
+  // Met à jour l'événement du bilan partout où il est affiché (fenêtre, listes)
+  // `patch` : champs à changer, ou fonction qui les calcule depuis l'événement
+  const majBilanEvent = (id, patch) => {
+    const appliquer = e => (e.id === id ? { ...e, ...(typeof patch === 'function' ? patch(e) : patch) } : e)
+    setBilanModal(prev => (prev.event ? { ...prev, event: appliquer(prev.event) } : prev))
+    setEvents(prev => prev.map(appliquer))
+    setArchivedEvents(prev => prev.map(appliquer))
+  }
+
   const deleteBilanPhoto = async (photo) => {
     try {
+      const { error: deleteError } = await supabase.from('event_photos').delete().eq('id', photo.id)
+      if (deleteError) throw deleteError
       if (photo.url && photo.url.includes('event-images')) {
         const path = photo.url.split('/event-images/')[1]?.split('?')[0]
         if (path) await supabase.storage.from('event-images').remove([decodeURIComponent(path)])
       }
-      await supabase.from('event_photos').delete().eq('id', photo.id)
       setBilanPhotos(prev => prev.filter(p => p.id !== photo.id))
-      // La photo n'illustre plus ni un jeu, ni l'ouverture, ni la diapositive « plein de jeux »
-      await supabase.from('event_games_played').update({ photo_url: null }).eq('photo_url', photo.url)
-      await supabase.from('events').update({ bilan_photo_ouverture: null }).eq('id', bilanModal.event.id).eq('bilan_photo_ouverture', photo.url)
-      await supabase.from('events').update({ bilan_photo_jeux: null }).eq('id', bilanModal.event.id).eq('bilan_photo_jeux', photo.url)
-      setBilanGames(prev => prev.map(g => (g.photo_url === photo.url ? { ...g, photo_url: null } : g)))
       fetchPhotoEventIds()
+      // La photo n'illustre plus ni un jeu, ni l'ouverture, ni la diapositive « plein de jeux »
+      const eventId = bilanModal.event.id
+      const [jeux, ouverture, pleinDeJeux] = await Promise.all([
+        supabase.from('event_games_played').update({ photo_url: null }).eq('photo_url', photo.url),
+        supabase.from('events').update({ bilan_photo_ouverture: null }).eq('id', eventId).eq('bilan_photo_ouverture', photo.url),
+        supabase.from('events').update({ bilan_photo_jeux: null }).eq('id', eventId).eq('bilan_photo_jeux', photo.url),
+      ])
+      if (!jeux.error) setBilanGames(prev => prev.map(g => (g.photo_url === photo.url ? { ...g, photo_url: null } : g)))
+      if (!ouverture.error) majBilanEvent(eventId, e => (e.bilan_photo_ouverture === photo.url ? { bilan_photo_ouverture: null } : {}))
+      if (!pleinDeJeux.error) majBilanEvent(eventId, e => (e.bilan_photo_jeux === photo.url ? { bilan_photo_jeux: null } : {}))
+      if (jeux.error || ouverture.error || pleinDeJeux.error) {
+        console.error('Nettoyage des choix de photo :', jeux.error || ouverture.error || pleinDeJeux.error)
+        addToast("Photo supprimée, mais les choix du carrousel qui l'utilisaient n'ont pas pu être effacés.", 'error')
+      }
     } catch (err) {
       console.error('Erreur suppression photo:', err)
       addToast('Erreur lors de la suppression de la photo.', 'error')
@@ -2560,6 +2579,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                     texteModifie={bilanFbTextEdited}
                     onTexteReset={resetBilanFbText}
                     onJeuxChange={setBilanGames}
+                    onEventChange={patch => majBilanEvent(bilanModal.event.id, patch)}
                   />
                 )}
               </div>
