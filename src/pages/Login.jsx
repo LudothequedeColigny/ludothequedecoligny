@@ -25,7 +25,7 @@ export default function Login() {
   const navigate = useNavigate()
   // Retour à l'adresse demandée avant la connexion (espace de gestion seulement)
   const depuis = useLocation().state?.depuis
-  const destination = typeof depuis === 'string' && depuis.startsWith('/admin') ? depuis : '/admin'
+  const destination = typeof depuis === 'string' && (depuis === '/admin' || depuis.startsWith('/admin/') || depuis.startsWith('/admin?')) ? depuis : '/admin'
 
   const handleLogin = async (e) => {
     e.preventDefault()

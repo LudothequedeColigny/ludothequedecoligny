@@ -1022,7 +1022,11 @@ www.ludothequedecoligny.fr`
       let ev = events.find(e => String(e.id) === id)
       if (!ev && /^\d+$/.test(id || '')) {
         const { data, error } = await supabase.from('events').select('*').eq('id', id).maybeSingle()
-        if (error) console.warn('Événement du rappel non lu :', error)
+        if (error) {
+          console.warn('Événement du rappel non lu :', error)
+          addToast("L'événement n'a pas pu être lu. Vérifiez la connexion puis rouvrez le rappel.", 'error')
+          return
+        }
         ev = data
       }
       if (!ev) { addToast("Cet événement n'existe plus.", 'warning'); return }

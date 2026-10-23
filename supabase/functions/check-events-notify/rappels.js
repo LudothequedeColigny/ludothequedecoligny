@@ -41,7 +41,8 @@ export function jeuxEmpruntes(prets) {
   for (const p of prets) {
     const renduLeJourMeme = p.return_date && p.loan_date
       && String(p.return_date).slice(0, 10) === String(p.loan_date).slice(0, 10)
-    if (!renduLeJourMeme) jeux.add(p.game_id)
+    // Jeu supprimé du catalogue : ignoré, comme dans la fenêtre Bilan
+    if (!renduLeJourMeme && p.game_id != null) jeux.add(p.game_id)
   }
   return jeux.size
 }

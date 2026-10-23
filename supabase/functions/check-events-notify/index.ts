@@ -68,6 +68,11 @@ serve(async (req) => {
     // Mode simulation : rappels qui partiraient à l'instant donné (heure de Paris),
     // sans rien envoyer ni écrire — pour vérifier avant et après une mise en ligne
     const simulation = corps?.simulation === true
+    // Une heure fournie sans simulation explicite (faute de frappe, "true" en texte) ne doit
+    // jamais déclencher un vrai passage avec envois
+    if (!simulation && (corps?.simulation !== undefined || corps?.maintenant !== undefined)) {
+      return json({ error: 'Simulation : écrire {"simulation": true, "maintenant": "AAAA-MM-JJTHH:MM:SS"}' }, 400)
+    }
     const now = new Date()
     const maintenant = simulation && typeof corps.maintenant === 'string'
       ? corps.maintenant.replace(' ', 'T')
@@ -124,9 +129,13 @@ serve(async (req) => {
 
     let envoyes = 0
     for (const r of rappels) {
-      const { status } = await sendPush({ title: r.title, body: r.body, url: r.url })
-      // Mémorisé seulement si send-push a accepté : sinon nouvel essai 15 min plus tard
+      const { status, reponse } = await sendPush({ title: r.title, body: r.body, url: r.url })
+      // Mémorisé seulement si send-push a accepté et joint au moins un téléphone (ou qu'aucun
+      // n'est abonné) : sinon nouvel essai 15 min plus tard
       if (status < 200 || status >= 300) continue
+      let resultat: { total?: number; sent?: number } = {}
+      try { resultat = JSON.parse(reponse) } catch { /* réponse illisible : considérée comme acceptée */ }
+      if (resultat.total && !resultat.sent) continue
       envoyes++
       const { error } = await supabase.from('events').update({ [r.colonne]: new Date().toISOString() }).eq('id', r.id)
       if (error) console.error(`Erreur mise à jour ${r.colonne}:`, error.message)
@@ -135,6 +144,8 @@ serve(async (req) => {
     return json({ success: true, starting_notified: startingCount, rappels: rappels.length, envoyes })
   } catch (error) {
     console.error('Erreur générale check-events-notify:', error)
-    return json({ error: error instanceof Error ? error.message : String(error) }, 500)
+    // Les erreurs de Supabase ne sont pas toujours des « Error » : on lit leur message
+    const message = (error as { message?: string })?.message ?? String(error)
+    return json({ error: message }, 500)
   }
 })

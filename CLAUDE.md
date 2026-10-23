@@ -308,7 +308,8 @@ Les animations et effets sont définis dans `src/index.css`.
   endroits. Un rappel part une fois (`notif_annonce_sent_at`, `notif_jour_sent_at`,
   `notif_bilan_sent_at`) et plus du tout après publication (`annonce_publiee_le`,
   `bilan_publie_le`, écrites par les fenêtres Annonce et Bilan). Vérifier sans rien envoyer :
-  relancer la commande de la tâche avec `{"simulation": true, "maintenant": "2026-11-06T09:05:00"}`.
+  relancer la commande de la tâche avec `{"simulation": true, "maintenant": "2026-11-06T09:05:00"}`
+  (réponse dans `net._http_response` ; prévoir `timeout_milliseconds := 30000`, 5 s ne suffisent pas).
   Un rappel ouvre `/admin/evenements?annonce={id}` ou `?bilan={id}` : l'écran Communication
   ouvre la fenêtre puis retire le paramètre ; déconnecté, la connexion y ramène.
 - **Le site utilise le défilement « doux »** : tout script qui fait défiler la page

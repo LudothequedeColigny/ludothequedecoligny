@@ -21,6 +21,7 @@ test('jeux empruntés : distincts, rendu le jour même non compté', () => {
     { game_id: 1, loan_date: '2026-11-07' },
     { game_id: 2, loan_date: '2026-11-07', return_date: '2026-11-07' },
     { game_id: 3, loan_date: '2026-11-07', return_date: '2026-11-21' },
+    { game_id: null, loan_date: '2026-11-07' },
   ]), 2)
   assert.equal(jeuxEmpruntes([]), 0)
 })

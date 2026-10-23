@@ -219,8 +219,9 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
       try {
         const publieLe = new Date().toISOString()
         const { error: errDate } = await supabase.from('events').update({ bilan_publie_le: publieLe }).eq('id', event.id)
+        // Pas de mise à jour de l'événement à l'écran : elle redessinerait tout le carrousel
+        // au moment où le bénévole veut enregistrer la story
         if (errDate) console.warn('Date de publication non enregistrée :', errDate)
-        else onEventChange?.({ bilan_publie_le: publieLe })
       } catch (errDate) {
         console.warn('Date de publication non enregistrée :', errDate)
       }
