@@ -300,6 +300,17 @@ Les animations et effets sont définis dans `src/index.css`.
   service des fonctions le 22/10/2026, une autre clé est refusée (« Non autorisé »).
   Les dates des événements sont à l'**heure de Paris, sans fuseau** : toute comparaison
   côté serveur doit se faire à l'heure de Paris, pas en heure universelle.
+  **Rappels** (octobre 2026) : annonce à J-10 dès 18h (soirée, famille), story le jour J dès
+  9h (tout événement), bilan de permanence 1 h après la fin s'il y a eu des emprunts, bilan
+  de soirée le lendemain dès 9h. Règles dans `check-events-notify/rappels.js` (testées par
+  `npm test`) ; `typeEvenement`, `estPermanence` et la règle « rendu le jour même » y sont
+  **recopiées** du site (la fonction ne peut pas importer `src/`) : les changer aux deux
+  endroits. Un rappel part une fois (`notif_annonce_sent_at`, `notif_jour_sent_at`,
+  `notif_bilan_sent_at`) et plus du tout après publication (`annonce_publiee_le`,
+  `bilan_publie_le`, écrites par les fenêtres Annonce et Bilan). Vérifier sans rien envoyer :
+  relancer la commande de la tâche avec `{"simulation": true, "maintenant": "2026-11-06T09:05:00"}`.
+  Un rappel ouvre `/admin/evenements?annonce={id}` ou `?bilan={id}` : l'écran Communication
+  ouvre la fenêtre puis retire le paramètre ; déconnecté, la connexion y ramène.
 - **Le site utilise le défilement « doux »** : tout script qui fait défiler la page
   doit préciser `behavior: 'instant'`, sinon il n'atteint jamais le bas.
 - `index.html` interdit volontairement le zoom sur mobile (`user-scalable=no`).
