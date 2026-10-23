@@ -7,6 +7,11 @@
 export const COULEURS = { bleu: '#1a5f7a', orange: '#e38154', encre: '#0f172a', creme: '#fdfaf6' }
 
 const cache = new Map()
+/** Oublie les images chargées (à la fermeture de la fenêtre Bilan : mémoire des téléphones). */
+export function viderCache() {
+  cache.clear()
+}
+
 export function chargerImage(url) {
   if (!url) return Promise.resolve(null)
   if (!cache.has(url)) {
@@ -28,6 +33,13 @@ export async function chargerPolices() {
   ]).catch(() => {})
 }
 
+/** Libère la mémoire d'un canvas pleine taille (indispensable sur téléphone). */
+export function liberer(canvas) {
+  if (!canvas) return
+  canvas.width = 0
+  canvas.height = 0
+}
+
 export function nouveauCanvas(w, h) {
   const canvas = document.createElement('canvas')
   canvas.width = w
@@ -42,7 +54,10 @@ export function recouvrir(ctx, img, x, y, w, h) {
   ctx.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, x, y, w, h)
 }
 
-/** Flou fort par réductions successives puis agrandissement lissé. */
+/**
+ * Flou fort par réductions successives puis agrandissement lissé.
+ * Le canvas rendu est pleine taille : l'appelant le libère après l'avoir dessiné.
+ */
 export function flou(img, w, h) {
   const { canvas: petit, ctx: p } = nouveauCanvas(Math.max(8, Math.round(w / 24)), Math.max(8, Math.round(h / 24)))
   p.imageSmoothingQuality = 'high'
@@ -54,7 +69,16 @@ export function flou(img, w, h) {
   ctx.imageSmoothingQuality = 'high'
   // Léger débord pour éviter les bords plus clairs
   ctx.drawImage(moyen, -w * 0.06, -h * 0.06, w * 1.12, h * 1.12)
+  liberer(petit)
+  liberer(moyen)
   return canvas
+}
+
+/** Dessine la photo floutée en plein cadre puis libère le canvas intermédiaire. */
+export function dessinerFlou(ctx, img, w, h) {
+  const f = flou(img, w, h)
+  ctx.drawImage(f, 0, 0)
+  liberer(f)
 }
 
 export function degradeBas(ctx, w, h, debut = 0.38) {
@@ -170,6 +194,7 @@ export function ombrePleine(ctx, img, x, y, w, h, decalage) {
   c.fillStyle = COULEURS.encre
   c.fillRect(0, 0, w, h)
   ctx.drawImage(o, x + decalage, y + decalage)
+  liberer(o)
   ctx.drawImage(img, x, y, w, h)
 }
 

@@ -1,6 +1,6 @@
 import {
-  COULEURS, chargerImage, chargerPolices, nouveauCanvas, recouvrir, flou, degradeBas, voile,
-  rectArrondi, police, couperLignes, etiquette, pastille, texteContoure, ombrePleine,
+  COULEURS, chargerImage, chargerPolices, nouveauCanvas, recouvrir, dessinerFlou, degradeBas, voile,
+  rectArrondi, police, couperLignes, etiquette, pastille, texteContoure, ombrePleine, liberer,
 } from './dessin.js'
 
 /**
@@ -9,7 +9,8 @@ import {
  */
 const L = 1080
 const H = 1350
-const LOGO = '/logo-feuille.svg'
+// PNG et non SVG : un SVG dessiné sur canvas peut le « bloquer » sur Safari (export impossible)
+const LOGO = '/social/logo-feuille.png'
 const FOND_BOIS = '/social/fond-bois.jpg'
 
 async function ouverture(ctx, d, logo) {
@@ -39,7 +40,7 @@ async function ouverture(ctx, d, logo) {
 
 async function nombre(ctx, d, logo) {
   const photo = await chargerImage(d.photo)
-  if (photo) ctx.drawImage(flou(photo, L, H), 0, 0)
+  if (photo) dessinerFlou(ctx, photo, L, H)
   voile(ctx, L, H, 'rgba(26,95,122,0.62)')
   pastille(ctx, logo, 56, 56)
   ctx.textAlign = 'center'
@@ -161,7 +162,7 @@ async function jeu(ctx, d, logo) {
     degradeBas(ctx, L, H)
   } else {
     const fond = await chargerImage(d.fond)
-    if (fond) ctx.drawImage(flou(fond, L, H), 0, 0)
+    if (fond) dessinerFlou(ctx, fond, L, H)
     voile(ctx, L, H, 'rgba(26,95,122,0.62)')
     // Halo crème derrière la jaquette
     const g = ctx.createRadialGradient(L / 2, H * 0.45, 0, L / 2, H * 0.45, 320)
@@ -273,16 +274,32 @@ export async function carteRendezVous(ctx, rdv, { x, bas, haut, largeur, affiche
 
 const DESSINS = { ouverture, nombre, transition, jeu, merci }
 
-export async function dessinerCarrousel(plan) {
+/**
+ * Dessine les images du plan. Avec `onDiapo(canvas, index)` (fonction async), chaque
+ * image lui est confiée dès qu'elle est dessinée puis libérée : une seule image
+ * pleine taille en mémoire à la fois (téléphones), et le tableau rendu est vide.
+ * Sans `onDiapo`, les canvas sont rendus et l'appelant les libère.
+ */
+export async function dessinerCarrousel(plan, onDiapo) {
   await chargerPolices()
   const logo = await chargerImage(LOGO)
   const canvases = []
-  for (const d of plan) {
+  for (let i = 0; i < plan.length; i++) {
+    const d = plan[i]
     const { canvas, ctx } = nouveauCanvas(L, H)
-    ctx.fillStyle = COULEURS.encre
-    ctx.fillRect(0, 0, L, H)
-    await DESSINS[d.type](ctx, d, logo)
-    canvases.push(canvas)
+    try {
+      ctx.fillStyle = COULEURS.encre
+      ctx.fillRect(0, 0, L, H)
+      await DESSINS[d.type](ctx, d, logo)
+      if (onDiapo) await onDiapo(canvas, i)
+    } catch (e) {
+      // En cas d'échec, rien ne reste en mémoire
+      liberer(canvas)
+      canvases.forEach(liberer)
+      throw e
+    }
+    if (onDiapo) liberer(canvas)
+    else canvases.push(canvas)
   }
   return canvases
 }

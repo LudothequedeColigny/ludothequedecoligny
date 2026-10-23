@@ -1,6 +1,6 @@
 import {
-  COULEURS, chargerImage, chargerPolices, nouveauCanvas, recouvrir, flou, degradeBas, voile,
-  police, couperLignes, etiquette, pastille, texteContoure, ombrePleine,
+  COULEURS, chargerImage, chargerPolices, nouveauCanvas, recouvrir, dessinerFlou, degradeBas, voile,
+  police, couperLignes, etiquette, pastille, texteContoure, ombrePleine, liberer,
 } from './dessin.js'
 import { carteRendezVous } from './carrousel.js'
 
@@ -10,7 +10,8 @@ import { carteRendezVous } from './carrousel.js'
  */
 const L = 1080
 const H = 1920
-const LOGO = '/logo-feuille.svg'
+// PNG et non SVG : un SVG dessiné sur canvas peut le « bloquer » sur Safari (export impossible)
+const LOGO = '/social/logo-feuille.png'
 const FOND_BOIS = '/social/fond-bois.jpg'
 const HAUT = 270 // sous la zone d'Instagram
 
@@ -40,7 +41,7 @@ async function ouverture(ctx, d, logo) {
 
 async function nombre(ctx, d, logo) {
   const photo = await chargerImage(d.photo)
-  if (photo) ctx.drawImage(flou(photo, L, H), 0, 0)
+  if (photo) dessinerFlou(ctx, photo, L, H)
   voile(ctx, L, H, 'rgba(26,95,122,0.62)')
   pastille(ctx, logo, 70, HAUT)
   ctx.textAlign = 'center'
@@ -62,7 +63,7 @@ async function nombre(ctx, d, logo) {
 
 async function grille(ctx, d, logo) {
   const photo = await chargerImage(d.photo)
-  if (photo) ctx.drawImage(flou(photo, L, H), 0, 0)
+  if (photo) dessinerFlou(ctx, photo, L, H)
   voile(ctx, L, H, 'rgba(26,95,122,0.62)')
   pastille(ctx, logo, 70, HAUT)
   ctx.fillStyle = COULEURS.creme
@@ -122,16 +123,32 @@ async function merci(ctx, d, logo) {
 
 const DESSINS = { ouverture, nombre, grille, merci }
 
-export async function dessinerStory(plan) {
+/**
+ * Dessine les images du plan. Avec `onDiapo(canvas, index)` (fonction async), chaque
+ * image lui est confiée dès qu'elle est dessinée puis libérée : une seule image
+ * pleine taille en mémoire à la fois (téléphones), et le tableau rendu est vide.
+ * Sans `onDiapo`, les canvas sont rendus et l'appelant les libère.
+ */
+export async function dessinerStory(plan, onDiapo) {
   await chargerPolices()
   const logo = await chargerImage(LOGO)
   const canvases = []
-  for (const d of plan) {
+  for (let i = 0; i < plan.length; i++) {
+    const d = plan[i]
     const { canvas, ctx } = nouveauCanvas(L, H)
-    ctx.fillStyle = COULEURS.encre
-    ctx.fillRect(0, 0, L, H)
-    await DESSINS[d.type](ctx, d, logo)
-    canvases.push(canvas)
+    try {
+      ctx.fillStyle = COULEURS.encre
+      ctx.fillRect(0, 0, L, H)
+      await DESSINS[d.type](ctx, d, logo)
+      if (onDiapo) await onDiapo(canvas, i)
+    } catch (e) {
+      // En cas d'échec, rien ne reste en mémoire
+      liberer(canvas)
+      canvases.forEach(liberer)
+      throw e
+    }
+    if (onDiapo) liberer(canvas)
+    else canvases.push(canvas)
   }
   return canvases
 }
