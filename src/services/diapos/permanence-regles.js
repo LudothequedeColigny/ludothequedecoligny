@@ -21,7 +21,7 @@ const plageHoraire = (debut, fin) => (fin ? `de ${heureTexte(debut)} à ${heureT
 export const estPermanence = titre => typeEvenement(titre || '') === 'permanence' && sansAccents(titre || '').includes('permanence')
 
 /**
- * Prêts qui sont vraiment partis : un prêt rendu le jour même (correction, échange sur
+ * Prêts vraiment empruntés : un prêt rendu le jour même (correction, échange sur
  * place) n'est pas compté. Les prêts en cours (sans `return_date`) sont gardés.
  */
 export const pretsPartis = prets => prets.filter(p => !(
@@ -78,7 +78,7 @@ export function prochainePermanence({ evenements = [], horaires = {}, maintenant
 }
 
 export function planBilanPermanence({ event, prets, prochaine }) {
-  // Nombre affiché = jeux distincts partis : nombre, grille et texte disent la même chose
+  // Nombre affiché = jeux distincts empruntés : nombre, grille et texte disent la même chose
   const jeux = jeuxDistincts(pretsPartis(prets))
   if (!jeux.length) return []
   const jaquettes = jeux.map(j => j.jaquette).filter(Boolean)
@@ -92,7 +92,7 @@ export function planBilanPermanence({ event, prets, prochaine }) {
       type: 'nombre', mosaique,
       intro: `${JOURS[dateLocale(event.date).getDay()]}, à la permanence…`,
       nombre: n,
-      suite: n === 1 ? 'jeu est parti jouer dans les familles !' : 'jeux sont partis jouer dans les familles !',
+      suite: n === 1 ? 'jeu a été emprunté !' : 'jeux ont été empruntés !',
     },
     { type: 'grille', cases },
     { type: 'prochaine', mosaique, prochaine },
@@ -105,7 +105,7 @@ export function texteBilanPermanence({ event, prets, prochaine }) {
   const lignes = [
     `🎲 Retour sur la permanence du ${minuscule(jourComplet(dateLocale(event.date)))} !`,
     '',
-    `📦 ${n} ${n === 1 ? 'jeu est parti' : 'jeux sont partis'} jouer dans les familles${noms.length ? ` : ${noms.join(', ')}.` : ' !'}`,
+    `📦 ${n} ${n === 1 ? 'jeu a été emprunté' : 'jeux ont été empruntés'}${noms.length ? ` : ${noms.join(', ')}.` : ' !'}`,
   ]
   if (prochaine) {
     lignes.push('', `📅 Prochaine permanence : ${[minuscule(prochaine.jour), prochaine.heures, prochaine.lieu].filter(Boolean).join(', ')}.`)

@@ -72,14 +72,14 @@ test('plan : 3 diapositives, nombre = jeux distincts, grille = jeux distincts', 
   assert.deepEqual(plan.map(d => d.type), ['nombre', 'grille', 'prochaine'])
   assert.equal(plan[0].intro, 'Samedi, à la permanence…')
   assert.equal(plan[0].nombre, 3)
-  assert.equal(plan[0].suite, 'jeux sont partis jouer dans les familles !')
+  assert.equal(plan[0].suite, 'jeux ont été empruntés !')
   // Mosaïque : 8 jaquettes, répétées dans l'ordre, jamais de case vide
   assert.deepEqual(plan[0].mosaique, ['https://x.supabase.co/1.jpg', 'https://x.supabase.co/3.jpg', 'https://x.supabase.co/1.jpg', 'https://x.supabase.co/3.jpg', 'https://x.supabase.co/1.jpg', 'https://x.supabase.co/3.jpg', 'https://x.supabase.co/1.jpg', 'https://x.supabase.co/3.jpg'])
   assert.deepEqual(plan[1].cases, [{ nom: 'Azul', jaquette: 'https://x.supabase.co/1.jpg' }, { nom: 'Dixit', jaquette: 'https://x.supabase.co/3.jpg' }, { nom: 'Écosystème', jaquette: null }])
   assert.deepEqual(plan[2], { type: 'prochaine', mosaique: plan[0].mosaique, prochaine })
 })
 
-test('prêts partis : un prêt rendu le jour même n’est pas compté', () => {
+test('prêts empruntés : un prêt rendu le jour même n’est pas compté', () => {
   const rendu = { ...pret(1, 'Azul'), loan_date: '2026-10-03', return_date: '2026-10-03' }
   const rendePlusTard = { ...pret(2, 'Dixit'), loan_date: '2026-10-03', return_date: '2026-10-17' }
   const enCours = { ...pret(3, 'Kezao'), loan_date: '2026-10-03' }
@@ -102,7 +102,7 @@ test('plan : un prêt rendu le jour même fait baisser le nombre', () => {
 
 test('plan : un seul prêt au singulier ; aucun prêt → pas de plan', () => {
   const plan = planBilanPermanence({ event: perm, prets: [pret(1, 'Azul')], prochaine: null })
-  assert.equal(plan[0].suite, 'jeu est parti jouer dans les familles !')
+  assert.equal(plan[0].suite, 'jeu a été emprunté !')
   assert.equal(plan[2].prochaine, null)
   assert.deepEqual(planBilanPermanence({ event: perm, prets: [], prochaine: null }), [])
 })
@@ -127,7 +127,7 @@ test('texte de publication', () => {
   assert.equal(texteBilanPermanence({ event: perm, prets, prochaine }), [
     '🎲 Retour sur la permanence du samedi 3 octobre !',
     '',
-    '📦 3 jeux sont partis jouer dans les familles : Azul, Dixit, Écosystème.',
+    '📦 3 jeux ont été empruntés : Azul, Dixit, Écosystème.',
     '',
     '📅 Prochaine permanence : samedi 7 novembre, de 10h à 12h, 419 Grande rue à Coligny.',
     '',
@@ -138,6 +138,6 @@ test('texte de publication', () => {
     'www.ludothequedecoligny.fr',
   ].join('\n'))
   const seul = texteBilanPermanence({ event: perm, prets: [pret(1, 'Azul')], prochaine: null })
-  assert.match(seul, /📦 1 jeu est parti jouer dans les familles : Azul\./)
+  assert.match(seul, /📦 1 jeu a été emprunté : Azul\./)
   assert.doesNotMatch(seul, /Prochaine permanence/)
 })

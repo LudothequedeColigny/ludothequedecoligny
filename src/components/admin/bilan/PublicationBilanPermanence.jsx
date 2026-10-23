@@ -34,7 +34,7 @@ const jourDeLaPermanence = date => {
 
 export default function PublicationBilanPermanence({ event, onPublication }) {
   // undefined pendant la lecture ; null si les prêts n'ont pas pu être lus
-  const [donnees, setDonnees] = useState(undefined) // { prets (partis), nbJeux, prochaine }
+  const [donnees, setDonnees] = useState(undefined) // { prets (empruntés), nbJeux, prochaine }
   // Texte retouché par le bénévole (null = texte proposé)
   const [texteSaisi, setTexteSaisi] = useState(null)
   const [apercu, setApercu] = useState([])
@@ -217,7 +217,7 @@ export default function PublicationBilanPermanence({ event, onPublication }) {
             </button>
           )}
           <p className="ml-1 text-[11px] font-semibold leading-relaxed text-slate-500">
-            Les prêts sont retrouvés par leur date : {nbJeux} {nbJeux === 1 ? 'jeu parti' : 'jeux partis'} le {jourDeLaPermanence(event.date)} (un jeu rendu le jour même n'est pas compté).
+            Les prêts sont retrouvés par leur date : {nbJeux} {nbJeux === 1 ? 'jeu emprunté' : 'jeux empruntés'} le {jourDeLaPermanence(event.date)} (un jeu rendu le jour même n'est pas compté).
           </p>
         </div>
 

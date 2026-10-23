@@ -143,7 +143,7 @@ async function nombre(ctx, d, logo) {
   ctx.textAlign = 'left'
 }
 
-// ---------- 2 · Les jeux partis ----------
+// ---------- 2 · Les jeux empruntés ----------
 
 const GRILLE = { gauche: 70, droite: L - 86, haut: 340, bas: 1260, colonnes: 4, ecartX: 30 }
 const BORD_CASE = 5
@@ -154,12 +154,15 @@ async function grille(ctx, d, logo) {
   voile(ctx, L, H, COULEURS.creme)
   pastille(ctx, logo, 56, 56)
 
-  // Titre « Ils sont partis jouer : », « jouer : » en orange (deux lignes s'il ne tient pas)
-  police(ctx, 800, 110, TITRE)
-  espacer(ctx, -0.04 * 110)
-  const debut = 'Ils sont partis '
-  const fin = 'jouer\u00A0:'
-  const hTitre = 110 * 0.92
+  // Titre « Les jeux empruntés : », « empruntés : » en orange, réduit pour tenir sur une
+  // ligne (deux lignes seulement si même la plus petite taille ne suffit pas)
+  const debut = 'Les jeux '
+  const fin = 'empruntés\u00A0:'
+  let tTitre = 110
+  const reglerTitre = () => { police(ctx, 800, tTitre, TITRE); espacer(ctx, -0.04 * tTitre) }
+  reglerTitre()
+  while (tTitre > 80 && largeur(ctx, debut + fin) > 940) { tTitre -= 2; reglerTitre() }
+  const hTitre = tTitre * 0.92
   if (largeur(ctx, debut + fin) <= 940) {
     const b = baseLigne(ctx, 170, hTitre)
     ctx.fillStyle = COULEURS.encre

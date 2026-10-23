@@ -57,8 +57,8 @@ date du jour d'une permanence est compté dans son bilan.
 
 | N° | Contenu |
 |---|---|
-| 1 | Fond : **mosaïque** des jaquettes des jeux empruntés (grille 4 colonnes, 8 cases, jaquettes répétées s'il y en a moins de 8 ; aplat bleu si aucune), floutée (`dessinerFlou`, jamais `ctx.filter`) + voile bleu `rgba(26,95,122,.72)`. Pastille « Ludothèque de Coligny » en haut à gauche. Centré : « {Jour}, à la permanence… » (Poppins 700, 60 px ; Jour = jour de la semaine de la permanence, majuscule initiale) ; le **nombre** (Bricolage 800, ~540 px, contour encre 10 px, ombre pleine orange 22 px) ; « jeux sont partis jouer dans les familles ! » (Bricolage 800, 92 px ; 1 prêt : « jeu est parti jouer dans les familles ! »). |
-| 2 | Fond crème. Pastille. Titre « Ils sont partis **jouer :** » (Bricolage 800, 110 px, « jouer : » en orange). Grille 4 colonnes de cases blanches (contour encre 5 px, rayon 26, ombre pleine 11 px bleue, orange une case sur deux), jaquette entière dedans (`contain`), nom dessous (Bricolage 800, 28 px, centré, 2 lignes au plus avec « … »). 12 cases au plus (3 lignes) : au-delà de 12 jeux, 11 jaquettes + une 12ᵉ case « … et N autres » (N = total − 11). La grille tient entre y = 340 et y = 1260 : hauteur des cases réduite si 3 lignes. Jeu sans jaquette : son nom centré dans la case. |
+| 1 | Fond : **mosaïque** des jaquettes des jeux empruntés (grille 4 colonnes, 8 cases, jaquettes répétées s'il y en a moins de 8 ; aplat bleu si aucune), floutée (`dessinerFlou`, jamais `ctx.filter`) + voile bleu `rgba(26,95,122,.72)`. Pastille « Ludothèque de Coligny » en haut à gauche. Centré : « {Jour}, à la permanence… » (Poppins 700, 60 px ; Jour = jour de la semaine de la permanence, majuscule initiale) ; le **nombre** (Bricolage 800, ~540 px, contour encre 10 px, ombre pleine orange 22 px) ; « jeux ont été empruntés ! » (Bricolage 800, 92 px ; 1 jeu : « jeu a été emprunté ! » — formulation choisie par Victor le 23/10 à la place de « partis jouer dans les familles »). |
+| 2 | Fond crème. Pastille. Titre « Les jeux **empruntés :** » (Bricolage 800, 110 px réduit pour tenir sur une ligne, « empruntés : » en orange). Grille 4 colonnes de cases blanches (contour encre 5 px, rayon 26, ombre pleine 11 px bleue, orange une case sur deux), jaquette entière dedans (`contain`), nom dessous (Bricolage 800, 28 px, centré, 2 lignes au plus avec « … »). 12 cases au plus (3 lignes) : au-delà de 12 jeux, 11 jaquettes + une 12ᵉ case « … et N autres » (N = total − 11). La grille tient entre y = 340 et y = 1260 : hauteur des cases réduite si 3 lignes. Jeu sans jaquette : son nom centré dans la case. |
 | 3 | Fond : même mosaïque floutée + voile bleu. Pastille. « À votre tour ! » (Poppins 700, 56 px, crème) ; « Prochaine permanence » (Bricolage 800, ~140 px, crème, contour encre 5 px, ombre orange 14 px). Carte crème (contour 6 px, rayon 34, ombre pleine orange 16 px) : « Samedi 7 novembre » (Bricolage 800, 74 px), « de 10h à 12h » (Poppins 700, 40 px, bleu), adresse (Poppins 600, 32 px, `#475569`). En bas : « Pas encore adhérent ? **L'adhésion se fait sur place**, pour tout le foyer. » puis « Toutes les infos : **ludothequedecoligny.fr/adherer** » (Poppins 600/800, 32 px, crème). |
 
 Heures au format « 10h », « 10h30 » ; « de 10h à 12h » si fin connue, sinon « à partir de 10h ».
@@ -69,7 +69,7 @@ Jour au format « Samedi 7 novembre » (« 1er » pour le premier du mois, `jour
 ```
 🎲 Retour sur la permanence du samedi 3 octobre !
 
-📦 10 jeux sont partis jouer dans les familles : Azul, Dixit, Kingdomino…
+📦 8 jeux ont été empruntés : Azul, Dixit, Kingdomino…
 
 📅 Prochaine permanence : samedi 7 novembre, de 10h à 12h, 419 Grande Rue à Coligny.
 
@@ -79,7 +79,7 @@ Toutes les infos : www.ludothequedecoligny.fr/adherer
 Ludothèque de Coligny
 www.ludothequedecoligny.fr
 ```
-(1 prêt : « 1 jeu est parti jouer… » ; liste des noms distincts, tous ; ligne
+(1 jeu : « 1 jeu a été emprunté… » ; liste des noms distincts, tous ; ligne
 « Prochaine permanence » retirée si inconnue.)
 
 ## Fenêtre
