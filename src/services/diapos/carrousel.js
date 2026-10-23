@@ -108,6 +108,15 @@ function blocNom(ctx, d) {
   let taille = 104
   let lignes = couperLignes(ctx, d.nom, 560)
   if (lignes.length > 2) { taille = 84; police(ctx, 800, 84, 'Bricolage Grotesque'); lignes = couperLignes(ctx, d.nom, 560) }
+  if (lignes.length > 3) { taille = 68; police(ctx, 800, 68, 'Bricolage Grotesque'); lignes = couperLignes(ctx, d.nom, 560) }
+  if (lignes.length > 3) {
+    lignes = lignes.slice(0, 3)
+    let mots = lignes[2].split(' ')
+    while (mots.length > 1 && ctx.measureText(mots.join(' ') + '…').width > 560) mots = mots.slice(0, -1)
+    let t = mots.join(' ')
+    while (t.length > 1 && ctx.measureText(t + '…').width > 560) t = t.slice(0, -1)
+    lignes[2] = t + '…'
+  }
   const hNom = lignes.length * taille * 0.92
   const bas = H - 92
   const baseDispo = bas
@@ -209,6 +218,9 @@ async function merci(ctx, d, logo) {
 /** Carte « Prochain rendez-vous » (crème, ombre orange), affiche à droite. Exportée pour la story. */
 export async function carteRendezVous(ctx, rdv, { x, bas, haut, largeur, affiche: lAffiche }) {
   const affiche = rdv?.affiche ? await chargerImage(rdv.affiche) : null
+  ctx.save()
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'alphabetic'
   const hAffiche = affiche ? lAffiche * (affiche.height / affiche.width) : 0
   const lTexte = largeur - 80 - (affiche ? lAffiche + 36 : 0)
   police(ctx, 800, 66, 'Bricolage Grotesque')
@@ -255,6 +267,7 @@ export async function carteRendezVous(ctx, rdv, { x, bas, haut, largeur, affiche
     rectArrondi(ctx, -lAffiche / 2, -hAffiche / 2, lAffiche, hAffiche, 12); ctx.stroke()
     ctx.restore()
   }
+  ctx.restore()
   return { y, h }
 }
 
