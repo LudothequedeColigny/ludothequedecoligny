@@ -37,6 +37,8 @@ import { chargerJeuxAAnnoncer } from '../../services/nouveauxJeux'
 import { copierJaquette } from '../../services/diapos/jaquettes'
 import { typeEvenement as getEventType } from '../../services/diapos/regles'
 import PublicationBilan from '../../components/admin/bilan/PublicationBilan'
+import PublicationBilanPermanence from '../../components/admin/bilan/PublicationBilanPermanence'
+import { estPermanence } from '../../services/diapos/permanence-regles'
 import PublicationAnnonce from '../../components/admin/annonce/PublicationAnnonce'
 import { uploadSquareVersion, publierSurReseaux } from '../../services/reseauxSociaux'
 
@@ -230,6 +232,8 @@ export default function Evenements() {
 
   // Modale de bilan d'événement passé
   const [bilanModal, setBilanModal] = useState({ show: false, event: null })
+  // Publication du bilan d'une permanence en cours : la fenêtre ne se ferme pas
+  const [bilanEnPublication, setBilanEnPublication] = useState(false)
   const [bilanParticipants, setBilanParticipants] = useState('')
   const [savingParticipants, setSavingParticipants] = useState(false)
   const [bilanPhotos, setBilanPhotos] = useState([])
@@ -926,6 +930,7 @@ www.ludothequedecoligny.fr`
   }
 
   const openBilanModal = async (event) => {
+    setBilanEnPublication(false)
     setBilanModal({ show: true, event })
     setBilanParticipants(event.participants_count != null ? String(event.participants_count) : '')
     setGameSearchQuery('')
@@ -954,6 +959,7 @@ www.ludothequedecoligny.fr`
   }
 
   const closeBilanModal = () => {
+    if (bilanEnPublication) return
     setBilanModal({ show: false, event: null })
     setBilanPhotos([])
     setBilanGames([])
@@ -2345,8 +2351,8 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                   <p className="mt-1.5 truncate text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-400">{bilanModal.event?.title}</p>
                 </div>
               </div>
-              <button onClick={closeBilanModal} aria-label="Fermer"
-                className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[15px] font-extrabold text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white">✕</button>
+              <button onClick={closeBilanModal} disabled={bilanEnPublication} aria-label="Fermer"
+                className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[15px] font-extrabold text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white disabled:cursor-not-allowed disabled:opacity-40">✕</button>
             </div>
 
             <div className="flex-1 space-y-7 overflow-y-auto p-6">
@@ -2503,8 +2509,14 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-2">
                   <Share2 size={14} /> Publier sur les réseaux
                 </h4>
-                {getEventType(bilanModal.event.title) === 'permanence' ? (
-                  <p className="text-[11px] italic text-slate-400 px-1">Le bilan des permanences arrive bientôt.</p>
+                {estPermanence(bilanModal.event.title) ? (
+                  <PublicationBilanPermanence
+                    key={bilanModal.event.id}
+                    event={bilanModal.event}
+                    onPublication={setBilanEnPublication}
+                  />
+                ) : getEventType(bilanModal.event.title) === 'permanence' ? (
+                  <p className="text-[11px] italic text-slate-400 px-1">Le bilan de cet événement n'est pas encore proposé.</p>
                 ) : (
                   <PublicationBilan
                     key={bilanModal.event.id}
@@ -2526,9 +2538,9 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
 
             {/* Footer */}
             <div className="shrink-0 border-t-2 border-slate-100 p-6">
-              <button onClick={closeBilanModal}
-                className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] py-4 text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500 transition-colors hover:bg-slate-100">
-                Fermer
+              <button onClick={closeBilanModal} disabled={bilanEnPublication}
+                className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] py-4 text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40">
+                {bilanEnPublication ? 'Publication en cours…' : 'Fermer'}
               </button>
             </div>
           </div>
