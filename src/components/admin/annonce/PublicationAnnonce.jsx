@@ -90,8 +90,10 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
 
   const enregistrer = valeur => {
     const demande = ++derniereSauvegarde.current
-    sauvegardes.current = sauvegardes.current.then(() => enregistrerMaintenant(valeur, demande))
-    return sauvegardes.current
+    const p = sauvegardes.current.then(() => enregistrerMaintenant(valeur, demande))
+    // Un échec imprévu ne doit pas bloquer les enregistrements suivants
+    sauvegardes.current = p.catch(() => {})
+    return p
   }
   // Texte enregistré sur l'événement ; en cas d'échec, retour à la valeur précédente
   const enregistrerMaintenant = async (valeur, demande) => {
@@ -288,7 +290,8 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
   const envoyerAffiche = async () => {
     const image = event.image_url
     const carre = await uploadSquareVersion(image, socialFileNameFrom(image) || nomSur(event.title) + '-social.jpg')
-    const url = carre || (image.startsWith('data:') ? null : image)
+    // Make ne publie une image seule que si elle est hébergée chez nous
+    const url = carre || (image.includes('supabase.co') ? image : null)
     if (!url) throw new Error('Affiche non enregistrée')
     return [url]
   }
