@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CheckCircle2, Download, Image as ImageIcon, Loader2, Share2 } from 'lucide-react'
+import { CheckCircle2, ChevronLeft, ChevronRight, Download, Image as ImageIcon, Loader2, Share2, X } from 'lucide-react'
 import { supabase } from '../../../services/supabaseClient'
 import { planCarrousel, planStory, prochainRendezVous, choisirJeux } from '../../../services/diapos/regles'
 import { dessinerCarrousel } from '../../../services/diapos/carrousel'
@@ -59,6 +59,56 @@ function telecharger(fichiers) {
     a.click()
     setTimeout(() => URL.revokeObjectURL(a.href), 2000)
   }
+}
+
+/** Image agrandie, avec passage à la précédente / suivante (flèches, glisser, clavier). */
+function VueAgrandie({ images, index, onIndex, onFermer }) {
+  const debutToucher = useRef(null)
+  const n = images.length
+  const aller = i => { if (i >= 0 && i < n) onIndex(i) }
+
+  useEffect(() => {
+    const touche = e => {
+      if (e.key === 'ArrowLeft') aller(index - 1)
+      else if (e.key === 'ArrowRight') aller(index + 1)
+      else if (e.key === 'Escape') onFermer()
+    }
+    window.addEventListener('keydown', touche)
+    return () => window.removeEventListener('keydown', touche)
+  })
+
+  if (!images[index]) return null
+  const fleche = 'absolute top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-800 shadow hover:bg-white'
+  return (
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-[#0f172a]/85 p-4" onClick={onFermer}
+      onTouchStart={e => { debutToucher.current = e.touches[0].clientX }}
+      onTouchEnd={e => {
+        if (debutToucher.current == null) return
+        const ecart = e.changedTouches[0].clientX - debutToucher.current
+        debutToucher.current = null
+        if (Math.abs(ecart) > 40) aller(index + (ecart < 0 ? 1 : -1))
+      }}>
+      <img src={images[index]} alt={`Image ${index + 1} sur ${n}`} onClick={e => e.stopPropagation()}
+        className="max-h-[86vh] max-w-full rounded-xl border-2 border-white" />
+      <span className="absolute left-1/2 top-4 -translate-x-1/2 rounded-full bg-slate-900/80 px-3 py-1 text-[11px] font-black text-white">
+        {index + 1} / {n}
+      </span>
+      <button type="button" onClick={onFermer} aria-label="Fermer"
+        className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-slate-800 shadow hover:bg-white">
+        <X size={18} />
+      </button>
+      {index > 0 && (
+        <button type="button" onClick={e => { e.stopPropagation(); aller(index - 1) }} aria-label="Image précédente" className={`${fleche} left-3`}>
+          <ChevronLeft size={22} />
+        </button>
+      )}
+      {index < n - 1 && (
+        <button type="button" onClick={e => { e.stopPropagation(); aller(index + 1) }} aria-label="Image suivante" className={`${fleche} right-3`}>
+          <ChevronRight size={22} />
+        </button>
+      )}
+    </div>
+  )
 }
 
 export default function PublicationBilan({ event, photos, jeux, participants, texte, onTexteChange, texteModifie, onTexteReset, onJeuxChange, onEventChange }) {
@@ -300,7 +350,7 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
         <p className={SECTION}>Aperçu du carrousel {calcul && <Loader2 size={11} className="ml-1 inline animate-spin" />}</p>
         <div className="flex gap-2 overflow-x-auto pb-2">
           {apercuCarrousel.map((src, i) => (
-            <button key={i} type="button" onClick={() => setAgrandie(src)} className="shrink-0">
+            <button key={i} type="button" onClick={() => setAgrandie({ liste: 'carrousel', index: i })} className="shrink-0">
               <img src={src} alt={`Diapositive ${i + 1}`} className="h-36 rounded-lg border-2 border-[#0f172a]" />
             </button>
           ))}
@@ -308,7 +358,7 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
         <p className={SECTION}>Aperçu de la story</p>
         <div className="flex gap-2 overflow-x-auto pb-2">
           {apercuStory.map((src, i) => (
-            <button key={i} type="button" onClick={() => setAgrandie(src)} className="shrink-0">
+            <button key={i} type="button" onClick={() => setAgrandie({ liste: 'story', index: i })} className="shrink-0">
               <img src={src} alt={`Story ${i + 1}`} className="h-44 rounded-lg border-2 border-[#0f172a]" />
             </button>
           ))}
@@ -346,9 +396,12 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
       </div>
 
       {agrandie && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-[#0f172a]/80 p-4" onClick={() => setAgrandie(null)}>
-          <img src={agrandie} alt="" className="max-h-[90vh] max-w-full rounded-xl border-2 border-white" />
-        </div>
+        <VueAgrandie
+          images={agrandie.liste === 'story' ? apercuStory : apercuCarrousel}
+          index={agrandie.index}
+          onIndex={i => setAgrandie(a => ({ ...a, index: i }))}
+          onFermer={() => setAgrandie(null)}
+        />
       )}
     </div>
   )
