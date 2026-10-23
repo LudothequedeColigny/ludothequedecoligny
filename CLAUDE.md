@@ -265,6 +265,12 @@ Les animations et effets sont définis dans `src/index.css`.
 - **Ne pas renommer la couleur `teal`** dans `tailwind.config.js` : l'espace
   d'administration s'en sert.
 - **`src/.DS_Store` apparaît toujours comme modifié** : fichier système macOS, à ignorer.
+- **Notifications des bénévoles** : la tâche planifiée `check-events-notify` (toutes les
+  15 min) appelle la fonction du même nom par `net.http_post` — il faut le module
+  **pg_net** (absent du 20/07 au 23/10/2026 : 9 116 échecs, aucune notification partie).
+  En cas de doute, lire `cron.job_run_details` puis `net._http_response`.
+  Les dates des événements sont à l'**heure de Paris, sans fuseau** : toute comparaison
+  côté serveur doit se faire à l'heure de Paris, pas en heure universelle.
 - **Le site utilise le défilement « doux »** : tout script qui fait défiler la page
   doit préciser `behavior: 'instant'`, sinon il n'atteint jamais le bas.
 - `index.html` interdit volontairement le zoom sur mobile (`user-scalable=no`).

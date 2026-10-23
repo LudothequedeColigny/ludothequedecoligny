@@ -21,6 +21,18 @@ async function sendPush(payload: { title: string; body: string; url: string }) {
   }
 }
 
+// Les dates des événements sont enregistrées à l'heure de Paris, sans fuseau
+// (« 2026-11-06 19:00:00 »). On compare donc avec l'heure de Paris, écrite de la
+// même façon : comparer avec l'heure universelle décalait les alertes d'une heure
+// en hiver et de deux en été.
+const PARIS = new Intl.DateTimeFormat('sv-SE', {
+  timeZone: 'Europe/Paris',
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', second: '2-digit',
+  hourCycle: 'h23',
+})
+const heureDeParis = (d: Date) => PARIS.format(d).replace(' ', 'T') // « 2026-11-06T19:00:00 »
+
 // Mot de passe partagé avec la tâche planifiée (cron.job « check-events-notify »)
 const CRON_SECRET = Deno.env.get('CRON_SECRET') || ''
 
@@ -39,8 +51,8 @@ serve(async (req) => {
     const { data: startingEvents, error: startErr } = await supabase
       .from('events')
       .select('id, title, date')
-      .gte('date', now.toISOString())
-      .lte('date', in15.toISOString())
+      .gte('date', heureDeParis(now))
+      .lte('date', heureDeParis(in15))
       .is('notif_bilan_sent_at', null)
 
     if (startErr) console.error('Erreur requête événements à venir:', startErr.message)
@@ -54,16 +66,15 @@ serve(async (req) => {
     }
 
     // 2. Rappels de bilan pour les événements d'hier sans participants renseignés
-    const yesterday = new Date(now)
-    yesterday.setUTCDate(yesterday.getUTCDate() - 1)
-    const yesterdayStart = new Date(Date.UTC(yesterday.getUTCFullYear(), yesterday.getUTCMonth(), yesterday.getUTCDate(), 0, 0, 0))
-    const yesterdayEnd = new Date(Date.UTC(yesterday.getUTCFullYear(), yesterday.getUTCMonth(), yesterday.getUTCDate(), 23, 59, 59, 999))
+    // « Hier » au sens du calendrier de Paris
+    const [a, m, j] = heureDeParis(now).slice(0, 10).split('-').map(Number)
+    const hier = new Date(Date.UTC(a, m - 1, j - 1)).toISOString().slice(0, 10)
 
     const { data: bilanEvents, error: bilanErr } = await supabase
       .from('events')
       .select('id, title, date')
-      .gte('date', yesterdayStart.toISOString())
-      .lte('date', yesterdayEnd.toISOString())
+      .gte('date', `${hier}T00:00:00`)
+      .lte('date', `${hier}T23:59:59`)
       .is('participants_count', null)
       .is('notif_bilan_sent_at', null)
 
