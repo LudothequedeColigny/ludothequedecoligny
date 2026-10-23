@@ -27,7 +27,7 @@ export function dateLocale(texte) {
   return new Date(a, m - 1, d, hh || 0, mm || 0)
 }
 
-const jourMois = d => `${d.getDate()} ${MOIS[d.getMonth()]}`
+const jourMois = d => `${d.getDate() === 1 ? '1er' : d.getDate()} ${MOIS[d.getMonth()]}`
 const heure = d => `${d.getHours()}h${d.getMinutes() ? String(d.getMinutes()).padStart(2, '0') : ''}`
 
 export function formuleOuverture(dateEvenement, maintenant) {
@@ -83,6 +83,13 @@ function rendezVous(prochain) {
   }
 }
 
+/** Nombre de participants à afficher, ou null (vide, 0, négatif, illisible = inconnu). */
+function nombreParticipants(participants) {
+  if (participants == null || participants === '') return null
+  const n = Number(participants)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
 function photosDeBase({ photos, photoOuverture, photoJeux }) {
   const ouverture = photoOuverture && photos.includes(photoOuverture) ? photoOuverture : photos[0]
   const autre = photos.find(p => p !== ouverture)
@@ -101,8 +108,9 @@ export function planCarrousel(donnees) {
     formule: formuleOuverture(event.date, maintenant),
     etiquette: libelleEtiquette(type), lieu: dateEtLieu(event),
   }]
-  if (participants != null && participants !== '') {
-    plan.push({ type: 'nombre', photo: base.ouverture, nombre: Number(participants), apres: libelleNombre(type) })
+  const nombre = nombreParticipants(participants)
+  if (nombre) {
+    plan.push({ type: 'nombre', photo: base.ouverture, nombre, apres: libelleNombre(type) })
   }
   plan.push({ type: 'transition', photo: base.jeux })
   const { retenus } = choisirJeux(jeux)
@@ -126,8 +134,9 @@ export function planStory(donnees) {
     formule: formuleOuverture(event.date, maintenant),
     etiquette: libelleEtiquette(type), lieu: dateEtLieu(event),
   }]
-  if (participants != null && participants !== '') {
-    plan.push({ type: 'nombre', photo: base.ouverture, nombre: Number(participants), apres: libelleNombre(type) })
+  const nombre = nombreParticipants(participants)
+  if (nombre) {
+    plan.push({ type: 'nombre', photo: base.ouverture, nombre, apres: libelleNombre(type) })
   }
   plan.push({
     type: 'grille', photo: base.jeux,

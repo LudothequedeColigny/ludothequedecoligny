@@ -111,3 +111,22 @@ test('plan de la story : ouverture, nombre, grille, merci', () => {
   assert.equal(plan[3].rdv.quand, 'Vendredi 6 novembre · 19h')
   assert.equal(plan[3].rdv.affiche, 'aff.png')
 })
+
+test('participants à 0, vide ou illisible : traité comme inconnu (pas de diapo « nombre »)', () => {
+  const base = {
+    event: soiree, photos: ['a'], photoOuverture: null, photoJeux: null,
+    jeux: [], prochain: null, maintenant: new Date('2026-10-05T10:00:00'),
+  }
+  for (const participants of [0, -3, NaN, 'abc', Infinity, undefined]) {
+    assert.deepEqual(planCarrousel({ ...base, participants }).map(d => d.type), ['ouverture', 'transition', 'merci'], `carrousel, participants = ${participants}`)
+    assert.deepEqual(planStory({ ...base, participants }).map(d => d.type), ['ouverture', 'grille', 'merci'], `story, participants = ${participants}`)
+  }
+  // Un nombre écrit en texte reste accepté
+  assert.equal(planCarrousel({ ...base, participants: '12' })[1].nombre, 12)
+})
+
+test('le 1er du mois s’écrit « 1er »', () => {
+  assert.equal(dateEtLieu({ date: '2026-10-01 19:00:00', location: 'À la salle des fêtes de Coligny' }), '1er octobre · Salle des fêtes de Coligny')
+  assert.equal(formuleOuverture('2026-10-01 19:00:00', new Date('2026-10-20T10:00:00')), 'Le 1er octobre,')
+  assert.equal(quandRendezVous({ date: '2026-11-01 14:00:00' }), 'Dimanche 1er novembre · 14h')
+})
