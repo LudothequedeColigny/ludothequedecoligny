@@ -8,6 +8,7 @@ import { publierSurReseaux, uploadSocialBlob } from '../../services/reseauxSocia
 import { prochainePermanence } from '../../services/diapos/permanence-regles'
 import { planNouveauxJeux, detailsJeu, MAX_IMAGES_JEUX } from '../../services/diapos/nouveaux-jeux-regles'
 import { dessinerNouveauxJeux } from '../../services/diapos/nouveaux-jeux'
+import { estChezNous } from '../../services/diapos/jaquettes'
 import { versBlob, liberer, viderCache } from '../../services/diapos/dessin'
 
 /**
@@ -154,7 +155,9 @@ export default function NouveauxJeux({ onCountChange }) {
       const suite = () => { if (n !== numero.current) throw ABANDON }
       try {
         suite()
-        const plan = planNouveauxJeux({ jeux: choisis, prochaine })
+        // Jaquette restée chez MyLudo : interdite dans un canvas, traitée comme absente
+        const jeux = choisis.map(j => (j.image_url && !estChezNous(j.image_url) ? { ...j, image_url: null } : j))
+        const plan = planNouveauxJeux({ jeux, prochaine })
         // Une image à la fois : convertie dès qu'elle est dessinée, puis libérée
         const images = []
         await dessinerNouveauxJeux(plan, async canvas => {
@@ -168,7 +171,12 @@ export default function NouveauxJeux({ onCountChange }) {
       } catch (e) {
         if (e === ABANDON) return
         console.error('Aperçu nouveaux jeux :', e)
-        if (n === numero.current) setErreur(ERREUR_APERCU)
+        if (n === numero.current) {
+          // Plus d'ancien aperçu publiable : il ne correspondrait plus à la sélection
+          setApercu([])
+          setPlanAffiche(null)
+          setErreur(ERREUR_APERCU)
+        }
       } finally {
         if (n === numero.current) setCalcul(false)
       }
@@ -349,7 +357,8 @@ export default function NouveauxJeux({ onCountChange }) {
               placeholder="Cochez au moins un jeu pour obtenir un texte."
               className="mb-5 w-full resize-y rounded-[24px] border-2 border-[#0f172a] bg-[#fdfaf6] p-5 text-[13px] font-medium leading-relaxed text-[#0f172a] outline-none placeholder:text-slate-300 focus:bg-white"
               value={texte}
-              onChange={e => { setTexte(e.target.value); setTexteModifie(true); setPublication('') }}
+              readOnly={publication === 'en-cours'}
+              onChange={e => { setTexte(e.target.value); setTexteModifie(true); if (publication !== 'en-cours') setPublication('') }}
             />
 
             <div className="space-y-1">
