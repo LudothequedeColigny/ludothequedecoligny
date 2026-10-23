@@ -34,8 +34,10 @@ import SocialPostPreview from '../../components/admin/SocialPostPreview'
 import NouveauxJeux from '../../components/admin/NouveauxJeux'
 import { chargerJeuxAAnnoncer } from '../../services/nouveauxJeux'
 import { copierJaquette } from '../../services/diapos/jaquettes'
+import { typeEvenement as getEventType } from '../../services/diapos/regles'
+import PublicationBilan from '../../components/admin/bilan/PublicationBilan'
 import {
-  MAKE_WEBHOOK_URL, MAX_SOCIAL_PHOTOS, socialFileNameFrom, uploadSquareVersion, publierSurReseaux,
+  MAKE_WEBHOOK_URL, socialFileNameFrom, uploadSquareVersion,
 } from '../../services/reseauxSociaux'
 
 // Destinataires enregistrés : trois catégories, chacune avec son propre texte
@@ -122,16 +124,6 @@ async function bggGameDetails(id) {
   const item = await bggCall('thing', { id })
   if (!item) return null
   return { name: item.name || '', image: item.image || '' }
-}
-
-// Détecte le type d'un événement à partir de son titre (même logique que VieAssociation.jsx)
-const DIACRITICS_REGEX = new RegExp('[' + String.fromCharCode(0x0300) + '-' + String.fromCharCode(0x036f) + ']', 'g')
-const normalizeTitle = (s) => (s || '').normalize('NFD').replace(DIACRITICS_REGEX, '').toLowerCase()
-const getEventType = (title) => {
-  const t = normalizeTitle(title)
-  if (t.includes('soiree')) return 'soiree'
-  if (t.includes('famil')) return 'famille'
-  return 'permanence'
 }
 
 const buildBilanFbText = (event, participantsOverride, games = []) => {
@@ -255,11 +247,6 @@ export default function Evenements() {
   // Publication du bilan sur Facebook & Instagram
   const [bilanFbText, setBilanFbText] = useState('')
   const [bilanFbTextEdited, setBilanFbTextEdited] = useState(false)
-  // Photos à publier, dans l'ordre où elles apparaîtront dans le carrousel
-  const [bilanSelectedPhotoUrls, setBilanSelectedPhotoUrls] = useState([])
-  const [publishingBilanFb, setPublishingBilanFb] = useState(false)
-  const [bilanFbSuccess, setBilanFbSuccess] = useState(false)
-  const [bilanFbError, setBilanFbError] = useState('')
 
   const initialEventState = {
     title: '',
@@ -979,12 +966,8 @@ www.ludothequedecoligny.fr`
     setGameSearchResults([])
     setBilanFbText(buildBilanFbText(event))
     setBilanFbTextEdited(false)
-    setBilanSelectedPhotoUrls([])
-    setBilanFbSuccess(false)
-    setBilanFbError('')
     cancelPhotoQueue()
-    const [photos] = await Promise.all([fetchBilanPhotos(event.id), fetchBilanGames(event.id)])
-    setBilanSelectedPhotoUrls(photos.slice(0, MAX_SOCIAL_PHOTOS).map(p => p.url))
+    await Promise.all([fetchBilanPhotos(event.id), fetchBilanGames(event.id)])
   }
 
   // Regénère le texte de publication quand le nombre de participants ou la liste
@@ -1004,15 +987,6 @@ www.ludothequedecoligny.fr`
     setBilanFbTextEdited(false)
   }
 
-  // Ajoute ou retire une photo du carrousel ; les nouvelles se placent à la fin
-  const toggleBilanPhoto = (url) => {
-    setBilanSelectedPhotoUrls(prev => {
-      if (prev.includes(url)) return prev.filter(u => u !== url)
-      if (prev.length >= MAX_SOCIAL_PHOTOS) return prev
-      return [...prev, url]
-    })
-  }
-
   const closeBilanModal = () => {
     setBilanModal({ show: false, event: null })
     setBilanPhotos([])
@@ -1020,9 +994,6 @@ www.ludothequedecoligny.fr`
     setGameSearchQuery('')
     setGameSearchResults([])
     setBilanFbText('')
-    setBilanSelectedPhotoUrls([])
-    setBilanFbSuccess(false)
-    setBilanFbError('')
     cancelPhotoQueue()
   }
 
@@ -1051,7 +1022,11 @@ www.ludothequedecoligny.fr`
       }
       await supabase.from('event_photos').delete().eq('id', photo.id)
       setBilanPhotos(prev => prev.filter(p => p.id !== photo.id))
-      setBilanSelectedPhotoUrls(prev => prev.filter(u => u !== photo.url))
+      // La photo n'illustre plus ni un jeu, ni l'ouverture, ni la diapositive « plein de jeux »
+      await supabase.from('event_games_played').update({ photo_url: null }).eq('photo_url', photo.url)
+      await supabase.from('events').update({ bilan_photo_ouverture: null }).eq('id', bilanModal.event.id).eq('bilan_photo_ouverture', photo.url)
+      await supabase.from('events').update({ bilan_photo_jeux: null }).eq('id', bilanModal.event.id).eq('bilan_photo_jeux', photo.url)
+      setBilanGames(prev => prev.map(g => (g.photo_url === photo.url ? { ...g, photo_url: null } : g)))
       fetchPhotoEventIds()
     } catch (err) {
       console.error('Erreur suppression photo:', err)
@@ -1196,11 +1171,7 @@ www.ludothequedecoligny.fr`
         const { data } = supabase.storage.from('event-images').getPublicUrl(fileName)
         await supabase.from('event_photos').insert({ event_id: bilanModal.event.id, url: data.publicUrl })
       }
-      // Les photos qui viennent d'être ajoutées rejoignent la publication
-      const knownUrls = new Set(bilanPhotos.map(p => p.url))
-      const photos = await fetchBilanPhotos(bilanModal.event.id)
-      const newUrls = photos.filter(p => !knownUrls.has(p.url)).map(p => p.url)
-      setBilanSelectedPhotoUrls(prev => [...prev, ...newUrls.filter(u => !prev.includes(u))].slice(0, MAX_SOCIAL_PHOTOS))
+      await fetchBilanPhotos(bilanModal.event.id)
       fetchPhotoEventIds()
     } catch (err) {
       console.error('Erreur upload photos bilan:', err)
@@ -1281,39 +1252,6 @@ www.ludothequedecoligny.fr`
       setBilanGames(prev => prev.filter(g => g.id !== gameId))
     } catch (err) {
       console.error('Erreur suppression jeu:', err)
-    }
-  }
-
-  // ── Publication du bilan sur Facebook & Instagram ──
-  const publishBilanToSocial = async () => {
-    if (!bilanFbText.trim() || bilanSelectedPhotoUrls.length === 0) return
-    setPublishingBilanFb(true)
-    setBilanFbSuccess(false)
-    setBilanFbError('')
-    try {
-      // Même mise au carré que pour les affiches : chaque photo part en 1:1
-      // pour ne pas être rognée par Instagram et Facebook. Les photos d'origine
-      // restent inchangées dans l'album de l'événement.
-      // Une à la fois : plusieurs grandes photos décodées en même temps
-      // saturent la mémoire des téléphones.
-      const image_urls = []
-      for (const url of bilanSelectedPhotoUrls) {
-        const socialFileName = socialFileNameFrom(url)
-        const squareUrl = socialFileName ? await uploadSquareVersion(url, socialFileName) : null
-        image_urls.push(squareUrl || url)
-      }
-
-      await publierSurReseaux({
-        message: bilanFbText,
-        imageUrls: image_urls,
-        extra: { games: bilanGames.map(g => g.name).filter(Boolean) },
-      })
-      setBilanFbSuccess(true)
-    } catch (err) {
-      console.error('Erreur publication bilan réseaux sociaux:', err)
-      setBilanFbError("Erreur lors de la publication. Réessayez.")
-    } finally {
-      setPublishingBilanFb(false)
     }
   }
 
@@ -2608,83 +2546,21 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-2">
                   <Share2 size={14} /> Publier sur les réseaux
                 </h4>
-
-                <textarea
-                  rows={8}
-                  className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-medium text-sm outline-none focus:border-blue-400 resize-y"
-                  value={bilanFbText}
-                  onChange={e => { setBilanFbText(e.target.value); setBilanFbTextEdited(true) }}
-                />
-
-                {bilanFbTextEdited && (
-                  <button type="button" onClick={resetBilanFbText}
-                    className="ml-1 text-[9px] font-black uppercase tracking-widest text-[#1a5f7a] underline underline-offset-2 hover:text-[#e38154]">
-                    Remettre le texte proposé (participants et jeux à jour)
-                  </button>
-                )}
-
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                    Photos à publier ({bilanSelectedPhotoUrls.length}/{Math.min(bilanPhotos.length, MAX_SOCIAL_PHOTOS)})
-                  </label>
-                  {bilanPhotos.length === 0 ? (
-                    <p className="text-[10px] text-slate-300 italic px-1">Ajoutez d'abord des photos dans la section Photos.</p>
-                  ) : (
-                    <>
-                      <p className="text-[10px] text-slate-400 px-1">
-                        Touchez une photo pour l'ajouter ou la retirer. Le numéro indique l'ordre du carrousel (10 photos au plus).
-                      </p>
-                      <div className="flex flex-wrap gap-2.5">
-                        {bilanPhotos.map(photo => {
-                          const position = bilanSelectedPhotoUrls.indexOf(photo.url)
-                          const selected = position !== -1
-                          const full = !selected && bilanSelectedPhotoUrls.length >= MAX_SOCIAL_PHOTOS
-                          return (
-                            <button
-                              key={photo.id}
-                              type="button"
-                              onClick={() => toggleBilanPhoto(photo.url)}
-                              disabled={full}
-                              aria-pressed={selected}
-                              className={'relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition-all ' +
-                                (selected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-transparent opacity-50 hover:opacity-100') +
-                                (full ? ' cursor-not-allowed' : '')}
-                            >
-                              <img src={photo.url} alt="" className="h-full w-full object-cover" />
-                              {selected && (
-                                <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-[10px] font-black text-white">
-                                  {position + 1}
-                                </span>
-                              )}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                <SocialPostPreview text={bilanFbText} imageUrls={bilanSelectedPhotoUrls} />
-
-                {bilanFbSuccess ? (
-                  <div className="py-4 bg-emerald-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2">
-                    <CheckCircle2 size={14} /> Publié avec succès !
-                  </div>
+                {getEventType(bilanModal.event.title) === 'permanence' ? (
+                  <p className="text-[11px] italic text-slate-400 px-1">Le bilan des permanences arrive bientôt.</p>
                 ) : (
-                  <>
-                    <button
-                      onClick={publishBilanToSocial}
-                      disabled={publishingBilanFb || !bilanFbText.trim() || bilanSelectedPhotoUrls.length === 0}
-                      className={'w-full py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all ' +
-                        (publishingBilanFb || !bilanFbText.trim() || bilanSelectedPhotoUrls.length === 0
-                          ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
-                          : 'bg-blue-500 text-white hover:bg-blue-600')}>
-                      {publishingBilanFb ? <><Loader2 size={14} className="animate-spin" /> Publication...</> : <><Share2 size={14} /> Publier sur Facebook & Instagram</>}
-                    </button>
-                    {bilanFbError && (
-                      <p className="text-[10px] text-rose-500 font-bold text-center">{bilanFbError}</p>
-                    )}
-                  </>
+                  <PublicationBilan
+                    key={bilanModal.event.id}
+                    event={bilanModal.event}
+                    photos={bilanPhotos}
+                    jeux={bilanGames}
+                    participants={bilanParticipants}
+                    texte={bilanFbText}
+                    onTexteChange={t => { setBilanFbText(t); setBilanFbTextEdited(true) }}
+                    texteModifie={bilanFbTextEdited}
+                    onTexteReset={resetBilanFbText}
+                    onJeuxChange={setBilanGames}
+                  />
                 )}
               </div>
 
