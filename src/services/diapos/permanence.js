@@ -83,15 +83,19 @@ async function fondMosaique(ctx, urls) {
     // Réduction par moitiés avant le flou : réduit d'un coup (÷ 24), un canvas donne
     // des pavés crénelés au lieu d'un flou doux
     let petit = canvas
-    while (petit.width > 40) {
-      const { canvas: moitie, ctx: c } = nouveauCanvas(Math.round(petit.width / 2), Math.round(petit.height / 2))
-      c.imageSmoothingQuality = 'high'
-      c.drawImage(petit, 0, 0, moitie.width, moitie.height)
+    try {
+      while (petit.width > 40) {
+        const { canvas: moitie, ctx: c } = nouveauCanvas(Math.round(petit.width / 2), Math.round(petit.height / 2))
+        c.imageSmoothingQuality = 'high'
+        c.drawImage(petit, 0, 0, moitie.width, moitie.height)
+        liberer(petit)
+        petit = moitie
+      }
+      dessinerFlou(ctx, petit, L, H)
+    } finally {
+      // Même en cas d'erreur, rien ne reste en mémoire
       liberer(petit)
-      petit = moitie
     }
-    dessinerFlou(ctx, petit, L, H)
-    liberer(petit)
   } else voile(ctx, L, H, COULEURS.bleu)
   voile(ctx, L, H, 'rgba(26,95,122,0.72)')
 }
@@ -313,7 +317,9 @@ async function prochaine(ctx, d, logo) {
       { texte: p.heures, poids: 700, taille: 40, min: 28, famille: 'Poppins', inter: 0, h: 60, couleur: COULEURS.bleu, marge: 14 },
       { texte: p.lieu, poids: 600, taille: 32, min: 24, famille: 'Poppins', inter: 0, h: 48, couleur: GRIS, marge: 6 },
     ].filter(l => l.texte)
-    : [{ texte: 'Bientôt : surveillez nos publications', poids: 700, taille: 40, min: 28, famille: 'Poppins', inter: 0, h: 60, couleur: COULEURS.bleu, marge: 0 }]
+    : []
+  // Rien de connu sur la prochaine permanence : une ligne d'attente
+  if (!lignes.length) lignes.push({ texte: 'Bientôt : surveillez nos publications', poids: 700, taille: 40, min: 28, famille: 'Poppins', inter: 0, h: 60, couleur: COULEURS.bleu, marge: 0 })
   lignes[0].marge = 0
   const hContenu = lignes.reduce((s, l) => s + l.marge + l.h, 0)
   const hCarte = 2 * bord + 2 * 44 + hContenu
