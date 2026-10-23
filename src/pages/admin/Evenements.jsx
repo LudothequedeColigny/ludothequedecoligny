@@ -31,6 +31,7 @@ import {
 } from 'lucide-react'
 import ModelesMessages from '../../components/admin/ModelesMessages'
 import SocialPostPreview from '../../components/admin/SocialPostPreview'
+import useApercusCarres from '../../hooks/useApercusCarres'
 import NouveauxJeux from '../../components/admin/NouveauxJeux'
 import { chargerJeuxAAnnoncer } from '../../services/nouveauxJeux'
 import { copierJaquette } from '../../services/diapos/jaquettes'
@@ -210,6 +211,9 @@ export default function Evenements() {
   const [postUploading, setPostUploading] = useState(false)
   const [publishingPost, setPublishingPost] = useState(false)
   const [postSuccess, setPostSuccess] = useState(false)
+  // Aperçus fidèles : images mises au carré sur le fond bois, comme à la publication
+  const apercuPost = useApercusCarres(postImageUrl ? [postImageUrl] : [])
+  const apercuAffiche = useApercusCarres(fbModal.event?.image_url ? [fbModal.event.image_url] : [])
   const [groupesOuverts, setGroupesOuverts] = useState({ mairie: true, presse: true, ecole: true })
   const [modelesOpen, setModelesOpen] = useState(false)
   const [showAdherents, setShowAdherents] = useState(true)
@@ -1565,7 +1569,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 </label>
               </div>
 
-              <SocialPostPreview text={postText} imageUrl={postImageUrl} />
+              <SocialPostPreview text={postText} imageUrls={apercuPost} />
 
               {postSuccess ? (
                 <div className="mt-5 flex w-full items-center justify-center gap-2 rounded-[18px] border-2 border-[#0f172a] bg-[#10b981] py-5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white">
@@ -2383,7 +2387,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 </div>
               )}
 
-              <SocialPostPreview text={fbText} imageUrl={fbModal.event?.image_url} />
+              <SocialPostPreview text={fbText} imageUrls={apercuAffiche} />
 
               {/* Texte du post */}
               <div className="space-y-2">

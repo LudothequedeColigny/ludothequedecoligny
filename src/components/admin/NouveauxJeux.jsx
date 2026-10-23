@@ -4,6 +4,7 @@ import { supabase } from '../../services/supabaseClient'
 import { DataCard } from './DataCard'
 import { chargerJeuxAAnnoncer } from '../../services/nouveauxJeux'
 import SocialPostPreview from './SocialPostPreview'
+import useApercusCarres from '../../hooks/useApercusCarres'
 import {
   MAX_SOCIAL_PHOTOS, publierSurReseaux, uploadSocialBlob, uploadSquareVersion,
 } from '../../services/reseauxSociaux'
@@ -260,6 +261,11 @@ export default function NouveauxJeux({ onCountChange }) {
   const listeVisible = voirEcartes ? [...aAnnoncer, ...ecartes] : aAnnoncer
   const choisis = listeVisible.filter(j => coches.has(j.id))
   const cleChoix = choisis.map(j => j.id).join(',')
+  // Jaquettes telles qu'elles seront publiées (encadrées sur le fond bois)
+  const apercusJaquettes = useApercusCarres(
+    choisis.slice(0, MAX_JAQUETTES).map(j => j.image_url).filter(Boolean),
+    { encadre: true },
+  )
 
   // Texte proposé : suit la sélection tant qu'il n'a pas été retouché à la main
   useEffect(() => {
@@ -273,7 +279,7 @@ export default function NouveauxJeux({ onCountChange }) {
     const numero = ++dessinEnCours.current
     dessinerCouverture(choisis).then(canvas => {
       if (numero !== dessinEnCours.current) return
-      setCouverture(canvas ? { canvas, url: canvas.toDataURL('image/jpeg', 0.85) } : null)
+      setCouverture(canvas ? { canvas, url: canvas.toDataURL('image/jpeg', 0.9) } : null)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cleChoix])
@@ -450,7 +456,7 @@ export default function NouveauxJeux({ onCountChange }) {
 
             <SocialPostPreview
               text={texte}
-              imageUrls={couverture ? [couverture.url, ...choisis.slice(0, MAX_JAQUETTES).map(j => j.image_url).filter(Boolean)] : []}
+              imageUrls={couverture ? [couverture.url, ...apercusJaquettes] : []}
             />
 
             {erreur && (

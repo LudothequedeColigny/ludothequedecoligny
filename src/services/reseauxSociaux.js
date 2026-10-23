@@ -112,6 +112,15 @@ export async function uploadSocialBlob(blob, fileName) {
   return data.publicUrl
 }
 
+/**
+ * Version carrée d'une image (fond bois, en grand ou encadrée), sans l'envoyer :
+ * sert aux aperçus, qui doivent montrer exactement ce qui sera publié.
+ * Renvoie un Blob JPEG, ou null si l'image n'a pas pu être lue.
+ */
+export function carreSocial(srcUrl, options) {
+  return toSquareBlob(srcUrl, options)
+}
+
 // Dépose la version carrée d'une image dans Storage et renvoie son adresse
 // publique, ou null si la conversion ou l'envoi n'ont pas abouti.
 export async function uploadSquareVersion(srcUrl, fileName, options) {
