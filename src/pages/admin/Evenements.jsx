@@ -202,6 +202,9 @@ export default function Evenements() {
   // Fenêtre « Annonce » (carrousel Facebook/Instagram et story du jour J)
   const [fbModal, setFbModal] = useState({ show: false, event: null })
   const [fbText, setFbText] = useState('')
+  // Publication en cours : la fenêtre ne se ferme pas, pour que le résultat reste visible
+  const [annonceEnPublication, setAnnonceEnPublication] = useState(false)
+  const fermerAnnonce = () => { if (!annonceEnPublication) setFbModal({ show: false, event: null }) }
   // Post Facebook/Instagram autonome (sans événement lié)
   const [postText, setPostText] = useState('')
   const [postImageUrl, setPostImageUrl] = useState('')
@@ -801,6 +804,7 @@ ${event.description || ''}
 Ludothèque de Coligny 🎯
 www.ludothequedecoligny.fr`
     setFbText(text)
+    setAnnonceEnPublication(false)
     setFbModal({ show: true, event })
   }
 
@@ -2289,7 +2293,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
       {/* FENÊTRE « ANNONCE » : CARROUSEL FACEBOOK & INSTAGRAM ET STORY DU JOUR J */}
       {fbModal.show && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-[22px]">
-          <div className="anim-fade-in absolute inset-0 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }} onClick={() => setFbModal({ show: false, event: null })} />
+          <div className="anim-fade-in absolute inset-0 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }} onClick={fermerAnnonce} />
           <div className="anim-modal-in relative flex max-h-[92vh] w-full max-w-[820px] flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#3b82f6]">
 
             <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
@@ -2300,8 +2304,8 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                   <p className="mt-1.5 truncate text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-400">{fbModal.event?.title}</p>
                 </div>
               </div>
-              <button onClick={() => setFbModal({ show: false, event: null })} aria-label="Fermer"
-                className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[15px] font-extrabold text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white">✕</button>
+              <button onClick={fermerAnnonce} disabled={annonceEnPublication} aria-label="Fermer"
+                className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[15px] font-extrabold text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white disabled:cursor-not-allowed disabled:opacity-40">✕</button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
@@ -2312,14 +2316,15 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 onTexteChange={setFbText}
                 onEventChange={patch => majEvenement(fbModal.event.id, patch)}
                 onErreur={message => addToast(message, 'error')}
+                onPublication={setAnnonceEnPublication}
               />
             </div>
 
             {/* Footer */}
             <div className="shrink-0 border-t-2 border-slate-100 p-6">
-              <button onClick={() => setFbModal({ show: false, event: null })}
-                className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] py-4 text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500 transition-colors hover:bg-slate-100">
-                Fermer
+              <button onClick={fermerAnnonce} disabled={annonceEnPublication}
+                className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] py-4 text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40">
+                {annonceEnPublication ? 'Publication en cours…' : 'Fermer'}
               </button>
             </div>
           </div>

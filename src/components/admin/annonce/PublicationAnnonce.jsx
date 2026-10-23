@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CheckCircle2, Download, Loader2, Share2 } from 'lucide-react'
 import { supabase } from '../../../services/supabaseClient'
-import { typeEvenement } from '../../../services/diapos/regles'
+import { typeEvenement, dateLocale } from '../../../services/diapos/regles'
 import { textesAnnonce, planAnnonce, planStoryJourJ, dernierEvenementSemblable } from '../../../services/diapos/annonce-regles'
 import { dessinerAnnonce, dessinerStoryJourJ } from '../../../services/diapos/annonce'
 import { versBlob, liberer, viderCache } from '../../../services/diapos/dessin'
-import { publierSurReseaux, uploadSocialBlob } from '../../../services/reseauxSociaux'
+import { publierSurReseaux, uploadSocialBlob, uploadSquareVersion, socialFileNameFrom } from '../../../services/reseauxSociaux'
+import useApercusCarres from '../../../hooks/useApercusCarres'
 import SocialPostPreview from '../SocialPostPreview'
 import VueAgrandie from '../VueAgrandie'
 import { partagerFichiers } from '../../../services/diapos/partage'
@@ -13,7 +14,8 @@ import { partagerFichiers } from '../../../services/diapos/partage'
 /**
  * Annonce d'un événement à venir : carrousel de 5 images 4:5 au plus (publié via Make)
  * et story du jour J (1 image 9:16, à enregistrer sur le téléphone).
- * Permanence : story seulement. Mêmes mécanismes que PublicationBilan.
+ * Autres événements (permanence, fête du jeu, tournoi…) : l'affiche seule, mise au carré
+ * comme avant le carrousel, et la story. Mêmes mécanismes que PublicationBilan.
  * Conception : docs/superpowers/specs/2026-10-23-annonce-evenement-design.md
  */
 const SECTION = 'text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1'
@@ -31,6 +33,13 @@ const PARTAGE_INDISPONIBLE = "Le partage n'est pas disponible : l'image a été 
 const ABANDON = Symbol('aperçu abandonné')
 // Délai avant d'enregistrer un texte modifié (le temps de finir de taper)
 const DELAI_ENREGISTREMENT = 600
+// Événements passés dont on lit les photos à chaque requête (du plus récent au plus ancien)
+const PAR_LOT = 5
+
+// Nom de fichier tiré du titre (« Fête du jeu ! » → « fete-du-jeu- »), comme avant le carrousel
+const nomSur = titre => (titre || 'affiche')
+  .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').substring(0, 50)
 
 // Date du jour (« 2026-10-23 ») dans le fuseau de l'appareil, celui de la ludothèque :
 // les dates d'événement sont enregistrées sans fuseau
@@ -39,8 +48,12 @@ const aujourdhui = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export default function PublicationAnnonce({ event, texte, onTexteChange, onEventChange, onErreur }) {
+export default function PublicationAnnonce({ event, texte, onTexteChange, onEventChange, onErreur, onPublication }) {
   const avecCarrousel = typeEvenement(event.title) !== 'permanence'
+  // Sans carrousel : l'affiche est publiée seule, si l'événement en a une
+  const afficheSeule = !avecCarrousel && !!event.image_url
+  // Aperçu fidèle de l'affiche mise au carré sur le fond bois, comme à la publication
+  const apercuAffiche = useApercusCarres(afficheSeule ? [event.image_url] : [])
   // Textes modifiés de l'annonce (null = textes proposés) : affichés tout de suite,
   // enregistrés sur l'événement après un court délai
   const [annonce, setAnnonce] = useState(event.annonce ?? null)
@@ -66,10 +79,22 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
   const numeros = useRef({ annonce: 0, story: 0 })
   // Une fabrication d'images à la fois (carrousel, story) : mémoire des téléphones
   const fileAttente = useRef(Promise.resolve())
-  const aLaSuite = tache => { fileAttente.current = fileAttente.current.then(tache) }
+  const aLaSuite = tache => {
+    const p = fileAttente.current.then(tache)
+    fileAttente.current = p.catch(() => {})
+    return p
+  }
+  // Enregistrements des textes : l'un après l'autre, dans l'ordre de la saisie
+  const sauvegardes = useRef(Promise.resolve())
+  const derniereSauvegarde = useRef(0)
 
+  const enregistrer = valeur => {
+    const demande = ++derniereSauvegarde.current
+    sauvegardes.current = sauvegardes.current.then(() => enregistrerMaintenant(valeur, demande))
+    return sauvegardes.current
+  }
   // Texte enregistré sur l'événement ; en cas d'échec, retour à la valeur précédente
-  const enregistrer = async valeur => {
+  const enregistrerMaintenant = async (valeur, demande) => {
     const avant = enregistree.current
     if (JSON.stringify(avant) === JSON.stringify(valeur)) return
     enregistree.current = valeur
@@ -82,9 +107,13 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
         setAnnonce(a => (a === valeur ? avant : a))
         onEventChange(e => (e.annonce === valeur ? { annonce: avant } : {}))
       }
+      // Une saisie plus récente suit et sera enregistrée à son tour : pas de message
+      if (demande !== derniereSauvegarde.current) return
       // Fenêtre déjà fermée : le message passe par l'écran Communication
       if (monte.current) setErreurTexte(ERREUR_TEXTES)
       else onErreur?.(ERREUR_TEXTES_FENETRE_FERMEE)
+    } else if (demande === derniereSauvegarde.current && monte.current) {
+      setErreurTexte('')
     }
   }
 
@@ -118,16 +147,22 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
           .select('id, title, date, participants_count, bilan_photo_ouverture').lt('date', aujourdhui())
         if (error) throw error
         const genre = typeEvenement(event.title)
-        const candidats = (evs || []).filter(p => p.id !== event.id && typeEvenement(p.title) === genre && Number(p.participants_count) > 0)
-        let photos = []
-        if (candidats.length) {
+        const avant = dateLocale(event.date)
+        const candidats = (evs || [])
+          .filter(p => p.id !== event.id && typeEvenement(p.title) === genre && Number(p.participants_count) > 0 && dateLocale(p.date) < avant)
+          .sort((a, b) => dateLocale(b.date) - dateLocale(a.date))
+        // Photos lues par petits lots, du plus récent au plus ancien : on s'arrête au premier
+        // événement qui en a (sans limite de nombre de lignes atteinte par l'album entier)
+        let trouve = null
+        for (let i = 0; i < candidats.length && !trouve && !annule; i += PAR_LOT) {
+          const lot = candidats.slice(i, i + PAR_LOT)
           const { data, error: errPhotos } = await supabase.from('event_photos')
-            .select('event_id, url').in('event_id', candidats.map(p => p.id)).order('created_at')
+            .select('event_id, url').in('event_id', lot.map(p => p.id)).order('created_at')
           if (errPhotos) throw errPhotos
-          photos = data || []
+          const passes = lot.map(p => ({ ...p, photos: (data || []).filter(ph => ph.event_id === p.id).map(ph => ph.url) }))
+          trouve = dernierEvenementSemblable(event, passes)
         }
-        const passes = candidats.map(p => ({ ...p, photos: photos.filter(ph => ph.event_id === p.id).map(ph => ph.url) }))
-        if (!annule) setPasse(dernierEvenementSemblable(event, passes))
+        if (!annule) setPasse(trouve)
       } catch (e) {
         // Sans le passé : diapositives sur l'affiche floutée, sans « La dernière fois »
         console.warn('Événements passés :', e)
@@ -234,20 +269,37 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
   const changerPoint = (i, v) => changerTextes(t => ({ ...t, points: t.points.map((p, j) => (j === i ? v : p)) }))
   const changerInfo = (i, champ, v) => changerTextes(t => ({ ...t, infos: t.infos.map((x, j) => (j === i ? { ...x, [champ]: v } : x)) }))
 
+  // Carrousel : une diapositive à la fois, dessinée, exportée, libérée, puis envoyée
+  // (mémoire des téléphones) ; publié tel que montré dans l'aperçu
+  const envoyerCarrousel = async () => {
+    const horodatage = Date.now()
+    const adresses = []
+    await dessinerAnnonce(planCarrousel, async (canvas, i) => {
+      const blob = await versBlob(canvas)
+      liberer(canvas)
+      const url = blob && await uploadSocialBlob(blob, `annonces/${event.id}/annonce-${horodatage}-${String(i + 1).padStart(2, '0')}.jpg`)
+      if (!url) throw new Error('Diapositive non enregistrée')
+      adresses.push(url)
+    })
+    return adresses
+  }
+  // Affiche seule, mise au carré sur le fond bois (même envoi qu'avant le carrousel) ;
+  // si la mise au carré échoue, l'affiche d'origine hébergée chez nous part telle quelle
+  const envoyerAffiche = async () => {
+    const image = event.image_url
+    const carre = await uploadSquareVersion(image, socialFileNameFrom(image) || nomSur(event.title) + '-social.jpg')
+    const url = carre || (image.startsWith('data:') ? null : image)
+    if (!url) throw new Error('Affiche non enregistrée')
+    return [url]
+  }
+
   const publier = async () => {
     setEtat('publication')
     setErreur('')
+    onPublication?.(true)
     try {
-      const horodatage = Date.now()
-      const adresses = []
-      // Une diapositive à la fois : dessinée, exportée, libérée, puis envoyée (mémoire des téléphones)
-      await dessinerAnnonce(planCarrousel, async (canvas, i) => {
-        const blob = await versBlob(canvas)
-        liberer(canvas)
-        const url = blob && await uploadSocialBlob(blob, `annonces/${event.id}/annonce-${horodatage}-${String(i + 1).padStart(2, '0')}.jpg`)
-        if (!url) throw new Error('Diapositive non enregistrée')
-        adresses.push(url)
-      })
+      // À la suite des aperçus en cours : une seule fabrication d'images à la fois
+      const adresses = await aLaSuite(avecCarrousel ? envoyerCarrousel : envoyerAffiche)
       await publierSurReseaux({
         message: texte,
         imageUrls: adresses,
@@ -258,6 +310,8 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
       console.error("Publication de l'annonce :", e)
       setErreur('La publication a échoué. Réessayez dans un instant.')
       setEtat('')
+    } finally {
+      onPublication?.(false)
     }
   }
 
@@ -291,6 +345,14 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
           À enregistrer sur le téléphone, puis à publier en story Instagram ou Facebook le jour même.
         </p>
       </div>
+    </div>
+  )
+
+  const blocTexte = (
+    <div className="space-y-2">
+      <p className={SECTION}>Texte de la publication</p>
+      <textarea rows={8} value={texte} onChange={e => onTexteChange(e.target.value)}
+        className="w-full resize-y rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 text-sm font-medium outline-none focus:bg-white" />
     </div>
   )
 
@@ -337,11 +399,7 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
               </button>
             )}
 
-            <div className="space-y-2">
-              <p className={SECTION}>Texte de la publication</p>
-              <textarea rows={8} value={texte} onChange={e => onTexteChange(e.target.value)}
-                className="w-full resize-y rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 text-sm font-medium outline-none focus:bg-white" />
-            </div>
+            {blocTexte}
           </div>
 
           <div className="space-y-5">
@@ -357,22 +415,32 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
       ) : (
         <>
           <p className="rounded-[12px] border-2 border-slate-100 px-3 py-2 text-[11px] font-semibold text-slate-500">
-            Pour une permanence, seule la story du jour J est proposée.
+            {afficheSeule
+              ? "Pour cet événement, pas de carrousel d'annonce : l'affiche seule est publiée, et la story du jour J est à enregistrer."
+              : "Pour cet événement, pas de carrousel d'annonce : seule la story du jour J est proposée."}
           </p>
-          {story}
+          {afficheSeule ? (
+            <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
+              {blocTexte}
+              <div className="space-y-5">
+                <SocialPostPreview text={texte} imageUrls={apercuAffiche} />
+                {story}
+              </div>
+            </div>
+          ) : story}
         </>
       )}
 
       {erreur && <p className="text-center text-[10px] font-bold text-rose-500">{erreur}</p>}
-      <div className={'grid gap-2.5' + (avecCarrousel ? ' sm:grid-cols-2' : '')}>
-        {avecCarrousel && (etat === 'publie' ? (
+      <div className={'grid gap-2.5' + (avecCarrousel || afficheSeule ? ' sm:grid-cols-2' : '')}>
+        {(avecCarrousel || afficheSeule) && (etat === 'publie' ? (
           <div className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-4 text-[10px] font-black uppercase tracking-widest text-white">
             <CheckCircle2 size={14} /> Publié avec succès !
           </div>
         ) : (
-          <button type="button" onClick={publier} disabled={etat === 'publication' || calculAnnonce || !texte.trim() || !planCarrousel || !apercuAnnonce.length}
+          <button type="button" onClick={publier} disabled={etat === 'publication' || !texte.trim() || (avecCarrousel && (calculAnnonce || !planCarrousel || !apercuAnnonce.length))}
             className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 py-4 text-[10px] font-black uppercase tracking-widest text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-300">
-            {etat === 'publication' ? <><Loader2 size={14} className="animate-spin" /> Publication…</> : <><Share2 size={14} /> Publier sur Facebook & Instagram ({apercuAnnonce.length})</>}
+            {etat === 'publication' ? <><Loader2 size={14} className="animate-spin" /> Publication…</> : <><Share2 size={14} /> Publier sur Facebook & Instagram ({avecCarrousel ? apercuAnnonce.length : 1})</>}
           </button>
         ))}
         {boutonStory}
