@@ -6,8 +6,9 @@ import { ChevronLeft, ChevronRight, Facebook, Instagram, ImageIcon } from 'lucid
  * partage d'affiche, « Nouveau post » et « Nouveaux jeux ».
  * Plusieurs images : carrousel qu'on fait défiler comme sur Instagram (glisser
  * du doigt, flèches ou points), avec le compteur « 2 / 9 ».
+ * `portrait` : images 4:5 (annonce d'un événement), montrées entières comme sur Instagram.
  */
-export default function SocialPostPreview({ text, imageUrl, imageUrls }) {
+export default function SocialPostPreview({ text, imageUrl, imageUrls, portrait = false }) {
   const urls = imageUrls || (imageUrl ? [imageUrl] : [])
   const bande = useRef(null)
   const [index, setIndex] = useState(0)
@@ -55,7 +56,7 @@ export default function SocialPostPreview({ text, imageUrl, imageUrls }) {
         </div>
 
         {/* Photo(s) */}
-        <div className="relative w-full aspect-square bg-slate-100">
+        <div className={'relative w-full bg-slate-100 ' + (portrait ? 'aspect-[4/5]' : 'aspect-square')}>
           {urls.length > 0 ? (
             <div
               ref={bande}

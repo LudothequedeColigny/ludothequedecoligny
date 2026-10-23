@@ -37,9 +37,8 @@ import { chargerJeuxAAnnoncer } from '../../services/nouveauxJeux'
 import { copierJaquette } from '../../services/diapos/jaquettes'
 import { typeEvenement as getEventType } from '../../services/diapos/regles'
 import PublicationBilan from '../../components/admin/bilan/PublicationBilan'
-import {
-  MAKE_WEBHOOK_URL, socialFileNameFrom, uploadSquareVersion, publierSurReseaux,
-} from '../../services/reseauxSociaux'
+import PublicationAnnonce from '../../components/admin/annonce/PublicationAnnonce'
+import { uploadSquareVersion, publierSurReseaux } from '../../services/reseauxSociaux'
 
 // Destinataires enregistrés : trois catégories, chacune avec son propre texte
 // d'annonce. À l'envoi, seules les mairies sont cochées d'office (choix de
@@ -200,11 +199,9 @@ export default function Evenements() {
   const [activeMailTab, setActiveMailTab] = useState('collectivites') // un des MAIL_TABS
   const [loadingRecipients, setLoadingRecipients] = useState(false)
   const [sendingMail, setSendingMail] = useState(false)
-  // Modale publication Facebook/Instagram
+  // Fenêtre « Annonce » (carrousel Facebook/Instagram et story du jour J)
   const [fbModal, setFbModal] = useState({ show: false, event: null })
   const [fbText, setFbText] = useState('')
-  const [publishingFb, setPublishingFb] = useState(false)
-  const [fbSuccess, setFbSuccess] = useState(false)
   // Post Facebook/Instagram autonome (sans événement lié)
   const [postText, setPostText] = useState('')
   const [postImageUrl, setPostImageUrl] = useState('')
@@ -213,7 +210,6 @@ export default function Evenements() {
   const [postSuccess, setPostSuccess] = useState(false)
   // Aperçus fidèles : images mises au carré sur le fond bois, comme à la publication
   const apercuPost = useApercusCarres(postImageUrl ? [postImageUrl] : [])
-  const apercuAffiche = useApercusCarres(fbModal.event?.image_url ? [fbModal.event.image_url] : [])
   const [groupesOuverts, setGroupesOuverts] = useState({ mairie: true, presse: true, ecole: true })
   const [modelesOpen, setModelesOpen] = useState(false)
   const [showAdherents, setShowAdherents] = useState(true)
@@ -806,67 +802,6 @@ Ludothèque de Coligny 🎯
 www.ludothequedecoligny.fr`
     setFbText(text)
     setFbModal({ show: true, event })
-    setFbSuccess(false)
-  }
-
-  const handlePublishFb = async () => {
-    if (!fbModal.event) return
-    setPublishingFb(true)
-    try {
-      let image_url = fbModal.event.image_url || null
-      const originalUrl = image_url          // source de la mise au carré
-      const safeName = (fbModal.event.title || 'affiche')
-        .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').substring(0, 50)
-
-      // Si dataURL → upload avec nom basé sur le titre (upsert pour éviter les doublons)
-      // Si déjà URL publique Supabase → réutiliser directement sans créer de nouveau fichier
-      if (image_url && image_url.startsWith('data:')) {
-        const fetchRes = await fetch(image_url)
-        const blob = await fetchRes.blob()
-        const fileName = safeName + '.png'
-        const { error: uploadError } = await supabase.storage
-          .from('event-images').upload(fileName, blob, { contentType: 'image/png', upsert: true })
-        if (!uploadError) {
-          const { data } = supabase.storage.from('event-images').getPublicUrl(fileName)
-          image_url = data.publicUrl
-          await supabase.from('events').update({ image_url }).eq('id', fbModal.event.id)
-        }
-      }
-
-      // L'affiche part au format carré : Instagram et Facebook rognent le reste.
-      // L'affiche A4 d'origine reste inchangée sur la fiche de l'événement.
-      let social_image_url = image_url
-      if (image_url && !image_url.startsWith('data:')) {
-        const squareUrl = await uploadSquareVersion(
-          originalUrl,   // l'affiche telle qu'on l'a sous la main, sans re-téléchargement
-          socialFileNameFrom(image_url) || safeName + '-social.jpg'
-        )
-        if (squareUrl) social_image_url = squareUrl
-      }
-
-            console.log('📤 Envoi à Make - message:', fbText.substring(0, 50), '| image_url:', social_image_url?.substring(0, 80))
-      const res = await fetch(MAKE_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: fbText,
-          image_url: social_image_url,
-          event_title: fbModal.event.title || '',
-          event_date: fbModal.event.date || '',
-          event_location: fbModal.event.location || '',
-        }),
-      })
-      console.log('📬 Réponse Make:', res.status, res.ok)
-      if (!res.ok) throw new Error('Erreur Make: ' + res.status)
-      setFbSuccess(true)
-      addToast('Publication envoyée avec succès.', 'success')
-    } catch (err) {
-      console.error('❌ Erreur publication Facebook:', err)
-      addToast("Erreur lors de la publication. Vérifiez la console.", 'error')
-    } finally {
-      setPublishingFb(false)
-    }
   }
 
   const handlePublishPost = async () => {
@@ -914,12 +849,13 @@ www.ludothequedecoligny.fr`
     }
   }
 
-  // Diapositives du carrousel déjà publiées (event-images/bilans/{id}/) : effacées quand
-  // l'événement ou une de ses photos est supprimé (promesse « retrait sur simple demande »).
-  // Elles sont refabriquées à la publication suivante. Renvoie false en cas d'échec.
-  const effacerDiapositivesBilan = async (eventId) => {
+  // Diapositives déjà publiées (event-images/bilans/{id}/ pour le bilan,
+  // event-images/annonces/{id}/ pour l'annonce) : effacées quand l'événement ou une de
+  // ses photos est supprimé (promesse « retrait sur simple demande »). Elles sont
+  // refabriquées à la publication suivante. Renvoie false en cas d'échec.
+  const effacerDiapositives = async (eventId, genre = 'bilans') => {
     try {
-      const dossier = `bilans/${eventId}`
+      const dossier = `${genre}/${eventId}`
       const chemins = []
       for (let debut = 0; ; debut += 100) {
         const { data, error } = await supabase.storage.from('event-images').list(dossier, { limit: 100, offset: debut })
@@ -933,7 +869,7 @@ www.ludothequedecoligny.fr`
       }
       return true
     } catch (err) {
-      console.warn('Diapositives du bilan non effacées :', err)
+      console.warn(`Diapositives non effacées (${genre}) :`, err)
       return false
     }
   }
@@ -950,7 +886,8 @@ www.ludothequedecoligny.fr`
       await supabase.from('event_photos').delete().eq('event_id', deleteModal.id)
     }
     await supabase.from('event_games_played').delete().eq('event_id', deleteModal.id)
-    await effacerDiapositivesBilan(deleteModal.id)
+    await effacerDiapositives(deleteModal.id, 'bilans')
+    await effacerDiapositives(deleteModal.id, 'annonces')
 
     // Supprimer l'affiche de l'événement dans Storage si elle existe
     const eventToDelete = [...events, ...archivedEvents].find(e => e.id === deleteModal.id)
@@ -1037,11 +974,12 @@ www.ludothequedecoligny.fr`
     }
   }
 
-  // Met à jour l'événement du bilan partout où il est affiché (fenêtre, listes)
+  // Met à jour un événement partout où il est affiché (fenêtres Bilan et Annonce, listes)
   // `patch` : champs à changer, ou fonction qui les calcule depuis l'événement
-  const majBilanEvent = (id, patch) => {
+  const majEvenement = (id, patch) => {
     const appliquer = e => (e.id === id ? { ...e, ...(typeof patch === 'function' ? patch(e) : patch) } : e)
     setBilanModal(prev => (prev.event ? { ...prev, event: appliquer(prev.event) } : prev))
+    setFbModal(prev => (prev.event ? { ...prev, event: appliquer(prev.event) } : prev))
     setEvents(prev => prev.map(appliquer))
     setArchivedEvents(prev => prev.map(appliquer))
   }
@@ -1059,7 +997,7 @@ www.ludothequedecoligny.fr`
       // La photo n'illustre plus ni un jeu, ni l'ouverture, ni la diapositive « plein de jeux »
       const eventId = bilanModal.event.id
       // Ni les diapositives déjà publiées, qui pouvaient la montrer
-      if (!(await effacerDiapositivesBilan(eventId))) {
+      if (!(await effacerDiapositives(eventId, 'bilans'))) {
         addToast("Photo supprimée, mais les images du carrousel déjà publié n'ont pas pu être effacées.", 'error')
       }
       const [jeux, ouverture, pleinDeJeux] = await Promise.all([
@@ -1068,8 +1006,8 @@ www.ludothequedecoligny.fr`
         supabase.from('events').update({ bilan_photo_jeux: null }).eq('id', eventId).eq('bilan_photo_jeux', photo.url),
       ])
       if (!jeux.error) setBilanGames(prev => prev.map(g => (g.photo_url === photo.url ? { ...g, photo_url: null } : g)))
-      if (!ouverture.error) majBilanEvent(eventId, e => (e.bilan_photo_ouverture === photo.url ? { bilan_photo_ouverture: null } : {}))
-      if (!pleinDeJeux.error) majBilanEvent(eventId, e => (e.bilan_photo_jeux === photo.url ? { bilan_photo_jeux: null } : {}))
+      if (!ouverture.error) majEvenement(eventId, e => (e.bilan_photo_ouverture === photo.url ? { bilan_photo_ouverture: null } : {}))
+      if (!pleinDeJeux.error) majEvenement(eventId, e => (e.bilan_photo_jeux === photo.url ? { bilan_photo_jeux: null } : {}))
       if (jeux.error || ouverture.error || pleinDeJeux.error) {
         console.error('Nettoyage des choix de photo :', jeux.error || ouverture.error || pleinDeJeux.error)
         addToast("Photo supprimée, mais les choix du carrousel qui l'utilisaient n'ont pas pu être effacés.", 'error')
@@ -2346,17 +2284,17 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
         }}
       />
 
-      {/* MODALE PUBLICATION FACEBOOK & INSTAGRAM */}
+      {/* FENÊTRE « ANNONCE » : CARROUSEL FACEBOOK & INSTAGRAM ET STORY DU JOUR J */}
       {fbModal.show && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-[22px]">
           <div className="anim-fade-in absolute inset-0 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }} onClick={() => setFbModal({ show: false, event: null })} />
-          <div className="anim-modal-in relative flex max-h-[90vh] w-full max-w-[680px] flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#3b82f6]">
+          <div className="anim-modal-in relative flex max-h-[92vh] w-full max-w-[820px] flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#3b82f6]">
 
             <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex min-w-0 items-center gap-3.5">
                 <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#eff6ff] text-[#3b82f6]"><Share2 size={20} /></div>
                 <div className="min-w-0">
-                  <h3 className="font-display text-[19px] font-extrabold tracking-[-0.04em]">Publier sur <span className="text-[#3b82f6]">les réseaux</span></h3>
+                  <h3 className="font-display text-[19px] font-extrabold tracking-[-0.04em] text-[#3b82f6]">Annonce</h3>
                   <p className="mt-1.5 truncate text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-400">{fbModal.event?.title}</p>
                 </div>
               </div>
@@ -2364,60 +2302,22 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[15px] font-extrabold text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white">✕</button>
             </div>
 
-            <div className="flex-1 space-y-5 overflow-y-auto p-6">
-
-              {/* Aperçu affiche */}
-              {fbModal.event?.image_url && (
-                <div className="space-y-2">
-                  <label className="mb-2 block text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-[#1a5f7a]">Affiche jointe</label>
-                  <div className="flex items-center gap-3.5 rounded-[20px] border-2 border-[#3b82f6] bg-[#eff6ff] p-3.5">
-                    <img src={fbModal.event.image_url} alt="Affiche" className="h-16 w-12 rounded-[10px] border-2 border-[#0f172a] object-cover" />
-                    <div>
-                      <p className="text-xs font-extrabold text-[#1e40af]">Image publiée automatiquement</p>
-                      <p className="mt-1 text-[10px] font-bold text-[#3b82f6]">Format JPEG requis par Instagram</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {!fbModal.event?.image_url && (
-                <div className="rounded-[20px] border-2 border-[#f59e0b] bg-[#fffbeb] p-4">
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#b45309]">⚠️ Aucune affiche — publication texte uniquement</p>
-                  <p className="mt-1.5 text-[10px] font-bold text-[#b45309]/80">Instagram requiert une image. Sans affiche, seul Facebook sera publié.</p>
-                </div>
-              )}
-
-              <SocialPostPreview text={fbText} imageUrls={apercuAffiche} />
-
-              {/* Texte du post */}
-              <div className="space-y-2">
-                <label className="mb-2 block text-[9.5px] font-extrabold uppercase tracking-[0.18em] text-[#1a5f7a]">Texte du post</label>
-                <textarea
-                  rows={10}
-                  className="w-full resize-y rounded-[20px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 text-[13px] font-medium text-[#0f172a] outline-none focus:bg-white"
-                  value={fbText}
-                  onChange={e => setFbText(e.target.value)}
-                />
-              </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <PublicationAnnonce
+                key={fbModal.event.id}
+                event={fbModal.event}
+                texte={fbText}
+                onTexteChange={setFbText}
+                onEventChange={patch => majEvenement(fbModal.event.id, patch)}
+              />
             </div>
 
             {/* Footer */}
-            <div className="flex shrink-0 flex-wrap gap-2.5 border-t-2 border-slate-100 p-6">
+            <div className="shrink-0 border-t-2 border-slate-100 p-6">
               <button onClick={() => setFbModal({ show: false, event: null })}
-                className="flex-1 basis-[140px] rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] py-4 text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500 transition-colors hover:bg-slate-100">
-                Annuler
+                className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] py-4 text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500 transition-colors hover:bg-slate-100">
+                Fermer
               </button>
-              {fbSuccess ? (
-                <div className="flex flex-1 basis-[180px] items-center justify-center gap-2 rounded-[18px] border-2 border-[#0f172a] bg-[#10b981] py-4 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white">
-                  <CheckCircle2 size={14} /> Publié avec succès !
-                </div>
-              ) : (
-                <button onClick={handlePublishFb} disabled={publishingFb || !fbText}
-                  className={'flex flex-1 basis-[180px] items-center justify-center gap-2 rounded-[18px] border-2 border-[#0f172a] py-4 text-[11px] font-extrabold uppercase tracking-[0.16em] transition-[transform,box-shadow] duration-200 ' +
-                    (publishingFb || !fbText ? 'cursor-not-allowed bg-slate-100 text-slate-300' : 'bg-[#3b82f6] text-white shadow-[5px_5px_0_#0f172a] hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a]')}>
-                  {publishingFb ? <><Loader2 size={14} className="animate-spin" /> Publication...</> : <><Share2 size={14} /> Publier</>}
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -2609,7 +2509,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                     texteModifie={bilanFbTextEdited}
                     onTexteReset={resetBilanFbText}
                     onJeuxChange={setBilanGames}
-                    onEventChange={patch => majBilanEvent(bilanModal.event.id, patch)}
+                    onEventChange={patch => majEvenement(bilanModal.event.id, patch)}
                   />
                 )}
               </div>
