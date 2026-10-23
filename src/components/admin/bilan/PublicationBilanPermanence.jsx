@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CheckCircle2, Loader2, Share2 } from 'lucide-react'
 import { supabase } from '../../../services/supabaseClient'
-import { dateLocale, jourMois } from '../../../services/diapos/regles'
+import { dateLocale } from '../../../services/diapos/regles'
 import {
-  prochainePermanence, planBilanPermanence, texteBilanPermanence,
+  prochainePermanence, planBilanPermanence, texteBilanPermanence, pretsPartis, jeuxDistincts, jourComplet,
 } from '../../../services/diapos/permanence-regles'
 import { dessinerBilanPermanence } from '../../../services/diapos/permanence'
 import { versBlob, liberer, viderCache } from '../../../services/diapos/dessin'
@@ -18,7 +18,6 @@ import SocialPostPreview from '../SocialPostPreview'
  * Conception : docs/superpowers/specs/2026-10-23-bilan-permanence-design.md
  */
 const SECTION = 'text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1'
-const JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi']
 
 const ERREUR_PRETS = "Les prêts n'ont pas pu être lus. Réessayez ou rechargez la page."
 const ERREUR_APERCU = "L'aperçu n'a pas pu être fabriqué. Réessayez ou rechargez la page."
@@ -29,13 +28,13 @@ const ABANDON = Symbol('aperçu abandonné')
 
 // « samedi 3 octobre »
 const jourDeLaPermanence = date => {
-  const d = dateLocale(date)
-  return `${JOURS[d.getDay()]} ${jourMois(d)}`
+  const j = jourComplet(dateLocale(date))
+  return j.charAt(0).toLowerCase() + j.slice(1)
 }
 
 export default function PublicationBilanPermanence({ event, onPublication }) {
   // undefined pendant la lecture ; null si les prêts n'ont pas pu être lus
-  const [donnees, setDonnees] = useState(undefined) // { prets, prochaine }
+  const [donnees, setDonnees] = useState(undefined) // { prets (partis), nbJeux, prochaine }
   // Texte retouché par le bénévole (null = texte proposé)
   const [texteSaisi, setTexteSaisi] = useState(null)
   const [apercu, setApercu] = useState([])
@@ -69,44 +68,50 @@ export default function PublicationBilanPermanence({ event, onPublication }) {
     setDonnees(undefined)
     ;(async () => {
       const jour = String(event.date).slice(0, 10)
-      const champs = 'game_id, games(id, name, image_url)' // jamais de donnée d'adhérent
-      let enCours, rendus, evs, reglages
+      // Jamais de donnée d'adhérent : le jeu et les dates seulement
+      const champsEnCours = 'game_id, loan_date, games(id, name, image_url)'
+      const champsRendus = 'game_id, loan_date, return_date, games(id, name, image_url)'
       try {
-        [enCours, rendus, evs, reglages] = await Promise.all([
-          supabase.from('loans').select(champs).eq('loan_date', jour),
-          supabase.from('loan_history').select(champs).eq('loan_date', jour),
+        const [enCours, rendus, evs, reglages] = await Promise.all([
+          supabase.from('loans').select(champsEnCours).eq('loan_date', jour),
+          supabase.from('loan_history').select(champsRendus).eq('loan_date', jour),
           supabase.from('events').select('title, date, end_time, location, archived_at')
             .ilike('title', '%permanence%').is('archived_at', null).order('date'),
           supabase.from('settings').select('id, value').or('id.like.horaire_%,id.like.adresse_%'),
         ])
+        if (annule) return
+        if (enCours.error || rendus.error) throw enCours.error || rendus.error
+        // Sans événements ni Paramètres : prochaine permanence calculée avec ce qui a été lu
+        if (evs.error) console.warn('Prochaine permanence (événements) :', evs.error)
+        if (reglages.error) console.warn('Prochaine permanence (Paramètres) :', reglages.error)
+        let prochaine = null
+        try {
+          const horaires = Object.fromEntries((reglages.error ? [] : reglages.data || []).map(s => [s.id, s.value]))
+          prochaine = prochainePermanence({
+            evenements: evs.error ? [] : evs.data || [], horaires, maintenant: new Date(),
+          })
+        } catch (e) {
+          // Carte « Bientôt : surveillez nos publications »
+          console.warn('Prochaine permanence :', e)
+        }
+        // Un jeu rendu le jour même n'est pas compté ; jaquette hébergée ailleurs (MyLudo) :
+        // interdite dans un canvas, case avec le nom seul
+        const prets = pretsPartis([...(enCours.data || []), ...(rendus.data || [])]).map(p => (
+          p.games && p.games.image_url && !estChezNous(p.games.image_url)
+            ? { ...p, games: { ...p.games, image_url: null } }
+            : p
+        ))
+        setDonnees({ prets, nbJeux: jeuxDistincts(prets).length, prochaine })
       } catch (e) {
-        enCours = { error: e }
-      }
-      if (annule) return
-      if (enCours.error || rendus.error) {
-        console.error('Prêts de la permanence :', enCours.error || rendus.error)
+        if (annule) return
+        console.error('Prêts de la permanence :', e)
         setDonnees(null)
-        return
       }
-      // Sans événements ni Paramètres : prochaine permanence calculée avec ce qui a été lu
-      if (evs.error) console.warn('Prochaine permanence (événements) :', evs.error)
-      if (reglages.error) console.warn('Prochaine permanence (Paramètres) :', reglages.error)
-      const horaires = Object.fromEntries((reglages.error ? [] : reglages.data || []).map(s => [s.id, s.value]))
-      const prochaine = prochainePermanence({
-        evenements: evs.error ? [] : evs.data || [], horaires, maintenant: new Date(),
-      })
-      // Jaquette hébergée ailleurs (MyLudo) : interdite dans un canvas, case avec le nom seul
-      const prets = [...(enCours.data || []), ...(rendus.data || [])].map(p => (
-        p.games && p.games.image_url && !estChezNous(p.games.image_url)
-          ? { ...p, games: { ...p.games, image_url: null } }
-          : p
-      ))
-      setDonnees({ prets, prochaine })
     })()
     return () => { annule = true }
   }, [event.id, event.date])
 
-  const prets = donnees?.prets
+  const nbJeux = donnees?.nbJeux
   const textePropose = useMemo(
     () => (donnees ? texteBilanPermanence({ event, prets: donnees.prets, prochaine: donnees.prochaine }) : ''),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -116,7 +121,7 @@ export default function PublicationBilanPermanence({ event, onPublication }) {
 
   // Aperçu : les 3 images exactes, dessinées une à une
   useEffect(() => {
-    if (!donnees || !donnees.prets.length) return
+    if (!donnees || !donnees.nbJeux) return
     const n = ++numero.current
     setCalcul(true)
     aLaSuite(async () => {
@@ -190,7 +195,7 @@ export default function PublicationBilanPermanence({ event, onPublication }) {
   if (donnees === null) {
     return <p className="px-1 text-[11px] font-bold text-rose-500">{ERREUR_PRETS}</p>
   }
-  if (!prets.length) {
+  if (!nbJeux) {
     return (
       <p className="rounded-[12px] border-2 border-slate-100 px-3 py-2 text-[11px] font-semibold text-slate-500">
         Aucun prêt enregistré à la date de cette permanence : pas de bilan à publier.
@@ -212,7 +217,7 @@ export default function PublicationBilanPermanence({ event, onPublication }) {
             </button>
           )}
           <p className="ml-1 text-[11px] font-semibold leading-relaxed text-slate-500">
-            Les prêts sont retrouvés par leur date : {prets.length} {prets.length === 1 ? 'prêt' : 'prêts'} le {jourDeLaPermanence(event.date)}.
+            Les prêts sont retrouvés par leur date : {nbJeux} {nbJeux === 1 ? 'jeu parti' : 'jeux partis'} le {jourDeLaPermanence(event.date)} (un jeu rendu le jour même n'est pas compté).
           </p>
         </div>
 

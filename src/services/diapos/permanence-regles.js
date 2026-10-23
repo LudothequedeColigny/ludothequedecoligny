@@ -13,11 +13,19 @@ export const MAX_CASES = 12
 const CASES_MOSAIQUE = 8
 
 const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-const jourComplet = d => `${JOURS[d.getDay()]} ${jourMois(d)}`
+export const jourComplet = d => `${JOURS[d.getDay()]} ${jourMois(d)}`
 const minuscule = t => t.charAt(0).toLowerCase() + t.slice(1)
 const plageHoraire = (debut, fin) => (fin ? `de ${heureTexte(debut)} à ${heureTexte(fin)}` : `à partir de ${heureTexte(debut)}`)
 
 export const estPermanence = titre => sansAccents(titre || '').includes('permanence')
+
+/**
+ * Prêts qui sont vraiment partis : un prêt rendu le jour même (correction, échange sur
+ * place) n'est pas compté. Les prêts en cours (sans `return_date`) sont gardés.
+ */
+export const pretsPartis = prets => prets.filter(p => !(
+  p.return_date && p.loan_date && String(p.return_date).slice(0, 10) === String(p.loan_date).slice(0, 10)
+))
 
 /** Un jeu par `game_id` (un jeu prêté deux fois n'apparaît qu'une fois), trié par nom. */
 export function jeuxDistincts(prets) {
@@ -69,14 +77,15 @@ export function prochainePermanence({ evenements = [], horaires = {}, maintenant
 }
 
 export function planBilanPermanence({ event, prets, prochaine }) {
-  if (!prets.length) return []
-  const jeux = jeuxDistincts(prets)
+  // Nombre affiché = jeux distincts partis : nombre, grille et texte disent la même chose
+  const jeux = jeuxDistincts(pretsPartis(prets))
+  if (!jeux.length) return []
   const jaquettes = jeux.map(j => j.jaquette).filter(Boolean)
   const mosaique = jaquettes.length ? Array.from({ length: CASES_MOSAIQUE }, (_, i) => jaquettes[i % jaquettes.length]) : []
   const cases = jeux.length > MAX_CASES
     ? [...jeux.slice(0, MAX_CASES - 1).map(j => ({ nom: j.nom, jaquette: j.jaquette })), { autres: jeux.length - (MAX_CASES - 1) }]
     : jeux.map(j => ({ nom: j.nom, jaquette: j.jaquette }))
-  const n = prets.length
+  const n = jeux.length
   return [
     {
       type: 'nombre', mosaique,
@@ -90,8 +99,8 @@ export function planBilanPermanence({ event, prets, prochaine }) {
 }
 
 export function texteBilanPermanence({ event, prets, prochaine }) {
-  const n = prets.length
-  const noms = jeuxDistincts(prets).map(j => j.nom)
+  const noms = jeuxDistincts(pretsPartis(prets)).map(j => j.nom)
+  const n = noms.length
   const lignes = [
     `🎲 Retour sur la permanence du ${minuscule(jourComplet(dateLocale(event.date)))} !`,
     '',

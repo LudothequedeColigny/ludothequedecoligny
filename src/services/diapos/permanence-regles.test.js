@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  estPermanence, jeuxDistincts, prochainePermanence, planBilanPermanence, texteBilanPermanence, MAX_CASES,
+  estPermanence, jeuxDistincts, pretsPartis, prochainePermanence, planBilanPermanence, texteBilanPermanence, MAX_CASES,
 } from './permanence-regles.js'
 
 const perm = { id: 39, title: 'Permanence de la ludothèque', date: '2026-10-03 10:00:00', end_time: '12:00', location: '419 Grande rue à Coligny' }
@@ -65,17 +65,38 @@ test('prochaine permanence : rien de connu → null', () => {
   assert.equal(prochainePermanence({ evenements: [], horaires: {}, maintenant: new Date(2026, 9, 23) }), null)
 })
 
-test('plan : 3 diapositives, nombre = prêts, grille = jeux distincts', () => {
+test('plan : 3 diapositives, nombre = jeux distincts, grille = jeux distincts', () => {
   const prochaine = { date: '2026-11-07', jour: 'Samedi 7 novembre', heures: 'de 10h à 12h', lieu: '419 Grande rue à Coligny' }
   const plan = planBilanPermanence({ event: perm, prets, prochaine })
   assert.deepEqual(plan.map(d => d.type), ['nombre', 'grille', 'prochaine'])
   assert.equal(plan[0].intro, 'Samedi, à la permanence…')
-  assert.equal(plan[0].nombre, 4)
+  assert.equal(plan[0].nombre, 3)
   assert.equal(plan[0].suite, 'jeux sont partis jouer dans les familles !')
   // Mosaïque : 8 jaquettes, répétées dans l'ordre, jamais de case vide
   assert.deepEqual(plan[0].mosaique, ['https://x.supabase.co/1.jpg', 'https://x.supabase.co/3.jpg', 'https://x.supabase.co/1.jpg', 'https://x.supabase.co/3.jpg', 'https://x.supabase.co/1.jpg', 'https://x.supabase.co/3.jpg', 'https://x.supabase.co/1.jpg', 'https://x.supabase.co/3.jpg'])
   assert.deepEqual(plan[1].cases, [{ nom: 'Azul', jaquette: 'https://x.supabase.co/1.jpg' }, { nom: 'Dixit', jaquette: 'https://x.supabase.co/3.jpg' }, { nom: 'Écosystème', jaquette: null }])
   assert.deepEqual(plan[2], { type: 'prochaine', mosaique: plan[0].mosaique, prochaine })
+})
+
+test('prêts partis : un prêt rendu le jour même n’est pas compté', () => {
+  const rendu = { ...pret(1, 'Azul'), loan_date: '2026-10-03', return_date: '2026-10-03' }
+  const rendePlusTard = { ...pret(2, 'Dixit'), loan_date: '2026-10-03', return_date: '2026-10-17' }
+  const enCours = { ...pret(3, 'Kezao'), loan_date: '2026-10-03' }
+  assert.deepEqual(pretsPartis([rendu, rendePlusTard, enCours]), [rendePlusTard, enCours])
+})
+
+test('plan : un prêt rendu le jour même fait baisser le nombre', () => {
+  const lignes = [
+    { ...pret(1, 'Azul'), loan_date: '2026-10-03', return_date: '2026-10-03 11:00:00' },
+    { ...pret(1, 'Azul'), loan_date: '2026-10-03' },
+    { ...pret(2, 'Dixit'), loan_date: '2026-10-03', return_date: '2026-10-03' },
+    { ...pret(3, 'Kezao'), loan_date: '2026-10-03', return_date: '2026-10-31' },
+  ]
+  const plan = planBilanPermanence({ event: perm, prets: lignes, prochaine: null })
+  assert.equal(plan[0].nombre, 2)
+  assert.deepEqual(plan[1].cases.map(c => c.nom), ['Azul', 'Kezao'])
+  // Seulement des prêts rendus le jour même : pas de bilan
+  assert.deepEqual(planBilanPermanence({ event: perm, prets: [lignes[2]], prochaine: null }), [])
 })
 
 test('plan : un seul prêt au singulier ; aucun prêt → pas de plan', () => {
@@ -105,7 +126,7 @@ test('texte de publication', () => {
   assert.equal(texteBilanPermanence({ event: perm, prets, prochaine }), [
     '🎲 Retour sur la permanence du samedi 3 octobre !',
     '',
-    '📦 4 jeux sont partis jouer dans les familles : Azul, Dixit, Écosystème.',
+    '📦 3 jeux sont partis jouer dans les familles : Azul, Dixit, Écosystème.',
     '',
     '📅 Prochaine permanence : samedi 7 novembre, de 10h à 12h, 419 Grande rue à Coligny.',
     '',

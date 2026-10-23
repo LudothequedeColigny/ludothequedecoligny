@@ -30,8 +30,10 @@ Pour les autres événements « ni soirée ni famille », la fenêtre garde le m
   `loan_date` (date sans heure, `YYYY-MM-DD`) = jour de la permanence (`events.date`,
   10 premiers caractères). Jointure `games(id, name, image_url)` seulement — aucune
   donnée d'adhérent n'est lue.
-- **Nombre** (diapo 1) = nombre de prêts (lignes). **Grille** (diapo 2) = jeux distincts
-  (par `game_id`), triés par nom (ordre alphabétique français, `localeCompare('fr')`).
+- **Un prêt rendu le jour même** (`loan_history.return_date` = `loan_date` : correction ou
+  échange sur place) **n'est pas compté**. **Nombre** (diapo 1, texte, ligne d'aide) = nombre
+  de **jeux distincts** restants (par `game_id`) ; **grille** (diapo 2) = ces mêmes jeux, triés
+  par nom (ordre alphabétique français, `localeCompare('fr')`) : nombre, grille et texte concordent.
 - **Jaquettes** : `games.image_url`. Toutes sont aujourd'hui chez nous (Supabase) ;
   une jaquette absente ou hébergée ailleurs (`!estChezNous`) n'est pas dessinée
   (case avec le nom seul).
@@ -45,7 +47,7 @@ Pour les autres événements « ni soirée ni famille », la fenêtre garde le m
      adresse = `adresse_rue` + « à » + `adresse_ville` ;
   3. sans aucune des deux : la carte affiche seulement « Bientôt : surveillez nos
      publications » (pas d'erreur).
-- **Sans prêt** ce jour-là : pas de carrousel ; message « Aucun prêt enregistré à la
+- **Sans prêt** ce jour-là (ou seulement des prêts rendus le jour même) : pas de carrousel ; message « Aucun prêt enregistré à la
   date de cette permanence : pas de bilan à publier. »
 
 Limite connue (à dire à Victor) : les prêts n'ont qu'une date ; un prêt saisi avec la
