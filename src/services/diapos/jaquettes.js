@@ -23,20 +23,27 @@ export async function copierJaquette(url) {
   }
 }
 
-/** Jaquette à dessiner pour chaque jeu joué (catalogue d'abord, sinon copie locale). */
-export async function jaquettesDuBilan(jeux) {
+/**
+ * Jaquette à dessiner pour chaque jeu joué (catalogue d'abord si son image est chez
+ * nous, sinon copie locale). `estAnnule()` : la fenêtre a été fermée ou la liste a
+ * changé, plus aucune copie ni écriture n'est lancée.
+ */
+export async function jaquettesDuBilan(jeux, { estAnnule = () => false } = {}) {
   const resultat = new Map()
   // Même comparaison que l'ajout du jeu (insensible à la casse)
   await Promise.all(jeux.filter(j => j.in_catalogue).map(async j => {
     const motif = (j.name || '').trim().replace(/[\\%_]/g, '\\$&')
     const { data } = await supabase.from('games').select('image_url')
       .ilike('name', motif).not('image_url', 'is', null).limit(1)
-    if (data?.[0]?.image_url) resultat.set(j.id, data[0].image_url)
+    // Image du catalogue restée chez MyLudo : inutilisable sur canvas, on passe à la copie
+    if (estChezNous(data?.[0]?.image_url)) resultat.set(j.id, data[0].image_url)
   }))
   for (const j of jeux) {
+    if (estAnnule()) break
     if (resultat.has(j.id)) continue
     if (estChezNous(j.image_url)) { resultat.set(j.id, j.image_url); continue }
     const copie = await copierJaquette(j.image_url)
+    if (estAnnule()) break
     if (copie !== j.image_url && estChezNous(copie)) {
       await supabase.from('event_games_played').update({ image_url: copie }).eq('id', j.id)
     }

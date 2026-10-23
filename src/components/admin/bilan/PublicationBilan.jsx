@@ -5,7 +5,7 @@ import { planCarrousel, planStory, prochainRendezVous, choisirJeux } from '../..
 import { dessinerCarrousel } from '../../../services/diapos/carrousel'
 import { dessinerStory } from '../../../services/diapos/story'
 import { jaquettesDuBilan, estChezNous } from '../../../services/diapos/jaquettes'
-import { versBlob } from '../../../services/diapos/dessin'
+import { versBlob, liberer, viderCache } from '../../../services/diapos/dessin'
 import { publierSurReseaux, uploadSocialBlob } from '../../../services/reseauxSociaux'
 
 /**
@@ -39,9 +39,27 @@ function ChoixPhoto({ photos, valeur, onChoix, avecSans }) {
 
 const ERREUR_APERCU = "L'aperçu n'a pas pu être fabriqué. Réessayez ou rechargez la page."
 const ERREUR_CHOIX = "Ce choix n'a pas pu être enregistré. Réessayez dans un instant."
+const ERREUR_STORY = "Les images de la story n'ont pas pu être préparées. Réessayez ou rechargez la page."
+const PARTAGE_INDISPONIBLE = "Le partage n'est pas disponible : les images ont été téléchargées."
 
-// Libère la mémoire d'images pleine taille (indispensable sur téléphone)
-const liberer = liste => liste.forEach(c => { c.width = 0; c.height = 0 })
+// Signal interne : un aperçu plus récent a été demandé, celui-ci s'arrête
+const ABANDON = Symbol('aperçu abandonné')
+
+// Nombre de participants utilisable, ou null (vide, 0 ou illisible : pas de diapositive « nombre »)
+const nombreParticipants = v => {
+  const n = v === '' || v == null ? NaN : Number(v)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+function telecharger(fichiers) {
+  for (const f of fichiers) {
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(f)
+    a.download = f.name
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000)
+  }
+}
 
 export default function PublicationBilan({ event, photos, jeux, participants, texte, onTexteChange, texteModifie, onTexteReset, onJeuxChange, onEventChange }) {
   const album = useMemo(() => [...photos].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)), [photos])
@@ -54,6 +72,9 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
   const [jaquettesDe, setJaquettesDe] = useState({ cle: null, map: null })
   const [apercuCarrousel, setApercuCarrousel] = useState([])
   const [apercuStory, setApercuStory] = useState([])
+  // Les 4 fichiers JPEG de la story, prêts avant le geste : iPhone n'autorise le partage
+  // que tout de suite après le toucher, sans fabrication d'images entre les deux
+  const [fichiersStory, setFichiersStory] = useState(null)
   // Plans de l'aperçu affiché : publication et story sont redessinées à partir d'eux
   const [plans, setPlans] = useState(null)
   const [calcul, setCalcul] = useState(false)
@@ -62,17 +83,24 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
   const [erreur, setErreur] = useState('')
   const numero = useRef(0)
 
-  // Prochain rendez-vous (hors permanences) et jaquettes chez nous
+  // Fenêtre fermée : aperçu en cours abandonné, images chargées oubliées (mémoire des téléphones)
+  useEffect(() => () => { numero.current++; viderCache() }, [])
+
+  // Prochain rendez-vous (hors permanences et événements archivés) et jaquettes chez nous
   useEffect(() => {
     let annule = false
     supabase.from('events').select('title, date, location, image_url').gte('date', new Date().toISOString().slice(0, 10))
-      .order('date').then(({ data }) => { if (!annule) setProchain(prochainRendezVous(data || [], new Date())) })
+      .is('archived_at', null).order('date').then(({ data, error }) => {
+        // En cas d'échec, la carte affiche « Toutes nos dates »
+        if (error) console.warn('Prochain rendez-vous :', error)
+        if (!annule) setProchain(prochainRendezVous(data || [], new Date()))
+      })
     return () => { annule = true }
   }, [])
   const cleJeux = jeux.map(j => `${j.id}:${j.image_url}`).join(',')
   useEffect(() => {
     let annule = false
-    jaquettesDuBilan(jeux).catch(() => new Map()).then(m => {
+    jaquettesDuBilan(jeux, { estAnnule: () => annule }).catch(() => new Map()).then(m => {
       if (annule) return
       setJaquettesDe({ cle: cleJeux, map: m })
       // Jaquettes copiées chez nous : la liste du bilan les reprend, pour ne plus les recopier
@@ -91,7 +119,7 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
 
   const donnees = useMemo(() => ({
     event,
-    participants: participants === '' ? null : Number(participants),
+    participants: nombreParticipants(participants),
     photos: urls,
     photoOuverture,
     photoJeux,
@@ -109,31 +137,45 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
 
   // Aperçu recalculé (avec un court délai) à chaque changement
   useEffect(() => {
-    if (!urls.length) { numero.current++; setApercuCarrousel([]); setApercuStory([]); setPlans(null); setCalcul(false); return }
+    if (!urls.length) { numero.current++; setApercuCarrousel([]); setApercuStory([]); setFichiersStory(null); setPlans(null); setCalcul(false); return }
     // Attendre les jaquettes copiées chez nous : celles de MyLudo ne se dessinent pas (CORS)
     if (!jaquettes) { numero.current++; setCalcul(true); return }
     const n = ++numero.current
     setCalcul(true)
     const minuterie = setTimeout(async () => {
-      let c = []
-      let s = []
+      // Abandon dès qu'un aperçu plus récent est demandé
+      const suite = () => { if (n !== numero.current) throw ABANDON }
       try {
         const plan = { carrousel: planCarrousel(donnees), story: planStory(donnees) }
-        // L'un après l'autre, et abandon dès qu'un aperçu plus récent est demandé
-        c = await dessinerCarrousel(plan.carrousel)
-        if (n !== numero.current) return
-        s = await dessinerStory(plan.story)
-        if (n !== numero.current) return
-        setApercuCarrousel(c.map(x => x.toDataURL('image/jpeg', 0.6)))
-        setApercuStory(s.map(x => x.toDataURL('image/jpeg', 0.6)))
+        // Une image à la fois : convertie dès qu'elle est dessinée, puis libérée
+        const c = []
+        await dessinerCarrousel(plan.carrousel, async canvas => {
+          suite()
+          c.push(canvas.toDataURL('image/jpeg', 0.6))
+        })
+        const s = []
+        const blobs = []
+        await dessinerStory(plan.story, async canvas => {
+          suite()
+          s.push(canvas.toDataURL('image/jpeg', 0.6))
+          blobs.push(await versBlob(canvas))
+        })
+        suite()
+        setApercuCarrousel(c)
+        setApercuStory(s)
         setPlans(plan)
-        setErreur(e => (e === ERREUR_APERCU ? '' : e))
+        if (blobs.every(Boolean)) {
+          setFichiersStory(blobs.map((b, i) => new File([b], `story-${event.id}-${i + 1}.jpg`, { type: 'image/jpeg' })))
+          setErreur(e => (e === ERREUR_APERCU || e === ERREUR_STORY ? '' : e))
+        } else {
+          setFichiersStory(null)
+          setErreur(ERREUR_STORY)
+        }
       } catch (e) {
+        if (e === ABANDON) return
         console.error('Aperçu du bilan :', e)
         if (n === numero.current) setErreur(ERREUR_APERCU)
       } finally {
-        liberer(c)
-        liberer(s)
         if (n === numero.current) setCalcul(false)
       }
     }, 400)
@@ -168,56 +210,49 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
   const publier = async () => {
     setEtat('publication')
     setErreur('')
-    let canvases = []
     try {
-      canvases = await dessinerCarrousel(plans.carrousel)
       const horodatage = Date.now()
       const adresses = []
-      // Une à la fois, chaque image libérée dès qu'elle est exportée : mémoire des téléphones
-      for (let i = 0; i < canvases.length; i++) {
-        const blob = await versBlob(canvases[i])
-        liberer([canvases[i]])
+      // Une diapositive à la fois : dessinée, exportée, libérée, puis envoyée (mémoire des téléphones)
+      await dessinerCarrousel(plans.carrousel, async (canvas, i) => {
+        const blob = await versBlob(canvas)
+        liberer(canvas)
         const url = blob && await uploadSocialBlob(blob, `bilans/${event.id}/carrousel-${horodatage}-${String(i + 1).padStart(2, '0')}.jpg`)
         if (!url) throw new Error('Diapositive non enregistrée')
         adresses.push(url)
-      }
+      })
       await publierSurReseaux({ message: texte, imageUrls: adresses, extra: { games: jeux.map(j => j.name) } })
       setEtat('publie')
     } catch (e) {
       console.error('Publication du bilan :', e)
       setErreur('La publication a échoué. Réessayez dans un instant.')
       setEtat('')
-    } finally {
-      liberer(canvases)
     }
   }
 
+  // Aucune attente avant navigator.share : les fichiers sont prêts depuis l'aperçu
   const enregistrerStory = async () => {
+    const fichiers = fichiersStory
+    if (!fichiers) { setErreur(ERREUR_STORY); return }
+    setErreur('')
+    let partageable = false
+    try { partageable = !!navigator.canShare?.({ files: fichiers }) } catch { partageable = false }
+    if (!partageable) {
+      telecharger(fichiers)
+      setErreur(PARTAGE_INDISPONIBLE)
+      return
+    }
     setEtat('story')
-    let canvases = []
     try {
-      canvases = await dessinerStory(plans.story)
-      const fichiers = []
-      for (let i = 0; i < canvases.length; i++) {
-        const blob = await versBlob(canvases[i])
-        liberer([canvases[i]])
-        if (blob) fichiers.push(new File([blob], `story-${event.id}-${i + 1}.jpg`, { type: 'image/jpeg' }))
-      }
-      if (navigator.canShare?.({ files: fichiers })) {
-        await navigator.share({ files: fichiers, title: 'Story du bilan' })
-      } else {
-        for (const f of fichiers) {
-          const a = document.createElement('a')
-          a.href = URL.createObjectURL(f)
-          a.download = f.name
-          a.click()
-          setTimeout(() => URL.revokeObjectURL(a.href), 2000)
-        }
-      }
+      await navigator.share({ files: fichiers, title: 'Story du bilan' })
     } catch (e) {
-      if (e?.name !== 'AbortError') console.error('Story :', e)
+      // Annulé par l'utilisateur : rien à signaler
+      if (e?.name !== 'AbortError') {
+        console.warn('Partage de la story :', e)
+        telecharger(fichiers)
+        setErreur(PARTAGE_INDISPONIBLE)
+      }
     } finally {
-      liberer(canvases)
       setEtat(actuel => (actuel === 'story' ? '' : actuel))
     }
   }
@@ -304,7 +339,7 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
             {etat === 'publication' ? <><Loader2 size={14} className="animate-spin" /> Publication…</> : <><Share2 size={14} /> Publier sur Facebook & Instagram ({apercuCarrousel.length})</>}
           </button>
         )}
-        <button type="button" onClick={enregistrerStory} disabled={etat === 'story' || calcul || !plans || !apercuStory.length}
+        <button type="button" onClick={enregistrerStory} disabled={etat === 'story' || calcul || !apercuStory.length}
           className="flex items-center justify-center gap-2 rounded-2xl border-2 border-[#0f172a] bg-white py-4 text-[10px] font-black uppercase tracking-widest text-[#1a5f7a] transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
           {etat === 'story' ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} Enregistrer la story
         </button>
