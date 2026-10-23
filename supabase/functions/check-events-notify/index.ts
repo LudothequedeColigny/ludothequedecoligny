@@ -16,9 +16,9 @@ async function sendPush(payload: { title: string; body: string; url: string }) {
     },
     body: JSON.stringify(payload),
   })
-  if (!res.ok) {
-    console.error('Erreur appel send-push:', res.status, await res.text())
-  }
+  const texte = await res.text()
+  if (!res.ok) console.error('Erreur appel send-push:', res.status, texte)
+  return { status: res.status, reponse: texte }
 }
 
 // Les dates des événements sont enregistrées à l'heure de Paris, sans fuseau
@@ -44,6 +44,20 @@ serve(async (req) => {
   }
 
   try {
+    // Mode essai (diagnostic) : envoie une notification par le chemin réel
+    // (cette fonction → send-push → téléphones) et renvoie la réponse obtenue.
+    const corps = await req.json().catch(() => ({}))
+    if (corps?.essai === true) {
+      const resultat = await sendPush({
+        title: '🎲 Notification d\'essai',
+        body: 'Bravo, les notifications de la ludothèque fonctionnent !',
+        url: '/admin',
+      })
+      return new Response(JSON.stringify({ essai: true, ...resultat }), {
+        status: 200, headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
     const now = new Date()
 
     // 1. Notifications de début d'événement (dans les 15 prochaines minutes)

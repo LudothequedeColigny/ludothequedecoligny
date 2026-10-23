@@ -269,6 +269,11 @@ Les animations et effets sont définis dans `src/index.css`.
   15 min) appelle la fonction du même nom par `net.http_post` — il faut le module
   **pg_net** (absent du 20/07 au 23/10/2026 : 9 116 échecs, aucune notification partie).
   En cas de doute, lire `cron.job_run_details` puis `net._http_response`.
+  Pour tester toute la chaîne jusqu'aux téléphones : relancer la commande de la tâche
+  avec le corps `{"essai": true}` (mode essai de la fonction, protégé par le même mot
+  de passe) ; la réponse indique combien d'appareils ont été joints. Ne pas appeler
+  `send-push` directement avec une clé lue ailleurs : Supabase a renouvelé la clé de
+  service des fonctions le 22/10/2026, une autre clé est refusée (« Non autorisé »).
   Les dates des événements sont à l'**heure de Paris, sans fuseau** : toute comparaison
   côté serveur doit se faire à l'heure de Paris, pas en heure universelle.
 - **Le site utilise le défilement « doux »** : tout script qui fait défiler la page
