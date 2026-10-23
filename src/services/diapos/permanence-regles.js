@@ -4,7 +4,7 @@
  * Conception : docs/superpowers/specs/2026-10-23-bilan-permanence-design.md
  * Jamais qui a emprunté quoi : seuls les jeux sont utilisés.
  */
-import { dateLocale, jourMois, lieuCourt, sansAccents } from './regles.js'
+import { typeEvenement, dateLocale, jourMois, lieuCourt, sansAccents } from './regles.js'
 import { heureTexte } from './annonce-regles.js'
 
 const JOURS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
@@ -17,7 +17,8 @@ export const jourComplet = d => `${JOURS[d.getDay()]} ${jourMois(d)}`
 const minuscule = t => t.charAt(0).toLowerCase() + t.slice(1)
 const plageHoraire = (debut, fin) => (fin ? `de ${heureTexte(debut)} à ${heureTexte(fin)}` : `à partir de ${heureTexte(debut)}`)
 
-export const estPermanence = titre => sansAccents(titre || '').includes('permanence')
+// Ni soirée ni après-midi famille (ceux-là gardent leur bilan avec photos), et le mot « permanence »
+export const estPermanence = titre => typeEvenement(titre || '') === 'permanence' && sansAccents(titre || '').includes('permanence')
 
 /**
  * Prêts qui sont vraiment partis : un prêt rendu le jour même (correction, échange sur

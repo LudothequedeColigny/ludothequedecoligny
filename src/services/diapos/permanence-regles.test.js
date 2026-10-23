@@ -18,6 +18,7 @@ test('permanence : seulement les titres qui contiennent « permanence »', () =>
   assert.equal(estPermanence('PERMANENCE spéciale'), true)
   assert.equal(estPermanence('Fête du jeu'), false)
   assert.equal(estPermanence(null), false)
+  assert.equal(estPermanence('Soirée jeux à la place de la permanence'), false)
 })
 
 test('jeux distincts, triés par nom, sans jeu supprimé', () => {
