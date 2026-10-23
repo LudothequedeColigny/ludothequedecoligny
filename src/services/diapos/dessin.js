@@ -81,6 +81,29 @@ export function dessinerFlou(ctx, img, w, h) {
   liberer(f)
 }
 
+/**
+ * Flou doux en plein cadre (w × h) : `source` (canvas ou image) est d'abord réduite par
+ * moitiés successives (jusqu'à 40 px de large), puis floutée par `dessinerFlou`.
+ * Réduite d'un coup (÷ 24), elle donnerait des pavés crénelés au lieu d'un flou doux.
+ * Les canvas intermédiaires sont libérés ; `source` reste à la charge de l'appelant.
+ */
+export function flouDoux(ctx, source, w, h) {
+  let petit = source
+  try {
+    while (petit.width > 40) {
+      const { canvas: moitie, ctx: c } = nouveauCanvas(Math.round(petit.width / 2), Math.round(petit.height / 2))
+      c.imageSmoothingQuality = 'high'
+      c.drawImage(petit, 0, 0, moitie.width, moitie.height)
+      if (petit !== source) liberer(petit)
+      petit = moitie
+    }
+    dessinerFlou(ctx, petit, w, h)
+  } finally {
+    // Même en cas d'erreur, rien ne reste en mémoire
+    if (petit !== source) liberer(petit)
+  }
+}
+
 export function degradeBas(ctx, w, h, debut = 0.38) {
   const g = ctx.createLinearGradient(0, 0, 0, h)
   g.addColorStop(0, 'rgba(15,23,42,0)')

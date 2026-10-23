@@ -1,5 +1,5 @@
 import {
-  COULEURS, chargerImage, nouveauCanvas, recouvrir, dessinerFlou, voile, police, couperLignes,
+  COULEURS, chargerImage, nouveauCanvas, recouvrir, flouDoux, voile, police, couperLignes,
   pastille, texteContoure, liberer,
 } from './dessin.js'
 import {
@@ -67,8 +67,9 @@ function lignesQuiTiennent(ctx, texte, { poids = 800, famille = TITRE, tailleMax
 /**
  * Les jaquettes en grille 4 × 2 qui déborde de 60 px de chaque côté (comme la maquette),
  * floutée, sous un voile bleu. Jaquette qui ne se charge pas : case laissée bleue.
+ * Exporté : repris par la couverture des nouveaux jeux (nouveaux-jeux.js).
  */
-async function fondMosaique(ctx, urls) {
+export async function fondMosaique(ctx, urls) {
   if (urls?.length) {
     const images = await Promise.all(urls.map(u => chargerImage(u)))
     const { canvas, ctx: m } = nouveauCanvas(L, H)
@@ -80,21 +81,11 @@ async function fondMosaique(ctx, urls) {
     images.forEach((img, i) => {
       if (img) recouvrir(m, img, -debord + (i % 4) * w, -debord + Math.floor(i / 4) * h, w, h)
     })
-    // Réduction par moitiés avant le flou : réduit d'un coup (÷ 24), un canvas donne
-    // des pavés crénelés au lieu d'un flou doux
-    let petit = canvas
     try {
-      while (petit.width > 40) {
-        const { canvas: moitie, ctx: c } = nouveauCanvas(Math.round(petit.width / 2), Math.round(petit.height / 2))
-        c.imageSmoothingQuality = 'high'
-        c.drawImage(petit, 0, 0, moitie.width, moitie.height)
-        liberer(petit)
-        petit = moitie
-      }
-      dessinerFlou(ctx, petit, L, H)
+      flouDoux(ctx, canvas, L, H)
     } finally {
       // Même en cas d'erreur, rien ne reste en mémoire
-      liberer(petit)
+      liberer(canvas)
     }
   } else voile(ctx, L, H, COULEURS.bleu)
   voile(ctx, L, H, 'rgba(26,95,122,0.72)')
@@ -290,7 +281,11 @@ const ADHERER = [
   [['Toutes les infos : ', 600], ['ludothequedecoligny.fr/adherer', 800]],
 ]
 
-async function prochaine(ctx, d, logo) {
+/**
+ * Diapositive « À votre tour ! Prochaine permanence » : d = { mosaique, prochaine }.
+ * Exportée : dernière image du carrousel des nouveaux jeux (nouveaux-jeux.js).
+ */
+export async function prochaine(ctx, d, logo) {
   await fondMosaique(ctx, d.mosaique)
   pastille(ctx, logo, 56, 56)
 
