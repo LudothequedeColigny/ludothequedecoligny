@@ -23,18 +23,16 @@ export async function copierJaquette(url) {
   }
 }
 
-const normaliser = s => (s || '').trim().toLowerCase()
-
 /** Jaquette à dessiner pour chaque jeu joué (catalogue d'abord, sinon copie locale). */
 export async function jaquettesDuBilan(jeux) {
   const resultat = new Map()
-  const auCatalogue = jeux.filter(j => j.in_catalogue)
-  if (auCatalogue.length) {
-    const { data } = await supabase.from('games').select('name, image_url')
-      .in('name', auCatalogue.map(j => j.name))
-    const parNom = new Map((data || []).filter(g => g.image_url).map(g => [normaliser(g.name), g.image_url]))
-    auCatalogue.forEach(j => { if (parNom.has(normaliser(j.name))) resultat.set(j.id, parNom.get(normaliser(j.name))) })
-  }
+  // Même comparaison que l'ajout du jeu (insensible à la casse)
+  await Promise.all(jeux.filter(j => j.in_catalogue).map(async j => {
+    const motif = (j.name || '').trim().replace(/[\\%_]/g, '\\$&')
+    const { data } = await supabase.from('games').select('image_url')
+      .ilike('name', motif).not('image_url', 'is', null).limit(1)
+    if (data?.[0]?.image_url) resultat.set(j.id, data[0].image_url)
+  }))
   for (const j of jeux) {
     if (resultat.has(j.id)) continue
     if (estChezNous(j.image_url)) { resultat.set(j.id, j.image_url); continue }
