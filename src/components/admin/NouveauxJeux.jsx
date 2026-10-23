@@ -4,10 +4,11 @@ import { supabase } from '../../services/supabaseClient'
 import { DataCard } from './DataCard'
 import { chargerJeuxAAnnoncer } from '../../services/nouveauxJeux'
 import SocialPostPreview from './SocialPostPreview'
-import useApercusCarres from '../../hooks/useApercusCarres'
-import {
-  MAX_SOCIAL_PHOTOS, publierSurReseaux, uploadSocialBlob, uploadSquareVersion,
-} from '../../services/reseauxSociaux'
+import { publierSurReseaux, uploadSocialBlob } from '../../services/reseauxSociaux'
+import { prochainePermanence } from '../../services/diapos/permanence-regles'
+import { planNouveauxJeux, detailsJeu, MAX_IMAGES_JEUX } from '../../services/diapos/nouveaux-jeux-regles'
+import { dessinerNouveauxJeux } from '../../services/diapos/nouveaux-jeux'
+import { versBlob, liberer, viderCache } from '../../services/diapos/dessin'
 
 /**
  * Onglet « Nouveaux jeux » de l'écran Communication : annoncer sur Facebook et
@@ -17,206 +18,42 @@ import {
  * À la publication, les cochés sont notés « annonce », les décochés « ecarte »
  * (table annonces_jeux, réservée aux bénévoles) : ils ne reviennent plus.
  *
- * Carrousel publié : une couverture « Nouveaux jeux » dessinée ici (mosaïque des
- * jaquettes, charte papier découpé), puis une jaquette mise au carré par jeu.
+ * Carrousel publié (images 4:5, 10 au plus) : couverture, une image par jeu (8 au plus),
+ * puis la prochaine permanence. Règles : services/diapos/nouveaux-jeux-regles.js ;
+ * dessin : services/diapos/nouveaux-jeux.js. L'aperçu est l'image exacte publiée.
  */
 
-// La couverture occupe la première place du carrousel
-const MAX_JAQUETTES = MAX_SOCIAL_PHOTOS - 1
+// Signal interne : un aperçu plus récent a été demandé, celui-ci s'arrête
+const ABANDON = Symbol('aperçu abandonné')
+const ERREUR_APERCU = "L'aperçu n'a pas pu être fabriqué. Réessayez ou rechargez la page."
 
 // ─── Texte proposé ───────────────────────────────────────────────────────────
 
-const JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi']
-const heure = h => (h || '').slice(0, 5).replace(':00', 'h').replace(':', 'h')
+const minuscule = t => t.charAt(0).toLowerCase() + t.slice(1)
 
-// Date du n-ième jour de la semaine d'un mois (rang 5 = le dernier)
-function nIemeJour(annee, mois, jourSemaine, rang) {
-  if (rang === 5) {
-    const d = new Date(annee, mois + 1, 0)
-    while (d.getDay() !== jourSemaine) d.setDate(d.getDate() - 1)
-    return d
-  }
-  const d = new Date(annee, mois, 1)
-  while (d.getDay() !== jourSemaine) d.setDate(d.getDate() + 1)
-  d.setDate(d.getDate() + (rang - 1) * 7)
-  return d.getMonth() === mois ? d : null
-}
-
-/** Prochaine permanence d'après les Paramètres (« samedi 7 novembre, de 10h à 12h »). */
-function prochainePermanence(s, maintenant = new Date()) {
-  const creneaux = [1, ...(s.horaire_2_actif === 'true' ? [2] : [])].map(n => ({
-    jour: JOURS.indexOf((s[`horaire_${n}_jour`] || 'Samedi').toLowerCase()),
-    rang: Number(s[`horaire_${n}_rang`]) || 1,
-    debut: s[`horaire_${n}_debut`] || '',
-    fin: s[`horaire_${n}_fin`] || '',
-  })).filter(c => c.jour >= 0)
-
-  const candidats = []
-  for (let m = 0; m < 3; m++) {
-    const ref = new Date(maintenant.getFullYear(), maintenant.getMonth() + m, 1)
-    for (const c of creneaux) {
-      const d = nIemeJour(ref.getFullYear(), ref.getMonth(), c.jour, c.rang)
-      if (!d) continue
-      const [hh, mm] = (c.fin || '23:59').split(':').map(Number)
-      d.setHours(hh || 23, mm || 0)
-      if (d > maintenant) candidats.push({ date: d, c })
-    }
-  }
-  candidats.sort((a, b) => a.date - b.date)
-  const p = candidats[0]
-  if (!p) return null
-  const jour = p.date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
-  return `${jour}, de ${heure(p.c.debut)} à ${heure(p.c.fin)}`
-}
-
-// « 2 à 4 joueurs, dès 8 ans » — seulement les chiffres cohérents
-function detailsJeu(j) {
-  const parts = []
-  const min = Number(j.min_players) || 0
-  const max = Number(j.max_players) || 0
-  if (min && max && max >= min) parts.push(min === max ? `${min} joueur${min > 1 ? 's' : ''}` : `${min} à ${max} joueurs`)
-  if (Number(j.min_age) > 0) parts.push(`dès ${j.min_age} ans`)
+// « (2 à 4 joueurs, dès 8 ans) » — les mêmes valeurs que les pastilles des images
+function detailsTexte(j) {
+  const parts = detailsJeu(j).map(minuscule)
   return parts.length ? ` (${parts.join(', ')})` : ''
 }
 
-function construireTexte(jeux, reglages) {
+// Prochaine permanence : la même que sur la dernière image du carrousel
+function phrasePermanence(prochaine) {
+  if (!prochaine) return 'À emprunter dès la prochaine permanence.'
+  const quand = [minuscule(prochaine.jour), prochaine.heures].filter(Boolean).join(', ')
+  return `À emprunter dès la prochaine permanence : ${quand}${prochaine.lieu ? `, au ${prochaine.lieu}` : ''}.`
+}
+
+function construireTexte(jeux, prochaine) {
   const n = jeux.length
-  const permanence = prochainePermanence(reglages)
-  const adresse = [reglages.adresse_rue, reglages.adresse_ville].filter(Boolean).join(' à ')
   return `🎲 Du nouveau à la ludothèque ! ${n > 1 ? `${n} jeux rejoignent` : 'Un jeu rejoint'} notre collection :
 
-${jeux.map(j => `• ${(j.name || "").trim()}${detailsJeu(j)}`).join('\n')}
+${jeux.map(j => `• ${(j.name || '').trim()}${detailsTexte(j)}`).join('\n')}
 
-${permanence ? `À emprunter dès la prochaine permanence : ${permanence}${adresse ? `, au ${adresse}` : ''}.` : 'À emprunter dès la prochaine permanence.'}
+${phrasePermanence(prochaine)}
 
 Pas encore adhérent ? Toutes les infos sur ludothequedecoligny.fr/adherer`
 }
-
-// ─── Couverture « Nouveaux jeux » ────────────────────────────────────────────
-
-const TAILLE = 1080
-const ENCRE = '#0f172a'
-const ORANGE = '#e38154'
-const BLEU = '#1a5f7a'
-
-const chargerImage = url => new Promise(resolve => {
-  const img = new window.Image()
-  img.crossOrigin = 'anonymous'   // jaquettes hébergées chez Supabase, qui l'autorise
-  img.onload = () => resolve(img)
-  img.onerror = () => resolve(null)
-  img.src = url
-})
-
-function rectangleArrondi(ctx, x, y, w, h, r) {
-  ctx.beginPath()
-  if (ctx.roundRect) ctx.roundRect(x, y, w, h, r)
-  else ctx.rect(x, y, w, h)
-}
-
-/** Dessine la couverture et renvoie le canvas (ou null si aucune jaquette lisible). */
-async function dessinerCouverture(jeux) {
-  await Promise.all([
-    document.fonts.load(`800 120px "Bricolage Grotesque"`),
-    document.fonts.load(`600 30px "Poppins"`),
-    document.fonts.load(`800 30px "Poppins"`),
-  ]).catch(() => {})
-  const images = (await Promise.all(jeux.map(j => (j.image_url ? chargerImage(j.image_url) : null)))).filter(Boolean)
-
-  const canvas = document.createElement('canvas')
-  canvas.width = TAILLE
-  canvas.height = TAILLE
-  const ctx = canvas.getContext('2d')
-
-  ctx.fillStyle = '#fdfaf6'
-  ctx.fillRect(0, 0, TAILLE, TAILLE)
-
-  // En-tête : « LUDOTHÈQUE DE COLIGNY », puis « Nouveaux jeux » en deux tons
-  ctx.textBaseline = 'alphabetic'
-  ctx.fillStyle = BLEU
-  ctx.font = `800 30px "Poppins", sans-serif`
-  if ('letterSpacing' in ctx) ctx.letterSpacing = '6px'
-  ctx.fillText('LUDOTHÈQUE DE COLIGNY', 72, 112)
-  if ('letterSpacing' in ctx) ctx.letterSpacing = '-3px'
-  ctx.font = `800 128px "Bricolage Grotesque", sans-serif`
-  ctx.fillStyle = ENCRE
-  ctx.fillText('Nouveaux', 66, 236)
-  const largeur = ctx.measureText('Nouveaux ').width
-  ctx.fillStyle = ORANGE
-  ctx.fillText('jeux', 66 + largeur, 236)
-  if ('letterSpacing' in ctx) ctx.letterSpacing = '0px'
-  // Soulignement orange, comme sous le titre de l'espace de gestion
-  ctx.fillStyle = ORANGE
-  rectangleArrondi(ctx, 72, 262, 120, 12, 6)
-  ctx.fill()
-
-  // Mosaïque des jaquettes : cases blanches contourées, ombre pleine décalée
-  const n = Math.max(1, images.length)
-  const cols = n === 1 ? 1 : n <= 4 ? 2 : n <= 9 ? 3 : 4
-  const lignes = Math.ceil(n / cols)
-  const zone = { x: 72, y: 318, w: TAILLE - 144, h: 620 }
-  const ecart = 34
-  const ombre = 14
-  const cote = Math.min(
-    (zone.w - ecart * (cols - 1) - ombre) / cols,
-    (zone.h - ecart * (lignes - 1) - ombre) / lignes,
-  )
-  const largeurGrille = cols * cote + (cols - 1) * ecart
-  const hauteurGrille = lignes * cote + (lignes - 1) * ecart
-  const x0 = zone.x + (zone.w - largeurGrille - ombre) / 2
-  const y0 = zone.y + (zone.h - hauteurGrille - ombre) / 2
-
-  images.forEach((img, i) => {
-    const ligne = Math.floor(i / cols)
-    // Dernière ligne incomplète : centrée
-    const dansLigne = ligne === lignes - 1 ? n - ligne * cols : cols
-    const decalage = ((cols - dansLigne) * (cote + ecart)) / 2
-    const x = x0 + decalage + (i % cols) * (cote + ecart)
-    const y = y0 + ligne * (cote + ecart)
-    const rayon = Math.round(cote * 0.09)
-
-    ctx.fillStyle = i % 2 === 0 ? BLEU : ORANGE
-    rectangleArrondi(ctx, x + ombre, y + ombre, cote, cote, rayon)
-    ctx.fill()
-    ctx.fillStyle = '#ffffff'
-    rectangleArrondi(ctx, x, y, cote, cote, rayon)
-    ctx.fill()
-
-    // Jaquette entière (« contain ») avec une marge intérieure
-    const marge = cote * 0.07
-    const place = cote - 2 * marge
-    const echelle = Math.min(place / img.width, place / img.height)
-    const w = img.width * echelle
-    const h = img.height * echelle
-    ctx.save()
-    rectangleArrondi(ctx, x, y, cote, cote, rayon)
-    ctx.clip()
-    ctx.drawImage(img, x + (cote - w) / 2, y + (cote - h) / 2, w, h)
-    ctx.restore()
-
-    ctx.lineWidth = 6
-    ctx.strokeStyle = ENCRE
-    rectangleArrondi(ctx, x, y, cote, cote, rayon)
-    ctx.stroke()
-  })
-
-  // Pied : le mois à gauche, le site à droite
-  const mois = new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
-  ctx.font = `800 30px "Poppins", sans-serif`
-  ctx.fillStyle = ORANGE
-  ctx.textAlign = 'left'
-  ctx.fillText(mois.charAt(0).toUpperCase() + mois.slice(1), 72, 1012)
-  ctx.font = `600 30px "Poppins", sans-serif`
-  ctx.fillStyle = BLEU
-  ctx.textAlign = 'right'
-  ctx.fillText('ludothequedecoligny.fr', TAILLE - 72, 1012)
-  ctx.textAlign = 'left'
-
-  return images.length > 0 ? canvas : null
-}
-
-const versBlob = canvas => new Promise(resolve => {
-  try { canvas.toBlob(b => resolve(b), 'image/jpeg', 0.9) } catch { resolve(null) }
-})
 
 // ─── Onglet ──────────────────────────────────────────────────────────────────
 
@@ -226,24 +63,58 @@ export default function NouveauxJeux({ onCountChange }) {
   const [ecartes, setEcartes] = useState([])
   const [voirEcartes, setVoirEcartes] = useState(false)
   const [coches, setCoches] = useState(new Set())
-  const [reglages, setReglages] = useState({})
+  // Prochaine permanence (événement saisi, sinon Paramètres) : texte et dernière image
+  const [prochaine, setProchaine] = useState(null)
   const [texte, setTexte] = useState('')
   const [texteModifie, setTexteModifie] = useState(false)
-  const [couverture, setCouverture] = useState(null) // { canvas, url } pour l'aperçu
+  const [apercu, setApercu] = useState([]) // images de l'aperçu (JPEG), exactement celles publiées
+  // Plan de l'aperçu affiché : la publication est redessinée à partir de lui
+  const [planAffiche, setPlanAffiche] = useState(null)
+  const [calcul, setCalcul] = useState(false) // aperçu en cours de dessin
   const [publication, setPublication] = useState('') // '' | 'en-cours' | 'ok'
   const [erreur, setErreur] = useState('')
-  const dessinEnCours = useRef(0)
+  // Numéro du dernier aperçu demandé : un aperçu dépassé par un plus récent s'arrête
+  const numero = useRef(0)
+  // Une fabrication d'images à la fois (aperçu, publication) : mémoire des téléphones
+  const fileAttente = useRef(Promise.resolve())
+  const aLaSuite = tache => {
+    const p = fileAttente.current.then(tache)
+    fileAttente.current = p.catch(() => {})
+    return p
+  }
+
+  // Onglet quitté : aperçu en cours abandonné, images chargées oubliées
+  useEffect(() => {
+    const n = numero
+    return () => {
+      n.current++
+      viderCache()
+    }
+  }, [])
 
   const charger = useCallback(async () => {
     setChargement(true)
     try {
-      const [{ aAnnoncer: a, ecartes: e }, { data: s }] = await Promise.all([
+      const [{ aAnnoncer: a, ecartes: e }, reglages, evs] = await Promise.all([
         chargerJeuxAAnnoncer(),
-        supabase.from('settings').select('*'),
+        supabase.from('settings').select('id, value').or('id.like.horaire_%,id.like.adresse_%'),
+        supabase.from('events').select('title, date, end_time, location, archived_at')
+          .ilike('title', '%permanence%').is('archived_at', null).order('date'),
       ])
-      const obj = {}
-      ;(s || []).forEach(r => { obj[r.id] = r.value })
-      setReglages(obj)
+      // Sans événements ni Paramètres : prochaine permanence calculée avec ce qui a été lu
+      if (reglages.error) console.warn('Prochaine permanence (Paramètres) :', reglages.error)
+      if (evs.error) console.warn('Prochaine permanence (événements) :', evs.error)
+      let suivante = null
+      try {
+        suivante = prochainePermanence({
+          evenements: evs.error ? [] : evs.data || [],
+          horaires: Object.fromEntries((reglages.error ? [] : reglages.data || []).map(r => [r.id, r.value])),
+          maintenant: new Date(),
+        })
+      } catch (err) {
+        console.warn('Prochaine permanence :', err)
+      }
+      setProchaine(suivante)
       setAAnnoncer(a)
       setEcartes(e)
       setCoches(new Set(a.map(j => j.id)))
@@ -261,30 +132,54 @@ export default function NouveauxJeux({ onCountChange }) {
   const listeVisible = voirEcartes ? [...aAnnoncer, ...ecartes] : aAnnoncer
   const choisis = listeVisible.filter(j => coches.has(j.id))
   const cleChoix = choisis.map(j => j.id).join(',')
-  // Jaquettes telles qu'elles seront publiées (encadrées sur le fond bois)
-  const apercusJaquettes = useApercusCarres(
-    choisis.slice(0, MAX_JAQUETTES).map(j => j.image_url).filter(Boolean),
-    { encadre: true },
-  )
 
   // Texte proposé : suit la sélection tant qu'il n'a pas été retouché à la main
   useEffect(() => {
-    if (!texteModifie) setTexte(choisis.length ? construireTexte(choisis, reglages) : '')
+    if (!texteModifie) setTexte(choisis.length ? construireTexte(choisis, prochaine) : '')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cleChoix, reglages, texteModifie])
+  }, [cleChoix, prochaine, texteModifie])
 
-  // Couverture redessinée à chaque changement de sélection
+  // Aperçu redessiné (avec un court délai) à chaque changement de sélection
   useEffect(() => {
-    if (choisis.length === 0) { setCouverture(null); return }
-    const numero = ++dessinEnCours.current
-    dessinerCouverture(choisis).then(canvas => {
-      if (numero !== dessinEnCours.current) return
-      setCouverture(canvas ? { canvas, url: canvas.toDataURL('image/jpeg', 0.9) } : null)
-    })
+    const n = ++numero.current
+    if (chargement || choisis.length === 0) {
+      setApercu([])
+      setPlanAffiche(null)
+      setCalcul(false)
+      return
+    }
+    setCalcul(true)
+    const minuterie = setTimeout(() => aLaSuite(async () => {
+      // Abandon dès qu'un aperçu plus récent est demandé
+      const suite = () => { if (n !== numero.current) throw ABANDON }
+      try {
+        suite()
+        const plan = planNouveauxJeux({ jeux: choisis, prochaine })
+        // Une image à la fois : convertie dès qu'elle est dessinée, puis libérée
+        const images = []
+        await dessinerNouveauxJeux(plan, async canvas => {
+          suite()
+          images.push(canvas.toDataURL('image/jpeg', 0.9))
+        })
+        suite()
+        setApercu(images)
+        setPlanAffiche(plan)
+        setErreur(e => (e === ERREUR_APERCU ? '' : e))
+      } catch (e) {
+        if (e === ABANDON) return
+        console.error('Aperçu nouveaux jeux :', e)
+        if (n === numero.current) setErreur(ERREUR_APERCU)
+      } finally {
+        if (n === numero.current) setCalcul(false)
+      }
+    }), 400)
+    return () => clearTimeout(minuterie)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cleChoix])
+  }, [cleChoix, prochaine, chargement])
 
   const basculer = id => {
+    // Pendant l'envoi, la sélection publiée ne change plus
+    if (publication === 'en-cours') return
     setPublication('')
     setCoches(prev => {
       const suite = new Set(prev)
@@ -306,28 +201,31 @@ export default function NouveauxJeux({ onCountChange }) {
     if (error) throw error
   }
 
+  // Carrousel publié tel que montré dans l'aperçu : une image à la fois, dessinée,
+  // exportée, libérée, puis déposée dans notre stockage (mémoire des téléphones)
+  const envoyerCarrousel = async () => {
+    const horodatage = Date.now()
+    const adresses = []
+    await dessinerNouveauxJeux(planAffiche, async (canvas, i) => {
+      const blob = await versBlob(canvas)
+      liberer(canvas)
+      const url = blob && await uploadSocialBlob(blob, `nouveaux-jeux/nouveaux-jeux-${horodatage}-${String(i + 1).padStart(2, '0')}.jpg`)
+      if (!url) throw new Error('Image non enregistrée')
+      adresses.push(url)
+    })
+    return adresses
+  }
+
   const publier = async () => {
-    if (choisis.length === 0 || !texte.trim() || !couverture) return
+    if (choisis.length === 0 || !texte.trim() || !planAffiche || calcul) return
     setPublication('en-cours')
     setErreur('')
     try {
-      const horodatage = Date.now()
-      const blob = await versBlob(couverture.canvas)
-      const urlCouverture = blob && await uploadSocialBlob(blob, `nouveaux-jeux/couverture-${horodatage}.jpg`)
-      if (!urlCouverture) throw new Error('Couverture non enregistrée')
-
-      // Une jaquette à la fois : plusieurs grandes images décodées en même
-      // temps saturent la mémoire des téléphones
-      const jaquettes = []
-      for (const j of choisis.slice(0, MAX_JAQUETTES)) {
-        if (!j.image_url) continue
-        const url = await uploadSquareVersion(j.image_url, `nouveaux-jeux/jeu-${j.id}-social.jpg`, { encadre: true })
-        if (url) jaquettes.push(url)
-      }
-
+      // À la suite d'un aperçu en cours : une seule fabrication d'images à la fois
+      const adresses = await aLaSuite(envoyerCarrousel)
       await publierSurReseaux({
         message: texte,
-        imageUrls: [urlCouverture, ...jaquettes],
+        imageUrls: adresses,
         extra: { jeux: choisis.map(j => j.name) },
       })
       await enregistrerStatuts(true)
@@ -352,7 +250,7 @@ export default function NouveauxJeux({ onCountChange }) {
   }
 
   const nbDecoches = listeVisible.filter(j => !coches.has(j.id) && !ecartes.includes(j)).length
-  const peutPublier = choisis.length > 0 && texte.trim() && couverture && publication !== 'en-cours'
+  const peutPublier = choisis.length > 0 && texte.trim() && planAffiche && apercu.length > 0 && !calcul && publication !== 'en-cours'
 
   return (
     <DataCard shadow="#f59e0b">
@@ -419,10 +317,10 @@ export default function NouveauxJeux({ onCountChange }) {
                     )
                   })}
                 </div>
-                {choisis.length > MAX_JAQUETTES && (
+                {choisis.length > MAX_IMAGES_JEUX && (
                   <p className="mt-3 rounded-[14px] border-2 border-[#f59e0b] bg-[#fffbeb] px-4 py-3 text-[11px] font-semibold text-[#b45309]">
-                    {choisis.length} jeux cochés : la couverture les montre tous, mais le carrousel ne peut contenir que
-                    les {MAX_JAQUETTES} premières jaquettes (Instagram limite à 10 images).
+                    {choisis.length} jeux cochés : la couverture les compte tous, mais seuls les {MAX_IMAGES_JEUX} premiers ont
+                    leur image (Instagram limite un carrousel à 10 images). Tous sont cités dans le texte.
                   </p>
                 )}
                 {nbDecoches > 0 && (
@@ -454,10 +352,12 @@ export default function NouveauxJeux({ onCountChange }) {
               onChange={e => { setTexte(e.target.value); setTexteModifie(true); setPublication('') }}
             />
 
-            <SocialPostPreview
-              text={texte}
-              imageUrls={couverture ? [couverture.url, ...apercusJaquettes] : []}
-            />
+            <div className="space-y-1">
+              <SocialPostPreview text={texte} imageUrls={apercu} portrait />
+              <p className="h-4 text-center text-[9px] font-black uppercase tracking-widest text-slate-400">
+                {calcul && <><Loader2 size={10} className="mr-1 inline animate-spin" /> Mise à jour de l'aperçu…</>}
+              </p>
+            </div>
 
             {erreur && (
               <p className="mt-4 rounded-[14px] border-2 border-rose-400 bg-rose-50 px-4 py-3 text-[11px] font-semibold text-rose-600">{erreur}</p>
@@ -480,7 +380,7 @@ export default function NouveauxJeux({ onCountChange }) {
               >
                 {publication === 'en-cours'
                   ? <><Loader2 size={16} className="animate-spin" /> Publication...</>
-                  : <><Share2 size={16} /> Publier {choisis.length > 0 ? `(${Math.min(choisis.length, MAX_JAQUETTES) + 1} images)` : ''}</>}
+                  : <><Share2 size={16} /> Publier {apercu.length > 0 && !calcul ? `(${apercu.length} image${apercu.length > 1 ? 's' : ''})` : ''}</>}
               </button>
             )}
           </div>
