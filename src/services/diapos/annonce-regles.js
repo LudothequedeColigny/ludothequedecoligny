@@ -63,7 +63,7 @@ export function dernierEvenementSemblable(event, passes) {
 
 function photosDuPasse(passe) {
   if (!passe) return { ouverture: null, autre: null, polaroids: [] }
-  const ph = passe.photos
+  const ph = passe.photos || []
   const ouverture = ph.includes(passe.bilan_photo_ouverture) ? passe.bilan_photo_ouverture : ph[0]
   const reste = ph.filter(p => p !== ouverture)
   const autre = reste[0] || ouverture
@@ -81,14 +81,15 @@ export function planAnnonce({ event, passe }) {
   const ph = photosDuPasse(passe)
   const affiche = event.image_url || null
   const fondFlou = ph.ouverture || affiche || null
+  const lieu = lieuCourt(event.location)
   const plan = [
-    { type: 'affiche', affiche, fond: ph.ouverture || null, titre: event.title, quand: quandRendezVous(event) },
+    { type: 'affiche', affiche, fond: affiche || ph.ouverture || null, titre: event.title, quand: quandRendezVous(event) },
     { type: 'attente', photo: ph.ouverture || affiche || null, floute: !ph.ouverture, titre: textes.titre, points: textes.points.filter(p => p && p.trim()) },
     {
       type: 'infos', fond: ph.autre || fondFlou,
       cartes: [
         { icone: 'calendrier', titre: quand.jour, detail: quand.heure },
-        { icone: 'lieu', titre: lieuCourt(event.location), detail: '' },
+        ...(lieu ? [{ icone: 'lieu', titre: lieu, detail: '' }] : []),
         ...textes.infos.map((x, i) => ({ icone: i === 0 ? 'de' : 'biscuit', titre: x.titre, detail: x.detail })).filter(c => c.titre && c.titre.trim()),
       ],
     },

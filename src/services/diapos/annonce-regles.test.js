@@ -47,7 +47,7 @@ test('plan complet avec affiche et souvenir : 5 diapositives', () => {
   const plan = planAnnonce({ event: halloween, passe: passeSoiree })
   assert.deepEqual(plan.map(d => d.type), ['affiche', 'attente', 'infos', 'souvenir', 'attend'])
   assert.equal(plan[0].affiche, 'aff.png')
-  assert.equal(plan[0].fond, 'p2')
+  assert.equal(plan[0].fond, 'aff.png')
   assert.equal(plan[1].photo, 'p2')
   assert.equal(plan[1].floute, false)
   assert.deepEqual(plan[1].points.length, 3)
@@ -76,6 +76,16 @@ test('sans affiche ni passé : fonds nuls (bleu au dessin), titre et date sur la
   assert.equal(plan[0].fond, null)
   assert.equal(plan[0].titre, 'Après-midi jeux en famille')
   assert.equal(plan[0].quand, 'Samedi 24 octobre · 14h')
+})
+
+test('sans lieu : la carte lieu est retirée', () => {
+  const plan = planAnnonce({ event: { ...halloween, location: '' }, passe: null })
+  assert.deepEqual(plan[2].cartes.map(c => c.icone), ['calendrier', 'de', 'biscuit'])
+})
+
+test('passé sans liste de photos : pas d’erreur', () => {
+  const passe = { id: 1, title: 'Soirées jeux', date: '2026-10-02 19:00:00', participants_count: 5 }
+  assert.doesNotThrow(() => planAnnonce({ event: halloween, passe }))
 })
 
 test('points et infos vides retirés', () => {

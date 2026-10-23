@@ -27,7 +27,7 @@ export function dateLocale(texte) {
   return new Date(a, m - 1, d, hh || 0, mm || 0)
 }
 
-export const jourMois = d =>`${d.getDate() === 1 ? '1er' : d.getDate()} ${MOIS[d.getMonth()]}`
+export const jourMois = d => `${d.getDate() === 1 ? '1er' : d.getDate()} ${MOIS[d.getMonth()]}`
 const heure = d => `${d.getHours()}h${d.getMinutes() ? String(d.getMinutes()).padStart(2, '0') : ''}`
 
 export function formuleOuverture(dateEvenement, maintenant) {
@@ -45,7 +45,7 @@ export function libelleNombre(type) {
 }
 
 // « À la salle des fêtes de Coligny » → « Salle des fêtes de Coligny »
-export const lieuCourt = l =>{
+export const lieuCourt = l => {
   const t = (l || '').trim().replace(/^(à|a)\s+(la|l')\s*/i, '')
   return t ? t.charAt(0).toUpperCase() + t.slice(1) : ''
 }
