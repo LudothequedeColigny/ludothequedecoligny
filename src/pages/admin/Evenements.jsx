@@ -918,6 +918,30 @@ www.ludothequedecoligny.fr`
     }
   }
 
+  // Diapositives du carrousel déjà publiées (event-images/bilans/{id}/) : effacées quand
+  // l'événement ou une de ses photos est supprimé (promesse « retrait sur simple demande »).
+  // Elles sont refabriquées à la publication suivante. Renvoie false en cas d'échec.
+  const effacerDiapositivesBilan = async (eventId) => {
+    try {
+      const dossier = `bilans/${eventId}`
+      const chemins = []
+      for (let debut = 0; ; debut += 100) {
+        const { data, error } = await supabase.storage.from('event-images').list(dossier, { limit: 100, offset: debut })
+        if (error) throw error
+        chemins.push(...(data || []).filter(f => f.name).map(f => `${dossier}/${f.name}`))
+        if (!data || data.length < 100) break
+      }
+      if (chemins.length) {
+        const { error } = await supabase.storage.from('event-images').remove(chemins)
+        if (error) throw error
+      }
+      return true
+    } catch (err) {
+      console.warn('Diapositives du bilan non effacées :', err)
+      return false
+    }
+  }
+
   const confirmDelete = async () => {
     // Nettoyer les photos de bilan (Storage + table) avant de supprimer l'événement,
     // nécessaire pour les événements archivés (supprimés définitivement) qui en ont
@@ -930,6 +954,7 @@ www.ludothequedecoligny.fr`
       await supabase.from('event_photos').delete().eq('event_id', deleteModal.id)
     }
     await supabase.from('event_games_played').delete().eq('event_id', deleteModal.id)
+    await effacerDiapositivesBilan(deleteModal.id)
 
     // Supprimer l'affiche de l'événement dans Storage si elle existe
     const eventToDelete = [...events, ...archivedEvents].find(e => e.id === deleteModal.id)
@@ -954,7 +979,9 @@ www.ludothequedecoligny.fr`
   }
 
   const fetchBilanGames = async (eventId) => {
+    // Ordre de saisie, stable d'une ouverture à l'autre (les 6 jeux du carrousel en dépendent)
     const { data } = await supabase.from('event_games_played').select('*').eq('event_id', eventId)
+      .order('created_at').order('id')
     setBilanGames(data || [])
     return data || []
   }
@@ -1035,6 +1062,10 @@ www.ludothequedecoligny.fr`
       fetchPhotoEventIds()
       // La photo n'illustre plus ni un jeu, ni l'ouverture, ni la diapositive « plein de jeux »
       const eventId = bilanModal.event.id
+      // Ni les diapositives déjà publiées, qui pouvaient la montrer
+      if (!(await effacerDiapositivesBilan(eventId))) {
+        addToast("Photo supprimée, mais les images du carrousel déjà publié n'ont pas pu être effacées.", 'error')
+      }
       const [jeux, ouverture, pleinDeJeux] = await Promise.all([
         supabase.from('event_games_played').update({ photo_url: null }).eq('photo_url', photo.url),
         supabase.from('events').update({ bilan_photo_ouverture: null }).eq('id', eventId).eq('bilan_photo_ouverture', photo.url),
