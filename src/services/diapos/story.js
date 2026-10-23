@@ -1,7 +1,8 @@
 import {
   COULEURS, chargerImage, chargerPolices, nouveauCanvas, recouvrir, dessinerFlou, degradeBas, voile,
-  police, couperLignes, etiquette, pastille, texteContoure, ombrePleine, liberer,
+  police, couperLignes, etiquette, pastille, texteContoure, liberer,
 } from './dessin.js'
+import { detourer, echelleDetouree, autocollant } from './autocollant.js'
 import { carteRendezVous } from './carrousel.js'
 
 /**
@@ -80,12 +81,21 @@ async function grille(ctx, d, logo) {
   d.jeux.forEach((j, i) => {
     const cx = 70 + (i % colonnes) * (lCase + 34) + lCase / 2
     const yBoite = 670 + Math.floor(i / colonnes) * 430
-    const img = jaquettes[i]
-    if (img) {
-      const r = Math.min(270 / img.height, 250 / img.width, 0.9)
-      const w = img.width * r
-      const h = img.height * r
-      ombrePleine(ctx, img, cx - w / 2, yBoite + 300 - h, w, h, 10)
+    if (jaquettes[i]) {
+      // Boîte détourée en autocollant, posée sur la même ligne ; ombre orange / bleue en
+      // alternance. Détourée une à une : un seul canvas de travail à la fois
+      const img = detourer(jaquettes[i])
+      try {
+        const r = Math.min(270 / img.height, 250 / img.width, echelleDetouree(jaquettes[i], 0.9))
+        const w = img.width * r
+        const h = img.height * r
+        autocollant(ctx, img, {
+          cx, cy: yBoite + 300 - h / 2, w, h,
+          lisere: 8, bord: 3, ombre: 8, couleurOmbre: i % 2 ? COULEURS.bleu : COULEURS.orange,
+        })
+      } finally {
+        liberer(img)
+      }
     }
     ctx.textAlign = 'center'
     ctx.fillStyle = COULEURS.creme

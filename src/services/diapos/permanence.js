@@ -5,6 +5,7 @@ import {
 import {
   espacer, largeur, baseLigne, carte, tailleQuiTient, limiterLignes, dessinerPlan,
 } from './annonce.js'
+import { detourer, autocollant, tenir } from './autocollant.js'
 
 /**
  * Diapositives du bilan d'une permanence (carrousel 3 images 1080 × 1350), d'après la
@@ -140,6 +141,8 @@ const GRILLE = { gauche: 70, droite: L - 86, haut: 340, bas: 1260, colonnes: 4, 
 const BORD_CASE = 5
 const MARGE_CASE = 18
 const H_NOM = 28 * 1.02
+// Boîte en autocollant dans sa case (l'ombre déborde de la case, comme celle des cartes)
+const AUTOCOLLANT_CASE = { lisere: 8, bord: 4, ombre: 11 }
 
 async function grille(ctx, d, logo) {
   voile(ctx, L, H, COULEURS.creme)
@@ -197,16 +200,22 @@ async function grille(ctx, d, logo) {
       const x = x0 + k * (lCase + GRILLE.ecartX)
       const c = cases[i]
       const ombre = i % 2 ? COULEURS.orange : COULEURS.bleu
-      const fond = c.autres ? COULEURS.orange : '#ffffff'
-      carte(ctx, x, y, lCase, hCase, { rayon: 26, bord: BORD_CASE, decal: 11, ombre, fond })
-      const interieur = { x: x + BORD_CASE + MARGE_CASE, y: y + BORD_CASE + MARGE_CASE, w: lCase - 2 * (BORD_CASE + MARGE_CASE), h: hCase - 2 * (BORD_CASE + MARGE_CASE) }
       const img = images[i]
       if (img) {
-        // Jaquette entière, centrée (« contain »)
-        const k2 = Math.min(interieur.w / img.width, interieur.h / img.height)
-        const w = img.width * k2
-        const h = img.height * k2
-        ctx.drawImage(img, interieur.x + (interieur.w - w) / 2, interieur.y + (interieur.h - h) / 2, w, h)
+        // Pas de carte : la boîte détourée en autocollant occupe la case (« contain »,
+        // contour compris, un peu de marge pour la pente), ombre bleue / orange et pente
+        // de 0 ou ±2° en alternance. Détourée une à une : un seul canvas de travail à la fois
+        const boite = detourer(img)
+        try {
+          const debord = AUTOCOLLANT_CASE.lisere + AUTOCOLLANT_CASE.bord + 4
+          const t = tenir(boite, lCase - 2 * debord, hCase - 2 * debord)
+          autocollant(ctx, boite, {
+            ...AUTOCOLLANT_CASE, cx: x + lCase / 2, cy: y + hCase / 2, w: t.w, h: t.h,
+            angle: [0, -2, 0, 2][i % 4], couleurOmbre: ombre,
+          })
+        } finally {
+          liberer(boite)
+        }
         // Nom dessous, centré
         ctx.textAlign = 'center'
         ctx.fillStyle = COULEURS.encre
@@ -214,7 +223,10 @@ async function grille(ctx, d, logo) {
         espacer(ctx, -0.02 * noms[i].taille)
         noms[i].lignes.forEach((l, n) => ctx.fillText(l, x + lCase / 2, baseLigne(ctx, y + hCase + 20 + n * H_NOM, H_NOM)))
       } else {
-        // Sans jaquette (ou case « … et N autres ») : le texte au centre de la case
+        // Sans jaquette (ou case « … et N autres ») : une carte, le texte au centre
+        const fond = c.autres ? COULEURS.orange : '#ffffff'
+        carte(ctx, x, y, lCase, hCase, { rayon: 26, bord: BORD_CASE, decal: 11, ombre, fond })
+        const interieur = { x: x + BORD_CASE + MARGE_CASE, y: y + BORD_CASE + MARGE_CASE, w: lCase - 2 * (BORD_CASE + MARGE_CASE), h: hCase - 2 * (BORD_CASE + MARGE_CASE) }
         const texte = c.autres ? `… et ${c.autres} autres` : c.nom
         const t = c.autres
           ? lignesQuiTiennent(ctx, texte, { tailleMax: 40, tailleMin: 28, max: interieur.w, nbMax: 3, interlettrage: -0.02 })

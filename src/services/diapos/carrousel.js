@@ -1,7 +1,8 @@
 import {
   COULEURS, chargerImage, chargerPolices, nouveauCanvas, recouvrir, dessinerFlou, degradeBas, voile,
-  rectArrondi, police, couperLignes, etiquette, pastille, texteContoure, ombrePleine, liberer,
+  rectArrondi, police, couperLignes, etiquette, pastille, texteContoure, liberer,
 } from './dessin.js'
+import { detourer, echelleDetouree, autocollant } from './autocollant.js'
 
 /**
  * Diapositives du carrousel de bilan (1080 × 1350), d'après la maquette validée
@@ -178,22 +179,22 @@ async function jeu(ctx, d, logo) {
   }
   pastille(ctx, logo, 56, 56)
   if (jaquette) {
-    const echelleMax = d.photo ? 1.35 : 1.6
-    const hMax = d.photo ? 400 : 470
-    const wMax = d.photo ? 360 : 460
-    const r = Math.min(hMax / jaquette.height, wMax / jaquette.width, echelleMax)
-    const w = jaquette.width * r
-    const h = jaquette.height * r
-    ctx.save()
-    if (d.photo) {
-      ctx.translate(L - 60 - w / 2, H - 80 - h / 2)
-      ctx.rotate((5 * Math.PI) / 180)
-    } else {
-      ctx.translate(L / 2, H * 0.45)
-      ctx.rotate((-4 * Math.PI) / 180)
+    // La boîte détourée en autocollant (comme les nouveaux jeux), ombre orange :
+    // dans le coin sur la photo du jeu, au centre sur la photo floutée
+    const boite = detourer(jaquette)
+    try {
+      const echelleMax = echelleDetouree(jaquette, d.photo ? 1.35 : 1.6)
+      const hMax = d.photo ? 400 : 470
+      const wMax = d.photo ? 360 : 460
+      const r = Math.min(hMax / boite.height, wMax / boite.width, echelleMax)
+      const w = boite.width * r
+      const h = boite.height * r
+      autocollant(ctx, boite, d.photo
+        ? { cx: L - 60 - w / 2, cy: H - 80 - h / 2, w, h, angle: 5, lisere: 10, bord: 4, ombre: 14 }
+        : { cx: L / 2, cy: H * 0.45, w, h, angle: -4, lisere: 12, bord: 4, ombre: 18 })
+    } finally {
+      liberer(boite)
     }
-    ombrePleine(ctx, jaquette, -w / 2, -h / 2, w, h, d.photo ? 14 : 18)
-    ctx.restore()
   }
   blocNom(ctx, d)
 }
