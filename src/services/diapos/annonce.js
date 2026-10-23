@@ -54,17 +54,22 @@ function carte(ctx, x, y, w, h, { rayon, bord, decal, ombre, fond = COULEURS.cre
   rectArrondi(ctx, x + bord / 2, y + bord / 2, w - bord, h - bord, Math.max(0, rayon - bord / 2)); ctx.stroke()
 }
 
-/** Réduit la taille de police jusqu'à ce que le texte tienne dans `max` (renvoie la taille retenue). */
+/**
+ * Règle la police à la plus grande taille (entre tailleMax et tailleMin, tailleMin comprise)
+ * où le texte tient dans `max` ; si même la plus petite ne suffit pas, tronque avec « … ».
+ * Renvoie le texte à dessiner ; la police reste réglée.
+ */
 function tailleQuiTient(ctx, texte, poids, tailleMax, tailleMin, max, famille, interlettrage = 0) {
+  const regler = t => { police(ctx, poids, t, famille); espacer(ctx, interlettrage * t) }
   let t = tailleMax
-  for (; t > tailleMin; t -= 2) {
-    police(ctx, poids, t, famille)
-    espacer(ctx, interlettrage * t)
-    if (largeur(ctx, texte) <= max) break
+  regler(t)
+  while (t > tailleMin && largeur(ctx, texte) > max) { t = Math.max(tailleMin, t - 2); regler(t) }
+  let res = String(texte)
+  if (largeur(ctx, res) > max) {
+    while (res.length > 1 && largeur(ctx, `${res}…`) > max) res = res.slice(0, -1)
+    res = `${res.trimEnd()}…`
   }
-  police(ctx, poids, t, famille)
-  espacer(ctx, interlettrage * t)
-  return t
+  return res
 }
 
 /** Coupe en `nbMax` lignes au plus, la dernière finissant par « … » si le texte déborde. */
@@ -77,12 +82,12 @@ function limiterLignes(ctx, lignes, nbMax, max) {
   return res
 }
 
-/** Affiche inclinée : contour encre, coins arrondis, ombre pleine encre. `h` = hauteur totale (contour compris). */
-async function dessinerAffiche(ctx, url, { cx, haut, h, angle, ombre }) {
-  const img = await chargerImage(url)
-  if (!img) return
+/** Affiche inclinée : contour encre, coins arrondis, ombre pleine encre. `h` = hauteur totale (contour compris), réduite si l'affiche dépasse `wMax` de large. */
+function dessinerAffiche(ctx, img, { cx, haut, h, angle, ombre, wMax = L - 140 }) {
   const bord = 6
-  const w = (h - 2 * bord) * (img.width / img.height) + 2 * bord
+  const ratio = img.width / img.height
+  let w = (h - 2 * bord) * ratio + 2 * bord
+  if (w > wMax) { w = wMax; h = (w - 2 * bord) / ratio + 2 * bord }
   ctx.save()
   ctx.translate(cx, haut + h / 2)
   ctx.rotate((angle * Math.PI) / 180)
@@ -112,20 +117,21 @@ function etiquetteCentree(ctx, texte, { y, taille, angle }) {
 async function affiche(ctx, d, logo) {
   await fondFloute(ctx, d.fond, H, null)
   voile(ctx, L, H, 'rgba(15,23,42,0.45)')
-  if (d.affiche) {
+  const imgAffiche = await chargerImage(d.affiche)
+  if (imgAffiche) {
     etiquetteCentree(ctx, 'Prochain rendez-vous !', { y: 150, taille: 64, angle: -2 })
-    await dessinerAffiche(ctx, d.affiche, { cx: L / 2, haut: 270, h: 1000, angle: 1.5, ombre: 18 })
+    dessinerAffiche(ctx, imgAffiche, { cx: L / 2, haut: 270, h: 1000, angle: 1.5, ombre: 18 })
     return
   }
   // Sans affiche : étiquette, titre de l'événement et date, le tout centré
   pastille(ctx, logo, 56, 56)
   let taille = 110
   let lignes = []
-  for (; taille >= 84; taille -= 2) {
+  for (; ; taille -= 2) {
     police(ctx, 800, taille, TITRE)
     espacer(ctx, -0.04 * taille)
     lignes = couperLignes(ctx, d.titre, 900)
-    if (lignes.length <= 3) break
+    if (lignes.length <= 3 || taille <= 84) break
   }
   if (lignes.length > 3) lignes = limiterLignes(ctx, lignes, 3, 900)
   const hLigne = taille * 0.92
@@ -142,8 +148,7 @@ async function affiche(ctx, d, logo) {
   lignes.forEach((l, i) => ctx.fillText(l, L / 2, baseLigne(ctx, y + i * hLigne, hLigne)))
   espacer(ctx, 0)
   y += lignes.length * hLigne + 56
-  police(ctx, 700, 52)
-  ctx.fillText(d.quand, L / 2, baseLigne(ctx, y, hQuand))
+  ctx.fillText(tailleQuiTient(ctx, d.quand, 700, 52, 34, 940, 'Poppins'), L / 2, baseLigne(ctx, y, hQuand))
   ctx.textAlign = 'left'
 }
 
@@ -161,17 +166,28 @@ async function attente(ctx, d, logo) {
   const bord = 6
   const lCarte = L - 140
   const lTexte = lCarte - 2 * bord - 104
-  police(ctx, 800, 84, TITRE)
-  espacer(ctx, -0.04 * 84)
-  const titre = limiterLignes(ctx, couperLignes(ctx, d.titre, lTexte), 3, lTexte)
-  espacer(ctx, 0)
-  police(ctx, 600, 34)
-  const puce = largeur(ctx, '✦') + 18
-  const points = d.points.map(p => limiterLignes(ctx, couperLignes(ctx, p, lTexte - puce), 3, lTexte - puce))
-  const hAvant = 26 * 1.5
-  const hTitre = titre.length * 84 * 0.92
-  const hPoints = points.reduce((s, p) => s + p.length * 34 * 1.25, 0) + Math.max(0, points.length - 1) * 16
-  const h = bord + 46 + hAvant + 14 + hTitre + 30 + hPoints + 50 + bord
+  const liste = (d.points || []).slice(0, 3)
+  // Mesure à l'échelle k ; on réduit les textes par paliers si la carte monterait sous la pastille (y < 200)
+  const mesurer = k => {
+    const tT = Math.round(84 * k)
+    const tP = Math.round(34 * k)
+    police(ctx, 800, tT, TITRE)
+    espacer(ctx, -0.04 * tT)
+    const titre = limiterLignes(ctx, couperLignes(ctx, d.titre, lTexte), 3, lTexte)
+    espacer(ctx, 0)
+    police(ctx, 600, tP)
+    const puce = largeur(ctx, '✦') + 18
+    const points = liste.map(pt => limiterLignes(ctx, couperLignes(ctx, pt, lTexte - puce), 3, lTexte - puce))
+    const hAvant = 26 * 1.5
+    const hTitre = titre.length * tT * 0.92
+    const hPoints = points.reduce((sm, pt) => sm + pt.length * tP * 1.25, 0) + Math.max(0, points.length - 1) * 16
+    const h = bord + 46 + hAvant + 14 + hTitre + (points.length ? 30 + hPoints : 0) + 50 + bord
+    return { tT, tP, titre, puce, points, hAvant, hTitre, h }
+  }
+  let k = 1
+  let m = mesurer(k)
+  while (H - 90 - m.h < 200 && k > 0.5) { k -= 0.06; m = mesurer(k) }
+  const { tT, tP, titre, puce, points, hAvant, hTitre, h } = m
   const x = 70
   const y = H - 90 - h
 
@@ -189,19 +205,19 @@ async function attente(ctx, d, logo) {
   espacer(ctx, 0)
   ty += hAvant + 14
   ctx.fillStyle = COULEURS.encre
-  police(ctx, 800, 84, TITRE)
-  espacer(ctx, -0.04 * 84)
-  titre.forEach((l, i) => ctx.fillText(l, tx, baseLigne(ctx, ty + i * 84 * 0.92, 84 * 0.92)))
+  police(ctx, 800, tT, TITRE)
+  espacer(ctx, -0.04 * tT)
+  titre.forEach((l, i) => ctx.fillText(l, tx, baseLigne(ctx, ty + i * tT * 0.92, tT * 0.92)))
   espacer(ctx, 0)
   ty += hTitre + 30
   points.forEach(lignes => {
-    police(ctx, 600, 34)
-    const b = baseLigne(ctx, ty, 34 * 1.25)
+    police(ctx, 600, tP)
+    const b = baseLigne(ctx, ty, tP * 1.25)
     ctx.fillStyle = COULEURS.bleu
     ctx.fillText('✦', tx, b)
     ctx.fillStyle = COULEURS.encre
-    lignes.forEach((l, i) => ctx.fillText(l, tx + puce, b + i * 34 * 1.25))
-    ty += lignes.length * 34 * 1.25 + 16
+    lignes.forEach((l, i) => ctx.fillText(l, tx + puce, b + i * tP * 1.25))
+    ty += lignes.length * tP * 1.25 + 16
   })
   ctx.restore()
 }
@@ -267,16 +283,17 @@ async function infos(ctx, d, logo) {
   ctx.fillText('pratiques', 70 + largeur(ctx, debut), bt)
   espacer(ctx, 0)
 
-  // Cartes réparties entre y = 420 et H − 110
-  const n = d.cartes.length
+  // Cartes (4 au plus) réparties entre y = 420 et H − 110 ; avec moins de cartes, écart limité et bloc centré
+  const cartes = (d.cartes || []).slice(0, 4)
+  const n = cartes.length
   if (!n) return
   const dispo = H - 110 - 420
-  const hCarte = Math.min(240, Math.max(192, (dispo - (n - 1) * 17) / n))
-  const ecart = n > 1 ? (dispo - n * hCarte) / (n - 1) : 0
-  const y0 = n > 1 ? 420 : 420 + (dispo - hCarte) / 2
+  const hCarte = 192
+  const ecart = n > 1 ? Math.min(40, (dispo - n * hCarte) / (n - 1)) : 0
+  const y0 = 420 + (dispo - (n * hCarte + (n - 1) * ecart)) / 2
   const lCarte = L - 140
   const lTexte = lCarte - 10 - 80 - 110 - 34
-  d.cartes.forEach((c, i) => {
+  cartes.forEach((c, i) => {
     const y = y0 + i * (hCarte + ecart)
     carte(ctx, 70, y, lCarte, hCarte, { rayon: 30, bord: 5, decal: 12, ombre: COULEURS.encre })
     pastilleIcone(ctx, c.icone, 70 + 5 + 40, y + (hCarte - 110) / 2)
@@ -285,13 +302,11 @@ async function infos(ctx, d, logo) {
     const hDetail = c.detail ? 2 + 30 * 1.5 : 0
     const haut = y + (hCarte - hTitre - hDetail) / 2
     ctx.fillStyle = COULEURS.encre
-    tailleQuiTient(ctx, c.titre, 800, 56, 36, lTexte, TITRE, -0.02)
-    ctx.fillText(c.titre, tx, baseLigne(ctx, haut, hTitre))
+    ctx.fillText(tailleQuiTient(ctx, c.titre, 800, 56, 36, lTexte, TITRE, -0.02), tx, baseLigne(ctx, haut, hTitre))
     espacer(ctx, 0)
     if (c.detail) {
       ctx.fillStyle = '#475569'
-      tailleQuiTient(ctx, c.detail, 600, 30, 20, lTexte, 'Poppins')
-      ctx.fillText(c.detail, tx, baseLigne(ctx, haut + hTitre + 2, 30 * 1.5))
+      ctx.fillText(tailleQuiTient(ctx, c.detail, 600, 30, 20, lTexte, 'Poppins'), tx, baseLigne(ctx, haut + hTitre + 2, 30 * 1.5))
     }
   })
 }
@@ -347,8 +362,7 @@ async function souvenir(ctx, d, logo) {
 
   ctx.textAlign = 'center'
   ctx.fillStyle = COULEURS.creme
-  police(ctx, 700, 36)
-  ctx.fillText(d.legende, L / 2, baseLigne(ctx, H - 64 - 54, 54))
+  ctx.fillText(tailleQuiTient(ctx, d.legende, 700, 36, 24, 940, 'Poppins'), L / 2, baseLigne(ctx, H - 64 - 54, 54))
   ctx.textAlign = 'left'
 }
 
@@ -381,8 +395,7 @@ async function attend(ctx, d, logo) {
   })
   y += lignes.length * hLigne + 60
   ctx.fillStyle = COULEURS.creme
-  tailleQuiTient(ctx, d.quand, 800, 64, 40, 920, TITRE, -0.03)
-  ctx.fillText(d.quand, L / 2, baseLigne(ctx, y, hRappel))
+  ctx.fillText(tailleQuiTient(ctx, d.quand, 800, 64, 40, 920, TITRE, -0.03), L / 2, baseLigne(ctx, y, hRappel))
   espacer(ctx, 0)
   y += hRappel + 70
 
@@ -439,7 +452,8 @@ async function jourJ(ctx, d, logo) {
 
   ctx.fillStyle = COULEURS.creme
   const lMax = L - 140
-  if (d.affiche) {
+  const imgAffiche = await chargerImage(d.affiche)
+  if (imgAffiche) {
     // Titre en 2 lignes au plus, puis l'affiche inclinée, puis la ligne « heure · lieu »
     police(ctx, 800, 74, TITRE)
     espacer(ctx, -0.03 * 74)
@@ -449,16 +463,16 @@ async function jourJ(ctx, d, logo) {
     titre.forEach((l, i) => ctx.fillText(l, 76, baseLigne(ctx, hautTitre + i * hLigne, hLigne)))
     espacer(ctx, 0)
     const haut = Math.max(790, hautTitre + titre.length * hLigne + 50)
-    await dessinerAffiche(ctx, d.affiche, { cx: L / 2, haut, h: Math.min(700, 1495 - haut), angle: 3, ombre: 18 })
+    dessinerAffiche(ctx, imgAffiche, { cx: L / 2, haut, h: Math.min(700, 1495 - haut), angle: 3, ombre: 18 })
   } else {
     // Sans affiche : titre plus grand, centré, et la ligne juste dessous
     let t = 110
     let titre = []
-    for (; t >= 84; t -= 2) {
+    for (; ; t -= 2) {
       police(ctx, 800, t, TITRE)
       espacer(ctx, -0.03 * t)
       titre = couperLignes(ctx, d.titre, lMax)
-      if (titre.length <= 3) break
+      if (titre.length <= 3 || t <= 84) break
     }
     titre = limiterLignes(ctx, titre, 3, lMax)
     const hLigne = t * 0.92
@@ -473,16 +487,14 @@ async function jourJ(ctx, d, logo) {
     titre.forEach((l, i) => ctx.fillText(l, L / 2, baseLigne(ctx, y + i * hLigne, hLigne)))
     espacer(ctx, 0)
     y += titre.length * hLigne + 60
-    police(ctx, 700, 38)
-    ctx.fillText(d.ligne, L / 2, baseLigne(ctx, y, hLigneBas))
+    ctx.fillText(tailleQuiTient(ctx, d.ligne, 700, 38, 26, 940, 'Poppins'), L / 2, baseLigne(ctx, y, hLigneBas))
     ctx.textAlign = 'left'
     return
   }
   // Ligne « 19h · Salle des fêtes » au-dessus de la zone recouverte par Instagram (1580)
   ctx.textAlign = 'center'
   ctx.fillStyle = COULEURS.creme
-  tailleQuiTient(ctx, d.ligne, 700, 38, 26, L - 100, 'Poppins')
-  ctx.fillText(d.ligne, L / 2, baseLigne(ctx, 1520, 38 * 1.5))
+  ctx.fillText(tailleQuiTient(ctx, d.ligne, 700, 38, 26, 940, 'Poppins'), L / 2, baseLigne(ctx, 1520, 38 * 1.5))
   ctx.textAlign = 'left'
 }
 
