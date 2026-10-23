@@ -168,6 +168,7 @@ Pour l'espace de gestion, dans `src/components/admin/` :
 | `SocialPostPreview` | aperçu d'une publication Facebook/Instagram |
 | `bilan/PublicationBilan` | fenêtre Bilan : choix des photos (ouverture, « plein de jeux », une par jeu), aperçu et publication du carrousel 4:5, story 9:16 à enregistrer |
 | `annonce/PublicationAnnonce` | fenêtre Annonce (bouton « Publier sur Facebook & Instagram » d'un événement) : textes modifiables, aperçu et publication du carrousel d'annonce 4:5, story du jour J ; permanence et autres événements = une image (affiche sur son fond flouté + phrase modifiable, « Plus de N jeux… » calculé sur la collection) + story |
+| `bilan/PublicationBilanPermanence` | fenêtre Bilan d'une permanence : 3 images 4:5 tirées des prêts du jour (jeux distincts, un prêt rendu le jour même ne compte pas), jamais l'emprunteur ; prochaine permanence = événement saisi, sinon Paramètres |
 | `VueAgrandie` | vue agrandie d'une image (flèches, glisser, clavier), partagée par les fenêtres Bilan et Annonce |
 
 Toute publication vers Facebook/Instagram passe par `src/services/reseauxSociaux.js`
@@ -191,6 +192,8 @@ réutilisation dans un canvas). Maquettes validées : `Bureau/PERSO/Ludothèque/
 bilan soirée jeux/`.
 L'annonce d'un événement (carrousel 5 diapositives + story du jour J) est dessinée par
 `annonce-regles.js` / `annonce.js` ; textes modifiables mémorisés dans `events.annonce`.
+Le bilan d'une permanence est dessiné par `permanence-regles.js` / `permanence.js` (prêts de
+`loans` + `loan_history` à la date de la permanence : les prêts n'ont pas d'heure).
 Le partage des stories depuis le téléphone passe par `partage.js` : `navigator.share` doit
 rester la première attente après le toucher, sinon l'iPhone refuse le partage.
 
