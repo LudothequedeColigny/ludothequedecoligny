@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../services/supabaseClient'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Loader2, AlertTriangle } from 'lucide-react'
 import PublicLayout from '../components/site/PublicLayout'
 import FloatingIcons from '../components/site/FloatingIcons'
@@ -23,6 +23,9 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const navigate = useNavigate()
+  // Retour à l'adresse demandée avant la connexion (espace de gestion seulement)
+  const depuis = useLocation().state?.depuis
+  const destination = typeof depuis === 'string' && depuis.startsWith('/admin') ? depuis : '/admin'
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -37,7 +40,7 @@ export default function Login() {
     if (error) {
       setErrorMsg("Email ou mot de passe incorrect. Veuillez réessayer.")
     } else {
-      navigate('/admin')
+      navigate(destination)
     }
     setLoading(false)
   }

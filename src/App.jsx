@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { supabase } from './services/supabaseClient'
 
@@ -44,6 +44,7 @@ const SuiviFinancier = lazy(() => import('./pages/admin/SuiviFinancier'))
  * Vérifie si l'utilisateur est connecté avant d'autoriser l'accès aux pages admin
  */
 const ProtectedRoute = ({ children }) => {
+  const location = useLocation()
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -61,7 +62,8 @@ const ProtectedRoute = ({ children }) => {
   }, [])
 
   if (loading) return null
-  if (!session) return <Navigate to="/login" replace />
+  // Adresse demandée gardée pour y revenir après la connexion (ex. rappel « ?bilan=39 »)
+  if (!session) return <Navigate to="/login" replace state={{ depuis: location.pathname + location.search }} />
 
   return children
 }
