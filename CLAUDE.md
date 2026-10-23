@@ -166,6 +166,7 @@ Pour l'espace de gestion, dans `src/components/admin/` :
 | `NouveauxJeux` | onglet « Nouveaux jeux » de Communication : jeux ajoutés depuis le 01/09/2026, couverture dessinée + jaquettes en carrousel ; cochés → « annonce », décochés → « ecarte » (table `annonces_jeux`, bénévoles seulement) |
 | `ModelesMessages` | fenêtre « Modèles de messages » : textes presse et école à copier, lus dans les Paramètres |
 | `SocialPostPreview` | aperçu d'une publication Facebook/Instagram |
+| `bilan/PublicationBilan` | fenêtre Bilan : choix des photos (ouverture, « plein de jeux », une par jeu), aperçu et publication du carrousel 4:5, story 9:16 à enregistrer |
 
 Toute publication vers Facebook/Instagram passe par `src/services/reseauxSociaux.js`
 (adresse du webhook Make, mise au carré des images, `publierSurReseaux`). Le scénario
@@ -174,6 +175,14 @@ Les images non carrées sont posées sur le fond bois bleu canard `public/social
 (déjà flouté dans le fichier : le flou du navigateur ne marche pas sur Safari) — en grand
 pour les affiches et photos, encadrées (contour + ombre) pour les jaquettes. Choix de Victor,
 octobre 2026, à la place du fond blanc.
+
+Les visuels de bilan sont dessinés par `src/services/diapos/` : `regles.js` (textes,
+jeux retenus, plan — testé par `npm test`), `dessin.js` (outils canvas), `carrousel.js`,
+`story.js`, `jaquettes.js` (copie des jaquettes MyLudo chez nous : MyLudo interdit leur
+réutilisation dans un canvas). Maquettes validées : `Bureau/PERSO/Ludothèque/Maquette
+bilan soirée jeux/`.
+
+Le texte de publication et le choix des photos se font dans la fenêtre Bilan ; la story se publie depuis le téléphone (Make ne sait pas publier de story).
 
 `Reveal`, `CountUp`, `Modal`, `MaskIcon` de `components/site/` servent aussi côté
 gestion : malgré son nom, ce dossier contient les briques communes aux deux parties.
