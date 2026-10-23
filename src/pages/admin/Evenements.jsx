@@ -33,6 +33,7 @@ import ModelesMessages from '../../components/admin/ModelesMessages'
 import SocialPostPreview from '../../components/admin/SocialPostPreview'
 import NouveauxJeux from '../../components/admin/NouveauxJeux'
 import { chargerJeuxAAnnoncer } from '../../services/nouveauxJeux'
+import { copierJaquette } from '../../services/diapos/jaquettes'
 import {
   MAKE_WEBHOOK_URL, MAX_SOCIAL_PHOTOS, socialFileNameFrom, uploadSquareVersion, publierSurReseaux,
 } from '../../services/reseauxSociaux'
@@ -1258,7 +1259,8 @@ www.ludothequedecoligny.fr`
       const { data, error } = await supabase.from('event_games_played').insert({
         event_id: bilanModal.event.id,
         name: result.name,
-        image_url: result.image || '',
+        // Copie chez nous : MyLudo interdit la réutilisation dans les visuels
+        image_url: await copierJaquette(result.image || ''),
         external_url: '',
         in_catalogue: inCatalogue,
       }).select()
