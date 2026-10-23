@@ -16,18 +16,18 @@ const LOGO = '/social/logo-feuille.png'
 const FOND_BOIS = '/social/fond-bois.jpg'
 const TITRE = 'Bricolage Grotesque'
 
-// ---------- petits outils ----------
+// ---------- petits outils (exportés : repris par permanence.js) ----------
 
-const espacer = (ctx, px) => { if ('letterSpacing' in ctx) ctx.letterSpacing = `${px}px` }
+export const espacer = (ctx, px) => { if ('letterSpacing' in ctx) ctx.letterSpacing = `${px}px` }
 
 /** Largeur d'un texte avec l'interlettrage courant (police déjà réglée). */
-const largeur = (ctx, t) => ctx.measureText(t).width
+export const largeur = (ctx, t) => ctx.measureText(t).width
 
 /**
  * Ordonnée de la ligne de base d'une ligne de texte de hauteur `hLigne` dont le haut est en `haut`
  * (même calcul que le navigateur : demi-interligne + montée de la police).
  */
-function baseLigne(ctx, haut, hLigne) {
+export function baseLigne(ctx, haut, hLigne) {
   const m = ctx.measureText('Hg')
   const asc = m.fontBoundingBoxAscent
   const desc = m.fontBoundingBoxDescent
@@ -44,7 +44,7 @@ async function fondFloute(ctx, url, h, voileCouleur) {
 }
 
 /** Carte à contour intérieur (comme `border` en CSS) et ombre pleine décalée. */
-function carte(ctx, x, y, w, h, { rayon, bord, decal, ombre, fond = COULEURS.creme }) {
+export function carte(ctx, x, y, w, h, { rayon, bord, decal, ombre, fond = COULEURS.creme }) {
   ctx.fillStyle = ombre
   rectArrondi(ctx, x + decal, y + decal, w, h, rayon); ctx.fill()
   ctx.fillStyle = fond
@@ -59,7 +59,7 @@ function carte(ctx, x, y, w, h, { rayon, bord, decal, ombre, fond = COULEURS.cre
  * où le texte tient dans `max` ; si même la plus petite ne suffit pas, tronque avec « … ».
  * Renvoie le texte à dessiner ; la police reste réglée.
  */
-function tailleQuiTient(ctx, texte, poids, tailleMax, tailleMin, max, famille, interlettrage = 0) {
+export function tailleQuiTient(ctx, texte, poids, tailleMax, tailleMin, max, famille, interlettrage = 0) {
   const regler = t => { police(ctx, poids, t, famille); espacer(ctx, interlettrage * t) }
   let t = tailleMax
   regler(t)
@@ -73,7 +73,7 @@ function tailleQuiTient(ctx, texte, poids, tailleMax, tailleMin, max, famille, i
 }
 
 /** Coupe en `nbMax` lignes au plus, la dernière finissant par « … » si le texte déborde. */
-function limiterLignes(ctx, lignes, nbMax, max) {
+export function limiterLignes(ctx, lignes, nbMax, max) {
   if (lignes.length <= nbMax) return lignes
   const res = lignes.slice(0, nbMax)
   let t = res[nbMax - 1]
@@ -555,7 +555,7 @@ async function jourJ(ctx, d, logo) {
 }
 
 /** Boucle commune : une image à la fois, confiée à `onDiapo` puis libérée (cf. carrousel.js). */
-async function dessinerPlan(plan, hauteur, dessins, onDiapo) {
+export async function dessinerPlan(plan, hauteur, dessins, onDiapo) {
   await chargerPolices()
   const logo = await chargerImage(LOGO)
   const canvases = []
