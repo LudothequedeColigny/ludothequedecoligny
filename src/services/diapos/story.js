@@ -78,7 +78,7 @@ async function grille(ctx, d, logo) {
   const jaquettes = await Promise.all(d.jeux.map(j => chargerImage(j.jaquette)))
   d.jeux.forEach((j, i) => {
     const cx = 70 + (i % colonnes) * (lCase + 34) + lCase / 2
-    const yBoite = 700 + Math.floor(i / colonnes) * 440
+    const yBoite = 670 + Math.floor(i / colonnes) * 430
     const img = jaquettes[i]
     if (img) {
       const r = Math.min(270 / img.height, 250 / img.width, 0.9)
@@ -111,11 +111,13 @@ async function merci(ctx, d, logo) {
   couperLignes(ctx, "à toutes et à tous d'être venus jouer avec nous", 940)
     .forEach((l, i) => ctx.fillText(l, 70, 690 + i * 72))
   const { y, h } = await carteRendezVous(ctx, d.rdv, { x: 70, haut: 880, largeur: L - 140, affiche: 280 })
-  ctx.textAlign = 'center'
-  ctx.fillStyle = COULEURS.creme
-  police(ctx, 700, 34)
-  ctx.fillText('Toutes nos dates ↓', L / 2, Math.max(y + h + 110, 1400))
-  ctx.textAlign = 'left'
+  if (y + h <= 1450) {
+    ctx.textAlign = 'center'
+    ctx.fillStyle = COULEURS.creme
+    police(ctx, 700, 34)
+    ctx.fillText('Toutes nos dates ↓', L / 2, Math.min(Math.max(y + h + 110, 1400), 1520))
+    ctx.textAlign = 'left'
+  }
 }
 
 const DESSINS = { ouverture, nombre, grille, merci }
