@@ -14,7 +14,7 @@ export function chargerImage(url) {
       const img = new window.Image()
       img.crossOrigin = 'anonymous'
       img.onload = () => resolve(img)
-      img.onerror = () => resolve(null)
+      img.onerror = () => { cache.delete(url); resolve(null) }
       img.src = url
     }))
   }
@@ -148,6 +148,7 @@ export function pastille(ctx, logo, x, y) {
 
 /** Gros texte crème, contour encre et ombre pleine orange (« 26 », « Merci ! »). */
 export function texteContoure(ctx, texte, x, y, { taille, contour = 10, ombre = 22, couleurOmbre = COULEURS.orange }) {
+  ctx.save()
   police(ctx, 800, taille, 'Bricolage Grotesque')
   espacement(ctx, `${-0.04 * taille}px`)
   ctx.lineJoin = 'round'
@@ -158,7 +159,7 @@ export function texteContoure(ctx, texte, x, y, { taille, contour = 10, ombre = 
   ctx.strokeText(texte, x, y)
   ctx.fillStyle = COULEURS.creme
   ctx.fillText(texte, x, y)
-  espacement(ctx, '0px')
+  ctx.restore()
 }
 
 /** Ombre pleine encre qui suit la forme d'une image détourée, puis l'image. */
