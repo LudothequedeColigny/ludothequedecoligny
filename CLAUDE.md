@@ -167,6 +167,8 @@ Pour l'espace de gestion, dans `src/components/admin/` :
 | `ModelesMessages` | fenêtre « Modèles de messages » : textes presse et école à copier, lus dans les Paramètres |
 | `SocialPostPreview` | aperçu d'une publication Facebook/Instagram |
 | `bilan/PublicationBilan` | fenêtre Bilan : choix des photos (ouverture, « plein de jeux », une par jeu), aperçu et publication du carrousel 4:5, story 9:16 à enregistrer |
+| `annonce/PublicationAnnonce` | fenêtre Annonce (bouton « Publier sur Facebook & Instagram » d'un événement) : textes modifiables, aperçu et publication du carrousel d'annonce 4:5, story du jour J ; permanence = story seulement |
+| `VueAgrandie` | vue agrandie d'une image (flèches, glisser, clavier), partagée par les fenêtres Bilan et Annonce |
 
 Toute publication vers Facebook/Instagram passe par `src/services/reseauxSociaux.js`
 (adresse du webhook Make, mise au carré des images, `publierSurReseaux`). Le scénario
@@ -187,6 +189,10 @@ jeux retenus, plan — testé par `npm test`), `dessin.js` (outils canvas), `car
 `story.js`, `jaquettes.js` (copie des jaquettes MyLudo chez nous : MyLudo interdit leur
 réutilisation dans un canvas). Maquettes validées : `Bureau/PERSO/Ludothèque/Maquette
 bilan soirée jeux/`.
+L'annonce d'un événement (carrousel 5 diapositives + story du jour J) est dessinée par
+`annonce-regles.js` / `annonce.js` ; textes modifiables mémorisés dans `events.annonce`.
+Le partage des stories depuis le téléphone passe par `partage.js` : `navigator.share` doit
+rester la première attente après le toucher, sinon l'iPhone refuse le partage.
 
 Le texte de publication et le choix des photos se font dans la fenêtre Bilan ; la story se publie depuis le téléphone (Make ne sait pas publier de story).
 
