@@ -37,7 +37,7 @@ import { copierJaquette } from '../../services/diapos/jaquettes'
 import { typeEvenement as getEventType } from '../../services/diapos/regles'
 import PublicationBilan from '../../components/admin/bilan/PublicationBilan'
 import {
-  MAKE_WEBHOOK_URL, socialFileNameFrom, uploadSquareVersion,
+  MAKE_WEBHOOK_URL, socialFileNameFrom, uploadSquareVersion, publierSurReseaux,
 } from '../../services/reseauxSociaux'
 
 // Destinataires enregistrés : trois catégories, chacune avec son propre texte
@@ -869,38 +869,28 @@ www.ludothequedecoligny.fr`
     if (!postText.trim()) return
     setPublishingPost(true)
     setPostSuccess(false)
-    let tempBlobUrl = null
     try {
-      let imagePayloadUrl = postImageUrl || null
-
-      // Si la dataURL est trop volumineuse pour le webhook Make, on la convertit
-      // en Blob et on utilise une URL temporaire (révoquée juste après l'envoi)
-      const MAX_DATA_URL_LENGTH = 5_000_000 // ~5 Mo en base64
-      if (imagePayloadUrl && imagePayloadUrl.startsWith('data:') && imagePayloadUrl.length > MAX_DATA_URL_LENGTH) {
-        const blob = await (await fetch(imagePayloadUrl)).blob()
-        tempBlobUrl = URL.createObjectURL(blob)
-        imagePayloadUrl = tempBlobUrl
+      // L'image (fichier de l'ordinateur ou lien) est d'abord déposée chez nous,
+      // mise au carré : Make ne sait télécharger qu'une adresse publique, et son
+      // scénario ne publie une photo que si elle est hébergée dans notre stockage.
+      // Sans image : texte seul, publié sur Facebook uniquement (Instagram
+      // refuse les publications sans image).
+      let imageHebergee = null
+      if (postImageUrl) {
+        imageHebergee = await uploadSquareVersion(postImageUrl, `posts/post-${Date.now()}-social.jpg`)
+        if (!imageHebergee) {
+          addToast("L'image n'a pas pu être préparée. Essayez avec un fichier enregistré sur l'ordinateur.", 'error')
+          return
+        }
       }
 
-      const res = await fetch(MAKE_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: postText,
-          image_url: imagePayloadUrl,
-        }),
-      })
-      if (!res.ok) throw new Error('Erreur Make: ' + res.status)
+      await publierSurReseaux({ message: postText, imageUrls: imageHebergee ? [imageHebergee] : [] })
 
-      // Trace de la publication — on n'enregistre JAMAIS l'image elle-même.
-      // Un fichier envoyé depuis l'ordinateur arrive ici sous forme de données
-      // brutes de plusieurs Mo : le garder gonflerait la base. On ne conserve
-      // donc que le lien s'il s'agit d'une vraie adresse web, sinon un simple
-      // indicateur « il y avait une image ».
-      const isWebLink = !!postImageUrl && /^https?:\/\//.test(postImageUrl)
+      // Trace de la publication : le texte et l'adresse de l'image déposée chez
+      // nous (jamais l'image elle-même, qui gonflerait la base).
       const { error: postSaveError } = await supabase.from('posts').insert({
         message: postText,
-        image_url: isWebLink ? postImageUrl : null,
+        image_url: imageHebergee,
         has_image: !!postImageUrl,
       })
       // La table `posts` est facultative : si elle n'existe pas encore, la
@@ -916,7 +906,6 @@ www.ludothequedecoligny.fr`
       console.error('Erreur publication post:', err)
       addToast("Erreur lors de la publication. Vérifiez la console.", 'error')
     } finally {
-      if (tempBlobUrl) URL.revokeObjectURL(tempBlobUrl)
       setPublishingPost(false)
     }
   }

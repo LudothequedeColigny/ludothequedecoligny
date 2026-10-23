@@ -170,7 +170,13 @@ Pour l'espace de gestion, dans `src/components/admin/` :
 
 Toute publication vers Facebook/Instagram passe par `src/services/reseauxSociaux.js`
 (adresse du webhook Make, mise au carré des images, `publierSurReseaux`). Le scénario
-Make aiguille sur `photo_count` : 2 images ou plus → carrousel ; sinon → photo seule.
+Make aiguille sur `photo_count` : 2 images ou plus → carrousel ; 1 image **hébergée chez nous**
+(adresse contenant `supabase.co`) → photo seule ; texte sans image → Facebook seulement ;
+envoi vide → rien. Toute image doit donc être déposée dans notre stockage avant l'envoi
+(jamais de données brutes `data:` ni de lien extérieur). Le 23/10/2026, deux envois vides
+(robot ayant visité l'adresse du webhook, lisible dans le code du site) avaient fait
+**désactiver** le scénario : s'il s'arrête de nouveau, lire l'historique Make
+(scénario 5585035) avant toute chose.
 Les images non carrées sont posées sur le fond bois bleu canard `public/social/fond-bois.jpg`
 (déjà flouté dans le fichier : le flou du navigateur ne marche pas sur Safari) — en grand
 pour les affiches et photos, encadrées (contour + ombre) pour les jaquettes. Choix de Victor,
