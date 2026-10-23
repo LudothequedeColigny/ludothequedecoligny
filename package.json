@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives",
-    "test": "TZ=Europe/Paris node --test \"src/**/*.test.js\""
+    "test": "TZ=Europe/Paris node --test \"src/**/*.test.js\" \"supabase/functions/**/*.test.js\""
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.95.3",
