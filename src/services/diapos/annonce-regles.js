@@ -7,7 +7,7 @@ import { typeEvenement, dateLocale, quandRendezVous, lieuCourt, jourMois, sansAc
 
 const JOURS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 const heure = d => `${d.getHours()}h${d.getMinutes() ? String(d.getMinutes()).padStart(2, '0') : ''}`
-const heureTexte = t => { const [h, m] = String(t).split(':').map(Number); return `${h}h${m ? String(m).padStart(2, '0') : ''}` }
+export const heureTexte = t => { const [h, m] = String(t).split(':').map(Number); return `${h}h${m ? String(m).padStart(2, '0') : ''}` }
 
 export const TEXTES_TYPES = {
   soiree: {
