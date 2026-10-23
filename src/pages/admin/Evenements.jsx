@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import GenerateurAffiche from './GenerateurAffiche'
 import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
 import { supabase } from '../../services/supabaseClient'
@@ -170,6 +171,9 @@ function pixelateRegion(ctx, x, y, w, h, bloc = BLUR_BLOCK_SIZE) {
 
 export default function Evenements() {
   const { addToast } = useToast()
+  // Adresse ouverte depuis un rappel sur téléphone : ?annonce=<id> ou ?bilan=<id>
+  const [searchParams, setSearchParams] = useSearchParams()
+  const adresseTraitee = useRef(null)
   const [events, setEvents] = useState([])
   const [activeTab, setActiveTab] = useState('events') // 'events' | 'affiche' | 'posts' | 'jeux'
   const [loading, setLoading] = useState(true)
@@ -995,6 +999,38 @@ www.ludothequedecoligny.fr`
     setEvents(prev => prev.map(appliquer))
     setArchivedEvents(prev => prev.map(appliquer))
   }
+
+  // Rappel touché sur un téléphone : ouvre directement la fenêtre Annonce ou Bilan
+  // de l'événement, avec les mêmes fonctions que les boutons. Attend la fin du
+  // chargement de la liste ; le paramètre est retiré de l'adresse, pour qu'un
+  // rechargement de la page ne rouvre pas la fenêtre.
+  useEffect(() => {
+    const genre = searchParams.has('annonce') ? 'annonce' : searchParams.has('bilan') ? 'bilan' : null
+    if (!genre) { adresseTraitee.current = null; return }
+    if (loading) return
+    const id = searchParams.get(genre)
+    const cle = `${genre}=${id}`
+    if (adresseTraitee.current === cle) return   // déjà traitée (liste rechargée entre-temps)
+    adresseTraitee.current = cle
+
+    const sansRappel = new URLSearchParams(searchParams)
+    sansRappel.delete('annonce')
+    sansRappel.delete('bilan')
+    setSearchParams(sansRappel, { replace: true })
+
+    ;(async () => {
+      let ev = events.find(e => String(e.id) === id)
+      if (!ev && /^\d+$/.test(id || '')) {
+        const { data, error } = await supabase.from('events').select('*').eq('id', id).maybeSingle()
+        if (error) console.warn('Événement du rappel non lu :', error)
+        ev = data
+      }
+      if (!ev) { addToast("Cet événement n'existe plus.", 'warning'); return }
+      if (genre === 'annonce') openFbModal(ev)
+      else openBilanModal(ev)
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, searchParams])
 
   const deleteBilanPhoto = async (photo) => {
     try {
@@ -2514,6 +2550,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                     key={bilanModal.event.id}
                     event={bilanModal.event}
                     onPublication={setBilanEnPublication}
+                    onEventChange={patch => majEvenement(bilanModal.event.id, patch)}
                   />
                 ) : getEventType(bilanModal.event.title) === 'permanence' ? (
                   <p className="text-[11px] italic text-slate-400 px-1">Le bilan de cet événement n'est pas encore proposé.</p>

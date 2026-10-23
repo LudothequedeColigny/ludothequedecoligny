@@ -305,6 +305,16 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
         imageUrls: adresses,
         extra: { event_title: event.title || '', event_date: event.date || '', event_location: event.location || '' },
       })
+      // Date de publication : arrête les rappels sur les téléphones (check-events-notify).
+      // Un échec ici ne change rien à la publication, déjà partie.
+      try {
+        const publieLe = new Date().toISOString()
+        const { error: errDate } = await supabase.from('events').update({ annonce_publiee_le: publieLe }).eq('id', event.id)
+        if (errDate) console.warn('Date de publication non enregistrée :', errDate)
+        else onEventChange?.({ annonce_publiee_le: publieLe })
+      } catch (errDate) {
+        console.warn('Date de publication non enregistrée :', errDate)
+      }
       setEtat('publie')
     } catch (e) {
       console.error("Publication de l'annonce :", e)

@@ -214,6 +214,16 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
         adresses.push(url)
       })
       await publierSurReseaux({ message: texte, imageUrls: adresses, extra: { games: jeux.map(j => j.name) } })
+      // Date de publication : arrête les rappels sur les téléphones (check-events-notify).
+      // Un échec ici ne change rien à la publication, déjà partie.
+      try {
+        const publieLe = new Date().toISOString()
+        const { error: errDate } = await supabase.from('events').update({ bilan_publie_le: publieLe }).eq('id', event.id)
+        if (errDate) console.warn('Date de publication non enregistrée :', errDate)
+        else onEventChange?.({ bilan_publie_le: publieLe })
+      } catch (errDate) {
+        console.warn('Date de publication non enregistrée :', errDate)
+      }
       setEtat('publie')
     } catch (e) {
       console.error('Publication du bilan :', e)

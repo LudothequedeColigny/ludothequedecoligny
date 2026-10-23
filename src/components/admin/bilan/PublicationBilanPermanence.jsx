@@ -32,7 +32,7 @@ const jourDeLaPermanence = date => {
   return j.charAt(0).toLowerCase() + j.slice(1)
 }
 
-export default function PublicationBilanPermanence({ event, onPublication }) {
+export default function PublicationBilanPermanence({ event, onPublication, onEventChange }) {
   // undefined pendant la lecture ; null si les prêts n'ont pas pu être lus
   const [donnees, setDonnees] = useState(undefined) // { prets (empruntés), nbJeux, prochaine }
   // Texte retouché par le bénévole (null = texte proposé)
@@ -175,6 +175,16 @@ export default function PublicationBilanPermanence({ event, onPublication }) {
         imageUrls: adresses,
         extra: { event_title: event.title || '', event_date: event.date || '', event_location: event.location || '' },
       })
+      // Date de publication : arrête les rappels sur les téléphones (check-events-notify).
+      // Un échec ici ne change rien à la publication, déjà partie.
+      try {
+        const publieLe = new Date().toISOString()
+        const { error: errDate } = await supabase.from('events').update({ bilan_publie_le: publieLe }).eq('id', event.id)
+        if (errDate) console.warn('Date de publication non enregistrée :', errDate)
+        else onEventChange?.({ bilan_publie_le: publieLe })
+      } catch (errDate) {
+        console.warn('Date de publication non enregistrée :', errDate)
+      }
       setEtat('publie')
     } catch (e) {
       console.error('Publication du bilan de permanence :', e)
