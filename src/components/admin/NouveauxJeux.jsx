@@ -41,7 +41,7 @@ function detailsTexte(j) {
 function phrasePermanence(prochaine) {
   if (!prochaine) return 'À emprunter dès la prochaine permanence.'
   const quand = [minuscule(prochaine.jour), prochaine.heures].filter(Boolean).join(', ')
-  return `À emprunter dès la prochaine permanence : ${quand}${prochaine.lieu ? `, au ${prochaine.lieu}` : ''}.`
+  return `À emprunter dès la prochaine permanence : ${quand}${prochaine.lieu ? `, ${prochaine.lieu}` : ''}.`
 }
 
 function construireTexte(jeux, prochaine) {

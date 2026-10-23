@@ -163,7 +163,7 @@ Pour l'espace de gestion, dans `src/components/admin/` :
 | `InscritsActualites` | bloc repliable de l'écran Adhérents : adresses inscrites aux actualités (non adhérents), avec retrait |
 | `PreinscriptionsAValider` | bloc de l'écran Adhérents : demandes faites sur `/adherer`, bouton « Valider l'adhésion » qui pré-remplit la fiche |
 | `FicheWikiludo` | fenêtre « Fiche pour Wikiludo » : chaque champ de la grille Wikiludo avec un bouton Copier (catalogue + MyLudo), ordinateur seulement |
-| `NouveauxJeux` | onglet « Nouveaux jeux » de Communication : jeux ajoutés depuis le 01/09/2026, couverture dessinée + jaquettes en carrousel ; cochés → « annonce », décochés → « ecarte » (table `annonces_jeux`, bénévoles seulement) |
+| `NouveauxJeux` | onglet « Nouveaux jeux » de Communication : jeux ajoutés depuis le 01/09/2026, carrousel 4:5 (couverture, une image par jeu — 8 au plus, boîte détourée en autocollant —, prochaine permanence) dessiné par `diapos/nouveaux-jeux-regles.js` / `nouveaux-jeux.js` ; cochés → « annonce », décochés → « ecarte » (table `annonces_jeux`, bénévoles seulement) |
 | `ModelesMessages` | fenêtre « Modèles de messages » : textes presse et école à copier, lus dans les Paramètres |
 | `SocialPostPreview` | aperçu d'une publication Facebook/Instagram |
 | `bilan/PublicationBilan` | fenêtre Bilan : choix des photos (ouverture, « plein de jeux », une par jeu), aperçu et publication du carrousel 4:5, story 9:16 à enregistrer |

@@ -183,7 +183,9 @@ async function couverture(ctx, d, logo) {
   // Éventail des jaquettes détourées (5 au plus), les plus excentrées dessinées d'abord
   const n = d.jaquettes.length
   if (n) {
-    const pas = n > 1 ? Math.min(150, 540 / (n - 1)) : 0
+    // Peu de jaquettes : plus grandes, pour ne pas laisser de vide
+    const [lMax, hMax] = n === 1 ? [460, 500] : n === 2 ? [380, 450] : [330, 400]
+    const pas = n === 2 ? 220 : n > 1 ? Math.min(150, 540 / (n - 1)) : 0
     const ordre = [...Array(n).keys()].sort((a, b) => Math.abs(b - (n - 1) / 2) - Math.abs(a - (n - 1) / 2))
     const images = await Promise.all(d.jaquettes.map(jaquetteDetouree))
     try {
@@ -191,7 +193,7 @@ async function couverture(ctx, d, logo) {
         const img = images[i]
         if (!img) continue
         const dx = (i - (n - 1) / 2) * pas
-        const t = tenir(img, 330, 400)
+        const t = tenir(img, lMax, hMax)
         autocollant(ctx, img, {
           cx: L / 2 + dx, cy: 570 + Math.abs(dx) * 0.14, w: t.w, h: t.h, angle: ANGLES[n][i],
           lisere: 10, bord: 4, ombre: 12, couleurOmbre: i % 2 ? COULEURS.orange : COULEURS.bleu,
