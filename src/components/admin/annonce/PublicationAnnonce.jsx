@@ -8,6 +8,7 @@ import { versBlob, liberer, viderCache } from '../../../services/diapos/dessin'
 import { publierSurReseaux, uploadSocialBlob } from '../../../services/reseauxSociaux'
 import SocialPostPreview from '../SocialPostPreview'
 import VueAgrandie from '../VueAgrandie'
+import { partagerFichiers } from '../../../services/diapos/partage'
 
 /**
  * Annonce d'un événement à venir : carrousel de 5 images 4:5 au plus (publié via Make)
@@ -16,10 +17,13 @@ import VueAgrandie from '../VueAgrandie'
  * Conception : docs/superpowers/specs/2026-10-23-annonce-evenement-design.md
  */
 const SECTION = 'text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1'
-const CHAMP = 'w-full rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] px-3.5 py-2.5 text-[13px] font-bold text-[#0f172a] outline-none placeholder:font-semibold placeholder:text-slate-300 focus:bg-white'
+const CHAMP_BASE = 'w-full rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] px-3.5 py-2.5 text-[#0f172a] outline-none placeholder:font-semibold placeholder:text-slate-300 focus:bg-white'
+const CHAMP = `${CHAMP_BASE} text-[13px] font-bold`
+const CHAMP_DETAIL = `${CHAMP_BASE} text-[12px] font-semibold`
 
 const ERREUR_APERCU = "L'aperçu n'a pas pu être fabriqué. Réessayez ou rechargez la page."
 const ERREUR_TEXTES = "Ce texte n'a pas pu être enregistré. Réessayez dans un instant."
+const ERREUR_TEXTES_FENETRE_FERMEE = "Le texte de l'annonce n'a pas pu être enregistré. Rouvrez l'annonce pour le corriger."
 const ERREUR_STORY = "L'image de la story n'a pas pu être préparée. Réessayez ou rechargez la page."
 const PARTAGE_INDISPONIBLE = "Le partage n'est pas disponible : l'image a été téléchargée."
 
@@ -28,43 +32,41 @@ const ABANDON = Symbol('aperçu abandonné')
 // Délai avant d'enregistrer un texte modifié (le temps de finir de taper)
 const DELAI_ENREGISTREMENT = 600
 
-// Date du jour à l'heure de Paris (« 2026-10-23 ») : les dates d'événement sont sans fuseau
+// Date du jour (« 2026-10-23 ») dans le fuseau de l'appareil, celui de la ludothèque :
+// les dates d'événement sont enregistrées sans fuseau
 const aujourdhui = () => {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function telecharger(fichiers) {
-  for (const f of fichiers) {
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(f)
-    a.download = f.name
-    a.click()
-    setTimeout(() => URL.revokeObjectURL(a.href), 2000)
-  }
-}
-
-export default function PublicationAnnonce({ event, texte, onTexteChange, onEventChange }) {
+export default function PublicationAnnonce({ event, texte, onTexteChange, onEventChange, onErreur }) {
   const avecCarrousel = typeEvenement(event.title) !== 'permanence'
   // Textes modifiés de l'annonce (null = textes proposés) : affichés tout de suite,
   // enregistrés sur l'événement après un court délai
   const [annonce, setAnnonce] = useState(event.annonce ?? null)
   const enregistree = useRef(event.annonce ?? null)
   const enAttente = useRef(null) // { minuterie, valeur } : enregistrement programmé
+  const monte = useRef(true) // fenêtre encore ouverte
   // Dernier événement passé du même genre (photos des diapositives) ; undefined pendant le chargement
   const [passe, setPasse] = useState(undefined)
   const [apercuAnnonce, setApercuAnnonce] = useState([])
+  // Plan de l'aperçu affiché : la publication est redessinée à partir de lui
+  const [planCarrousel, setPlanCarrousel] = useState(null)
   const [apercuStory, setApercuStory] = useState([])
   // Fichier JPEG de la story, prêt avant le geste : iPhone n'autorise le partage
   // que tout de suite après le toucher, sans fabrication d'image entre les deux
   const [fichiersStory, setFichiersStory] = useState(null)
-  // Plans de l'aperçu affiché : la publication est redessinée à partir d'eux
-  const [plans, setPlans] = useState(null)
-  const [calcul, setCalcul] = useState(true)
+  const [calculAnnonce, setCalculAnnonce] = useState(avecCarrousel)
+  const [calculStory, setCalculStory] = useState(true)
   const [agrandie, setAgrandie] = useState(null)
   const [etat, setEtat] = useState('') // '' | 'publication' | 'publie' | 'story'
-  const [erreur, setErreur] = useState('')
-  const numero = useRef(0)
+  const [erreur, setErreur] = useState('') // aperçu, publication, story
+  const [erreurTexte, setErreurTexte] = useState('') // enregistrement des textes
+  // Numéros des aperçus demandés : un aperçu dépassé par un plus récent s'arrête
+  const numeros = useRef({ annonce: 0, story: 0 })
+  // Une fabrication d'images à la fois (carrousel, story) : mémoire des téléphones
+  const fileAttente = useRef(Promise.resolve())
+  const aLaSuite = tache => { fileAttente.current = fileAttente.current.then(tache) }
 
   // Texte enregistré sur l'événement ; en cas d'échec, retour à la valeur précédente
   const enregistrer = async valeur => {
@@ -80,20 +82,28 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
         setAnnonce(a => (a === valeur ? avant : a))
         onEventChange(e => (e.annonce === valeur ? { annonce: avant } : {}))
       }
-      setErreur(ERREUR_TEXTES)
+      // Fenêtre déjà fermée : le message passe par l'écran Communication
+      if (monte.current) setErreurTexte(ERREUR_TEXTES)
+      else onErreur?.(ERREUR_TEXTES_FENETRE_FERMEE)
     }
   }
 
-  // Fenêtre fermée : texte en attente enregistré, aperçu en cours abandonné,
+  // Fenêtre fermée : texte en attente enregistré, aperçus en cours abandonnés,
   // images chargées oubliées (mémoire des téléphones)
-  useEffect(() => () => {
-    numero.current++
-    viderCache()
-    const attente = enAttente.current
-    if (attente) {
-      clearTimeout(attente.minuterie)
-      enAttente.current = null
-      enregistrer(attente.valeur)
+  useEffect(() => {
+    monte.current = true
+    const n = numeros.current
+    return () => {
+      monte.current = false
+      n.annonce++
+      n.story++
+      viderCache()
+      const attente = enAttente.current
+      if (attente) {
+        clearTimeout(attente.minuterie)
+        enAttente.current = null
+        enregistrer(attente.valeur)
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -128,65 +138,88 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event.id])
 
-  // L'événement tel qu'il sera dessiné : seuls ces champs comptent pour l'aperçu
-  const evenement = useMemo(() => ({
+  // Ce qui est dessiné : la story ne dépend pas des textes, le carrousel si
+  const evenementStory = useMemo(() => ({
     id: event.id, title: event.title, date: event.date, end_time: event.end_time,
-    location: event.location, image_url: event.image_url, annonce,
-  }), [event.id, event.title, event.date, event.end_time, event.location, event.image_url, annonce])
+    location: event.location, image_url: event.image_url,
+  }), [event.id, event.title, event.date, event.end_time, event.location, event.image_url])
+  const evenement = useMemo(() => ({ ...evenementStory, annonce }), [evenementStory, annonce])
   const textes = textesAnnonce(evenement)
 
-  // Aperçu recalculé (avec un court délai) à chaque changement
+  // Aperçu du carrousel recalculé (avec un court délai) à chaque changement
   useEffect(() => {
-    if (passe === undefined) { numero.current++; setCalcul(true); return }
-    const n = ++numero.current
-    setCalcul(true)
-    const minuterie = setTimeout(async () => {
+    if (!avecCarrousel) return
+    if (passe === undefined) { numeros.current.annonce++; setCalculAnnonce(true); return }
+    const n = ++numeros.current.annonce
+    setCalculAnnonce(true)
+    const minuterie = setTimeout(() => aLaSuite(async () => {
       // Abandon dès qu'un aperçu plus récent est demandé
-      const suite = () => { if (n !== numero.current) throw ABANDON }
+      const suite = () => { if (n !== numeros.current.annonce) throw ABANDON }
       try {
-        const plan = { annonce: planAnnonce({ event: evenement, passe }), story: planStoryJourJ({ event: evenement, passe }) }
+        suite()
+        const plan = planAnnonce({ event: evenement, passe })
         // Une image à la fois : convertie dès qu'elle est dessinée, puis libérée
         const a = []
-        if (plan.annonce.length) {
-          await dessinerAnnonce(plan.annonce, async canvas => {
-            suite()
-            a.push(canvas.toDataURL('image/jpeg', 0.9))
-          })
-        }
+        await dessinerAnnonce(plan, async canvas => {
+          suite()
+          a.push(canvas.toDataURL('image/jpeg', 0.9))
+        })
+        suite()
+        setApercuAnnonce(a)
+        setPlanCarrousel(plan)
+        setErreur(e => (e === ERREUR_APERCU ? '' : e))
+      } catch (e) {
+        if (e === ABANDON) return
+        console.error("Aperçu de l'annonce :", e)
+        if (n === numeros.current.annonce) setErreur(ERREUR_APERCU)
+      } finally {
+        if (n === numeros.current.annonce) setCalculAnnonce(false)
+      }
+    }), 400)
+    return () => clearTimeout(minuterie)
+  }, [evenement, passe, avecCarrousel])
+
+  // Story (et son fichier prêt à partager) : redessinée seulement si ce qu'elle montre change
+  useEffect(() => {
+    if (passe === undefined) { numeros.current.story++; setCalculStory(true); return }
+    const n = ++numeros.current.story
+    setCalculStory(true)
+    const minuterie = setTimeout(() => aLaSuite(async () => {
+      const suite = () => { if (n !== numeros.current.story) throw ABANDON }
+      try {
+        suite()
         const s = []
         const blobs = []
-        await dessinerStoryJourJ(plan.story, async canvas => {
+        await dessinerStoryJourJ(planStoryJourJ({ event: evenementStory, passe }), async canvas => {
           suite()
           s.push(canvas.toDataURL('image/jpeg', 0.9))
           blobs.push(await versBlob(canvas))
         })
         suite()
-        setApercuAnnonce(a)
         setApercuStory(s)
-        setPlans(plan)
         if (blobs.length && blobs.every(Boolean)) {
-          setFichiersStory(blobs.map(b => new File([b], `story-jour-j-${evenement.id}.jpg`, { type: 'image/jpeg' })))
-          setErreur(e => (e === ERREUR_APERCU || e === ERREUR_STORY ? '' : e))
+          setFichiersStory(blobs.map(b => new File([b], `story-jour-j-${evenementStory.id}.jpg`, { type: 'image/jpeg' })))
+          setErreur(e => (e === ERREUR_STORY ? '' : e))
         } else {
           setFichiersStory(null)
           setErreur(ERREUR_STORY)
         }
       } catch (e) {
         if (e === ABANDON) return
-        console.error("Aperçu de l'annonce :", e)
-        if (n === numero.current) setErreur(ERREUR_APERCU)
+        console.error('Aperçu de la story :', e)
+        if (n === numeros.current.story) setErreur(ERREUR_STORY)
       } finally {
-        if (n === numero.current) setCalcul(false)
+        if (n === numeros.current.story) setCalculStory(false)
       }
-    }, 400)
+    }), 400)
     return () => clearTimeout(minuterie)
-  }, [evenement, passe])
+  }, [evenementStory, passe])
 
   // Modification d'un texte : visible tout de suite, enregistrée après un court délai
   const changerTextes = modifier => {
     const valeur = modifier(textes)
     setAnnonce(valeur)
-    setErreur(e => (e === ERREUR_TEXTES ? '' : e))
+    setErreurTexte('')
     if (enAttente.current) clearTimeout(enAttente.current.minuterie)
     const minuterie = setTimeout(() => { enAttente.current = null; enregistrer(valeur) }, DELAI_ENREGISTREMENT)
     enAttente.current = { minuterie, valeur }
@@ -195,7 +228,7 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
     if (enAttente.current) clearTimeout(enAttente.current.minuterie)
     enAttente.current = null
     setAnnonce(null)
-    setErreur(e => (e === ERREUR_TEXTES ? '' : e))
+    setErreurTexte('')
     enregistrer(null)
   }
   const changerPoint = (i, v) => changerTextes(t => ({ ...t, points: t.points.map((p, j) => (j === i ? v : p)) }))
@@ -208,7 +241,7 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
       const horodatage = Date.now()
       const adresses = []
       // Une diapositive à la fois : dessinée, exportée, libérée, puis envoyée (mémoire des téléphones)
-      await dessinerAnnonce(plans.annonce, async (canvas, i) => {
+      await dessinerAnnonce(planCarrousel, async (canvas, i) => {
         const blob = await versBlob(canvas)
         liberer(canvas)
         const url = blob && await uploadSocialBlob(blob, `annonces/${event.id}/annonce-${horodatage}-${String(i + 1).padStart(2, '0')}.jpg`)
@@ -228,28 +261,14 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
     }
   }
 
-  // Aucune attente avant navigator.share : le fichier est prêt depuis l'aperçu
+  // Aucune attente avant le partage : le fichier est prêt depuis l'aperçu
   const enregistrerStory = async () => {
     const fichiers = fichiersStory
     if (!fichiers) { setErreur(ERREUR_STORY); return }
     setErreur('')
-    let partageable = false
-    try { partageable = !!navigator.canShare?.({ files: fichiers }) } catch { partageable = false }
-    if (!partageable) {
-      telecharger(fichiers)
-      setErreur(PARTAGE_INDISPONIBLE)
-      return
-    }
     setEtat('story')
     try {
-      await navigator.share({ files: fichiers, title: 'Story du jour J' })
-    } catch (e) {
-      // Annulé par l'utilisateur : rien à signaler
-      if (e?.name !== 'AbortError') {
-        console.warn('Partage de la story :', e)
-        telecharger(fichiers)
-        setErreur(PARTAGE_INDISPONIBLE)
-      }
+      if ((await partagerFichiers(fichiers, 'Story du jour J')) === 'telecharge') setErreur(PARTAGE_INDISPONIBLE)
     } finally {
       setEtat(actuel => (actuel === 'story' ? '' : actuel))
     }
@@ -257,7 +276,7 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
 
   const story = (
     <div className="space-y-2">
-      <p className={SECTION}>Story du jour J {calcul && <Loader2 size={11} className="ml-1 inline animate-spin" />}</p>
+      <p className={SECTION}>Story du jour J {calculStory && <Loader2 size={11} className="ml-1 inline animate-spin" />}</p>
       <div className="flex items-start gap-3">
         {apercuStory.length > 0 ? (
           <button type="button" onClick={() => setAgrandie(0)} className="shrink-0" aria-label="Agrandir la story">
@@ -276,7 +295,7 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
   )
 
   const boutonStory = (
-    <button type="button" onClick={enregistrerStory} disabled={etat === 'story' || calcul || !apercuStory.length}
+    <button type="button" onClick={enregistrerStory} disabled={etat === 'story' || calculStory || !fichiersStory}
       className="flex items-center justify-center gap-2 rounded-2xl border-2 border-[#0f172a] bg-white py-4 text-[10px] font-black uppercase tracking-widest text-[#1a5f7a] transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
       {etat === 'story' ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} Enregistrer la story du jour J
     </button>
@@ -304,13 +323,13 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
                   <input type="text" value={x.titre} onChange={e => changerInfo(i, 'titre', e.target.value)}
                     aria-label={`Info ${i + 1} : titre`} placeholder="Titre (vide : ligne retirée)" className={CHAMP} />
                   <input type="text" value={x.detail} onChange={e => changerInfo(i, 'detail', e.target.value)}
-                    aria-label={`Info ${i + 1} : détail`} placeholder="Détail" className={CHAMP + ' text-[12px] font-semibold'} />
+                    aria-label={`Info ${i + 1} : détail`} placeholder="Détail" className={CHAMP_DETAIL} />
                 </div>
               ))}
             </div>
 
             {/* Près des champs : en bas de la fenêtre, le message passerait inaperçu */}
-            {erreur === ERREUR_TEXTES && <p className="ml-1 text-[10px] font-bold text-rose-500">{erreur}</p>}
+            {erreurTexte && <p className="ml-1 text-[10px] font-bold text-rose-500">{erreurTexte}</p>}
             {annonce !== null && (
               <button type="button" onClick={remettreTextes}
                 className="ml-1 text-[9px] font-black uppercase tracking-widest text-[#1a5f7a] underline underline-offset-2 hover:text-[#e38154]">
@@ -329,7 +348,7 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
             <div className="space-y-1">
               <SocialPostPreview text={texte} imageUrls={apercuAnnonce} portrait />
               <p className="h-4 text-center text-[9px] font-black uppercase tracking-widest text-slate-400">
-                {calcul && <><Loader2 size={10} className="mr-1 inline animate-spin" /> Mise à jour de l'aperçu…</>}
+                {calculAnnonce && <><Loader2 size={10} className="mr-1 inline animate-spin" /> Mise à jour de l'aperçu…</>}
               </p>
             </div>
             {story}
@@ -344,14 +363,14 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
         </>
       )}
 
-      {erreur && erreur !== ERREUR_TEXTES && <p className="text-center text-[10px] font-bold text-rose-500">{erreur}</p>}
+      {erreur && <p className="text-center text-[10px] font-bold text-rose-500">{erreur}</p>}
       <div className={'grid gap-2.5' + (avecCarrousel ? ' sm:grid-cols-2' : '')}>
         {avecCarrousel && (etat === 'publie' ? (
           <div className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-4 text-[10px] font-black uppercase tracking-widest text-white">
             <CheckCircle2 size={14} /> Publié avec succès !
           </div>
         ) : (
-          <button type="button" onClick={publier} disabled={etat === 'publication' || calcul || !texte.trim() || !plans || !apercuAnnonce.length}
+          <button type="button" onClick={publier} disabled={etat === 'publication' || calculAnnonce || !texte.trim() || !planCarrousel || !apercuAnnonce.length}
             className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 py-4 text-[10px] font-black uppercase tracking-widest text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-300">
             {etat === 'publication' ? <><Loader2 size={14} className="animate-spin" /> Publication…</> : <><Share2 size={14} /> Publier sur Facebook & Instagram ({apercuAnnonce.length})</>}
           </button>

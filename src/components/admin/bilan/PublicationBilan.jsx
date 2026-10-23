@@ -8,6 +8,7 @@ import { jaquettesDuBilan, estChezNous } from '../../../services/diapos/jaquette
 import { versBlob, liberer, viderCache } from '../../../services/diapos/dessin'
 import { publierSurReseaux, uploadSocialBlob } from '../../../services/reseauxSociaux'
 import VueAgrandie from '../VueAgrandie'
+import { partagerFichiers } from '../../../services/diapos/partage'
 
 /**
  * Publication du bilan d'une soirée ou d'un après-midi : choix des photos,
@@ -50,16 +51,6 @@ const ABANDON = Symbol('aperçu abandonné')
 const nombreParticipants = v => {
   const n = v === '' || v == null ? NaN : Number(v)
   return Number.isFinite(n) && n > 0 ? n : null
-}
-
-function telecharger(fichiers) {
-  for (const f of fichiers) {
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(f)
-    a.download = f.name
-    a.click()
-    setTimeout(() => URL.revokeObjectURL(a.href), 2000)
-  }
 }
 
 export default function PublicationBilan({ event, photos, jeux, participants, texte, onTexteChange, texteModifie, onTexteReset, onJeuxChange, onEventChange }) {
@@ -231,28 +222,14 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
     }
   }
 
-  // Aucune attente avant navigator.share : les fichiers sont prêts depuis l'aperçu
+  // Aucune attente avant le partage : les fichiers sont prêts depuis l'aperçu
   const enregistrerStory = async () => {
     const fichiers = fichiersStory
     if (!fichiers) { setErreur(ERREUR_STORY); return }
     setErreur('')
-    let partageable = false
-    try { partageable = !!navigator.canShare?.({ files: fichiers }) } catch { partageable = false }
-    if (!partageable) {
-      telecharger(fichiers)
-      setErreur(PARTAGE_INDISPONIBLE)
-      return
-    }
     setEtat('story')
     try {
-      await navigator.share({ files: fichiers, title: 'Story du bilan' })
-    } catch (e) {
-      // Annulé par l'utilisateur : rien à signaler
-      if (e?.name !== 'AbortError') {
-        console.warn('Partage de la story :', e)
-        telecharger(fichiers)
-        setErreur(PARTAGE_INDISPONIBLE)
-      }
+      if ((await partagerFichiers(fichiers, 'Story du bilan')) === 'telecharge') setErreur(PARTAGE_INDISPONIBLE)
     } finally {
       setEtat(actuel => (actuel === 'story' ? '' : actuel))
     }

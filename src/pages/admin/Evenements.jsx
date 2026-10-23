@@ -886,8 +886,10 @@ www.ludothequedecoligny.fr`
       await supabase.from('event_photos').delete().eq('event_id', deleteModal.id)
     }
     await supabase.from('event_games_played').delete().eq('event_id', deleteModal.id)
-    await effacerDiapositives(deleteModal.id, 'bilans')
-    await effacerDiapositives(deleteModal.id, 'annonces')
+    // Visuels publiés : un échec est signalé, la suppression de l'événement continue
+    const bilansEffaces = await effacerDiapositives(deleteModal.id, 'bilans')
+    const annoncesEffacees = await effacerDiapositives(deleteModal.id, 'annonces')
+    if (!bilansEffaces || !annoncesEffacees) addToast("Les visuels publiés n'ont pas pu être effacés.", 'error')
 
     // Supprimer l'affiche de l'événement dans Storage si elle existe
     const eventToDelete = [...events, ...archivedEvents].find(e => e.id === deleteModal.id)
@@ -2309,6 +2311,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 texte={fbText}
                 onTexteChange={setFbText}
                 onEventChange={patch => majEvenement(fbModal.event.id, patch)}
+                onErreur={message => addToast(message, 'error')}
               />
             </div>
 
