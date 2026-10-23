@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  textesAnnonce, formuleJourJ, lignesQuand, dernierEvenementSemblable, planAnnonce, planStoryJourJ,
+  textesAnnonce, phraseParDefaut, formuleJourJ, lignesQuand, dernierEvenementSemblable, planAnnonce, planStoryJourJ,
 } from './annonce-regles.js'
 
 const halloween = { id: 50, title: 'Soirée jeux de société - Spécial Halloween', date: '2026-11-06 19:00:00', end_time: '', location: 'À la salle des fêtes de Coligny', image_url: 'aff.png', annonce: null }
@@ -111,4 +111,31 @@ test('story du jour J d’une soirée', () => {
   assert.equal(s.affiche, 'aff.png')
   assert.equal(s.fond, 'aff.png')
   assert.equal(s.ligne, '19h · Salle des fêtes de Coligny')
+})
+
+test('phrase sous l’affiche : nombre de jeux arrondi à la centaine inférieure, toujours vrai', () => {
+  assert.equal(phraseParDefaut(312), 'Plus de 300 jeux à découvrir et à emprunter')
+  assert.equal(phraseParDefaut(300), 'Plus de 200 jeux à découvrir et à emprunter')
+  assert.equal(phraseParDefaut(101), 'Plus de 100 jeux à découvrir et à emprunter')
+  assert.equal(phraseParDefaut(87), '87 jeux à découvrir et à emprunter')
+  assert.equal(phraseParDefaut(null), 'Des jeux à découvrir et à emprunter')
+  assert.equal(phraseParDefaut(0), 'Des jeux à découvrir et à emprunter')
+})
+
+test('permanence avec affiche : une image, affiche sur son fond flouté + phrase', () => {
+  const perm = { id: 60, title: 'Permanence de la ludothèque', date: '2026-11-07 10:00:00', end_time: '12:00', location: '419 Grande rue à Coligny', image_url: 'perm.png', annonce: null }
+  assert.deepEqual(textesAnnonce(perm, 312), { phrase: 'Plus de 300 jeux à découvrir et à emprunter' })
+  assert.deepEqual(planAnnonce({ event: perm, passe: null, nbJeux: 312 }), [
+    { type: 'afficheSeule', affiche: 'perm.png', fond: 'perm.png', etiquette: 'Prochaine permanence !', phrase: 'Plus de 300 jeux à découvrir et à emprunter' },
+  ])
+  const modifiee = { ...perm, annonce: { phrase: '  Venez nombreux !  ' } }
+  assert.equal(planAnnonce({ event: modifiee, passe: null, nbJeux: 312 })[0].phrase, 'Venez nombreux !')
+  assert.equal(planAnnonce({ event: { ...perm, annonce: { phrase: '' } }, passe: null, nbJeux: 312 })[0].phrase, '')
+})
+
+test('autre événement avec affiche : étiquette « Prochain rendez-vous ! »', () => {
+  const fete = { id: 61, title: 'Fête du jeu', date: '2027-05-29 14:00:00', end_time: '', location: '', image_url: 'fete.png', annonce: null }
+  const [d] = planAnnonce({ event: fete, passe: null, nbJeux: 312 })
+  assert.equal(d.type, 'afficheSeule')
+  assert.equal(d.etiquette, 'Prochain rendez-vous !')
 })

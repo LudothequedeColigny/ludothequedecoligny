@@ -167,7 +167,7 @@ Pour l'espace de gestion, dans `src/components/admin/` :
 | `ModelesMessages` | fenêtre « Modèles de messages » : textes presse et école à copier, lus dans les Paramètres |
 | `SocialPostPreview` | aperçu d'une publication Facebook/Instagram |
 | `bilan/PublicationBilan` | fenêtre Bilan : choix des photos (ouverture, « plein de jeux », une par jeu), aperçu et publication du carrousel 4:5, story 9:16 à enregistrer |
-| `annonce/PublicationAnnonce` | fenêtre Annonce (bouton « Publier sur Facebook & Instagram » d'un événement) : textes modifiables, aperçu et publication du carrousel d'annonce 4:5, story du jour J ; permanence = story seulement |
+| `annonce/PublicationAnnonce` | fenêtre Annonce (bouton « Publier sur Facebook & Instagram » d'un événement) : textes modifiables, aperçu et publication du carrousel d'annonce 4:5, story du jour J ; permanence et autres événements = une image (affiche sur son fond flouté + phrase modifiable, « Plus de N jeux… » calculé sur la collection) + story |
 | `VueAgrandie` | vue agrandie d'une image (flèches, glisser, clavier), partagée par les fenêtres Bilan et Annonce |
 
 Toute publication vers Facebook/Instagram passe par `src/services/reseauxSociaux.js`

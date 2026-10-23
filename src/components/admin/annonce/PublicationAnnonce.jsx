@@ -5,8 +5,7 @@ import { typeEvenement, dateLocale } from '../../../services/diapos/regles'
 import { textesAnnonce, planAnnonce, planStoryJourJ, dernierEvenementSemblable } from '../../../services/diapos/annonce-regles'
 import { dessinerAnnonce, dessinerStoryJourJ } from '../../../services/diapos/annonce'
 import { versBlob, liberer, viderCache } from '../../../services/diapos/dessin'
-import { publierSurReseaux, uploadSocialBlob, uploadSquareVersion, socialFileNameFrom } from '../../../services/reseauxSociaux'
-import useApercusCarres from '../../../hooks/useApercusCarres'
+import { publierSurReseaux, uploadSocialBlob } from '../../../services/reseauxSociaux'
 import SocialPostPreview from '../SocialPostPreview'
 import VueAgrandie from '../VueAgrandie'
 import { partagerFichiers } from '../../../services/diapos/partage'
@@ -14,8 +13,8 @@ import { partagerFichiers } from '../../../services/diapos/partage'
 /**
  * Annonce d'un événement à venir : carrousel de 5 images 4:5 au plus (publié via Make)
  * et story du jour J (1 image 9:16, à enregistrer sur le téléphone).
- * Autres événements (permanence, fête du jeu, tournoi…) : l'affiche seule, mise au carré
- * comme avant le carrousel, et la story. Mêmes mécanismes que PublicationBilan.
+ * Autres événements (permanence, fête du jeu, tournoi…) : une image, l'affiche sur son fond
+ * flouté avec une courte phrase modifiable, et la story. Mêmes mécanismes que PublicationBilan.
  * Conception : docs/superpowers/specs/2026-10-23-annonce-evenement-design.md
  */
 const SECTION = 'text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1'
@@ -36,11 +35,6 @@ const DELAI_ENREGISTREMENT = 600
 // Événements passés dont on lit les photos à chaque requête (du plus récent au plus ancien)
 const PAR_LOT = 5
 
-// Nom de fichier tiré du titre (« Fête du jeu ! » → « fete-du-jeu- »), comme avant le carrousel
-const nomSur = titre => (titre || 'affiche')
-  .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  .replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').substring(0, 50)
-
 // Date du jour (« 2026-10-23 ») dans le fuseau de l'appareil, celui de la ludothèque :
 // les dates d'événement sont enregistrées sans fuseau
 const aujourdhui = () => {
@@ -49,11 +43,13 @@ const aujourdhui = () => {
 }
 
 export default function PublicationAnnonce({ event, texte, onTexteChange, onEventChange, onErreur, onPublication }) {
+  // Soirée ou après-midi famille : carrousel complet et ses textes
   const avecCarrousel = typeEvenement(event.title) !== 'permanence'
-  // Sans carrousel : l'affiche est publiée seule, si l'événement en a une
+  // Autres événements : une seule image (l'affiche sur son fond flouté), s'il y a une affiche
   const afficheSeule = !avecCarrousel && !!event.image_url
-  // Aperçu fidèle de l'affiche mise au carré sur le fond bois, comme à la publication
-  const apercuAffiche = useApercusCarres(afficheSeule ? [event.image_url] : [])
+  const avecImages = avecCarrousel || afficheSeule
+  // Nombre de jeux de la collection (phrase proposée sous l'affiche) ; undefined pendant le chargement
+  const [nbJeux, setNbJeux] = useState(afficheSeule ? undefined : null)
   // Textes modifiés de l'annonce (null = textes proposés) : affichés tout de suite,
   // enregistrés sur l'événement après un court délai
   const [annonce, setAnnonce] = useState(event.annonce ?? null)
@@ -69,7 +65,7 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
   // Fichier JPEG de la story, prêt avant le geste : iPhone n'autorise le partage
   // que tout de suite après le toucher, sans fabrication d'image entre les deux
   const [fichiersStory, setFichiersStory] = useState(null)
-  const [calculAnnonce, setCalculAnnonce] = useState(avecCarrousel)
+  const [calculAnnonce, setCalculAnnonce] = useState(avecImages)
   const [calculStory, setCalculStory] = useState(true)
   const [agrandie, setAgrandie] = useState(null)
   const [etat, setEtat] = useState('') // '' | 'publication' | 'publie' | 'story'
@@ -175,18 +171,29 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event.id])
 
+  // Nombre de jeux, pour la phrase proposée sous l'affiche (sans lui : phrase sans chiffre)
+  useEffect(() => {
+    if (!afficheSeule) return
+    let annule = false
+    supabase.from('games').select('id', { count: 'exact', head: true }).then(({ count, error }) => {
+      if (error) console.warn('Nombre de jeux :', error)
+      if (!annule) setNbJeux(error ? null : count)
+    })
+    return () => { annule = true }
+  }, [afficheSeule])
+
   // Ce qui est dessiné : la story ne dépend pas des textes, le carrousel si
   const evenementStory = useMemo(() => ({
     id: event.id, title: event.title, date: event.date, end_time: event.end_time,
     location: event.location, image_url: event.image_url,
   }), [event.id, event.title, event.date, event.end_time, event.location, event.image_url])
   const evenement = useMemo(() => ({ ...evenementStory, annonce }), [evenementStory, annonce])
-  const textes = textesAnnonce(evenement)
+  const textes = textesAnnonce(evenement, nbJeux)
 
   // Aperçu du carrousel recalculé (avec un court délai) à chaque changement
   useEffect(() => {
-    if (!avecCarrousel) return
-    if (passe === undefined) { numeros.current.annonce++; setCalculAnnonce(true); return }
+    if (!avecImages) return
+    if (passe === undefined || nbJeux === undefined) { numeros.current.annonce++; setCalculAnnonce(true); return }
     const n = ++numeros.current.annonce
     setCalculAnnonce(true)
     const minuterie = setTimeout(() => aLaSuite(async () => {
@@ -194,7 +201,7 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
       const suite = () => { if (n !== numeros.current.annonce) throw ABANDON }
       try {
         suite()
-        const plan = planAnnonce({ event: evenement, passe })
+        const plan = planAnnonce({ event: evenement, passe, nbJeux })
         // Une image à la fois : convertie dès qu'elle est dessinée, puis libérée
         const a = []
         await dessinerAnnonce(plan, async canvas => {
@@ -214,7 +221,7 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
       }
     }), 400)
     return () => clearTimeout(minuterie)
-  }, [evenement, passe, avecCarrousel])
+  }, [evenement, passe, nbJeux, avecImages])
 
   // Story (et son fichier prêt à partager) : redessinée seulement si ce qu'elle montre change
   useEffect(() => {
@@ -271,7 +278,7 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
   const changerPoint = (i, v) => changerTextes(t => ({ ...t, points: t.points.map((p, j) => (j === i ? v : p)) }))
   const changerInfo = (i, champ, v) => changerTextes(t => ({ ...t, infos: t.infos.map((x, j) => (j === i ? { ...x, [champ]: v } : x)) }))
 
-  // Carrousel : une diapositive à la fois, dessinée, exportée, libérée, puis envoyée
+  // Carrousel (ou affiche seule) : une image à la fois, dessinée, exportée, libérée, puis envoyée
   // (mémoire des téléphones) ; publié tel que montré dans l'aperçu
   const envoyerCarrousel = async () => {
     const horodatage = Date.now()
@@ -285,16 +292,6 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
     })
     return adresses
   }
-  // Affiche seule, mise au carré sur le fond bois (même envoi qu'avant le carrousel) ;
-  // si la mise au carré échoue, l'affiche d'origine hébergée chez nous part telle quelle
-  const envoyerAffiche = async () => {
-    const image = event.image_url
-    const carre = await uploadSquareVersion(image, socialFileNameFrom(image) || nomSur(event.title) + '-social.jpg')
-    // Make ne publie une image seule que si elle est hébergée chez nous
-    const url = carre || (image.includes('supabase.co') ? image : null)
-    if (!url) throw new Error('Affiche non enregistrée')
-    return [url]
-  }
 
   const publier = async () => {
     setEtat('publication')
@@ -302,7 +299,7 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
     onPublication?.(true)
     try {
       // À la suite des aperçus en cours : une seule fabrication d'images à la fois
-      const adresses = await aLaSuite(avecCarrousel ? envoyerCarrousel : envoyerAffiche)
+      const adresses = await aLaSuite(envoyerCarrousel)
       await publierSurReseaux({
         message: texte,
         imageUrls: adresses,
@@ -359,6 +356,28 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
     </div>
   )
 
+  const remiseTextes = (
+    <>
+      {/* Près des champs : en bas de la fenêtre, le message passerait inaperçu */}
+      {erreurTexte && <p className="ml-1 text-[10px] font-bold text-rose-500">{erreurTexte}</p>}
+      {annonce !== null && (
+        <button type="button" onClick={remettreTextes}
+          className="ml-1 text-[9px] font-black uppercase tracking-widest text-[#1a5f7a] underline underline-offset-2 hover:text-[#e38154]">
+          Remettre {avecCarrousel ? 'les textes proposés' : 'la phrase proposée'}
+        </button>
+      )}
+    </>
+  )
+
+  const apercu = (
+    <div className="space-y-1">
+      <SocialPostPreview text={texte} imageUrls={apercuAnnonce} portrait />
+      <p className="h-4 text-center text-[9px] font-black uppercase tracking-widest text-slate-400">
+        {calculAnnonce && <><Loader2 size={10} className="mr-1 inline animate-spin" /> Mise à jour de l'aperçu…</>}
+      </p>
+    </div>
+  )
+
   const boutonStory = (
     <button type="button" onClick={enregistrerStory} disabled={etat === 'story' || calculStory || !fichiersStory}
       className="flex items-center justify-center gap-2 rounded-2xl border-2 border-[#0f172a] bg-white py-4 text-[10px] font-black uppercase tracking-widest text-[#1a5f7a] transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
@@ -393,25 +412,13 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
               ))}
             </div>
 
-            {/* Près des champs : en bas de la fenêtre, le message passerait inaperçu */}
-            {erreurTexte && <p className="ml-1 text-[10px] font-bold text-rose-500">{erreurTexte}</p>}
-            {annonce !== null && (
-              <button type="button" onClick={remettreTextes}
-                className="ml-1 text-[9px] font-black uppercase tracking-widest text-[#1a5f7a] underline underline-offset-2 hover:text-[#e38154]">
-                Remettre les textes proposés
-              </button>
-            )}
+            {remiseTextes}
 
             {blocTexte}
           </div>
 
           <div className="space-y-5">
-            <div className="space-y-1">
-              <SocialPostPreview text={texte} imageUrls={apercuAnnonce} portrait />
-              <p className="h-4 text-center text-[9px] font-black uppercase tracking-widest text-slate-400">
-                {calculAnnonce && <><Loader2 size={10} className="mr-1 inline animate-spin" /> Mise à jour de l'aperçu…</>}
-              </p>
-            </div>
+            {apercu}
             {story}
           </div>
         </div>
@@ -419,14 +426,23 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
         <>
           <p className="rounded-[12px] border-2 border-slate-100 px-3 py-2 text-[11px] font-semibold text-slate-500">
             {afficheSeule
-              ? "Pour cet événement, pas de carrousel d'annonce : l'affiche seule est publiée, et la story du jour J est à enregistrer."
+              ? "Pour cet événement, pas de carrousel d'annonce : une seule image est publiée (l'affiche sur son fond flouté, avec une courte phrase), et la story du jour J est à enregistrer."
               : "Pour cet événement, pas de carrousel d'annonce : seule la story du jour J est proposée."}
           </p>
           {afficheSeule ? (
             <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
-              {blocTexte}
               <div className="space-y-5">
-                <SocialPostPreview text={texte} imageUrls={apercuAffiche} />
+                <div className="space-y-2">
+                  <p className={SECTION}>Phrase sous l'affiche</p>
+                  <input type="text" value={nbJeux === undefined && annonce === null ? '' : textes.phrase}
+                    onChange={e => changerTextes(() => ({ phrase: e.target.value }))}
+                    aria-label="Phrase sous l'affiche" placeholder="Phrase (vide : pas de phrase)" className={CHAMP} />
+                </div>
+                {remiseTextes}
+                {blocTexte}
+              </div>
+              <div className="space-y-5">
+                {apercu}
                 {story}
               </div>
             </div>
@@ -435,15 +451,15 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
       )}
 
       {erreur && <p className="text-center text-[10px] font-bold text-rose-500">{erreur}</p>}
-      <div className={'grid gap-2.5' + (avecCarrousel || afficheSeule ? ' sm:grid-cols-2' : '')}>
-        {(avecCarrousel || afficheSeule) && (etat === 'publie' ? (
+      <div className={'grid gap-2.5' + (avecImages ? ' sm:grid-cols-2' : '')}>
+        {avecImages && (etat === 'publie' ? (
           <div className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-4 text-[10px] font-black uppercase tracking-widest text-white">
             <CheckCircle2 size={14} /> Publié avec succès !
           </div>
         ) : (
-          <button type="button" onClick={publier} disabled={etat === 'publication' || !texte.trim() || (avecCarrousel && (calculAnnonce || !planCarrousel || !apercuAnnonce.length))}
+          <button type="button" onClick={publier} disabled={etat === 'publication' || !texte.trim() || calculAnnonce || !planCarrousel || !apercuAnnonce.length}
             className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500 py-4 text-[10px] font-black uppercase tracking-widest text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-300">
-            {etat === 'publication' ? <><Loader2 size={14} className="animate-spin" /> Publication…</> : <><Share2 size={14} /> Publier sur Facebook & Instagram ({avecCarrousel ? apercuAnnonce.length : 1})</>}
+            {etat === 'publication' ? <><Loader2 size={14} className="animate-spin" /> Publication…</> : <><Share2 size={14} /> Publier sur Facebook & Instagram ({apercuAnnonce.length})</>}
           </button>
         ))}
         {boutonStory}

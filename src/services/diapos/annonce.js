@@ -420,7 +420,63 @@ async function attend(ctx, d, logo) {
   ctx.textAlign = 'left'
 }
 
-const DESSINS = { affiche, attente, infos, souvenir, attend }
+// ---------- Affiche seule (permanence, autres événements) ----------
+
+/**
+ * Comme la diapositive 1 d'une soirée : affiche penchée sur son fond flouté, étiquette
+ * en haut, et une courte phrase en bas (2 lignes au plus ; vide : affiche plus grande).
+ */
+async function afficheSeule(ctx, d) {
+  await fondFloute(ctx, d.fond, H, 'rgba(15,23,42,0.45)')
+  etiquetteCentree(ctx, d.etiquette, { y: 110, taille: 64, angle: -2 })
+
+  const max = L - 160
+  let taille = 56
+  let lignes = []
+  if (d.phrase) {
+    for (; ; taille -= 2) {
+      police(ctx, 800, taille, TITRE)
+      espacer(ctx, -0.03 * taille)
+      lignes = couperLignes(ctx, d.phrase, max)
+      if (lignes.length <= 2 || taille <= 40) break
+    }
+    lignes = limiterLignes(ctx, lignes, 2, max)
+    // Deux lignes : coupe équilibrée plutôt qu'un mot seul sur la seconde
+    if (lignes.length === 2 && couperLignes(ctx, d.phrase, max).length === 2) {
+      let w = max
+      while (w > max / 2 && couperLignes(ctx, d.phrase, w - 10).length === 2) w -= 10
+      lignes = couperLignes(ctx, d.phrase, w)
+    }
+  }
+  const hLigne = taille * 1.1
+  const basPhrase = H - 70
+  const hautPhrase = basPhrase - lignes.length * hLigne
+
+  // Affiche entre l'étiquette et la phrase, centrée dans l'espace libre
+  const img = await chargerImage(d.affiche)
+  if (img) {
+    const haut = 250
+    const bas = lignes.length ? hautPhrase - 56 : H - 80
+    let h = bas - haut
+    const bord = 6
+    const wMax = L - 140
+    const ratio = img.width / img.height
+    if ((h - 2 * bord) * ratio + 2 * bord > wMax) h = (wMax - 2 * bord) / ratio + 2 * bord
+    dessinerAffiche(ctx, img, { cx: L / 2, haut: haut + (bas - haut - h) / 2, h, angle: 1.5, ombre: 18, wMax })
+  }
+
+  if (lignes.length) {
+    ctx.textAlign = 'center'
+    ctx.fillStyle = COULEURS.creme
+    police(ctx, 800, taille, TITRE)
+    espacer(ctx, -0.03 * taille)
+    lignes.forEach((l, i) => ctx.fillText(l, L / 2, baseLigne(ctx, hautPhrase + i * hLigne, hLigne)))
+    espacer(ctx, 0)
+    ctx.textAlign = 'left'
+  }
+}
+
+const DESSINS = { affiche, attente, infos, souvenir, attend, afficheSeule }
 
 // ---------- Story du jour J ----------
 

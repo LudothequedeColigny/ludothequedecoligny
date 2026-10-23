@@ -3,7 +3,7 @@
  * Fonctions pures, testées par `npm test`. Dessin : annonce.js.
  * Conception : docs/superpowers/specs/2026-10-23-annonce-evenement-design.md
  */
-import { typeEvenement, dateLocale, quandRendezVous, lieuCourt, jourMois } from './regles.js'
+import { typeEvenement, dateLocale, quandRendezVous, lieuCourt, jourMois, sansAccents } from './regles.js'
 
 const JOURS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 const heure = d => `${d.getHours()}h${d.getMinutes() ? String(d.getMinutes()).padStart(2, '0') : ''}`
@@ -24,8 +24,25 @@ export const INFOS_TYPES = [
   { titre: 'Apportez à grignoter', detail: 'ou à boire, à partager' },
 ]
 
-/** Textes de l'annonce : ceux mémorisés pour l'événement, sinon les textes types. */
-export function textesAnnonce(event) {
+/**
+ * Phrase proposée sous l'affiche (permanence et autres événements) : le nombre de jeux,
+ * arrondi à la centaine inférieure pour rester vrai (« Plus de 300 » pour 312 jeux).
+ */
+export function phraseParDefaut(nbJeux) {
+  const n = Number(nbJeux) || 0
+  if (n > 100) return `Plus de ${Math.floor((n - 1) / 100) * 100} jeux à découvrir et à emprunter`
+  if (n > 0) return `${n} jeux à découvrir et à emprunter`
+  return 'Des jeux à découvrir et à emprunter'
+}
+
+/**
+ * Textes de l'annonce : ceux mémorisés pour l'événement, sinon les textes types.
+ * Permanence et autres événements : seulement la phrase sous l'affiche.
+ */
+export function textesAnnonce(event, nbJeux) {
+  if (typeEvenement(event.title) === 'permanence') {
+    return { phrase: event.annonce?.phrase ?? phraseParDefaut(nbJeux) }
+  }
   const type = typeEvenement(event.title) === 'famille' ? 'famille' : 'soiree'
   const base = TEXTES_TYPES[type]
   const a = event.annonce || {}
@@ -73,9 +90,20 @@ function photosDuPasse(passe) {
 
 const genre = type => (type === 'famille' ? 'Après-midi en famille' : 'Soirée jeux')
 
-export function planAnnonce({ event, passe }) {
+export function planAnnonce({ event, passe, nbJeux }) {
   const type = typeEvenement(event.title)
-  if (type === 'permanence') return []
+  // Permanence et autres événements : une seule image, l'affiche sur son fond flouté
+  if (type === 'permanence') {
+    if (!event.image_url) return []
+    const permanence = sansAccents(event.title).includes('permanence')
+    return [{
+      type: 'afficheSeule',
+      affiche: event.image_url,
+      fond: event.image_url,
+      etiquette: permanence ? 'Prochaine permanence !' : 'Prochain rendez-vous !',
+      phrase: textesAnnonce(event, nbJeux).phrase.trim(),
+    }]
+  }
   const textes = textesAnnonce(event)
   const quand = lignesQuand(event)
   const ph = photosDuPasse(passe)
