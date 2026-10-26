@@ -166,9 +166,9 @@ Pour l'espace de gestion, dans `src/components/admin/` :
 | `NouveauxJeux` | onglet « Nouveaux jeux » de Communication : jeux ajoutés depuis le 01/09/2026, carrousel 4:5 (couverture, une image par jeu — 8 au plus, boîte détourée en autocollant —, prochaine permanence) dessiné par `diapos/nouveaux-jeux-regles.js` / `nouveaux-jeux.js` ; cochés → « annonce », décochés → « ecarte » (table `annonces_jeux`, bénévoles seulement) |
 | `ModelesMessages` | fenêtre « Modèles de messages » : textes presse et école à copier, lus dans les Paramètres |
 | `SocialPostPreview` | aperçu d'une publication Facebook/Instagram |
-| `bilan/PublicationBilan` | fenêtre Bilan : choix des photos (ouverture, « plein de jeux », une par jeu), aperçu et publication du carrousel 4:5, story 9:16 à enregistrer |
+| `bilan/PublicationBilan` | fenêtre Bilan : choix des photos (ouverture, « plein de jeux », une par jeu), aperçu et publication du carrousel 4:5, story 9:16 à enregistrer ; « Expression libre » facultative (phrase de 90 caractères + fond flouté ou photo du bilan, avant le « Merci », `events.bilan_expression`) |
 | `annonce/PublicationAnnonce` | fenêtre Annonce (bouton « Publier sur Facebook & Instagram » d'un événement) : textes modifiables, aperçu et publication du carrousel d'annonce 4:5, story du jour J ; permanence et autres événements = une image (affiche sur son fond flouté + phrase modifiable, « Plus de N jeux… » calculé sur la collection) + story |
-| `bilan/PublicationBilanPermanence` | fenêtre Bilan d'une permanence : 3 images 4:5 tirées des prêts du jour (jeux distincts, un prêt rendu le jour même ne compte pas), jamais l'emprunteur ; prochaine permanence = événement saisi, sinon Paramètres |
+| `bilan/PublicationBilanPermanence` | fenêtre Bilan d'une permanence : 3 images 4:5 tirées des prêts du jour (jeux distincts, un prêt rendu le jour même ne compte pas), jamais l'emprunteur ; prochaine permanence = événement saisi, sinon Paramètres ; même « Expression libre » (avant « Prochaine permanence ») |
 | `VueAgrandie` | vue agrandie d'une image (flèches, glisser, clavier), partagée par les fenêtres Bilan et Annonce |
 
 Toute publication vers Facebook/Instagram passe par `src/services/reseauxSociaux.js`
