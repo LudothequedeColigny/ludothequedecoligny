@@ -36,7 +36,7 @@ import useApercusCarres from '../../hooks/useApercusCarres'
 import NouveauxJeux from '../../components/admin/NouveauxJeux'
 import { chargerJeuxAAnnoncer } from '../../services/nouveauxJeux'
 import { copierJaquette } from '../../services/diapos/jaquettes'
-import { typeEvenement as getEventType } from '../../services/diapos/regles'
+import { typeEvenement as getEventType, sansAccents } from '../../services/diapos/regles'
 import PublicationBilan from '../../components/admin/bilan/PublicationBilan'
 import PublicationBilanPermanence from '../../components/admin/bilan/PublicationBilanPermanence'
 import { estPermanence } from '../../services/diapos/permanence-regles'
@@ -252,9 +252,11 @@ export default function Evenements() {
   const basePixelsRef = useRef(null)
   const dragStartRef = useRef(null)
   const pendingRectsRef = useRef([])
-  // Recherche de jeux joués via MyLudo
+  // Recherche de jeux joués : la collection de la ludothèque d'abord, MyLudo ensuite
   const [gameSearchQuery, setGameSearchQuery] = useState('')
   const [gameSearchResults, setGameSearchResults] = useState([])
+  const [catalogueResults, setCatalogueResults] = useState([])
+  const catalogueRef = useRef(null) // [{ id, name, image_url, cle }] chargé à l'ouverture d'un bilan
   const [gameSearchLoading, setGameSearchLoading] = useState(false)
   const [addingGameId, setAddingGameId] = useState(null)
   const gameSearchDebounceRef = useRef(null)
@@ -939,6 +941,8 @@ www.ludothequedecoligny.fr`
     setBilanParticipants(event.participants_count != null ? String(event.participants_count) : '')
     setGameSearchQuery('')
     setGameSearchResults([])
+    setCatalogueResults([])
+    chargerCatalogue()
     setBilanFbText(buildBilanFbText(event))
     setBilanFbTextEdited(false)
     cancelPhotoQueue()
@@ -969,6 +973,7 @@ www.ludothequedecoligny.fr`
     setBilanGames([])
     setGameSearchQuery('')
     setGameSearchResults([])
+    setCatalogueResults([])
     setBilanFbText('')
     cancelPhotoQueue()
   }
@@ -1234,15 +1239,36 @@ www.ludothequedecoligny.fr`
     }
   }
 
-  // ── Recherche & ajout de jeux joués (MyLudo) ──
+  // ── Recherche & ajout de jeux joués : collection de la ludothèque, puis MyLudo ──
+  // Noms des jeux de la collection (quelques centaines, lus à l'ouverture du bilan) : recherche instantanée,
+  // sans tenir compte des accents ni des majuscules
+  // Rechargé à chaque ouverture : un jeu ajouté entre-temps au catalogue est proposé
+  const chargerCatalogue = async () => {
+    const { data, error } = await supabase.from('games').select('id, name, image_url').order('name')
+    if (error) { console.warn('Collection pour la recherche :', error); return }
+    catalogueRef.current = (data || []).filter(g => g.name).map(g => ({ ...g, cle: sansAccents(g.name).trim() }))
+  }
+
   const handleGameSearchChange = (value) => {
     setGameSearchQuery(value)
     if (gameSearchDebounceRef.current) clearTimeout(gameSearchDebounceRef.current)
-    if (value.trim().length < 2) { setGameSearchResults([]); return }
+    const recherche = sansAccents(value).trim()
+    if (recherche.length < 2) { setGameSearchResults([]); setCatalogueResults([]); return }
+    // Jeux déjà dans le bilan : plus proposés
+    const dejaJoues = new Set(bilanGames.map(g => sansAccents(g.name).trim()))
+    const dansLaLudo = (catalogueRef.current || [])
+      .filter(g => g.cle.includes(recherche) && !dejaJoues.has(g.cle))
+      // Ceux qui commencent par la recherche d'abord
+      .sort((a, b) => Number(!a.cle.startsWith(recherche)) - Number(!b.cle.startsWith(recherche)))
+      .slice(0, 8)
+    setCatalogueResults(dansLaLudo)
+    setGameSearchResults([])
     gameSearchDebounceRef.current = setTimeout(async () => {
       setGameSearchLoading(true)
       try {
-        const results = await bggSearchGames(value.trim())
+        // MyLudo ensuite, sans répéter les jeux de la collection
+        const connus = new Set([...(catalogueRef.current || []).map(g => g.cle), ...dejaJoues])
+        const results = (await bggSearchGames(value.trim())).filter(r => !connus.has(sansAccents(r.name).trim()))
         const enriched = await Promise.all(results.map(async r => {
           try {
             const details = await bggGameDetails(r.id)
@@ -1258,6 +1284,29 @@ www.ludothequedecoligny.fr`
         setGameSearchLoading(false)
       }
     }, 800)
+  }
+
+  // Jeu de la collection : son nom et sa jaquette (déjà chez nous), « dispo à la ludothèque »
+  const ajouterJeuDeLaLudo = async (jeu) => {
+    if (!bilanModal.event) return
+    setAddingGameId(`ludo-${jeu.id}`)
+    try {
+      const { data, error } = await supabase.from('event_games_played').insert({
+        event_id: bilanModal.event.id,
+        name: jeu.name.trim(),
+        image_url: jeu.image_url || '',
+        external_url: '',
+        in_catalogue: true,
+      }).select()
+      if (error) throw error
+      setBilanGames(prev => [...prev, data[0]])
+      setCatalogueResults(prev => prev.filter(r => r.id !== jeu.id))
+    } catch (err) {
+      console.error('Erreur ajout jeu:', err)
+      addToast("Erreur lors de l'ajout du jeu.", 'error')
+    } finally {
+      setAddingGameId(null)
+    }
   }
 
   const addGameToBilan = async (result) => {
@@ -2495,15 +2544,33 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
                   <input
-                    placeholder="Rechercher un jeu sur MyLudo..."
+                    placeholder="Rechercher un jeu (ludothèque, puis MyLudo)…"
                     className="w-full rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] py-4 pl-11 pr-10 text-sm font-bold outline-none focus:bg-white"
                     value={gameSearchQuery}
                     onChange={e => handleGameSearchChange(e.target.value)}
                   />
                   {gameSearchLoading && <Loader2 size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#1a5f7a] animate-spin" />}
 
-                  {gameSearchResults.length > 0 && (
-                    <div className="absolute z-50 top-full mt-2 w-full rounded-[18px] border-2 border-[#0f172a] bg-white shadow-[4px_4px_0_#1a5f7a] max-h-64 overflow-y-auto">
+                  {(catalogueResults.length > 0 || gameSearchResults.length > 0) && (
+                    <div className="absolute z-50 top-full mt-2 w-full rounded-[18px] border-2 border-[#0f172a] bg-white shadow-[4px_4px_0_#1a5f7a] max-h-80 overflow-y-auto">
+                      {catalogueResults.length > 0 && (
+                        <p className="px-4 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-[#1a5f7a]">Dans la ludothèque</p>
+                      )}
+                      {catalogueResults.map(jeu => (
+                        <div key={`ludo-${jeu.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 border-b border-slate-50 last:border-0">
+                          <div className="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden flex items-center justify-center shrink-0">
+                            {jeu.image_url ? <img src={jeu.image_url} alt="" className="w-full h-full object-contain" /> : <Dice5 size={16} className="text-slate-300" />}
+                          </div>
+                          <p className="flex-1 min-w-0 text-xs font-bold text-slate-800 truncate">{jeu.name}</p>
+                          <button onClick={() => ajouterJeuDeLaLudo(jeu)} disabled={addingGameId === `ludo-${jeu.id}`}
+                            className="shrink-0 px-3 py-2 bg-[#1a5f7a]/10 text-[#1a5f7a] rounded-xl text-[9px] font-black uppercase hover:bg-[#1a5f7a]/20 transition-colors flex items-center gap-1">
+                            {addingGameId === `ludo-${jeu.id}` ? <Loader2 size={12} className="animate-spin" /> : <><Plus size={12} /> Ajouter</>}
+                          </button>
+                        </div>
+                      ))}
+                      {gameSearchResults.length > 0 && (
+                        <p className="px-4 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400">Ailleurs (MyLudo)</p>
+                      )}
                       {gameSearchResults.map(result => (
                         <div key={result.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 border-b border-slate-50 last:border-0">
                           <div className="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden flex items-center justify-center shrink-0">
