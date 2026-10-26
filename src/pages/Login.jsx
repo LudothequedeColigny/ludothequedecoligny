@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../services/supabaseClient'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Loader2, AlertTriangle } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import PublicLayout from '../components/site/PublicLayout'
 import FloatingIcons from '../components/site/FloatingIcons'
 import MaskIcon from '../components/site/MaskIcon'
@@ -56,7 +56,7 @@ export default function Login() {
               className="anim-die-drop mx-auto mb-5 flex h-20 w-20 -rotate-3 items-center justify-center rounded-[26px] border-2 border-[#0f172a] bg-[#1a5f7a] shadow-[5px_5px_0_#e38154]"
               style={{ animationDelay: '0.1s' }}
             >
-              <MaskIcon file="01.svg" size={36} color="#ffffff" />
+              <MaskIcon file="ludo-connexion.svg" size={44} color="#ffffff" />
             </div>
             <h1
               className="anim-soft-in font-display text-[26px] font-extrabold leading-[1.05] tracking-[-0.045em] sm:text-[30px] md:text-[44px]"
@@ -101,7 +101,7 @@ export default function Login() {
 
               {errorMsg && (
                 <div className="mb-5 flex items-center gap-3 rounded-[18px] border-2 border-rose-200 bg-rose-50 p-4 text-xs font-bold text-rose-600">
-                  <AlertTriangle size={18} className="shrink-0" />
+                  <MaskIcon file="ludo-alerte.svg" size={22} color="currentColor" className="shrink-0" />
                   {errorMsg}
                 </div>
               )}

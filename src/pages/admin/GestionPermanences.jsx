@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../services/supabaseClient'
 import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
-import { Clock, Plus, Trash2, CheckCircle, UserCheck, Loader2, AlertTriangle, X, Edit2 } from 'lucide-react'
+import { Clock, Plus, Trash2, CheckCircle, UserCheck, Loader2, X, Edit2 } from 'lucide-react'
 import MaskIcon from '../../components/site/MaskIcon'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import AdminBanner from '../../components/admin/AdminBanner'
@@ -263,7 +263,7 @@ const PERMANENCES_TUTORIAL_STEPS = (openFormFn, closeFormFn, openLinkFn) => [
           </AdminBanner>
         )}
         {errorMsg && (
-          <AdminBanner tone="danger" icon={<AlertTriangle size={18} />}>
+          <AdminBanner tone="danger" icon={<MaskIcon file="ludo-alerte.svg" size={24} color="currentColor" />}>
             {errorMsg}. Vérifiez la connexion internet, puis rechargez la page.
           </AdminBanner>
         )}
@@ -479,7 +479,7 @@ const PERMANENCES_TUTORIAL_STEPS = (openFormFn, closeFormFn, openLinkFn) => [
         confirmLabel="Confirmer le retrait"
         cancelLabel="Annuler"
         tone="danger"
-        icon={<AlertTriangle size={26} />}
+        icon={<MaskIcon file="ludo-alerte.svg" size={40} color="currentColor" />}
       />
 
       {/* --- MODALE SUPPRESSION --- */}

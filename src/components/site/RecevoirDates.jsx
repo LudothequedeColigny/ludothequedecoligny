@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Mail, Loader2, AlertTriangle } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
+import MaskIcon from './MaskIcon'
 import { supabase } from '../../services/supabaseClient'
 import Reveal from './Reveal'
 import SuccessModal from './SuccessModal'
@@ -33,7 +34,7 @@ export default function RecevoirDates() {
       <Reveal className="mx-auto flex max-w-[1180px] flex-col gap-6 rounded-[32px] border-2 border-[#0f172a] bg-[#fdf1ea] p-7 shadow-[8px_8px_0_#e38154] md:flex-row md:items-center md:gap-10 md:rounded-[44px] md:p-11">
         <div className="min-w-0 md:flex-1">
           <div className="mb-4 flex h-[58px] w-[58px] items-center justify-center rounded-[20px] border-2 border-[#0f172a] bg-white text-[#e38154]">
-            <Mail size={26} />
+            <MaskIcon file="ludo-dates-mail.svg" size={34} color="currentColor" />
           </div>
           <h2 className="mb-2 font-display text-[24px] font-extrabold leading-[1.1] tracking-[-0.04em] md:text-[34px]">
             Ne ratez plus <span className="text-[#e38154]">une soirée jeux</span>
@@ -52,7 +53,7 @@ export default function RecevoirDates() {
           />
           {etat === 'erreur' && (
             <p className="flex items-center gap-2 text-[12.5px] font-bold text-rose-600">
-              <AlertTriangle size={15} className="shrink-0" /> L'inscription n'a pas fonctionné. Vérifiez l'adresse et réessayez.
+              <MaskIcon file="ludo-alerte.svg" size={20} color="currentColor" className="shrink-0" /> L'inscription n'a pas fonctionné. Vérifiez l'adresse et réessayez.
             </p>
           )}
           <button type="submit" disabled={etat === 'envoi'} className={BTN_PRIMARY}>

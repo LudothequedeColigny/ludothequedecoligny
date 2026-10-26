@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../services/supabaseClient'
-import { Send, Loader2, XCircle, Check } from 'lucide-react'
+import { Send, Loader2, Check } from 'lucide-react'
 import PublicLayout from '../components/site/PublicLayout'
 import MaskIcon from '../components/site/MaskIcon'
 import Reveal from '../components/site/Reveal'
@@ -104,7 +104,7 @@ export default function InscriptionPermanence() {
         <div className="mx-auto max-w-[560px]">
           <div className="mb-9 text-center">
             <div className="anim-soft-in mx-auto mb-5 flex h-[78px] w-[78px] rotate-3 items-center justify-center rounded-[26px] border-2 border-[#0f172a] bg-[#1a5f7a] shadow-[5px_5px_0_#e38154]">
-              <MaskIcon file="05.svg" size={34} color="#ffffff" />
+              <MaskIcon file="ludo-permanence.svg" size={44} color="#ffffff" />
             </div>
             <h1
               className="anim-soft-in font-display text-[25px] font-extrabold uppercase leading-none tracking-[-0.045em] sm:text-[30px] md:text-[44px]"
@@ -195,7 +195,7 @@ export default function InscriptionPermanence() {
                               <Check size={18} strokeWidth={4} />
                             </div>
                           ) : isFull ? (
-                            <XCircle size={24} className="text-slate-300" />
+                            <MaskIcon file="ludo-complet.svg" size={30} color="#94a3b8" />
                           ) : (
                             <>
                               <div className="font-display text-[17px] font-extrabold text-[#0f172a]">

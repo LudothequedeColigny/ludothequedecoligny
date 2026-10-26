@@ -7,19 +7,8 @@ import PublicLayout from '../components/site/PublicLayout'
 import Reveal from '../components/site/Reveal'
 import Modal from '../components/site/Modal'
 import { BTN_TEAL } from '../components/site/styles'
-import {
-  X,
-  Users,
-  Clock,
-  Dice5,
-  Search,
-  ChevronDown,
-  ChevronUp,
-  Baby,
-  PlayCircle,
-  Tag,
-  SlidersHorizontal
-} from 'lucide-react'
+import { X, Users, Clock, Search, ChevronDown, ChevronUp, Baby, Tag, SlidersHorizontal } from 'lucide-react'
+import MaskIcon from '../components/site/MaskIcon'
 
 // Composant curseur — défini HORS de Catalogue pour éviter les re-montages au render
 function SliderFilter({ icon, filterKey, value, setter, max, unit, accentColor, editingFilter, editingValue, setEditingValue, onStartEditing, onCommit, onCancelEditing }) {
@@ -421,7 +410,7 @@ function Catalogue() {
             </div>
           ) : filteredJeux.length === 0 ? (
             <div className="rounded-[30px] border-2 border-dashed border-[#0f172a]/30 bg-white py-14 text-center">
-              <Dice5 size={40} className="mx-auto mb-4 text-slate-200" />
+              <MaskIcon file="ludo-boite-jeu.svg" size={56} color="#cbd5e1" className="mx-auto mb-4" />
               <p className="italic text-slate-400">Aucun jeu ne correspond à votre recherche.</p>
             </div>
           ) : (
@@ -457,7 +446,7 @@ function Catalogue() {
                             className="max-h-full max-w-full object-contain transition-transform duration-500 group-hover:scale-105"
                           />
                         ) : (
-                          <Dice5 size={56} className="text-slate-200" />
+                          <MaskIcon file="ludo-boite-jeu.svg" size={72} color="#cbd5e1" />
                         )}
 
                         <div className="absolute left-3 top-3 flex flex-col items-start gap-1.5">
@@ -524,7 +513,7 @@ function Catalogue() {
                   className="max-h-64 w-auto object-contain"
                 />
               ) : (
-                <Dice5 size={72} className="text-slate-200" />
+                <MaskIcon file="ludo-boite-jeu.svg" size={96} color="#cbd5e1" />
               )}
             </div>
 
@@ -600,7 +589,7 @@ function Catalogue() {
                   rel="noopener noreferrer"
                   className={`${BTN_TEAL} w-full`}
                 >
-                  <PlayCircle size={18} /> Vidéo des règles
+                  <MaskIcon file="ludo-video.svg" size={22} color="currentColor" /> Vidéo des règles
                 </a>
               )}
             </div>

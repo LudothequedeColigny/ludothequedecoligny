@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, ChevronLeft, ChevronRight, BookOpen } from 'lucide-react'
+import MaskIcon from './site/MaskIcon'
 
 export function TutorialButton({ onClick }) {
   return (
@@ -16,7 +17,7 @@ export function TutorialButton({ onClick }) {
       title="Aide & tutoriel"
       className="fixed bottom-6 right-6 z-[900] flex items-center gap-2.5 rounded-[20px] border-2 border-[#0f172a] bg-[#1a5f7a] px-5 py-4 text-[10px] font-extrabold uppercase tracking-[0.14em] text-white shadow-[4px_4px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0f172a]"
     >
-      <BookOpen size={16} strokeWidth={2.5} />
+      <MaskIcon file="ludo-tutoriel.svg" size={22} color="currentColor" />
       Tutoriel
     </button>
   )
@@ -322,7 +323,7 @@ export default function TutorialOverlay({ steps = [], open, onClose }) {
               }}>{step.description}</p>
               {step.tip && !isMobileTip && (
                 <div style={{ marginTop: 10, padding: '9px 12px', background: '#fffbeb', borderRadius: 14, border: '2px solid #f59e0b', display: 'flex', gap: 7 }}>
-                  <span style={{ fontSize: 13 }}>💡</span>
+                  <MaskIcon file="ludo-suggestions.svg" size={20} color="#b45309" className="shrink-0" />
                   <p style={{ fontSize: 12, color: '#92400e', margin: 0, lineHeight: 1.5, fontWeight: 500 }}>{step.tip}</p>
                 </div>
               )}

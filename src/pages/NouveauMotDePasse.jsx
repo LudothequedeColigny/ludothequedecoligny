@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { supabase } from '../services/supabaseClient'
 import PublicLayout from '../components/site/PublicLayout'
 import FloatingIcons from '../components/site/FloatingIcons'
@@ -83,7 +83,7 @@ export default function NouveauMotDePasse() {
         <div className="relative z-10 mx-auto max-w-[480px]">
           <div className="mb-8 text-center">
             <div className="anim-die-drop mx-auto mb-5 flex h-20 w-20 -rotate-3 items-center justify-center rounded-[26px] border-2 border-[#0f172a] bg-[#1a5f7a] shadow-[5px_5px_0_#e38154]">
-              <MaskIcon file="01.svg" size={36} color="#ffffff" />
+              <MaskIcon file="ludo-cle.svg" size={44} color="#ffffff" />
             </div>
             <h1 className="anim-soft-in font-display text-[26px] font-extrabold leading-[1.05] tracking-[-0.045em] sm:text-[30px] md:text-[44px]">
               Nouveau <span className="text-[#1a5f7a]">mot de passe</span>
@@ -101,7 +101,7 @@ export default function NouveauMotDePasse() {
             {step === 'invalid' && (
               <div className="space-y-5 text-center">
                 <div className="flex items-start gap-3 rounded-[18px] border-2 border-rose-200 bg-rose-50 p-4 text-left text-xs font-bold text-rose-600">
-                  <AlertTriangle size={18} className="shrink-0" />
+                  <MaskIcon file="ludo-alerte.svg" size={22} color="currentColor" className="shrink-0" />
                   Ce lien a expiré ou a déjà servi. Les liens sont valables une heure et ne servent qu'une fois.
                 </div>
                 <p className="text-sm text-slate-600">
@@ -138,7 +138,7 @@ export default function NouveauMotDePasse() {
 
                 {errorMsg && (
                   <div className="mb-5 flex items-center gap-3 rounded-[18px] border-2 border-rose-200 bg-rose-50 p-4 text-xs font-bold text-rose-600">
-                    <AlertTriangle size={18} className="shrink-0" />
+                    <MaskIcon file="ludo-alerte.svg" size={22} color="currentColor" className="shrink-0" />
                     {errorMsg}
                   </div>
                 )}
@@ -151,7 +151,7 @@ export default function NouveauMotDePasse() {
 
             {step === 'done' && (
               <div className="space-y-6 text-center">
-                <CheckCircle2 size={44} className="mx-auto text-emerald-500" />
+                <MaskIcon file="ludo-cle-ok.svg" size={60} color="#10b981" className="mx-auto" />
                 <p className="text-sm font-bold text-slate-700">
                   Votre mot de passe est enregistré. Vous pouvez maintenant accéder à l'espace bénévoles.
                 </p>

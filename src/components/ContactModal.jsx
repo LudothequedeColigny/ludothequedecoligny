@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { Loader2, AlertTriangle, Phone, User } from 'lucide-react'
+import { Loader2, User } from 'lucide-react'
+import MaskIcon from './site/MaskIcon'
 import { supabase } from '../services/supabaseClient'
 import { sendContactMessage } from '../services/emailService'
 import Modal from './site/Modal'
@@ -89,7 +90,7 @@ export default function ContactModal({ open, onClose }) {
               href={`tel:${contact.tel.replace(/\s/g, '')}`}
               className="flex items-center gap-2 text-[13px] font-medium text-slate-500 transition-colors hover:text-[#1a5f7a]"
             >
-              <Phone size={15} className="text-slate-400" /> {contact.tel}
+              <MaskIcon file="ludo-contact.svg" size={20} color="#94a3b8" /> {contact.tel}
             </a>
           )}
         </div>
@@ -126,7 +127,7 @@ export default function ContactModal({ open, onClose }) {
 
         {status === 'error' && (
           <div className="mb-4 flex items-center gap-2 rounded-[18px] border-2 border-rose-200 bg-rose-50 p-4 text-xs font-bold text-rose-600">
-            <AlertTriangle size={16} className="shrink-0" /> Une erreur est survenue. Réessayez.
+            <MaskIcon file="ludo-alerte.svg" size={20} color="currentColor" className="shrink-0" /> Une erreur est survenue. Réessayez.
           </div>
         )}
 

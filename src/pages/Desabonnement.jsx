@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { CheckCircle2, Loader2, MailX } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
+import MaskIcon from '../components/site/MaskIcon'
 import { supabase } from '../services/supabaseClient'
 import PublicLayout from '../components/site/PublicLayout'
 import FloatingIcons from '../components/site/FloatingIcons'
@@ -66,8 +67,8 @@ export default function Desabonnement() {
             className={`mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-[20px] border-2 border-[#0f172a] ${etat === 'fait' ? 'bg-[#ecfdf5] text-[#10b981]' : 'bg-[#fdfaf6] text-[#e38154]'}`}
           >
             {etat === 'envoi' ? <Loader2 size={28} className="animate-spin" />
-              : etat === 'fait' ? <CheckCircle2 size={30} />
-              : <MailX size={28} />}
+              : etat === 'fait' ? <MaskIcon file="ludo-mail-ok.svg" size={38} color="currentColor" />
+              : <MaskIcon file="ludo-mail-barre.svg" size={38} color="currentColor" />}
           </div>
 
           <h1 className="mb-4 font-display text-[24px] font-extrabold leading-[1.1] tracking-[-0.035em] md:text-[30px]">

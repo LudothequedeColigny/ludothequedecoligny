@@ -12,7 +12,7 @@ import CountUp from '../components/site/CountUp'
 import Modal from '../components/site/Modal'
 import RecevoirDates from '../components/site/RecevoirDates'
 import { BTN_PRIMARY, BTN_SECONDARY, BTN_ON_COLOR, EYEBROW } from '../components/site/styles'
-import { MapPin, Loader2, ImageIcon } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 // Les trois dés qui tombent en ouverture de la page
 const HERO_DICE = [
@@ -394,7 +394,7 @@ export default function Home() {
                           {event.image_url ? (
                             <img src={event.image_url} alt="" loading="lazy" className="h-full w-full object-cover" />
                           ) : (
-                            <ImageIcon size={40} className="text-slate-300" />
+                            <MaskIcon file="ludo-affiche.svg" size={52} color="#cbd5e1" />
                           )}
                         </div>
                         <div className="p-5 md:p-6">
@@ -491,7 +491,7 @@ export default function Home() {
 
               <div className="text-center">
                 <div className="mb-5 flex h-[150px] flex-col items-center justify-center gap-3 rounded-[26px] border-2 border-white/30 bg-white/10 px-4">
-                  <MapPin size={34} className="text-[#e38154]" />
+                  <MaskIcon file="ludo-lieu-plan.svg" size={46} color="#e38154" />
                   <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/70">
                     {adresseComplete}
                   </span>
@@ -529,7 +529,7 @@ export default function Home() {
                   className="max-h-[46vh] w-full rounded-[16px] object-contain"
                 />
               ) : (
-                <ImageIcon size={56} className="text-slate-200" />
+                <MaskIcon file="ludo-affiche.svg" size={72} color="#cbd5e1" />
               )}
             </div>
 
@@ -541,22 +541,22 @@ export default function Home() {
               <div className="mb-6 flex flex-col gap-3.5">
                 {[
                   {
-                    icon: '06.svg',
+                    icon: 'ludo-calendrier.svg',
                     label: 'Le jour J',
                     value: new Date(selectedEvent.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }),
                   },
                   {
-                    icon: '03.svg',
+                    icon: 'ludo-horloge.svg',
                     label: 'Horaires',
                     value: selectedEvent.end_time
                       ? `De ${formatEventDuration(selectedEvent.date, selectedEvent.end_time)}`
                       : `Début à ${formatEventDuration(selectedEvent.date)}`,
                   },
-                  { icon: '07.svg', label: 'Où ?', value: selectedEvent.location },
+                  { icon: 'ludo-lieu.svg', label: 'Où ?', value: selectedEvent.location },
                 ].map(row => (
                   <div key={row.label} className="flex items-center gap-3.5">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[15px] border-2 border-[#0f172a] bg-[#f0f7f9]">
-                      <MaskIcon file={row.icon} size={18} color="#1a5f7a" />
+                      <MaskIcon file={row.icon} size={22} color="#1a5f7a" />
                     </div>
                     <div>
                       <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-400">

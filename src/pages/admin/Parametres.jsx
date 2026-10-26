@@ -5,7 +5,7 @@ import { useToast } from '../../components/ToastContext'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import ConfirmModal from '../../components/admin/ConfirmModal'
 import { useRef } from 'react'
-import { UserPlus, Save, Loader2, Euro, ShieldCheck, X, ChevronRight, Users, Info, CheckCircle2, Trash2, Clock, MapPin, Plus, Edit2, Target, Eye, Download, KeyRound } from 'lucide-react'
+import { UserPlus, Save, Loader2, X, ChevronRight, Info, CheckCircle2, Trash2, Clock, MapPin, Plus, Edit2, Target, Eye, Download, KeyRound } from 'lucide-react'
 import MaskIcon from '../../components/site/MaskIcon'
 
 export default function Parametres() {
@@ -806,14 +806,14 @@ export default function Parametres() {
             <form onSubmit={handleUpdatePrice} className="p-8 overflow-y-auto space-y-10">
               {/* ADHÉSION À L'ASSOCIATION — affichée sur « Comment emprunter » et « Adhérer » */}
               <div className="space-y-4">
-                <div className="flex items-center gap-2 text-[#1a5f7a] font-black text-[11px] uppercase tracking-widest"><Euro size={18}/> Adhésion à l'association PACTES</div>
+                <div className="flex items-center gap-2 text-[#1a5f7a] font-black text-[11px] uppercase tracking-widest"><MaskIcon file="ludo-cotisation.svg" size={24} color="currentColor" /> Adhésion à l'association PACTES</div>
                 <HelpBox text="Contribution annuelle à l'association, payée en plus de la cotisation ludothèque. Le site public l'affiche et l'ajoute au prix total sur la page « Adhérer »." />
                 <div className="sm:w-1/3"><label className="text-[9px] font-black text-slate-400 uppercase ml-2 mb-1 block">Montant par an</label><input type="number" min="0" className="w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 font-extrabold outline-none focus:bg-white" value={prices.cotisation_pactes} onChange={e => setPrices({...prices, cotisation_pactes: e.target.value})} /></div>
               </div>
 
               {/* PARTIE PARTICULIERS */}
               <div className="space-y-6">
-                <div className="flex items-center gap-2 text-[#1a5f7a] font-black text-[11px] uppercase tracking-widest"><Euro size={18}/> Particuliers</div>
+                <div className="flex items-center gap-2 text-[#1a5f7a] font-black text-[11px] uppercase tracking-widest"><MaskIcon file="ludo-famille.svg" size={24} color="currentColor" /> Particuliers</div>
                 <div className="grid grid-cols-2 gap-2 rounded-[18px] border-2 border-[#0f172a] bg-slate-100 p-1.5">
                   <button type="button" onClick={() => setPrices({...prices, mode_adhesion_particulier: 'degressif'})} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${prices.mode_adhesion_particulier === 'degressif' ? 'bg-white shadow-md text-[#1a5f7a]' : 'text-slate-400'}`}>Dégressif</button>
                   <button type="button" onClick={() => setPrices({...prices, mode_adhesion_particulier: 'glissant'})} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${prices.mode_adhesion_particulier === 'glissant' ? 'bg-white shadow-md text-[#1a5f7a]' : 'text-slate-400'}`}>Année Glissante</button>
@@ -830,7 +830,7 @@ export default function Parametres() {
                 </div>
                 <div className={`rounded-[22px] border-2 border-[#0f172a] p-6 transition-colors ${prices.active_caution_particulier === "true" ? 'bg-orange-50 border-orange-100' : 'bg-slate-50 border-transparent'}`}>
                   <div className="flex items-center justify-between mb-4">
-                    <span className="text-[10px] font-black uppercase text-orange-800 tracking-widest flex items-center gap-2"><ShieldCheck size={16}/> Caution Particulier</span>
+                    <span className="text-[10px] font-black uppercase text-orange-800 tracking-widest flex items-center gap-2"><MaskIcon file="ludo-caution.svg" size={22} color="currentColor" /> Caution Particulier</span>
                     <input type="checkbox" className="w-6 h-6 accent-[#e38154] rounded-lg cursor-pointer" checked={prices.active_caution_particulier === "true"} onChange={e => setPrices({...prices, active_caution_particulier: e.target.checked ? "true" : "false"})} />
                   </div>
                   {prices.active_caution_particulier === "true" && (
@@ -844,7 +844,7 @@ export default function Parametres() {
 
               {/* PARTIE ASSOCIATIONS */}
               <div className="space-y-6 pt-10 border-t border-slate-100">
-                <div className="flex items-center gap-2 text-[#e38154] font-black text-[11px] uppercase tracking-widest"><Users size={18}/> Associations</div>
+                <div className="flex items-center gap-2 text-[#e38154] font-black text-[11px] uppercase tracking-widest"><MaskIcon file="ludo-batiment.svg" size={24} color="currentColor" /> Associations</div>
                 <div className="grid grid-cols-2 gap-2 rounded-[18px] border-2 border-[#0f172a] bg-slate-100 p-1.5">
                   <button type="button" onClick={() => setPrices({...prices, mode_adhesion_association: 'degressif'})} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${prices.mode_adhesion_association === 'degressif' ? 'bg-white shadow-md text-[#e38154]' : 'text-slate-400'}`}>Dégressif</button>
                   <button type="button" onClick={() => setPrices({...prices, mode_adhesion_association: 'glissant'})} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${prices.mode_adhesion_association === 'glissant' ? 'bg-white shadow-md text-[#e38154]' : 'text-slate-400'}`}>Année Glissante</button>
@@ -860,7 +860,7 @@ export default function Parametres() {
                 </div>
                 <div className={`rounded-[22px] border-2 border-[#0f172a] p-6 transition-colors ${prices.active_caution_association === "true" ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-transparent'}`}>
                   <div className="flex items-center justify-between mb-4">
-                    <span className="text-[10px] font-black uppercase text-emerald-800 tracking-widest flex items-center gap-2"><ShieldCheck size={16}/> Caution Association</span>
+                    <span className="text-[10px] font-black uppercase text-emerald-800 tracking-widest flex items-center gap-2"><MaskIcon file="ludo-caution.svg" size={22} color="currentColor" /> Caution Association</span>
                     <input type="checkbox" className="w-6 h-6 accent-emerald-500 rounded-lg cursor-pointer" checked={prices.active_caution_association === "true"} onChange={e => setPrices({...prices, active_caution_association: e.target.checked ? "true" : "false"})} />
                   </div>
                   {prices.active_caution_association === "true" && (

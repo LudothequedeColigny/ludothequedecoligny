@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LogOut, X, Menu } from 'lucide-react';
+import { X, Menu } from 'lucide-react';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import ConfirmModal from './admin/ConfirmModal';
 import MaskIcon from './site/MaskIcon';
@@ -131,7 +131,7 @@ export default function AdminLayout({ children }) {
             onClick={() => { setShowExitConfirm(true); closeMobileMenu(); }}
             className="flex w-full items-center gap-3 rounded-[16px] px-3.5 py-3 text-left text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-[#f43f5e] transition-colors hover:bg-rose-50"
           >
-            <LogOut size={16} className="shrink-0" />
+            <MaskIcon file="ludo-quitter.svg" size={22} color="currentColor" className="shrink-0" />
             Quitter l'admin
           </button>
         </div>
@@ -158,7 +158,7 @@ export default function AdminLayout({ children }) {
         confirmLabel="Confirmer la déconnexion"
         cancelLabel="Rester ici"
         tone="exit"
-        icon={<LogOut size={28} className="text-[#f43f5e]" />}
+        icon={<MaskIcon file="ludo-quitter.svg" size={42} color="#f43f5e" />}
       />
     </div>
   );

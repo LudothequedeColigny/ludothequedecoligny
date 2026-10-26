@@ -1,9 +1,6 @@
 import { useState, useEffect } from 'react'
-import { 
-  Smartphone, Download, Share, Plus, MoreVertical, 
-  CheckCircle2, ArrowLeft, Chrome, Globe, 
-  Monitor, Wifi
-} from 'lucide-react'
+import { Download, Share, Plus, MoreVertical, CheckCircle2, ArrowLeft } from 'lucide-react'
+import MaskIcon from '../../components/site/MaskIcon'
 
 export default function InstallationApp() {
   const [installPrompt, setInstallPrompt] = useState(null)
@@ -61,7 +58,7 @@ export default function InstallationApp() {
       <div className="p-4 md:p-10 bg-[#fdfaf6] min-h-screen font-sans text-slate-900 flex items-center justify-center">
         <div className="max-w-md w-full text-center">
           <div className="mx-auto mb-8 flex h-24 w-24 rotate-3 items-center justify-center rounded-[28px] border-2 border-[#0f172a] bg-[#10b981] shadow-[6px_6px_0_#0f172a]">
-            <CheckCircle2 size={48} className="text-white" />
+            <MaskIcon file="ludo-validation.svg" size={56} color="#ffffff" />
           </div>
           <h1 className="mb-3 font-display text-[30px] font-extrabold uppercase tracking-[-0.04em] text-[#0f172a]">
             Déjà installée !
@@ -89,7 +86,7 @@ export default function InstallationApp() {
         <div className="mb-10">
           <h1 className="flex items-center gap-4 font-display text-[26px] font-extrabold leading-none tracking-[-0.045em] text-[#0f172a] md:text-[38px]">
             <div className="flex h-[54px] w-[54px] shrink-0 items-center justify-center rounded-[18px] border-2 border-[#0f172a] bg-[#10b981] text-white shadow-[4px_4px_0_#0f172a] md:h-[58px] md:w-[58px] md:rounded-[20px]">
-              <Smartphone size={28} />
+              <MaskIcon file="ludo-appli.svg" size={38} color="currentColor" />
             </div>
             <span>Installer <span className="text-[#10b981]">l'application</span></span>
           </h1>
@@ -101,9 +98,9 @@ export default function InstallationApp() {
         {/* AVANTAGES */}
         <div className="grid grid-cols-3 gap-4 mb-10">
           {[
-            { icon: <Wifi size={20} />, label: 'Accès rapide' },
-            { icon: <Monitor size={20} />, label: 'Plein écran' },
-            { icon: <Globe size={20} />, label: 'Toujours à jour' },
+            { icon: <MaskIcon file="ludo-eclair.svg" size={28} color="currentColor" />, label: 'Accès rapide' },
+            { icon: <MaskIcon file="ludo-plein-ecran.svg" size={28} color="currentColor" />, label: 'Plein écran' },
+            { icon: <MaskIcon file="ludo-a-jour.svg" size={28} color="currentColor" />, label: 'Toujours à jour' },
           ].map((item, i) => (
             <div key={i} className="flex flex-col items-center gap-3 rounded-[24px] border-2 border-[#0f172a] bg-white p-5 text-center shadow-[4px_4px_0_#10b981]">
               <div className="flex h-11 w-11 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#ecfdf5] text-[#047857]">
@@ -119,7 +116,7 @@ export default function InstallationApp() {
           <div className="mb-6 rounded-[34px] border-2 border-[#0f172a] bg-white p-7 shadow-[6px_6px_0_#10b981] md:p-9">
             <div className="flex items-center gap-3 mb-6">
               <div className="flex h-10 w-10 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#ecfdf5] text-[#047857]">
-                <Chrome size={20} />
+                <MaskIcon file="ludo-navigateur.svg" size={28} color="currentColor" />
               </div>
               <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#047857]">Installation disponible</span>
             </div>
@@ -160,7 +157,7 @@ export default function InstallationApp() {
             {browserType !== 'safari' && (
               <div className="mb-8 flex items-start gap-4 rounded-[20px] border-2 border-[#f59e0b] bg-[#fffbeb] p-5">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#fef3c7] text-[#b45309]">
-                  <Globe size={16} />
+                  <MaskIcon file="ludo-navigateur.svg" size={20} color="currentColor" />
                 </div>
                 <div>
                   <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#b45309]">Ouvrez Safari d'abord</p>
@@ -214,7 +211,7 @@ export default function InstallationApp() {
           <div className="rounded-[34px] border-2 border-[#0f172a] bg-white p-7 shadow-[6px_6px_0_#1a5f7a] md:p-9">
             <div className="flex items-center gap-3 mb-6">
               <div className="flex h-10 w-10 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#f0f7f9] text-[#1a5f7a]">
-                <Chrome size={20} />
+                <MaskIcon file="ludo-navigateur.svg" size={28} color="currentColor" />
               </div>
               <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#1a5f7a]">Android</span>
             </div>
@@ -225,7 +222,7 @@ export default function InstallationApp() {
             {browserType !== 'chrome' && (
               <div className="mb-8 flex items-start gap-4 rounded-[20px] border-2 border-[#f59e0b] bg-[#fffbeb] p-5">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#fef3c7] text-[#b45309]">
-                  <Chrome size={16} />
+                  <MaskIcon file="ludo-navigateur.svg" size={20} color="currentColor" />
                 </div>
                 <div>
                   <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#b45309]">Utilisez Chrome de préférence</p>
@@ -276,7 +273,7 @@ export default function InstallationApp() {
           <div className="rounded-[34px] border-2 border-[#0f172a] bg-white p-7 shadow-[6px_6px_0_#1a5f7a] md:p-9">
             <div className="flex items-center gap-3 mb-6">
               <div className="flex h-10 w-10 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#f0f7f9] text-[#1a5f7a]">
-                <Monitor size={20} />
+                <MaskIcon file="ludo-ordinateur.svg" size={28} color="currentColor" />
               </div>
               <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#1a5f7a]">Ordinateur</span>
             </div>

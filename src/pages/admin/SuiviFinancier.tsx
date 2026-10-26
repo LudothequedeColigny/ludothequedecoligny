@@ -8,7 +8,7 @@ import ConfirmModal from '../../components/admin/ConfirmModal'
 import FormModal, { FieldLabel, FIELD } from '../../components/admin/FormModal'
 import { DataCard } from '../../components/admin/DataCard'
 import { BTN_TEAL } from '../../components/admin/buttons'
-import { Plus, Trash2, Loader2, AlertTriangle, Edit2 } from 'lucide-react'
+import { Plus, Trash2, Loader2, Edit2 } from 'lucide-react'
 import MaskIcon from '../../components/site/MaskIcon'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -529,7 +529,7 @@ const FINANCIER_TUTORIAL_STEPS = (openForm, closeForm) => [
 
             {formError && (
               <div className="mt-4 flex items-center gap-2 rounded-[18px] border-2 border-rose-200 bg-rose-50 p-4 text-xs font-bold text-rose-600">
-                <AlertTriangle size={16} className="shrink-0" /> {formError}
+                <MaskIcon file="ludo-alerte.svg" size={20} color="currentColor" className="shrink-0" /> {formError}
               </div>
             )}
           </div>

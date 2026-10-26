@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../services/supabaseClient'
-import { ShieldCheck, Download } from 'lucide-react'
+import { Download } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { BTN_ON_COLOR } from '../components/site/styles'
 import TitrePactes from '../components/TitrePactes'
@@ -96,7 +96,7 @@ export default function HowToBorrow() {
       key: 'particulier',
       title: 'Particuliers',
       intro: 'Une seule adhésion par foyer suffit pour que tout le monde puisse en profiter.',
-      icon: '04.svg',
+      icon: 'ludo-famille.svg',
       accent: '#1a5f7a',
       tint: '#f0f7f9',
       counterTint: '#e38154',
@@ -122,7 +122,7 @@ export default function HowToBorrow() {
       key: 'collectivite',
       title: 'Collectivités',
       intro: 'Pour les structures (associations, écoles, mairies) de Coligny, Saint-Amour, Marboz, Beaupont, Pirajoux et alentours.',
-      icon: '02.svg',
+      icon: 'ludo-batiment.svg',
       accent: '#e38154',
       tint: '#fdf1ea',
       counterTint: '#1a5f7a',
@@ -184,7 +184,7 @@ export default function HowToBorrow() {
                   className="mb-5 flex h-[58px] w-[58px] items-center justify-center rounded-[20px] border-2 border-[#0f172a]"
                   style={{ background: offer.tint }}
                 >
-                  <MaskIcon file={offer.icon} size={26} color={offer.accent} />
+                  <MaskIcon file={offer.icon} size={32} color={offer.accent} />
                 </div>
 
                 <h2 className="mb-2 font-display text-[24px] font-extrabold tracking-[-0.035em] md:text-[30px]">
@@ -225,7 +225,7 @@ export default function HowToBorrow() {
                   ))}
                   {offer.caution && (
                     <div className="flex items-start gap-3 text-orange-600">
-                      <ShieldCheck size={20} className="mt-0.5 shrink-0 text-orange-500" />
+                      <MaskIcon file="ludo-caution.svg" size={24} color="#f97316" className="shrink-0" />
                       <span className="text-sm font-extrabold uppercase italic">{offer.caution}</span>
                     </div>
                   )}
@@ -241,7 +241,7 @@ export default function HowToBorrow() {
           {/* ---------- CHARTE ---------- */}
           <Reveal className="mt-9 flex flex-col items-center gap-6 rounded-[34px] border-2 border-dashed border-[#0f172a] bg-white p-7 text-center sm:flex-row sm:items-center sm:text-left md:mt-12 md:p-11">
             <div className="flex h-[76px] w-[76px] shrink-0 items-center justify-center rounded-full border-2 border-[#0f172a] bg-[#fdfaf6]">
-              <MaskIcon file="07.svg" size={32} color="#1a5f7a" />
+              <MaskIcon file="ludo-charte.svg" size={42} color="#1a5f7a" />
             </div>
             <div className="min-w-0 flex-1">
               <h2 className="mb-2 font-display text-[22px] font-extrabold uppercase tracking-[-0.03em]">

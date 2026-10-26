@@ -1072,7 +1072,7 @@ www.ludothequedecoligny.fr`
                     {/* Avertissement cotisation expirée */}
                     {!isSubscriptionUpToDate(selectedMember) && (
                       <div className="anim-modal-in mt-3 flex items-center gap-3 rounded-[18px] border-2 border-[#f59e0b] bg-[#fffbeb] p-4 text-[#b45309]">
-                        <AlertTriangle size={18} className="shrink-0 text-amber-500 animate-pulse" />
+                        <MaskIcon file="ludo-alerte.svg" size={24} color="#f59e0b" className="shrink-0 animate-pulse" />
                         <p className="text-[10px] font-extrabold uppercase leading-tight tracking-[0.08em]">
                           Attention : La cotisation de cet adhérent n'est plus à jour !
                         </p>
@@ -1082,7 +1082,7 @@ www.ludothequedecoligny.fr`
                     {/* Avertissement troncature quota après scan */}
                     {quotaWarning && (
                       <div className="anim-modal-in mt-3 flex items-start gap-3 rounded-[18px] border-2 border-[#f43f5e] bg-[#fff1f2] p-4 text-[#be123c]">
-                        <AlertTriangle size={18} className="shrink-0 text-rose-500 mt-0.5" />
+                        <MaskIcon file="ludo-alerte.svg" size={24} color="#f43f5e" className="shrink-0" />
                         <p className="text-[10px] font-extrabold uppercase leading-tight tracking-[0.08em]">{quotaWarning}</p>
                       </div>
                     )}

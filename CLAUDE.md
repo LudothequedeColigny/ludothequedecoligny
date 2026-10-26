@@ -137,7 +137,12 @@ Communication) en place : `boite-jeu`, `carte-adherent`, `calendrier-evenement`,
 `contact`, `enveloppe`, `lieu`, `famille`, `retard`, `retour`, `prolonger`, `relance`. Lot 3 (Permanences, Suivi financier,
 Suggestions, Paramètres) : `lien`, `calendrier`, `horloge`, `solde`, `entree`, `sortie`, `cotisation`, `subvention`,
 `don`, `tresorerie`, `achat-jeu`, `modifier`, `retirer-jeu`, `appli-reglage`, `fonctionnement`, `partenariat`, `autre`,
-`billet`, `tirelire`, `question`, `finances`, `paiements`, `limites`, `sauvegarde`, `cle`, `revoquer`. Trop fines sous 18 px : les petits boutons
+`billet`, `tirelire`, `question`, `finances`, `paiements`, `limites`, `sauvegarde`, `cle`, `revoquer`. Lot 4 (pages publiques et
+éléments communs) : `lieu-plan`, `dates-mail`, `video`, `batiment`, `charte`, `connexion`, `cle-ok`, `permanence`,
+`complet`, `mail-barre`, `mail-ok`, `eclair`, `plein-ecran`, `a-jour`, `navigateur`, `ordinateur`, `quitter`,
+`tutoriel`, `alerte`, `validation`, et les 4 raisons d'adhérer `raison-tester`, `raison-unique`, `raison-maison`,
+`raison-prix`. Une nouvelle icône se dessine dans ce style (contour seul, `fill="none"`, trait 8 sur 300, bouts
+ronds) et garde `width`/`height`. Trop fines sous 18 px : les petits boutons
 d'action gardent leurs pictogrammes simples.
 
 Les fichiers `01.svg` à `07.svg` restent utilisés pour les petites vignettes de

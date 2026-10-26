@@ -9,7 +9,7 @@ import MaskIcon from '../components/site/MaskIcon'
 import SuccessModal from '../components/site/SuccessModal'
 import { BTN_PRIMARY, EYEBROW, INPUT } from '../components/site/styles'
 import { ORIGINES } from '../services/origines'
-import { Loader2, AlertTriangle } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 /**
  * Page « Adhérer » : pourquoi adhérer, comment ça se passe, et le formulaire de
@@ -87,10 +87,10 @@ export default function Adherer() {
   const asso = form.type === 'Association'
 
   const RAISONS = [
-    { icon: '01.svg', color: '#1a5f7a', tint: '#e6f0f3', title: "Testez avant d'acheter", text: "Jouez un mois à la maison, et n'achetez que les jeux qui vous plaisent vraiment." },
-    { icon: '03.svg', color: '#e38154', tint: '#fdf1ea', title: 'Les jeux à usage unique', text: "Unlock!, escape games, enquêtes : on n'y joue qu'une fois. Ici, ils s'empruntent." },
-    { icon: '05.svg', color: '#1a5f7a', tint: '#e6f0f3', title: gameCount ? `${gameCount} jeux à la maison` : 'Des centaines de jeux', text: 'Un nouveau jeu toutes les deux semaines, des tout-petits aux grands-parents.' },
-    { icon: '02.svg', color: '#e38154', tint: '#fdf1ea', title: "Le prix d'un seul jeu", text: pret ? `${total} € pour l'année : adhésion PACTES (${pactes} €) et ludothèque (${fee} €) comprises.` : "L'adhésion de l'année coûte moins cher qu'un jeu neuf." },
+    { icon: 'ludo-raison-tester.svg', color: '#1a5f7a', tint: '#e6f0f3', title: "Testez avant d'acheter", text: "Jouez un mois à la maison, et n'achetez que les jeux qui vous plaisent vraiment." },
+    { icon: 'ludo-raison-unique.svg', color: '#e38154', tint: '#fdf1ea', title: 'Les jeux à usage unique', text: "Unlock!, escape games, enquêtes : on n'y joue qu'une fois. Ici, ils s'empruntent." },
+    { icon: 'ludo-raison-maison.svg', color: '#1a5f7a', tint: '#e6f0f3', title: gameCount ? `${gameCount} jeux à la maison` : 'Des centaines de jeux', text: 'Un nouveau jeu toutes les deux semaines, des tout-petits aux grands-parents.' },
+    { icon: 'ludo-raison-prix.svg', color: '#e38154', tint: '#fdf1ea', title: "Le prix d'un seul jeu", text: pret ? `${total} € pour l'année : adhésion PACTES (${pactes} €) et ludothèque (${fee} €) comprises.` : "L'adhésion de l'année coûte moins cher qu'un jeu neuf." },
   ]
 
   const ETAPES = [
@@ -122,7 +122,7 @@ export default function Adherer() {
             {RAISONS.map(r => (
               <Reveal key={r.title} className="rounded-[28px] border-2 border-[#0f172a] bg-white p-6" style={{ boxShadow: `6px 6px 0 ${r.color}` }}>
                 <div className="mb-4 flex h-[52px] w-[52px] items-center justify-center rounded-[18px] border-2 border-[#0f172a]" style={{ background: r.tint }}>
-                  <MaskIcon file={r.icon} size={24} color={r.color} />
+                  <MaskIcon file={r.icon} size={34} color={r.color} />
                 </div>
                 <h2 className="mb-2 font-display text-[19px] font-extrabold leading-[1.15] tracking-[-0.03em]">{r.title}</h2>
                 <p className="text-[13.5px] leading-[1.6] text-slate-500">{r.text}</p>
@@ -209,7 +209,7 @@ export default function Adherer() {
 
                 {etat === 'erreur' && (
                   <p className="flex items-center gap-2 text-[12.5px] font-bold text-rose-600">
-                    <AlertTriangle size={15} className="shrink-0" /> L'envoi n'a pas fonctionné. Vérifiez votre adresse e-mail et réessayez.
+                    <MaskIcon file="ludo-alerte.svg" size={20} color="currentColor" className="shrink-0" /> L'envoi n'a pas fonctionné. Vérifiez votre adresse e-mail et réessayez.
                   </p>
                 )}
                 <button type="submit" disabled={etat === 'envoi'} className={`${BTN_PRIMARY} w-full`}>

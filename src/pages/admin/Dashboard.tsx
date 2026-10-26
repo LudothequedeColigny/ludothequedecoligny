@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../services/supabaseClient'
-import { LogOut, Loader2, TrendingUp, TrendingDown } from 'lucide-react'
+import { Loader2, TrendingUp, TrendingDown } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import MaskIcon from '../../components/site/MaskIcon'
@@ -411,7 +411,7 @@ export default function Dashboard() {
             onClick={handleLogout}
             className="rounded-[18px] border-2 border-[#0f172a] bg-white px-5 py-4 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#f43f5e] shadow-[4px_4px_0_#f43f5e] transition-[transform,box-shadow] duration-200 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#f43f5e]"
           >
-            <span className="flex items-center gap-2"><LogOut size={15} /> Quitter l'admin</span>
+            <span className="flex items-center gap-2"><MaskIcon file="ludo-quitter.svg" size={20} color="currentColor" /> Quitter l'admin</span>
           </button>
         </AdminPageHeader>
 
