@@ -1,503 +1,260 @@
-import { useEffect, useState, useMemo } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import { ChevronDown, Loader2 } from 'lucide-react'
 import { supabase } from '../services/supabaseClient'
 import { compterVisite } from '../services/visites'
-import { Calendar, Users, Dice5, ImageIcon, ChevronDown, ChevronUp } from 'lucide-react'
+import { usePageMeta } from '../services/seo'
 import PublicLayout from '../components/site/PublicLayout'
 import FloatingIcons from '../components/site/FloatingIcons'
 import Reveal from '../components/site/Reveal'
-import CountUp from '../components/site/CountUp'
 import MediaLightbox from '../components/site/MediaLightbox'
-import { EYEBROW } from '../components/site/styles'
-import { usePageMeta } from '../services/seo'
+import RecevoirDates from '../components/site/RecevoirDates'
+import { BTN_SECONDARY, EYEBROW } from '../components/site/styles'
+import ChiffresCles from '../components/site/vie/ChiffresCles'
+import GraphiqueFrequentation from '../components/site/vie/GraphiqueFrequentation'
+import FiltresEvenements from '../components/site/vie/FiltresEvenements'
+import CarteEvenement from '../components/site/vie/CarteEvenement'
+import CartePermanence from '../components/site/vie/CartePermanence'
+import ProchainRendezVous from '../components/site/vie/ProchainRendezVous'
+import {
+  cartesEvenements, chiffresCles, serieFrequentation, filtrer, compteurs, parMois,
+} from '../services/vieLudotheque'
+import { prochainRendezVous } from '../services/diapos/regles'
+import { jourComplet } from '../services/diapos/permanence-regles'
 
-// Détecte le type d'un événement à partir de son titre (insensible aux accents/casse)
-// Plage Unicode des signes diacritiques combinants (0x0300-0x036f), construite
-// via les codes numériques pour éviter tout souci d'encodage dans le fichier source
-const DIACRITICS_REGEX = new RegExp('[' + String.fromCharCode(0x0300) + '-' + String.fromCharCode(0x036f) + ']', 'g')
-const normalize = (s) => (s || '').normalize('NFD').replace(DIACRITICS_REGEX, '').toLowerCase()
-const getEventType = (title) => {
-  const t = normalize(title)
-  if (t.includes('soiree')) return 'soiree'
-  if (t.includes('famil')) return 'famille'
-  return 'permanence'
+/**
+ * Page publique « La vie de la ludothèque » (/vie-association), dans le style des
+ * bilans publiés sur les réseaux : chiffres clés, fréquentation, puis les rendez-vous
+ * passés (soirées, après-midi en famille, permanences), regroupés par mois.
+ * Conception : docs/superpowers/plans/2026-10-26-vie-ludotheque.md
+ * Les jeux empruntés aux permanences viennent de la fonction jeux_empruntes_permanences()
+ * (le visiteur ne peut pas lire les prêts) ; si elle manque, pas de carte de permanence
+ * ni de chiffre d'emprunts, sans message d'erreur.
+ */
+
+// Cartes affichées d'abord, puis à chaque « Voir les événements plus anciens »
+const PAR_PAGE = 6
+
+/** Les permanences qui se suivent dans un mois se rangent côte à côte (sur ordinateur). */
+function blocs(cartes) {
+  const liste = []
+  for (const c of cartes) {
+    const dernier = liste[liste.length - 1]
+    if (c.type === 'permanence' && dernier?.permanences) dernier.cartes.push(c)
+    else liste.push({ permanences: c.type === 'permanence', cartes: [c] })
+  }
+  return liste
 }
 
-const CHART_CONFIG = [
-  { key: 'soiree', label: 'Soirées jeux', color: '#1a5f7a' },
-  { key: 'famille', label: 'Événements famille', color: '#e38154' },
-  { key: 'permanence', label: 'Permanences', color: '#2d8ba1' },
-]
-
-// Libellés singuliers pour le badge de catégorie affiché sur chaque carte événement
-const EVENT_TYPE_LABELS = {
-  soiree: 'Soirée jeux',
-  famille: 'Événement famille',
-  permanence: 'Permanence',
+/** Fin de la page affichée : une paire de permanences du même mois n'est pas coupée en deux. */
+function finDePage(cartes, n) {
+  let fin = Math.min(n, cartes.length)
+  const memeMois = (a, b) => a.date.getFullYear() === b.date.getFullYear() && a.date.getMonth() === b.date.getMonth()
+  while (fin < cartes.length && cartes[fin - 1].type === 'permanence' && cartes[fin].type === 'permanence'
+    && memeMois(cartes[fin - 1], cartes[fin])) fin++
+  return fin
 }
 
-// Réutilise les couleurs déjà définies dans CHART_CONFIG pour éviter de dupliquer les codes hexa
-const TYPE_COLORS = Object.fromEntries(CHART_CONFIG.map(c => [c.key, c.color]))
-
-/** Histogramme de fréquentation : une barre par édition, cliquable pour rejoindre la carte. */
-function FrequentationChart({ config, points }) {
-  const max = Math.max(...points.map(p => p.participants), 1)
-
+/** « Octobre 2026 » → Octobre + 2026 en orange */
+function TitreMois({ titre }) {
+  const i = titre.lastIndexOf(' ')
   return (
-    <Reveal
-      className="rounded-[32px] border-2 border-[#0f172a] bg-[#fdfaf6] p-6 md:p-8"
-      style={{ boxShadow: `6px 6px 0 ${config.color}` }}
-    >
-      <div
-        className="mb-6 text-xs font-extrabold uppercase tracking-[0.16em]"
-        style={{ color: config.color }}
-      >
-        {config.label}
-      </div>
-
-      {/* Au-delà de quelques éditions, les barres deviendraient illisibles sur mobile :
-          on leur garantit une largeur minimale et le graphique défile horizontalement. */}
-      <div className="-mx-1 overflow-x-auto px-1">
-        <div className="min-w-full" style={{ minWidth: points.length * 44 }}>
-          <div className="flex h-[180px] items-end gap-2.5 border-b-2 border-slate-200">
-            {points.map((point, i) => (
-              <button
-                key={point.id}
-                onClick={() => document.getElementById(`event-${point.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                title={`${point.participants} participants — ${point.date}`}
-                className="flex h-full flex-1 flex-col items-center justify-end"
-              >
-                <span className="mb-2 text-[11px] font-extrabold text-[#0f172a]">{point.participants}</span>
-                <span
-                  className="anim-grow-bar w-full rounded-t-[10px] border-2 border-b-0 border-[#0f172a] transition-opacity hover:opacity-80"
-                  style={{
-                    height: `${(point.participants / max) * 100}%`,
-                    // Réserve la place du nombre au-dessus : la barre la plus haute ne déborde pas
-                    maxHeight: 'calc(100% - 26px)',
-                    background: config.color,
-                    animationDelay: `${i * 80}ms`,
-                  }}
-                />
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-2.5 flex gap-2.5">
-            {points.map(point => (
-              <div key={point.id} className="flex-1 text-center text-[9px] font-bold text-slate-400">
-                {point.date}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </Reveal>
-  )
-}
-
-/** Vignette carrée d'un jeu joué : au clic, la boîte s'affiche en grand avec son nom. */
-function GameThumb({ game, onOpen }) {
-  return (
-    <button type="button" onClick={onOpen} className="flex w-full max-w-[76px] shrink-0 flex-col items-center text-center">
-      <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-[16px] border-2 border-[#0f172a] bg-white">
-        {game.image_url ? (
-          <img src={game.image_url} alt={game.name} loading="lazy" className="h-full w-full object-contain" />
-        ) : (
-          <Dice5 size={22} className="text-slate-200" />
-        )}
-      </div>
-      <p className="mt-1.5 w-full truncate text-[10px] font-bold leading-tight">{game.name}</p>
-      {game.in_catalogue && (
-        <span className="mt-1 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[8px] font-extrabold uppercase text-white">
-          Dispo
-        </span>
-      )}
-    </button>
+    <div className="mb-[26px] flex items-center gap-3.5 after:h-0.5 after:flex-1 after:rounded-[2px] after:bg-[#0f172a]/15 after:content-['']">
+      <h3 className="whitespace-nowrap font-display text-[26px] font-extrabold tracking-[-0.045em] md:text-[34px]">
+        {titre.slice(0, i)} <span className="text-[#e38154]">{titre.slice(i + 1)}</span>
+      </h3>
+    </div>
   )
 }
 
 export default function VieAssociation() {
   usePageMeta({
     title: 'La vie de la ludothèque',
-    description: "Après-midis jeux, soirées et animations de la ludothèque de Coligny (Ain) : photos, bilans et jeux joués lors de nos événements.",
+    description: "Soirées jeux, après-midi en famille et permanences de la ludothèque de Coligny (Ain) : photos, chiffres et jeux joués lors de nos rendez-vous.",
     path: '/vie-association',
   })
 
-  const [pastEvents, setPastEvents] = useState([])
-  const [photos, setPhotos] = useState([])
-  const [gamesPlayed, setGamesPlayed] = useState([])
-  const [loading, setLoading] = useState(true)
-  // { items: [...], index, fit } — photos d'un événement ou jeux d'un événement
-  const [lightbox, setLightbox] = useState(null)
-  const [sectionOpen, setSectionOpen] = useState({}) // { [eventId]: { photos: boolean, games: boolean } } — accordéons indépendants par carte
-
-  const toggleSection = (eventId, section) => setSectionOpen(prev => ({
-    ...prev,
-    [eventId]: { ...prev[eventId], [section]: !prev[eventId]?.[section] }
-  }))
+  const [donnees, setDonnees] = useState(null)
+  const [filtre, setFiltre] = useState('tout')
+  const [nbAffiches, setNbAffiches] = useState(PAR_PAGE)
+  // { items, index } — photos d'un événement dans la visionneuse
+  const [galerie, setGalerie] = useState(null)
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true)
-        const { data: eventsData } = await supabase
-          .from('events')
-          .select('*')
-          .order('date', { ascending: true })
-
-        const now = new Date()
-        const past = (eventsData || []).filter(e => new Date(e.date) < now)
-
-        const [{ data: photosData }, { data: gamesData }] = await Promise.all([
-          supabase.from('event_photos').select('id, event_id, url'),
-          supabase.from('event_games_played').select('id, event_id, name, image_url, external_url, in_catalogue'),
-        ])
-
-        setPastEvents(past)
-        setPhotos(photosData || [])
-        setGamesPlayed(gamesData || [])
-      } catch (error) {
-        console.error("Erreur VieAssociation:", error.message)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchData()
+    let actif = true
+    Promise.all([
+      supabase.from('events').select('*'),
+      supabase.from('event_photos').select('id, event_id, url'),
+      supabase.from('event_games_played').select('id, event_id, name, image_url, in_catalogue'),
+      supabase.from('settings').select('*').eq('id', 'adresse_rue'),
+      supabase.rpc('jeux_empruntes_permanences'),
+    ]).then(([evenements, photos, jeux, reglages, emprunts]) => {
+      if (!actif) return
+      setDonnees({
+        evenements: evenements.data || [],
+        photos: photos.data || [],
+        jeux: jeux.data || [],
+        adresse: (reglages.data?.[0]?.value || '').trim(),
+        // Fonction absente ou en erreur : aucune carte de permanence, chiffre masqué
+        emprunts: emprunts.error ? null : (emprunts.data || []),
+      })
+    }).catch(() => {
+      if (actif) setDonnees({ evenements: [], photos: [], jeux: [], adresse: '', emprunts: null })
+    })
+    return () => { actif = false }
   }, [])
 
   // Comptage des visites (src/services/visites.js)
   useEffect(() => { compterVisite('vie-association') }, [])
 
-  const photosByEvent = useMemo(() => {
-    const map = {}
-    photos.forEach(p => {
-      if (!map[p.event_id]) map[p.event_id] = []
-      map[p.event_id].push(p)
-    })
-    return map
-  }, [photos])
+  const vue = useMemo(() => {
+    if (!donnees) return null
+    const maintenant = new Date()
+    const cartes = cartesEvenements({ ...donnees, maintenant })
+    return {
+      cartes,
+      chiffres: chiffresCles({ cartes }),
+      serie: serieFrequentation(cartes),
+      compteurs: compteurs(cartes),
+      prochain: prochainRendezVous(donnees.evenements.filter(e => !e.archived_at), maintenant),
+    }
+  }, [donnees])
 
-  const gamesByEvent = useMemo(() => {
-    const map = {}
-    gamesPlayed.forEach(g => {
-      if (!map[g.event_id]) map[g.event_id] = []
-      map[g.event_id].push(g)
-    })
-    return map
-  }, [gamesPlayed])
+  const choisirFiltre = f => {
+    setFiltre(f)
+    setNbAffiches(PAR_PAGE)
+  }
 
-  // Un événement passé n'est affiché que s'il a au moins un participant renseigné OU au moins une photo
-  const enrichedEvents = useMemo(() => {
-    return pastEvents
-      .filter(e => Number(e.participants_count) > 0 || (photosByEvent[e.id]?.length > 0))
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
-  }, [pastEvents, photosByEvent])
+  const filtrees = vue ? filtrer(vue.cartes, filtre) : []
+  const limite = finDePage(filtrees, nbAffiches)
+  const mois = parMois(filtrees.slice(0, limite))
 
-  // Données de fréquentation par type d'événement, sur toutes les éditions ayant un nombre de participants renseigné
-  const chartData = useMemo(() => {
-    const byType = { soiree: [], famille: [], permanence: [] }
-    pastEvents
-      .filter(e => e.participants_count !== null && e.participants_count !== undefined)
-      .sort((a, b) => new Date(a.date) - new Date(b.date))
-      .forEach(e => {
-        const type = getEventType(e.title)
-        byType[type].push({
-          id: e.id,
-          date: new Date(e.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
-          participants: Number(e.participants_count) || 0,
-        })
-      })
-    return byType
-  }, [pastEvents])
-
-  const visibleCharts = CHART_CONFIG.filter(c => chartData[c.key].length >= 2)
-
-  // Chiffres clés affichés sous le titre — dérivés des données déjà chargées, sans nouvel appel
-  const totalEditions = enrichedEvents.length
-  const uniqueGamesCount = useMemo(() => {
-    const set = new Set()
-    gamesPlayed.forEach(g => { if (g.name) set.add(g.name.trim().toLowerCase()) })
-    return set.size
-  }, [gamesPlayed])
-
-  if (loading) return (
-    <div className="flex min-h-screen animate-pulse flex-col items-center justify-center gap-4 bg-[#fdfaf6] font-body text-sm font-extrabold uppercase tracking-[0.2em] text-[#1a5f7a]">
-      <Dice5 size={48} className="animate-bounce" />
-      <p>Chargement...</p>
-    </div>
-  )
+  const ouvrirPhotos = (carte, index) => {
+    const legende = `${carte.etiquette.replace(/\s*!$/, '')} · ${jourComplet(carte.date)}`
+    setGalerie({ index, items: carte.photos.map((src, i) => ({ id: `${carte.id}-${i}`, src, title: legende })) })
+  }
 
   return (
     <PublicLayout>
       <main>
         {/* ---------- EN-TÊTE ---------- */}
-        <section className="relative overflow-hidden px-4 pb-8 pt-9 text-center md:px-10 md:pb-11 md:pt-16">
+        <section className="relative overflow-hidden px-4 pb-[30px] pt-11 text-center md:px-10 md:pb-11 md:pt-[70px]">
           <FloatingIcons />
-
-          <div className="relative z-10 mx-auto max-w-[820px]">
-            <h1 className="anim-soft-in mb-5 font-display text-[27px] font-extrabold leading-[1.02] tracking-[-0.045em] sm:text-[34px] md:text-[58px]">
+          <div className="relative z-10 mx-auto max-w-[1180px]">
+            <h1 className="anim-soft-in font-display text-[40px] font-extrabold leading-[1.02] tracking-[-0.045em] md:text-[62px]">
               La vie de<br />
-              <span className="inline-block -rotate-[1.5deg] rounded-[16px] bg-[#e38154] px-[0.16em] text-white">
+              <span className="mt-1 inline-block -rotate-[1.5deg] rounded-[16px] bg-[#e38154] px-[0.16em] text-white">
                 la ludothèque
               </span>
             </h1>
             <p
-              className="anim-soft-in mx-auto mb-8 max-w-[34em] text-[15px] font-medium leading-[1.65] text-slate-500 md:text-[18px]"
+              className="anim-soft-in mx-auto mt-[18px] max-w-[34em] text-[15px] font-medium leading-[1.65] text-slate-500 md:text-[18px]"
               style={{ animationDelay: '0.15s' }}
             >
-              Retour en images et en chiffres sur nos soirées, événements famille et permanences passées.
+              Nos soirées jeux, nos après-midi en famille et nos permanences, en photos et en chiffres.
             </p>
-
-            {(totalEditions > 0 || uniqueGamesCount > 0) && (
-              <div className="flex flex-wrap justify-center gap-4">
-                {totalEditions > 0 && (
-                  <Reveal
-                    variant="scale"
-                    className="-rotate-[1.5deg] rounded-[32px] border-2 border-[#0f172a] bg-[#1a5f7a] px-8 py-5 text-white shadow-[6px_6px_0_#0f172a]"
-                  >
-                    <CountUp
-                      value={totalEditions}
-                      className="block font-display text-[30px] font-extrabold leading-none tracking-[-0.045em] md:text-[42px]"
-                    />
-                    <div className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#bae6fd]">
-                      Édition{totalEditions > 1 ? 's' : ''} organisée{totalEditions > 1 ? 's' : ''}
-                    </div>
-                  </Reveal>
-                )}
-                {uniqueGamesCount > 0 && (
-                  <Reveal
-                    variant="scale"
-                    delay={90}
-                    className="rotate-[1.5deg] rounded-[32px] border-2 border-[#0f172a] bg-[#e38154] px-8 py-5 text-white shadow-[6px_6px_0_#0f172a]"
-                  >
-                    <CountUp
-                      value={uniqueGamesCount}
-                      className="block font-display text-[30px] font-extrabold leading-none tracking-[-0.045em] md:text-[42px]"
-                    />
-                    <div className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#ffe8dc]">
-                      Jeu{uniqueGamesCount > 1 ? 'x' : ''} différent{uniqueGamesCount > 1 ? 's' : ''} joué{uniqueGamesCount > 1 ? 's' : ''}
-                    </div>
-                  </Reveal>
-                )}
-              </div>
-            )}
+            {vue && vue.cartes.length > 0 && <ChiffresCles chiffres={vue.chiffres} />}
           </div>
         </section>
 
-        {/* ---------- STATISTIQUES ---------- */}
-        {visibleCharts.length > 0 && (
-          <section className="border-y-2 border-[#0f172a] bg-white px-4 py-14 md:px-10 md:py-20">
-            <div className="mx-auto max-w-[1180px]">
-              <Reveal className="mb-8 text-center md:mb-11">
-                <div className={EYEBROW}>Statistiques</div>
-                <h2 className="mb-3 mt-2.5 font-display text-[26px] font-extrabold tracking-[-0.04em] md:text-[42px]">
-                  Évolution de la fréquentation
+        {!vue && (
+          <div className="flex justify-center py-20">
+            <Loader2 className="animate-spin text-[#1a5f7a]" size={40} />
+          </div>
+        )}
+
+        {/* ---------- FRÉQUENTATION ---------- */}
+        {vue && vue.serie.length > 0 && (
+          <section className="border-y-2 border-[#0f172a] bg-white px-4 pb-[60px] pt-14 md:px-10 md:pb-20 md:pt-[76px]">
+            <div className="mx-auto max-w-[1100px]">
+              <Reveal className="mb-[30px] text-center">
+                <div className={EYEBROW}>Fréquentation</div>
+                <h2 className="mt-2.5 font-display text-[28px] font-extrabold tracking-[-0.045em] md:text-[42px]">
+                  Combien étions-nous ?
                 </h2>
-                <p className="text-xs font-bold text-slate-400">
-                  Cliquez une barre pour retrouver l'édition correspondante ci-dessous
+                <p className="mt-2 text-[13px] font-semibold text-slate-500">
+                  Nombre de participants à chaque soirée jeux et après-midi en famille
                 </p>
               </Reveal>
-
-              <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
-                {visibleCharts.map(cfg => (
-                  <FrequentationChart key={cfg.key} config={cfg} points={chartData[cfg.key]} />
-                ))}
-              </div>
+              <GraphiqueFrequentation serie={vue.serie} />
             </div>
           </section>
         )}
 
         {/* ---------- SOUVENIRS ---------- */}
-        <section className="px-4 py-14 md:px-10 md:py-20">
-          <div className="mx-auto max-w-[900px]">
-            <Reveal className="mb-9 text-center md:mb-12">
-              <div className={EYEBROW}>Souvenirs</div>
-              <h2 className="mt-2.5 font-display text-[26px] font-extrabold tracking-[-0.04em] md:text-[42px]">
-                Nos événements passés
-              </h2>
-            </Reveal>
+        {vue && (
+          <section className="px-4 pb-5 pt-[60px] md:px-10">
+            <div className="mx-auto max-w-[1100px]">
+              <Reveal className="mb-6 text-center">
+                <div className={EYEBROW}>Souvenirs</div>
+                <h2 className="mt-2.5 font-display text-[28px] font-extrabold tracking-[-0.045em] md:text-[42px]">
+                  Nos derniers rendez-vous
+                </h2>
+              </Reveal>
 
-            {enrichedEvents.length === 0 ? (
-              <div className="rounded-[30px] border-2 border-dashed border-[#0f172a]/30 bg-white py-12 text-center">
-                <p className="italic text-slate-400">Aucun souvenir enregistré pour le moment.</p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-6">
-                {enrichedEvents.map((event, eventIndex) => {
-                  const evPhotos = photosByEvent[event.id] || []
-                  const evGames = gamesByEvent[event.id] || []
-                  const hasPhotos = evPhotos.length > 0
-                  const hasGames = evGames.length > 0
-                  const photosExpanded = !!sectionOpen[event.id]?.photos
-                  const gamesExpanded = !!sectionOpen[event.id]?.games
-                  const visiblePhotos = photosExpanded ? evPhotos : evPhotos.slice(0, 3)
-                  const visibleGames = gamesExpanded ? evGames : evGames.slice(0, 3)
-                  // Agrandissement des jeux : seuls ceux qui ont une image en font partie
-                  const gameItems = evGames.filter(g => g.image_url).map(g => ({
-                    id: g.id,
-                    src: g.image_url,
-                    title: g.name,
-                    badge: g.in_catalogue ? 'Dispo à la ludothèque' : null,
-                    href: g.external_url || null,
-                  }))
-                  const eventType = getEventType(event.title)
-                  const typeColor = TYPE_COLORS[eventType]
-                  const coverPhoto = evPhotos[0]?.url
-                  const isLast = eventIndex === enrichedEvents.length - 1
+              {vue.cartes.length === 0 ? (
+                <div className="rounded-[30px] border-2 border-dashed border-[#0f172a]/30 bg-white py-12 text-center">
+                  <p className="italic text-slate-400">Aucun souvenir enregistré pour le moment.</p>
+                </div>
+              ) : (
+                <>
+                  <FiltresEvenements filtre={filtre} compteurs={vue.compteurs} onChange={choisirFiltre} />
 
-                  return (
-                    <div key={event.id} id={`event-${event.id}`} className="flex gap-4">
-                      {/* Colonne timeline */}
-                      <div className="flex shrink-0 flex-col items-center pt-11">
-                        <div
-                          className="h-[18px] w-[18px] rounded-full border-2 border-[#0f172a]"
-                          style={{ backgroundColor: typeColor }}
-                        />
-                        {!isLast && <div className="w-[3px] flex-1 bg-slate-200" />}
+                  {mois.map(m => (
+                    <div key={m.cle} className="mt-[46px]">
+                      <TitreMois titre={m.titre} />
+                      <div className="flex flex-col gap-[34px]">
+                        {blocs(m.cartes).map(b => (
+                          <Fragment key={b.cartes[0].id}>
+                            {b.permanences ? (
+                              <div className="grid grid-cols-1 gap-7 min-[860px]:grid-cols-2">
+                                {b.cartes.map(c => (
+                                  <Reveal key={c.id}>
+                                    <CartePermanence carte={c} adresse={donnees.adresse} />
+                                  </Reveal>
+                                ))}
+                              </div>
+                            ) : (
+                              <Reveal>
+                                <CarteEvenement carte={b.cartes[0]} onPhotos={i => ouvrirPhotos(b.cartes[0], i)} />
+                              </Reveal>
+                            )}
+                          </Fragment>
+                        ))}
                       </div>
-
-                      <Reveal
-                        variant="left"
-                        className="flex-1 overflow-hidden rounded-[32px] border-2 border-[#0f172a] bg-white"
-                        style={{ boxShadow: `6px 6px 0 ${typeColor}` }}
-                      >
-                        <div className="flex flex-col sm:flex-row">
-                          <div className="h-40 w-full shrink-0 overflow-hidden border-b-2 border-[#0f172a] bg-slate-50 sm:h-auto sm:w-[190px] sm:border-b-0 sm:border-r-2">
-                            {coverPhoto ? (
-                              <img src={coverPhoto} alt="" loading="lazy" className="h-full w-full object-cover" />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center">
-                                <ImageIcon size={36} className="text-slate-200" />
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="min-w-0 flex-1 p-5 md:p-6">
-                            <div className="mb-3.5 flex flex-wrap items-start justify-between gap-3">
-                              <div>
-                                <span
-                                  className="mb-2 inline-block rounded-full bg-slate-100 px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-[0.14em]"
-                                  style={{ color: typeColor }}
-                                >
-                                  {EVENT_TYPE_LABELS[eventType]}
-                                </span>
-                                <h3 className="font-display text-[21px] font-extrabold leading-[1.15] tracking-[-0.03em]">
-                                  {event.title}
-                                </h3>
-                                <p className="mt-1.5 flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">
-                                  <Calendar size={12} />
-                                  {new Date(event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                </p>
-                              </div>
-
-                              {Number(event.participants_count) > 0 && (
-                                <div
-                                  className="flex shrink-0 items-center gap-2 rounded-full border-2 border-[#0f172a] px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-white"
-                                  style={{ backgroundColor: typeColor }}
-                                >
-                                  <Users size={13} /> {event.participants_count} participant{event.participants_count > 1 ? 's' : ''}
-                                </div>
-                              )}
-                            </div>
-
-                            {(hasPhotos || hasGames) ? (
-                              <div className="flex flex-col gap-5 border-t-2 border-slate-100 pt-3.5 sm:flex-row sm:gap-6">
-                                {hasPhotos && (
-                                  <div className="flex min-w-0 flex-1 flex-col">
-                                    <p className="mb-2.5 text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
-                                      Photos
-                                    </p>
-                                    <div className="flex flex-wrap gap-2">
-                                      {visiblePhotos.map((photo, index) => (
-                                        <button
-                                          key={photo.id}
-                                          onClick={() => setLightbox({
-                                            fit: 'cover',
-                                            index,
-                                            items: evPhotos.map(p => ({ id: p.id, src: p.url })),
-                                          })}
-                                          className="h-[62px] w-[62px] shrink-0 overflow-hidden rounded-[16px] border-2 border-[#0f172a]"
-                                          style={{ transform: `rotate(${((index * 7 + eventIndex * 13) % 9) - 4}deg)` }}
-                                        >
-                                          <img
-                                            src={photo.url}
-                                            alt=""
-                                            loading="lazy"
-                                            className="h-full w-full object-cover transition-transform duration-500 hover:scale-110"
-                                          />
-                                        </button>
-                                      ))}
-                                    </div>
-                                    {evPhotos.length > 3 && (
-                                      <button
-                                        onClick={() => toggleSection(event.id, 'photos')}
-                                        className="mt-auto flex items-center gap-1 pt-3 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400 transition-colors hover:text-[#1a5f7a]"
-                                      >
-                                        {photosExpanded
-                                          ? <>Réduire <ChevronUp size={14} /></>
-                                          : <>Voir toutes les photos ({evPhotos.length}) <ChevronDown size={14} /></>}
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-
-                                {hasGames && (
-                                  <div className="flex min-w-0 flex-1 flex-col">
-                                    <p className="mb-2.5 text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
-                                      Jeux joués
-                                    </p>
-                                    <div className="flex flex-wrap gap-2">
-                                      {visibleGames.map(game => (
-                                        <GameThumb
-                                          key={game.id}
-                                          game={game}
-                                          onOpen={() => {
-                                            const start = gameItems.findIndex(g => g.id === game.id)
-                                            if (start !== -1) setLightbox({ fit: 'contain', index: start, items: gameItems })
-                                          }}
-                                        />
-                                      ))}
-                                    </div>
-                                    {evGames.length > 3 && (
-                                      <button
-                                        onClick={() => toggleSection(event.id, 'games')}
-                                        className="mt-auto flex items-center gap-1 pt-3 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400 transition-colors hover:text-[#1a5f7a]"
-                                      >
-                                        {gamesExpanded
-                                          ? <>Réduire <ChevronUp size={14} /></>
-                                          : <>Voir tous les jeux ({evGames.length}) <ChevronDown size={14} /></>}
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-3 border-t-2 border-slate-100 pt-4 text-slate-300">
-                                <ImageIcon size={20} />
-                                <p className="text-xs italic">Pas de photo pour cet événement.</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </Reveal>
                     </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </section>
+                  ))}
+
+                  {filtrees.length > limite && (
+                    <div className="mb-2.5 mt-[50px] flex justify-center">
+                      <button type="button" onClick={() => setNbAffiches(limite + PAR_PAGE)} className={BTN_SECONDARY}>
+                        Voir les événements plus anciens
+                        <ChevronDown size={16} strokeWidth={3} />
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ---------- PROCHAIN RENDEZ-VOUS ---------- */}
+        {vue?.prochain && <ProchainRendezVous evenement={vue.prochain} />}
+
+        <div className="pb-16 md:pb-20">
+          <RecevoirDates />
+        </div>
       </main>
 
-      {lightbox && lightbox.items.length > 0 && (
+      {galerie && galerie.items.length > 0 && (
         <MediaLightbox
-          items={lightbox.items}
-          index={lightbox.index}
-          fit={lightbox.fit}
-          onIndex={i => setLightbox(prev => ({ ...prev, index: i }))}
-          onClose={() => setLightbox(null)}
+          items={galerie.items}
+          index={galerie.index}
+          fit="cover"
+          onIndex={i => setGalerie(g => ({ ...g, index: i }))}
+          onClose={() => setGalerie(null)}
         />
       )}
-
     </PublicLayout>
   )
 }

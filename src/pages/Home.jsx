@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { supabase } from '../services/supabaseClient'
 import { compterVisite } from '../services/visites'
@@ -161,6 +161,14 @@ export default function Home() {
 
   // Comptage des visites (src/services/visites.js)
   useEffect(() => { compterVisite('home') }, [])
+
+  // Lien « Toutes nos dates » (/#agenda, page La vie de la ludothèque) : on descend à
+  // l'agenda une fois les dates chargées ('instant' : le défilement doux n'y arriverait pas)
+  const { hash } = useLocation()
+  useEffect(() => {
+    if (loading || hash !== '#agenda') return
+    document.getElementById('agenda')?.scrollIntoView({ behavior: 'instant', block: 'start' })
+  }, [loading, hash])
 
   const formatEventDuration = (dateIso, endTime) => {
     if (!dateIso) return "H-NC";
@@ -353,7 +361,7 @@ export default function Home() {
         </section>
 
         {/* ---------- AGENDA ---------- */}
-        <section className="border-y-2 border-[#0f172a] bg-white px-4 py-14 md:px-10 md:py-20">
+        <section id="agenda" className="scroll-mt-24 border-y-2 border-[#0f172a] bg-white px-4 py-14 md:px-10 md:py-20">
           <div className="mx-auto max-w-[1180px]">
             <Reveal className="mb-8 text-center md:mb-12">
               <div className={EYEBROW}>À ne pas manquer</div>

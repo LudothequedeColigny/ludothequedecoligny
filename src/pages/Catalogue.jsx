@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../services/supabaseClient'
 import { compterVisite } from '../services/visites'
 import { usePageMeta } from '../services/seo'
@@ -100,7 +101,9 @@ function Catalogue() {
   const [isExpanded, setIsExpanded] = useState(false)
 
   // États des Filtres
-  const [searchTerm, setSearchTerm] = useState("")
+  // ?q=Nom : lien depuis une boîte de jeu de la page « La vie de la ludothèque »
+  const [searchParams] = useSearchParams()
+  const [searchTerm, setSearchTerm] = useState(() => searchParams.get('q') || '')
   const [selectedCategories, setSelectedCategories] = useState([])
   const [categoryInput, setCategoryInput] = useState("")
   const [selectedAge, setSelectedAge] = useState(0)
