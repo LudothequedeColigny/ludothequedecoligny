@@ -10,10 +10,13 @@ import { versBlob, liberer, viderCache } from '../../../services/diapos/dessin'
 import { estChezNous } from '../../../services/diapos/jaquettes'
 import { publierSurReseaux, uploadSocialBlob } from '../../../services/reseauxSociaux'
 import SocialPostPreview from '../SocialPostPreview'
+import ExpressionLibre from './ExpressionLibre'
+import useExpressionLibre, { expressionPourApercu } from '../../../hooks/useExpressionLibre'
 
 /**
  * Bilan d'une permanence passée : carrousel de 3 images 4:5 (nombre de prêts, jeux
- * empruntés, prochaine permanence), publié via Make. Pas de story.
+ * empruntés, prochaine permanence), plus l'expression libre s'il y en a une
+ * (avant « Prochaine permanence »), publié via Make. Pas de story.
  * Seuls les jeux sont lus (jamais qui a emprunté quoi).
  * Conception : docs/superpowers/specs/2026-10-23-bilan-permanence-design.md
  */
@@ -32,7 +35,10 @@ const jourDeLaPermanence = date => {
   return j.charAt(0).toLowerCase() + j.slice(1)
 }
 
-export default function PublicationBilanPermanence({ event, onPublication, onEventChange }) {
+export default function PublicationBilanPermanence({ event, photos = [], onPublication, onEventChange, onErreur }) {
+  // Photos du bilan, de la plus ancienne à la plus récente (fond de l'expression libre)
+  const album = useMemo(() => [...photos].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)), [photos])
+  const urls = album.map(p => p.url)
   // undefined pendant la lecture ; null si les prêts n'ont pas pu être lus
   const [donnees, setDonnees] = useState(undefined) // { prets (empruntés), nbJeux, prochaine }
   // Texte retouché par le bénévole (null = texte proposé)
@@ -45,6 +51,10 @@ export default function PublicationBilanPermanence({ event, onPublication, onEve
   const [erreur, setErreur] = useState('')
   // Numéro de l'aperçu demandé : changé à la fermeture, l'aperçu en cours s'arrête
   const numero = useRef(0)
+  // Phrase libre : affichée tout de suite, enregistrée sur l'événement après un court délai
+  const { expression, changerTexte, changerPhoto, erreur: erreurExpression } = useExpressionLibre(event, onEventChange, onErreur)
+  const libre = expressionPourApercu(expression, urls)
+  const cleLibre = JSON.stringify(libre)
   // Une fabrication d'images à la fois (aperçu, publication) : mémoire des téléphones
   const fileAttente = useRef(Promise.resolve())
   const aLaSuite = tache => {
@@ -119,16 +129,17 @@ export default function PublicationBilanPermanence({ event, onPublication, onEve
   )
   const texte = texteSaisi ?? textePropose
 
-  // Aperçu : les 3 images exactes, dessinées une à une
+  // Aperçu : les images exactes, dessinées une à une ; après un court délai,
+  // pour que l'expression libre ne soit pas redessinée à chaque lettre
   useEffect(() => {
     if (!donnees || !donnees.nbJeux) return
     const n = ++numero.current
     setCalcul(true)
-    aLaSuite(async () => {
+    const minuterie = setTimeout(() => aLaSuite(async () => {
       const suite = () => { if (n !== numero.current) throw ABANDON }
       try {
         suite()
-        const p = planBilanPermanence({ event, prets: donnees.prets, prochaine: donnees.prochaine })
+        const p = planBilanPermanence({ event, prets: donnees.prets, prochaine: donnees.prochaine, expression: libre, photos: urls })
         const a = []
         await dessinerBilanPermanence(p, async canvas => {
           suite()
@@ -145,9 +156,10 @@ export default function PublicationBilanPermanence({ event, onPublication, onEve
       } finally {
         if (n === numero.current) setCalcul(false)
       }
-    })
+    }), 400)
+    return () => clearTimeout(minuterie)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [donnees])
+  }, [donnees, cleLibre])
 
   // Une image à la fois : dessinée, exportée, libérée, puis déposée chez nous
   // (Make n'accepte que nos adresses) ; publiée telle que montrée dans l'aperçu
@@ -229,6 +241,10 @@ export default function PublicationBilanPermanence({ event, onPublication, onEve
           <p className="ml-1 text-[11px] font-semibold leading-relaxed text-slate-500">
             Les prêts sont retrouvés par leur date : {nbJeux} {nbJeux === 1 ? 'jeu emprunté' : 'jeux empruntés'} le {jourDeLaPermanence(event.date)} (un jeu rendu le jour même n'est pas compté).
           </p>
+          <div className="pt-3">
+            <ExpressionLibre expression={expression} photos={album} onTexte={changerTexte} onPhoto={changerPhoto} erreur={erreurExpression}
+              aide={"S'ajoute juste avant «\u00a0Prochaine permanence\u00a0»."} />
+          </div>
         </div>
 
         <div className="space-y-1">

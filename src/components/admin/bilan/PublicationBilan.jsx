@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CheckCircle2, Download, Image as ImageIcon, Loader2, Share2 } from 'lucide-react'
 import { supabase } from '../../../services/supabaseClient'
-import { planCarrousel, planStory, prochainRendezVous, choisirJeux } from '../../../services/diapos/regles'
+import { planCarrousel, planStory, prochainRendezVous, choisirJeux, MAX_JEUX, MAX_IMAGES } from '../../../services/diapos/regles'
 import { dessinerCarrousel } from '../../../services/diapos/carrousel'
 import { dessinerStory } from '../../../services/diapos/story'
 import { jaquettesDuBilan, estChezNous } from '../../../services/diapos/jaquettes'
 import { versBlob, liberer, viderCache } from '../../../services/diapos/dessin'
 import { publierSurReseaux, uploadSocialBlob } from '../../../services/reseauxSociaux'
 import VueAgrandie from '../VueAgrandie'
+import ChoixPhoto from './ChoixPhoto'
+import ExpressionLibre from './ExpressionLibre'
+import useExpressionLibre, { expressionPourApercu } from '../../../hooks/useExpressionLibre'
 import { partagerFichiers } from '../../../services/diapos/partage'
 
 /**
@@ -17,27 +20,6 @@ import { partagerFichiers } from '../../../services/diapos/partage'
  * Conception : docs/superpowers/specs/2026-10-23-bilan-automatique-design.md
  */
 const SECTION = 'text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1'
-
-function ChoixPhoto({ photos, valeur, onChoix, avecSans }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {avecSans && (
-        <button type="button" onClick={() => onChoix(null)}
-          className={'flex h-14 w-14 items-center justify-center rounded-xl border-2 text-[8px] font-black uppercase text-slate-400 ' +
-            (valeur == null ? 'border-[#1a5f7a] ring-2 ring-[#1a5f7a]/30' : 'border-slate-200')}>
-          Sans
-        </button>
-      )}
-      {photos.map(p => (
-        <button key={p.id} type="button" onClick={() => onChoix(p.url)} aria-pressed={valeur === p.url}
-          className={'h-14 w-14 overflow-hidden rounded-xl border-2 ' +
-            (valeur === p.url ? 'border-[#1a5f7a] ring-2 ring-[#1a5f7a]/30' : 'border-transparent opacity-60 hover:opacity-100')}>
-          <img src={p.url} alt="" className="h-full w-full object-cover" />
-        </button>
-      ))}
-    </div>
-  )
-}
 
 const ERREUR_APERCU = "L'aperçu n'a pas pu être fabriqué. Réessayez ou rechargez la page."
 const ERREUR_CHOIX = "Ce choix n'a pas pu être enregistré. Réessayez dans un instant."
@@ -53,7 +35,7 @@ const nombreParticipants = v => {
   return Number.isFinite(n) && n > 0 ? n : null
 }
 
-export default function PublicationBilan({ event, photos, jeux, participants, texte, onTexteChange, texteModifie, onTexteReset, onJeuxChange, onEventChange }) {
+export default function PublicationBilan({ event, photos, jeux, participants, texte, onTexteChange, texteModifie, onTexteReset, onJeuxChange, onEventChange, onErreur }) {
   const album = useMemo(() => [...photos].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)), [photos])
   const urls = album.map(p => p.url)
   // Choix enregistrés sur l'événement ; une photo retirée de l'album ne compte plus
@@ -74,6 +56,10 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
   const [etat, setEtat] = useState('') // '' | 'publication' | 'publie' | 'story'
   const [erreur, setErreur] = useState('')
   const numero = useRef(0)
+  // Phrase libre : affichée tout de suite, enregistrée sur l'événement après un court délai
+  const { expression, changerTexte, changerPhoto, erreur: erreurExpression } = useExpressionLibre(event, onEventChange, onErreur)
+  const libre = expressionPourApercu(expression, urls)
+  const cleLibre = JSON.stringify(libre)
 
   // Fenêtre fermée : aperçu en cours abandonné, images chargées oubliées (mémoire des téléphones)
   useEffect(() => () => { numero.current++; viderCache() }, [])
@@ -121,11 +107,16 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
       image: jaquettes?.get(j.id) || j.image_url,
     })),
     prochain,
+    expression: libre,
     maintenant: new Date(),
+    // Seuls le titre, la date et le lieu de l'événement sont dessinés : enregistrer un choix
+    // (photo, expression libre) sur l'événement ne redessine pas tout le carrousel
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [event, participants, urls.join(','), photoOuverture, photoJeux, jeux, jaquettes, prochain])
+  }), [event.id, event.title, event.date, event.location, participants, urls.join(','), photoOuverture, photoJeux, jeux, jaquettes, prochain, cleLibre])
 
-  const { ecartes } = choisirJeux(jeux)
+  // Jeux qui n'ont pas leur place dans le carrousel (6 au plus, 10 images au plus)
+  const nbJeuxCarrousel = useMemo(() => planCarrousel(donnees).filter(d => d.type === 'jeu').length, [donnees])
+  const { ecartes } = choisirJeux(donnees.jeux, nbJeuxCarrousel)
 
   // Aperçu recalculé (avec un court délai) à chaque changement
   useEffect(() => {
@@ -279,11 +270,16 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
           ))}
           {ecartes.length > 0 && (
             <p className="rounded-[12px] border-2 border-[#f59e0b] bg-[#fffbeb] px-3 py-2 text-[10.5px] font-semibold text-[#b45309]">
-              Le carrousel est limité à 6 jeux : {ecartes.map(j => j.name).join(', ')} n'y figure{ecartes.length > 1 ? 'nt' : ''} pas.
+              {nbJeuxCarrousel < MAX_JEUX
+                ? `Le carrousel est limité à ${MAX_IMAGES} images, soit ${nbJeuxCarrousel} jeu${nbJeuxCarrousel > 1 ? 'x' : ''} ici`
+                : `Le carrousel est limité à ${MAX_JEUX} jeux`} : {ecartes.map(j => j.name).join(', ')} n'y figure{ecartes.length > 1 ? 'nt' : ''} pas.
             </p>
           )}
         </div>
       )}
+
+      <ExpressionLibre expression={expression} photos={album} onTexte={changerTexte} onPhoto={changerPhoto} erreur={erreurExpression}
+        aide={`S'ajoute juste avant le «\u00a0Merci\u00a0». Avec ${MAX_IMAGES}\u00a0images, le dernier jeu laisse sa place.`} />
 
       <div className="space-y-2">
         <p className={SECTION}>Aperçu du carrousel {calcul && <Loader2 size={11} className="ml-1 inline animate-spin" />}</p>

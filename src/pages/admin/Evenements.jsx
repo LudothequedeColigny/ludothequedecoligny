@@ -2553,8 +2553,10 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                   <PublicationBilanPermanence
                     key={bilanModal.event.id}
                     event={bilanModal.event}
+                    photos={bilanPhotos}
                     onPublication={setBilanEnPublication}
                     onEventChange={patch => majEvenement(bilanModal.event.id, patch)}
+                    onErreur={message => addToast(message, 'error')}
                   />
                 ) : getEventType(bilanModal.event.title) === 'permanence' ? (
                   <p className="text-[11px] italic text-slate-400 px-1">Le bilan de cet événement n'est pas encore proposé.</p>
@@ -2571,6 +2573,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                     onTexteReset={resetBilanFbText}
                     onJeuxChange={setBilanGames}
                     onEventChange={patch => majEvenement(bilanModal.event.id, patch)}
+                    onErreur={message => addToast(message, 'error')}
                   />
                 )}
               </div>
