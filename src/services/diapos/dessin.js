@@ -12,6 +12,11 @@ export function viderCache() {
   cache.clear()
 }
 
+/** Oublie une image chargée (page publique : une jaquette déjà transformée en autocollant). */
+export function oublierImage(url) {
+  cache.delete(url)
+}
+
 export function chargerImage(url) {
   if (!url) return Promise.resolve(null)
   if (!cache.has(url)) {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { detourer, autocollant, tenir } from '../services/diapos/autocollant.js'
-import { COULEURS, chargerImage, nouveauCanvas, liberer } from '../services/diapos/dessin.js'
+import { COULEURS, chargerImage, oublierImage, nouveauCanvas, liberer } from '../services/diapos/dessin.js'
 
 /**
  * Jaquette → image « autocollant » (boîte détourée, liseré blanc, contour encre, ombre
@@ -67,6 +67,8 @@ function demander(url, couleur, cle) {
     const tache = file.then(async () => {
       await pause() // laisse la page respirer entre deux boîtes
       const src = await fabriquer(url, couleur)
+      // La jaquette d'origine n'est plus utile : elle ne reste pas en mémoire tout le long de la visite
+      oublierImage(url)
       prets.set(cle, src)
       enCours.delete(cle)
       return src

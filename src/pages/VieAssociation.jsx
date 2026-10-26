@@ -18,7 +18,7 @@ import ProchainRendezVous from '../components/site/vie/ProchainRendezVous'
 import {
   cartesEvenements, chiffresCles, serieFrequentation, filtrer, compteurs, parMois,
 } from '../services/vieLudotheque'
-import { prochainRendezVous } from '../services/diapos/regles'
+import { prochainRendezVous, sansAccents } from '../services/diapos/regles'
 import { jourComplet } from '../services/diapos/permanence-regles'
 
 /**
@@ -66,6 +66,9 @@ function TitreMois({ titre }) {
   )
 }
 
+// Notre stockage (Supabase) : les seules images que la page affiche
+const HEBERGEE = /^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\//
+
 export default function VieAssociation() {
   usePageMeta({
     title: 'La vie de la ludothèque',
@@ -81,18 +84,26 @@ export default function VieAssociation() {
 
   useEffect(() => {
     let actif = true
+    // Jaquettes restées chez MyLudo (anciens bilans) : la copie du catalogue si le jeu y est,
+    // sinon pas d'image — le navigateur du visiteur n'appelle jamais MyLudo (son adresse IP)
+    const jaquettesChezNous = (jeux, catalogue) => {
+      const cle = n => sansAccents(n).trim()
+      const duCatalogue = new Map(catalogue.filter(g => g.name && HEBERGEE.test(g.image_url || '')).map(g => [cle(g.name), g.image_url]))
+      return jeux.map(j => (HEBERGEE.test(j.image_url || '') ? j : { ...j, image_url: duCatalogue.get(cle(j.name)) || null }))
+    }
     Promise.all([
       supabase.from('events').select('*'),
       supabase.from('event_photos').select('id, event_id, url'),
       supabase.from('event_games_played').select('id, event_id, name, image_url, in_catalogue'),
       supabase.from('settings').select('*').eq('id', 'adresse_rue'),
       supabase.rpc('jeux_empruntes_permanences'),
-    ]).then(([evenements, photos, jeux, reglages, emprunts]) => {
+      supabase.from('games').select('name, image_url'),
+    ]).then(([evenements, photos, jeux, reglages, emprunts, catalogue]) => {
       if (!actif) return
       setDonnees({
         evenements: evenements.data || [],
         photos: photos.data || [],
-        jeux: jeux.data || [],
+        jeux: jaquettesChezNous(jeux.data || [], catalogue.data || []),
         adresse: (reglages.data?.[0]?.value || '').trim(),
         // Fonction absente ou en erreur : aucune carte de permanence, chiffre masqué
         emprunts: emprunts.error ? null : (emprunts.data || []),

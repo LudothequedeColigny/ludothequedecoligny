@@ -79,12 +79,14 @@ Tous suivent la maquette `Admin 1C.dc.html`, **page et fenêtres comprises** (vo
 
 Le visiteur **écrit sans pouvoir lire** dans `preinscriptions` et `abonnes_dates`
 (fonctions `preinscrire` et `inscrire_dates`, `supabase/migrations/20261022_preinscriptions.sql`).
+La fonction serveur `send-email` envoie alors la confirmation ou le mail de bienvenue,
+une seule fois par demande, et alerte les bénévoles (`send-push`).
+
 Il ne peut pas lire les prêts : la page « Vie de la ludothèque » passe par la fonction
 `jeux_empruntes_permanences()` (`supabase/migrations/20261026_jeux_empruntes_permanences.sql`),
 qui ne renvoie que les jeux empruntés à chaque permanence passée, jamais l'emprunteur.
 Les boîtes y sont dessinées en autocollant par `src/hooks/useAutocollant.js` (à la demande, une à la fois, en cache).
-La fonction serveur `send-email` envoie alors la confirmation ou le mail de bienvenue,
-une seule fois par demande, et alerte les bénévoles (`send-push`).
+Les jaquettes restées chez MyLudo n'y sont jamais affichées (copie du catalogue, sinon pas d'image).
 
 ---
 

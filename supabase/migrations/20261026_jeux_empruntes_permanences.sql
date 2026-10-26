@@ -7,13 +7,14 @@ language sql stable security definer set search_path = public as $$
   with permanences as (
     select e.id, e.date::date as jour
     from events e
-    where e.date < now()
+    where e.date < (now() at time zone 'Europe/Paris')  -- dates des événements : heure de Paris, sans fuseau
       and lower(e.title) like '%permanence%'
       and lower(translate(e.title, 'éÉèÈ', 'eeee')) not like '%soiree%'
       and lower(e.title) not like '%famil%'
   ),
   prets as (
     select l.game_id, l.loan_date from loans l
+    where l.return_date is null or l.return_date <> l.loan_date
     union all
     select h.game_id, h.loan_date from loan_history h
     where h.return_date is null or h.return_date <> h.loan_date
