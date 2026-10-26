@@ -8,7 +8,7 @@
 
 ## Règles (validées)
 
-- Champ « Expression libre (facultatif) » dans la fenêtre Bilan ; vide = pas d'image. Texte sur 3 lignes au plus dans l'image (taille réduite de 96 à 60 px pour tenir, puis « … »). Saisie limitée à 120 caractères.
+- Champ « Expression libre (facultatif) » dans la fenêtre Bilan ; vide = pas d'image. Texte sur 3 lignes au plus dans l'image (taille réduite de 96 à 60 px pour tenir, puis « … »). Saisie limitée à **90** caractères (décision du 26/10 : 3 lignes tiennent ~90 caractères, pas de « … »).
 - Fond : « Fond flouté » (défaut) ou une des photos du bilan (`event_photos`, déjà passées par le floutage des visages).
   - Photo choisie : photo plein cadre + `degradeBas` ; carte en bas (carrousel : centre à `H − 90 − hCarte/2` ; story : au-dessus de la zone Instagram du bas, centre à `1580 − 60 − hCarte/2`).
   - Fond flouté, soirée : photo d'ouverture du bilan floutée + voile `rgba(26,95,122,0.62)` ; carte au centre.

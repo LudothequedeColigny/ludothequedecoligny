@@ -54,7 +54,8 @@ export default function useExpressionLibre(event, onEventChange, onErreur) {
       console.error('Expression libre :', echec)
       if (enregistree.current === valeur) {
         enregistree.current = avant
-        setExpression(x => (memeValeur(aEnregistrer(x), valeur) ? lire(avant) : x))
+        // Une saisie est encore en attente d'enregistrement : l'écran garde ce qui est tapé
+        if (!enAttente.current) setExpression(x => (memeValeur(aEnregistrer(x), valeur) ? lire(avant) : x))
         rappels.current.onEventChange(e => (e.bilan_expression === valeur ? { bilan_expression: avant } : {}))
       }
       // Une saisie plus récente suit et sera enregistrée à son tour : pas de message
