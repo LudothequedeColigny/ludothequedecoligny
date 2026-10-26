@@ -1197,9 +1197,16 @@ www.ludothequedecoligny.fr`
     if (file) loadPhotoIntoEditor(file)
   }
 
+  // Image enregistrée : toujours la photo floutée, jamais l'affichage de l'éditeur.
+  // Les rectangles dessinés mais pas encore appliqués sont floutés ici (sinon les
+  // visages partaient en clair sous les repères orange : incident du 25/10/2026).
   const exportCurrentCanvasAsWebp = () => new Promise(resolve => {
     const canvas = blurCanvasRef.current
-    if (!canvas) { resolve(null); return }
+    if (!canvas || !basePixelsRef.current) { resolve(null); return }
+    if (pendingRectsRef.current.length > 0) applyBlur()
+    dragStartRef.current = null
+    // Repart des pixels floutés, sans aucun repère dessiné par-dessus
+    canvas.getContext('2d').putImageData(basePixelsRef.current, 0, 0)
     canvas.toBlob(blob => resolve(blob), 'image/webp', 0.82)
   })
 

@@ -315,6 +315,10 @@ Les animations et effets sont définis dans `src/index.css`.
   (réponse dans `net._http_response` ; prévoir `timeout_milliseconds := 30000`, 5 s ne suffisent pas).
   Un rappel ouvre `/admin/evenements?annonce={id}` ou `?bilan={id}` : l'écran Communication
   ouvre la fenêtre puis retire le paramètre ; déconnecté, la connexion y ramène.
+- **Floutage des visages (photos des bilans)** : l'image enregistrée est toujours la photo
+  floutée, jamais l'affichage de l'éditeur ; un rectangle dessiné est flouté même sans clic sur
+  « Appliquer le flou ». Le 25/10/2026, une photo était partie avec les visages en clair sous les
+  repères orange (bouton « Terminer » cliqué avant « Appliquer ») : ne pas revenir en arrière.
 - **Le site utilise le défilement « doux »** : tout script qui fait défiler la page
   doit préciser `behavior: 'instant'`, sinon il n'atteint jamais le bas.
 - `index.html` interdit volontairement le zoom sur mobile (`user-scalable=no`).
