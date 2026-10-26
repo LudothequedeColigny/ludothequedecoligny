@@ -1,11 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../services/supabaseClient'
 import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
-import { 
-  Clock, Plus, Trash2, Link as LinkIcon, 
-  CheckCircle, CalendarDays, UserCheck, Loader2, AlertTriangle,
-  X, Edit2, Share2, WifiOff
-} from 'lucide-react'
+import { Clock, Plus, Trash2, CheckCircle, UserCheck, Loader2, AlertTriangle, X, Edit2 } from 'lucide-react'
+import MaskIcon from '../../components/site/MaskIcon'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import AdminBanner from '../../components/admin/AdminBanner'
 import SearchField from '../../components/admin/SearchField'
@@ -245,7 +242,7 @@ const PERMANENCES_TUTORIAL_STEPS = (openFormFn, closeFormFn, openLinkFn) => [
         <AdminPageHeader icon="ludo-benevoles.svg" title="Gestion des" accent="permanences">
           <div className="flex w-full flex-wrap gap-2.5 md:w-auto">
             <button data-tutorial="perm-link-btn" onClick={() => setShowLinkModal(true)} className={`${BTN_OUTLINE} flex-1 md:flex-none`}>
-              <LinkIcon size={15} /> Lien public
+              <MaskIcon file="ludo-lien.svg" size={20} color="currentColor" /> Lien public
             </button>
             <button
               data-tutorial="perm-add-btn"
@@ -261,7 +258,7 @@ const PERMANENCES_TUTORIAL_STEPS = (openFormFn, closeFormFn, openLinkFn) => [
 
       <main>
         {!navigator.onLine && (
-          <AdminBanner tone="warn" icon={<WifiOff size={18} />}>
+          <AdminBanner tone="warn" icon={<MaskIcon file="ludo-hors-ligne.svg" size={24} color="currentColor" />}>
             Planning en mode lecture seule (hors-ligne)
           </AdminBanner>
         )}
@@ -287,7 +284,7 @@ const PERMANENCES_TUTORIAL_STEPS = (openFormFn, closeFormFn, openLinkFn) => [
           </DataHeader>
 
           {filteredShifts.length === 0 ? (
-            <DataEmpty icon={<CalendarDays size={36} className="text-slate-200" />}>
+            <DataEmpty icon={<MaskIcon file="ludo-calendrier.svg" size={56} color="#94a3b8" />}>
               Aucune permanence ne correspond à cette recherche.
             </DataEmpty>
           ) : filteredShifts.map((shift, idx) => (
@@ -302,7 +299,7 @@ const PERMANENCES_TUTORIAL_STEPS = (openFormFn, closeFormFn, openLinkFn) => [
               </div>
 
               <div className="inline-flex items-center gap-2 text-[11.5px] font-extrabold uppercase tracking-[0.1em] text-slate-400">
-                <Clock size={14} className="shrink-0 text-[#1a5f7a]" /> {fmt(shift.start_time)} — {fmt(shift.end_time)}
+                <MaskIcon file="ludo-horloge.svg" size={18} color="#1a5f7a" className="shrink-0" /> {fmt(shift.start_time)} — {fmt(shift.end_time)}
               </div>
 
               <div className="flex flex-wrap gap-[7px]">
@@ -343,7 +340,7 @@ const PERMANENCES_TUTORIAL_STEPS = (openFormFn, closeFormFn, openLinkFn) => [
         <div className="space-y-4 md:hidden">
           {filteredShifts.length === 0 && (
             <DataCard>
-              <DataEmpty icon={<CalendarDays size={36} className="text-slate-200" />}>
+              <DataEmpty icon={<MaskIcon file="ludo-calendrier.svg" size={56} color="#94a3b8" />}>
                 Aucune permanence ne correspond à cette recherche.
               </DataEmpty>
             </DataCard>
@@ -445,7 +442,7 @@ const PERMANENCES_TUTORIAL_STEPS = (openFormFn, closeFormFn, openLinkFn) => [
           <div className="anim-fade-in absolute inset-0 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }} onClick={() => setShowLinkModal(false)} />
           <div data-tutorial="perm-link-modal" className="anim-modal-in relative w-full max-w-[440px] rounded-[34px] border-2 border-[#0f172a] bg-white p-8 text-center shadow-[12px_12px_0_#1a5f7a] md:p-9">
             <div className="mx-auto mb-5 flex h-[70px] w-[70px] -rotate-3 items-center justify-center rounded-[24px] border-2 border-[#0f172a] bg-[#f0f7f9] text-[#1a5f7a] shadow-[4px_4px_0_#1a5f7a]">
-              <Share2 size={30} />
+              <MaskIcon file="ludo-lien.svg" size={40} color="currentColor" />
             </div>
             <h3 className="mb-2.5 font-display text-[26px] font-extrabold uppercase tracking-[-0.04em]">
               Partager le <span className="text-[#1a5f7a]">lien</span>
@@ -458,7 +455,7 @@ const PERMANENCES_TUTORIAL_STEPS = (openFormFn, closeFormFn, openLinkFn) => [
                 onClick={copyPublicLink}
                 className={`flex items-center justify-center gap-2.5 rounded-[18px] border-2 border-[#0f172a] px-4 py-4 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white shadow-[5px_5px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a] ${copied ? 'bg-[#10b981]' : 'bg-[#1a5f7a]'}`}
               >
-                {copied ? <CheckCircle size={17} /> : <LinkIcon size={17} />}
+                {copied ? <CheckCircle size={17} /> : <MaskIcon file="ludo-lien.svg" size={20} color="currentColor" />}
                 {copied ? "Lien copié !" : "Copier maintenant"}
               </button>
               <button
@@ -495,7 +492,7 @@ const PERMANENCES_TUTORIAL_STEPS = (openFormFn, closeFormFn, openLinkFn) => [
         confirmLabel="Oui, supprimer"
         cancelLabel="Conserver"
         tone="danger"
-        icon={<Trash2 size={26} />}
+        icon={<MaskIcon file="ludo-corbeille.svg" size={40} color="currentColor" />}
       />
     </div>
   )

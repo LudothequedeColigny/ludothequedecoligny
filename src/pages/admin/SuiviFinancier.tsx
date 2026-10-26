@@ -8,10 +8,8 @@ import ConfirmModal from '../../components/admin/ConfirmModal'
 import FormModal, { FieldLabel, FIELD } from '../../components/admin/FormModal'
 import { DataCard } from '../../components/admin/DataCard'
 import { BTN_TEAL } from '../../components/admin/buttons'
-import {
-  TrendingUp, TrendingDown, Plus, Trash2, Loader2,
-  Wallet, ShoppingCart, Landmark, PiggyBank, X, AlertTriangle, Euro, Edit2
-} from 'lucide-react'
+import { Plus, Trash2, Loader2, AlertTriangle, Edit2 } from 'lucide-react'
+import MaskIcon from '../../components/site/MaskIcon'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -35,11 +33,11 @@ const ENTREE_CATEGORIES = ['Cotisation', 'Subvention', 'Don', 'Trésorerie initi
 const SORTIE_CATEGORIES = ['Achat de jeu', 'Matériel', 'Communication', 'Frais divers', 'Autre sortie']
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
-  'Cotisation':           <Euro size={14} />,
-  'Subvention':           <Landmark size={14} />,
-  'Don':                  <PiggyBank size={14} />,
-  'Trésorerie initiale':  <Wallet size={14} />,
-  'Achat de jeu':         <ShoppingCart size={14} />,
+  'Cotisation':           <MaskIcon file="ludo-cotisation.svg" size={24} color="currentColor" />,
+  'Subvention':           <MaskIcon file="ludo-subvention.svg" size={24} color="currentColor" />,
+  'Don':                  <MaskIcon file="ludo-don.svg" size={24} color="currentColor" />,
+  'Trésorerie initiale':  <MaskIcon file="ludo-tresorerie.svg" size={24} color="currentColor" />,
+  'Achat de jeu':         <MaskIcon file="ludo-achat-jeu.svg" size={24} color="currentColor" />,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -314,7 +312,7 @@ const FINANCIER_TUTORIAL_STEPS = (openForm, closeForm) => [
           </div>
           <div className="relative flex flex-col items-center gap-2.5">
             <div className="flex h-[92px] w-[92px] items-center justify-center rounded-[26px] border-2 border-white/40 bg-white/20">
-              {solde >= 0 ? <TrendingUp size={42} strokeWidth={2.5} /> : <TrendingDown size={42} strokeWidth={2.5} />}
+              <MaskIcon file="ludo-solde.svg" size={58} color="currentColor" />
             </div>
             <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-white/70">
               {solde >= 0 ? 'Bilan positif' : 'Déficit'}
@@ -325,9 +323,9 @@ const FINANCIER_TUTORIAL_STEPS = (openForm, closeForm) => [
         {/* ── COMPTEURS ────────────────────────────────────────────────── */}
         <div data-tutorial="fin-compteurs" className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {[
-            { label: 'Cotisations encaissées', value: fmt(cotisationsTotal), color: '#0f172a', shadow: '#1a5f7a', tint: '#f0f7f9', icon: <Euro size={15} />, iconColor: '#1a5f7a', hint: 'Historique réel · toutes années' },
-            { label: 'Autres entrées', value: fmt(totalEntrees - cotisationsTotal), color: '#10b981', shadow: '#10b981', tint: '#ecfdf5', icon: <TrendingUp size={15} />, iconColor: '#10b981', hint: 'Subventions, dons, trésorerie…' },
-            { label: 'Total des sorties', value: fmt(totalSorties), color: '#f43f5e', shadow: '#f43f5e', tint: '#fff1f2', icon: <TrendingDown size={15} />, iconColor: '#f43f5e', hint: 'Achats, matériel, frais…' },
+            { label: 'Cotisations encaissées', value: fmt(cotisationsTotal), color: '#0f172a', shadow: '#1a5f7a', tint: '#f0f7f9', icon: <MaskIcon file="ludo-cotisation.svg" size={24} color="currentColor" />, iconColor: '#1a5f7a', hint: 'Historique réel · toutes années' },
+            { label: 'Autres entrées', value: fmt(totalEntrees - cotisationsTotal), color: '#10b981', shadow: '#10b981', tint: '#ecfdf5', icon: <MaskIcon file="ludo-entree.svg" size={24} color="currentColor" />, iconColor: '#10b981', hint: 'Subventions, dons, trésorerie…' },
+            { label: 'Total des sorties', value: fmt(totalSorties), color: '#f43f5e', shadow: '#f43f5e', tint: '#fff1f2', icon: <MaskIcon file="ludo-sortie.svg" size={24} color="currentColor" />, iconColor: '#f43f5e', hint: 'Achats, matériel, frais…' },
           ].map(card => (
             <div
               key={card.label}
@@ -401,7 +399,7 @@ const FINANCIER_TUTORIAL_STEPS = (openForm, closeForm) => [
                       className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a]"
                       style={{ background: tint, color: accent }}
                     >
-                      {CATEGORY_ICONS[t.category] || (t.type === 'entree' ? <TrendingUp size={15} /> : <TrendingDown size={15} />)}
+                      {CATEGORY_ICONS[t.category] || (t.type === 'entree' ? <MaskIcon file="ludo-entree.svg" size={24} color="currentColor" /> : <MaskIcon file="ludo-sortie.svg" size={24} color="currentColor" />)}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13.5px] font-extrabold text-slate-800">{t.label}</p>
@@ -475,7 +473,7 @@ const FINANCIER_TUTORIAL_STEPS = (openForm, closeForm) => [
                 form.type === 'entree' ? 'bg-[#10b981] text-white' : 'bg-[#ecfdf5] text-[#047857]'
               }`}
             >
-              <TrendingUp size={16} /> Entrée
+              <MaskIcon file="ludo-entree.svg" size={22} color="currentColor" /> Entrée
             </button>
             <button
               onClick={() => handleTypeChange('sortie')}
@@ -483,7 +481,7 @@ const FINANCIER_TUTORIAL_STEPS = (openForm, closeForm) => [
                 form.type === 'sortie' ? 'bg-[#f43f5e] text-white' : 'bg-[#fff1f2] text-[#be123c]'
               }`}
             >
-              <TrendingDown size={16} /> Sortie
+              <MaskIcon file="ludo-sortie.svg" size={22} color="currentColor" /> Sortie
             </button>
           </div>
 
@@ -557,7 +555,7 @@ const FINANCIER_TUTORIAL_STEPS = (openForm, closeForm) => [
         confirmLabel="Oui, supprimer"
         cancelLabel="Conserver"
         tone="danger"
-        icon={<Trash2 size={26} />}
+        icon={<MaskIcon file="ludo-corbeille.svg" size={40} color="currentColor" />}
       >
         {deleteConfirm && (
           <p className="mb-6 font-display text-[26px] font-extrabold tracking-[-0.04em] tabular-nums" style={{ color: deleteConfirm.type === 'entree' ? '#10b981' : '#f43f5e' }}>

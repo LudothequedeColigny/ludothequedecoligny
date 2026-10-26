@@ -134,7 +134,10 @@ Communication) en place : `boite-jeu`, `carte-adherent`, `calendrier-evenement`,
 `affiche`, `affiche-pinceau`, `post`, `nouveau-jeu`, `annonce`, `bilan`, `joueurs`, `photo`, `jeux-joues`,
 `ecrire-mail`, `carnet`, `modeles`, `presse`, `ecole`, `archives`. Lot 2 (Jeux, Adhérents, Prêts) : `etagere-vide`,
 `etiquette-qr`, `scan`, `hors-ligne`, `corbeille`, `preinscription`, `actualites`, `renouveler`, `caution`,
-`contact`, `enveloppe`, `lieu`, `famille`, `retard`, `retour`, `prolonger`, `relance`. Trop fines sous 18 px : les petits boutons
+`contact`, `enveloppe`, `lieu`, `famille`, `retard`, `retour`, `prolonger`, `relance`. Lot 3 (Permanences, Suivi financier,
+Suggestions, Paramètres) : `lien`, `calendrier`, `horloge`, `solde`, `entree`, `sortie`, `cotisation`, `subvention`,
+`don`, `tresorerie`, `achat-jeu`, `modifier`, `retirer-jeu`, `appli-reglage`, `fonctionnement`, `partenariat`, `autre`,
+`billet`, `tirelire`, `question`, `finances`, `paiements`, `limites`, `sauvegarde`, `cle`, `revoquer`. Trop fines sous 18 px : les petits boutons
 d'action gardent leurs pictogrammes simples.
 
 Les fichiers `01.svg` à `07.svg` restent utilisés pour les petites vignettes de

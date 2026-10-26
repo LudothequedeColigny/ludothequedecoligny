@@ -5,12 +5,8 @@ import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverla
 import { useToast } from '../../components/ToastContext'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import { BTN_ORANGE, BTN_OUTLINE } from '../../components/admin/buttons'
-import {
-  Lightbulb, Dices, Wrench, MessageSquarePlus, CheckCircle2,
-  Loader2, Sparkles, CalendarDays, AlertTriangle, Link2, Megaphone,
-  MoreHorizontal, Plus, Trash2, Check, X, ChevronDown, Search, Pencil,
-  Euro, PiggyBank, HelpCircle, Edit2, FileDown
-} from 'lucide-react'
+import { CheckCircle2, Loader2, Sparkles, Plus, Trash2, Check, X, ChevronDown, Search, Pencil, Edit2, FileDown } from 'lucide-react'
+import MaskIcon from '../../components/site/MaskIcon'
 
 // ─── Helpers MyLudo (via Edge Function Supabase bgg-proxy) ──
 const BGG_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bgg-proxy`
@@ -67,14 +63,14 @@ function initialAvatar(name) {
 }
 
 const CATEGORIES = [
-  { id: 'jeu_acheter',    icon: <Dices size={16} />,          label: 'Jeu à acheter',               color: '#1a5f7a',  bg: 'bg-cyan-50',    text: 'text-[#1a5f7a]',   border: 'border-cyan-100' },
-  { id: 'jeu_retirer',    icon: <AlertTriangle size={16} />,  label: 'Jeu à retirer',               color: '#dc2626',  bg: 'bg-rose-50',    text: 'text-rose-600',    border: 'border-rose-100' },
-  { id: 'evenement',      icon: <CalendarDays size={16} />,   label: 'Événement à organiser',       color: '#d97706',  bg: 'bg-amber-50',   text: 'text-amber-600',   border: 'border-amber-100' },
-  { id: 'application',    icon: <Wrench size={16} />,         label: "Amélioration de l'appli",     color: '#e38154',  bg: 'bg-orange-50',  text: 'text-[#e38154]',   border: 'border-orange-100' },
-  { id: 'fonctionnement', icon: <MessageSquarePlus size={16}/>,label: 'Fonctionnement',             color: '#7c5cbf',  bg: 'bg-violet-50',  text: 'text-violet-600',  border: 'border-violet-100' },
-  { id: 'partenariat',    icon: <Link2 size={16} />,          label: 'Partenariat',                 color: '#0891b2',  bg: 'bg-sky-50',     text: 'text-sky-600',     border: 'border-sky-100' },
-  { id: 'communication',  icon: <Megaphone size={16} />,      label: 'Communication',               color: '#059669',  bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-100' },
-  { id: 'autre',          icon: <MoreHorizontal size={16} />, label: 'Autre',                       color: '#64748b',  bg: 'bg-slate-50',   text: 'text-slate-500',   border: 'border-slate-200' },
+  { id: 'jeu_acheter',    icon: <MaskIcon file="ludo-achat-jeu.svg" size={22} color="currentColor" />, label: 'Jeu à acheter',               color: '#1a5f7a',  bg: 'bg-cyan-50',    text: 'text-[#1a5f7a]',   border: 'border-cyan-100' },
+  { id: 'jeu_retirer',    icon: <MaskIcon file="ludo-retirer-jeu.svg" size={22} color="currentColor" />, label: 'Jeu à retirer',               color: '#dc2626',  bg: 'bg-rose-50',    text: 'text-rose-600',    border: 'border-rose-100' },
+  { id: 'evenement',      icon: <MaskIcon file="ludo-calendrier-evenement.svg" size={22} color="currentColor" />, label: 'Événement à organiser',       color: '#d97706',  bg: 'bg-amber-50',   text: 'text-amber-600',   border: 'border-amber-100' },
+  { id: 'application',    icon: <MaskIcon file="ludo-appli-reglage.svg" size={22} color="currentColor" />, label: "Amélioration de l'appli",     color: '#e38154',  bg: 'bg-orange-50',  text: 'text-[#e38154]',   border: 'border-orange-100' },
+  { id: 'fonctionnement', icon: <MaskIcon file="ludo-fonctionnement.svg" size={22} color="currentColor" />,label: 'Fonctionnement',             color: '#7c5cbf',  bg: 'bg-violet-50',  text: 'text-violet-600',  border: 'border-violet-100' },
+  { id: 'partenariat',    icon: <MaskIcon file="ludo-partenariat.svg" size={22} color="currentColor" />, label: 'Partenariat',                 color: '#0891b2',  bg: 'bg-sky-50',     text: 'text-sky-600',     border: 'border-sky-100' },
+  { id: 'communication',  icon: <MaskIcon file="ludo-annonce.svg" size={22} color="currentColor" />, label: 'Communication',               color: '#059669',  bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-100' },
+  { id: 'autre',          icon: <MaskIcon file="ludo-autre.svg" size={22} color="currentColor" />, label: 'Autre',                       color: '#64748b',  bg: 'bg-slate-50',   text: 'text-slate-500',   border: 'border-slate-200' },
 ]
 
 const FORM_CATEGORIES = CATEGORIES.map(c => ({
@@ -577,9 +573,9 @@ export default function Suggestions() {
         {suggestions.length > 0 && (
           <div data-tutorial="sugg-budget" className="mb-5 grid grid-cols-1 gap-5 rounded-[32px] border-2 border-[#0f172a] bg-white p-6 shadow-[6px_6px_0_#e38154] sm:grid-cols-3">
             {[
-              { label: 'Total à prévoir', value: formatPrice(totalToProvide), color: '#e38154', tint: '#fdf1ea', icon: <Euro size={18} /> },
-              { label: 'Économisé',       value: formatPrice(totalSaved),     color: '#10b981', tint: '#ecfdf5', icon: <PiggyBank size={18} /> },
-              { label: 'Non chiffré',     value: `${uncostedCount} suggestion${uncostedCount > 1 ? 's' : ''}`, color: '#64748b', tint: '#f1f5f9', icon: <HelpCircle size={18} /> },
+              { label: 'Total à prévoir', value: formatPrice(totalToProvide), color: '#e38154', tint: '#fdf1ea', icon: <MaskIcon file="ludo-billet.svg" size={28} color="currentColor" /> },
+              { label: 'Économisé',       value: formatPrice(totalSaved),     color: '#10b981', tint: '#ecfdf5', icon: <MaskIcon file="ludo-tirelire.svg" size={28} color="currentColor" /> },
+              { label: 'Non chiffré',     value: `${uncostedCount} suggestion${uncostedCount > 1 ? 's' : ''}`, color: '#64748b', tint: '#f1f5f9', icon: <MaskIcon file="ludo-question.svg" size={28} color="currentColor" /> },
             ].map(stat => (
               <div key={stat.label} className="flex items-center gap-3.5">
                 <span
@@ -663,7 +659,7 @@ export default function Suggestions() {
                           active ? `${c.bg}` : 'hover:bg-slate-50'
                         }`}
                       >
-                        <div className="shrink-0" style={{ color: active ? c.color : '#cbd5e1' }}>
+                        <div className="shrink-0" style={{ color: active ? c.color : '#94a3b8' }}>
                           {c.icon}
                         </div>
                         <span className="flex-1 font-black text-[10px] uppercase tracking-tight"
@@ -777,7 +773,7 @@ export default function Suggestions() {
                                     <button key={r.id} onClick={() => selectPriceResult(s, r)}
                                       className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-slate-50 transition-colors text-left border-b border-slate-50 last:border-0">
                                       <div className="w-8 h-8 rounded-lg bg-slate-100 overflow-hidden flex items-center justify-center shrink-0">
-                                        {r.image ? <img src={r.image} alt="" className="w-full h-full object-cover" /> : <Dices size={14} className="text-slate-300" />}
+                                        {r.image ? <img src={r.image} alt="" className="w-full h-full object-cover" /> : <MaskIcon file="ludo-boite-jeu.svg" size={22} color="#cbd5e1" />}
                                       </div>
                                       <div className="flex-1 min-w-0">
                                         <p className="text-[11px] font-bold text-slate-800 truncate">{r.name}</p>
@@ -863,7 +859,7 @@ export default function Suggestions() {
             {/* Header modale */}
             <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#1a5f7a] text-white"><Lightbulb size={18} /></div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#1a5f7a] text-white"><MaskIcon file="ludo-suggestions.svg" size={28} color="currentColor" /></div>
                 <h3 className="font-display text-lg font-extrabold tracking-[-0.03em] text-[#0f172a]">Nouvelle suggestion</h3>
               </div>
               <button onClick={() => setShowModal(false)} className="flex h-10 w-10 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-white text-[#0f172a] transition-colors hover:bg-[#fdfaf6]">
@@ -895,7 +891,7 @@ export default function Suggestions() {
                   >
                     <div className="p-1.5 rounded-lg shrink-0"
                       style={{ color: selectedCategory ? getCat(selectedCategory).color : '#cbd5e1', background: selectedCategory ? `${getCat(selectedCategory).color}18` : '#f1f5f9' }}>
-                      {selectedCategory ? getCat(selectedCategory).icon : <MoreHorizontal size={16} />}
+                      {selectedCategory ? getCat(selectedCategory).icon : <MaskIcon file="ludo-autre.svg" size={22} color="currentColor" />}
                     </div>
                     <span className="flex-1 font-black text-xs uppercase tracking-tight"
                       style={{ color: selectedCategory ? getCat(selectedCategory).color : '#94a3b8' }}>
@@ -917,7 +913,7 @@ export default function Suggestions() {
                               selectedCategory === c.id ? c.bg : 'hover:bg-slate-50'
                             }`}
                           >
-                            <div className="shrink-0" style={{ color: selectedCategory === c.id ? c.color : '#cbd5e1' }}>
+                            <div className="shrink-0" style={{ color: selectedCategory === c.id ? c.color : '#94a3b8' }}>
                               {c.icon}
                             </div>
                             <div className="flex-1 min-w-0">
@@ -997,7 +993,7 @@ export default function Suggestions() {
             {/* Header modale */}
             <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#1a5f7a] text-white"><Edit2 size={18} /></div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#1a5f7a] text-white"><MaskIcon file="ludo-modifier.svg" size={28} color="currentColor" /></div>
                 <h3 className="font-display text-lg font-extrabold tracking-[-0.03em] text-[#0f172a]">Modifier la suggestion</h3>
               </div>
               <button onClick={closeEditModal} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-white text-[#0f172a] transition-colors hover:bg-[#fdfaf6]">
@@ -1021,7 +1017,7 @@ export default function Suggestions() {
                   >
                     <div className="p-1.5 rounded-lg shrink-0"
                       style={{ color: editCategory ? getCat(editCategory).color : '#cbd5e1', background: editCategory ? `${getCat(editCategory).color}18` : '#f1f5f9' }}>
-                      {editCategory ? getCat(editCategory).icon : <MoreHorizontal size={16} />}
+                      {editCategory ? getCat(editCategory).icon : <MaskIcon file="ludo-autre.svg" size={22} color="currentColor" />}
                     </div>
                     <span className="flex-1 font-black text-xs uppercase tracking-tight"
                       style={{ color: editCategory ? getCat(editCategory).color : '#94a3b8' }}>
@@ -1043,7 +1039,7 @@ export default function Suggestions() {
                               editCategory === c.id ? c.bg : 'hover:bg-slate-50'
                             }`}
                           >
-                            <div className="shrink-0" style={{ color: editCategory === c.id ? c.color : '#cbd5e1' }}>
+                            <div className="shrink-0" style={{ color: editCategory === c.id ? c.color : '#94a3b8' }}>
                               {c.icon}
                             </div>
                             <p className="flex-1 font-black text-[10px] uppercase tracking-tight"

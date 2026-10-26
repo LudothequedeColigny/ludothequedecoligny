@@ -5,10 +5,8 @@ import { useToast } from '../../components/ToastContext'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import ConfirmModal from '../../components/admin/ConfirmModal'
 import { useRef } from 'react'
-import { 
-  UserPlus, Save, Loader2, Euro, 
-  ShieldCheck, X, ChevronRight, Users, CreditCard, Info, ShieldAlert, CheckCircle2, User, Hash, Trash2, Wallet, Clock, MapPin, Image, Plus, Edit2, Target, Eye, Download, KeyRound
-} from 'lucide-react'
+import { UserPlus, Save, Loader2, Euro, ShieldCheck, X, ChevronRight, Users, Info, CheckCircle2, Trash2, Clock, MapPin, Plus, Edit2, Target, Eye, Download, KeyRound } from 'lucide-react'
+import MaskIcon from '../../components/site/MaskIcon'
 
 export default function Parametres() {
   const { addToast } = useToast()
@@ -548,14 +546,14 @@ export default function Parametres() {
       {/* GRILLE PRINCIPALE */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[
-          { onClick: () => setShowFinanceModal(true),   icon: <CreditCard size={21} />, color: '#e38154', tint: '#fdf1ea', title: 'Finances',  desc: 'Tarifs & cautions',            cta: 'Configurer' },
-          { onClick: () => setShowPaymentModal(true),   icon: <Wallet size={21} />,     color: '#10b981', tint: '#ecfdf5', title: 'Paiements', desc: 'Modes acceptés & RIB',         cta: 'Paramétrer' },
-          { onClick: () => setShowQuotaModal(true),     icon: <Hash size={21} />,       color: '#059669', tint: '#ecfdf5', title: 'Limites',   desc: "Quotas d'emprunt",             cta: 'Définir' },
-          { onClick: () => setShowContactModal(true),   icon: <User size={21} />,       color: '#3b82f6', tint: '#eff6ff', title: 'Contact',   desc: 'Référent public',              cta: 'Modifier' },
-          { onClick: () => setShowVolunteerModal(true), icon: <Users size={21} />,      color: '#1a5f7a', tint: '#f0f7f9', title: 'Équipe',    desc: 'Gestion des accès',            cta: 'Gérer' },
-          { onClick: () => setShowHorairesModal(true),  icon: <Clock size={21} />,      color: '#f59e0b', tint: '#fffbeb', title: 'Horaires',  desc: "Jours & heures d'ouverture",   cta: 'Modifier' },
-          { onClick: () => setShowAdresseModal(true),   icon: <MapPin size={21} />,     color: '#f43f5e', tint: '#fff1f2', title: 'Adresse',   desc: 'Localisation de la ludothèque', cta: 'Modifier' },
-          { onClick: openAffichesModal,                 icon: <Image size={21} />,      color: '#a855f7', tint: '#faf5ff', title: 'Affiches',  desc: 'Modèles du générateur',        cta: 'Gérer' },
+          { onClick: () => setShowFinanceModal(true),   icon: <MaskIcon file="ludo-finances.svg" size={30} color="currentColor" />, color: '#e38154', tint: '#fdf1ea', title: 'Finances',  desc: 'Tarifs & cautions',            cta: 'Configurer' },
+          { onClick: () => setShowPaymentModal(true),   icon: <MaskIcon file="ludo-paiements.svg" size={30} color="currentColor" />, color: '#10b981', tint: '#ecfdf5', title: 'Paiements', desc: 'Modes acceptés & RIB',         cta: 'Paramétrer' },
+          { onClick: () => setShowQuotaModal(true),     icon: <MaskIcon file="ludo-limites.svg" size={30} color="currentColor" />, color: '#059669', tint: '#ecfdf5', title: 'Limites',   desc: "Quotas d'emprunt",             cta: 'Définir' },
+          { onClick: () => setShowContactModal(true),   icon: <MaskIcon file="ludo-contact.svg" size={30} color="currentColor" />, color: '#3b82f6', tint: '#eff6ff', title: 'Contact',   desc: 'Référent public',              cta: 'Modifier' },
+          { onClick: () => setShowVolunteerModal(true), icon: <MaskIcon file="ludo-benevoles.svg" size={30} color="currentColor" />, color: '#1a5f7a', tint: '#f0f7f9', title: 'Équipe',    desc: 'Gestion des accès',            cta: 'Gérer' },
+          { onClick: () => setShowHorairesModal(true),  icon: <MaskIcon file="ludo-horloge.svg" size={30} color="currentColor" />, color: '#f59e0b', tint: '#fffbeb', title: 'Horaires',  desc: "Jours & heures d'ouverture",   cta: 'Modifier' },
+          { onClick: () => setShowAdresseModal(true),   icon: <MaskIcon file="ludo-lieu.svg" size={30} color="currentColor" />, color: '#f43f5e', tint: '#fff1f2', title: 'Adresse',   desc: 'Localisation de la ludothèque', cta: 'Modifier' },
+          { onClick: openAffichesModal,                 icon: <MaskIcon file="ludo-affiche.svg" size={30} color="currentColor" />, color: '#a855f7', tint: '#faf5ff', title: 'Affiches',  desc: 'Modèles du générateur',        cta: 'Gérer' },
         ].map(card => (
           <button
             key={card.title}
@@ -584,7 +582,7 @@ export default function Parametres() {
           className="rounded-[34px] border-2 border-[#0f172a] bg-white p-6 text-left shadow-[5px_5px_0_#0d9488] transition-[transform,box-shadow] duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a] disabled:pointer-events-none disabled:opacity-60 md:p-7"
         >
           <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#f0fdfa] text-[#0d9488]">
-            {exportLoading ? <Loader2 size={21} className="animate-spin" /> : <Download size={21} />}
+            {exportLoading ? <Loader2 size={21} className="animate-spin" /> : <MaskIcon file="ludo-sauvegarde.svg" size={30} color="currentColor" />}
           </div>
           <div className="font-display text-[19px] font-extrabold uppercase tracking-[-0.035em]">Sauvegarde</div>
           <div className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.05em] text-slate-400">Export Excel complet</div>
@@ -615,7 +613,7 @@ export default function Parametres() {
           <div className="anim-modal-in flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a]">
             <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex items-center gap-3">
-                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] text-white bg-teal-600"><Download size={20}/></div>
+                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] text-white bg-teal-600"><MaskIcon file="ludo-sauvegarde.svg" size={30} color="currentColor" /></div>
                 <div>
                   <h3 className="font-display text-[21px] font-extrabold uppercase tracking-[-0.04em]">Export Excel</h3>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Sélectionnez les données à exporter</p>
@@ -680,7 +678,7 @@ export default function Parametres() {
           <div className="anim-modal-in flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a]">
             <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex items-center gap-3">
-                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] text-white bg-emerald-600"><Wallet size={20}/></div>
+                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] text-white bg-emerald-600"><MaskIcon file="ludo-paiements.svg" size={30} color="currentColor" /></div>
                 <h3 className="font-display text-[21px] font-extrabold uppercase tracking-[-0.04em]">Modes de paiement</h3>
               </div>
               <button onClick={() => setShowPaymentModal(false)} className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"><X size={24} /></button>
@@ -739,7 +737,7 @@ export default function Parametres() {
           <div className="anim-modal-in flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a]">
             <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex items-center gap-3">
-                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] text-white bg-blue-500"><User size={20}/></div>
+                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] text-white bg-blue-500"><MaskIcon file="ludo-contact.svg" size={30} color="currentColor" /></div>
                 <h3 className="font-display text-[21px] font-extrabold uppercase tracking-[-0.04em]">Contact Référent</h3>
               </div>
               <button onClick={() => setShowContactModal(false)} className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"><X size={24} /></button>
@@ -772,7 +770,7 @@ export default function Parametres() {
           <div className="anim-modal-in flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a]">
             <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex items-center gap-3">
-                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] text-white bg-emerald-500"><Hash size={20}/></div>
+                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] text-white bg-emerald-500"><MaskIcon file="ludo-limites.svg" size={30} color="currentColor" /></div>
                 <h3 className="font-display text-[21px] font-extrabold uppercase tracking-[-0.04em]">Quotas d'emprunt</h3>
               </div>
               <button onClick={() => setShowQuotaModal(false)} className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"><X size={24} /></button>
@@ -946,7 +944,7 @@ export default function Parametres() {
           <div className="anim-modal-in flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a]">
             <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex items-center gap-3">
-                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] text-white bg-amber-500"><Clock size={20}/></div>
+                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] text-white bg-amber-500"><MaskIcon file="ludo-horloge.svg" size={30} color="currentColor" /></div>
                 <h3 className="font-display text-[21px] font-extrabold uppercase tracking-[-0.04em]">Horaires d'ouverture</h3>
               </div>
               <button onClick={() => setShowHorairesModal(false)} className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"><X size={24} /></button>
@@ -1066,7 +1064,7 @@ export default function Parametres() {
           <div className="anim-modal-in flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a]">
             <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex items-center gap-3">
-                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] text-white bg-rose-500"><MapPin size={20}/></div>
+                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] text-white bg-rose-500"><MaskIcon file="ludo-lieu.svg" size={30} color="currentColor" /></div>
                 <h3 className="font-display text-[21px] font-extrabold uppercase tracking-[-0.04em]">Adresse</h3>
               </div>
               <button onClick={() => setShowAdresseModal(false)} className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"><X size={24} /></button>
@@ -1120,14 +1118,14 @@ export default function Parametres() {
         message={resetConfirm ? `${resetConfirm.first_name || 'La personne'} recevra à l'adresse ${resetConfirm.email} un lien pour choisir un nouveau mot de passe, valable 1 heure. L'ancien mot de passe reste valable tant qu'un nouveau n'a pas été choisi.` : ''}
         confirmLabel="Envoyer l'email"
         cancelLabel="Annuler"
-        icon={<KeyRound size={26} />}
+        icon={<MaskIcon file="ludo-cle.svg" size={40} color="currentColor" />}
       />
 
       {/* SUPPRESSION */}
       {deleteConfirm.show && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 backdrop-blur-[6px] sm:p-[22px]" style={{ background: 'rgba(15,23,42,.7)' }}>
           <div className="anim-modal-in w-full max-w-[430px] rounded-[34px] border-2 border-[#0f172a] bg-white p-8 text-center shadow-[12px_12px_0_#f43f5e] md:p-9">
-             <div className="mx-auto w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mb-6 shadow-inner"><ShieldAlert size={40} /></div>
+             <div className="mx-auto w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mb-6 shadow-inner"><MaskIcon file="ludo-revoquer.svg" size={48} color="currentColor" /></div>
              <h3 className="text-2xl font-black uppercase text-slate-900 mb-2 tracking-tighter">Révoquer ?</h3>
              <p className="text-[11px] font-bold text-slate-500 mb-8 italic leading-relaxed px-2">Attention, ce bénévole n'aura plus aucun accès à l'administration.</p>
              <div className="flex flex-col gap-3">
@@ -1148,7 +1146,7 @@ export default function Parametres() {
             {/* Header */}
             <div className="p-8 pb-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-purple-50 text-purple-500 rounded-xl"><Image size={20} /></div>
+                <div className="p-2.5 bg-purple-50 text-purple-500 rounded-xl"><MaskIcon file="ludo-affiche.svg" size={28} color="currentColor" /></div>
                 <div>
                   <h3 className="font-display text-[21px] font-extrabold uppercase tracking-[-0.04em]">Modèles d'affiches</h3>
                   <p className="text-[10px] text-slate-400">{affichesTemplates.length} modèle{affichesTemplates.length > 1 ? 's' : ''} enregistré{affichesTemplates.length > 1 ? 's' : ''}</p>
@@ -1387,7 +1385,7 @@ export default function Parametres() {
                     </div>
                   ) : (
                     <div className="aspect-[794/1123] rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-3 text-slate-300">
-                      <Image size={40} />
+                      <MaskIcon file="ludo-affiche.svg" size={56} color="currentColor" />
                       <p className="text-xs font-bold">Chargez un fond d'affiche pour voir l'aperçu</p>
                     </div>
                   )}
