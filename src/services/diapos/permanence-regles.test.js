@@ -141,3 +141,21 @@ test('texte de publication', () => {
   assert.match(seul, /📦 1 jeu a été emprunté : Azul\./)
   assert.doesNotMatch(seul, /Prochaine permanence/)
 })
+
+test('expression libre : entre la grille et « Prochaine permanence »', () => {
+  const plan = planBilanPermanence({
+    event: perm, prets, prochaine: null, photos: ['p1.jpg', 'p2.jpg'],
+    expression: { texte: ' Merci aux familles ! ', photo: 'p2.jpg' },
+  })
+  assert.deepEqual(plan.map(d => d.type), ['nombre', 'grille', 'libre', 'prochaine'])
+  assert.deepEqual(plan[2], { type: 'libre', texte: 'Merci aux familles !', photo: 'p2.jpg', mosaique: plan[0].mosaique })
+})
+
+test('expression libre : absente ou vide → 3 images ; photo inconnue → mosaïque floutée', () => {
+  assert.deepEqual(planBilanPermanence({ event: perm, prets, prochaine: null }).map(d => d.type), ['nombre', 'grille', 'prochaine'])
+  assert.equal(planBilanPermanence({ event: perm, prets, prochaine: null, expression: { texte: '  ', photo: null } }).length, 3)
+  const plan = planBilanPermanence({ event: perm, prets, prochaine: null, photos: [], expression: { texte: 'Bravo', photo: 'p1.jpg' } })
+  assert.equal(plan[2].photo, null)
+  // Aucun prêt : toujours pas de bilan, même avec une expression
+  assert.deepEqual(planBilanPermanence({ event: perm, prets: [], prochaine: null, expression: { texte: 'Bravo', photo: null } }), [])
+})

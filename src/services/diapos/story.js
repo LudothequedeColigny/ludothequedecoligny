@@ -4,6 +4,7 @@ import {
 } from './dessin.js'
 import { detourer, echelleDetouree, autocollant } from './autocollant.js'
 import { carteRendezVous } from './carrousel.js'
+import { dessinerLibre } from './libre.js'
 
 /**
  * Images de la story de bilan (1080 × 1920). Instagram recouvre ~250 px en haut
@@ -131,7 +132,10 @@ async function merci(ctx, d, logo) {
   }
 }
 
-const DESSINS = { ouverture, nombre, grille, merci }
+// Expression libre : pastille et carte hors des zones recouvertes par Instagram
+const libre = (ctx, d, logo) => dessinerLibre(ctx, d, logo, { hauteur: H, story: true })
+
+const DESSINS = { ouverture, nombre, grille, libre, merci }
 
 /**
  * Dessine les images du plan. Avec `onDiapo(canvas, index)` (fonction async), chaque

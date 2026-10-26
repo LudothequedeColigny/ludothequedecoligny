@@ -8,6 +8,8 @@
 const JOURS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
 export const MAX_JEUX = 6
+// Carrousel des soirées : 10 images au plus (avec l'expression libre, un jeu de moins)
+export const MAX_IMAGES = 10
 
 export const sansAccents = s => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
@@ -97,6 +99,18 @@ function photosDeBase({ photos, photoOuverture, photoJeux }) {
   return { ouverture, jeux }
 }
 
+/**
+ * Image « expression libre » (phrase saisie dans la fenêtre Bilan), ou null si le texte
+ * est vide. Photo choisie qui n'est plus dans le bilan → fond flouté (`photo: null`).
+ * `fond` = photo d'ouverture, floutée quand il n'y a pas de photo (ou qu'elle ne se charge pas).
+ */
+function diapoLibre(expression, photos, fond) {
+  const texte = typeof expression?.texte === 'string' ? expression.texte.trim() : ''
+  if (!texte) return null
+  const photo = expression.photo && photos.includes(expression.photo) ? expression.photo : null
+  return { type: 'libre', texte, photo, fond }
+}
+
 /** Liste ordonnée des diapositives du carrousel (vide s'il n'y a aucune photo). */
 export function planCarrousel(donnees) {
   const { event, participants, photos, jeux, prochain, maintenant } = donnees
@@ -113,17 +127,21 @@ export function planCarrousel(donnees) {
     plan.push({ type: 'nombre', photo: base.ouverture, nombre, apres: libelleNombre(type) })
   }
   plan.push({ type: 'transition', photo: base.jeux })
-  const { retenus } = choisirJeux(jeux)
+  const libre = diapoLibre(donnees.expression, photos, base.ouverture)
+  // Images autres que les jeux : celles déjà posées, l'expression libre et « Merci »
+  const autres = plan.length + (libre ? 1 : 0) + 1
+  const { retenus } = choisirJeux(jeux, Math.min(MAX_JEUX, MAX_IMAGES - autres))
   retenus.forEach((j, i) => plan.push({
     type: 'jeu', nom: j.name, jaquette: j.image, dispo: !!j.in_catalogue,
     photo: j.photo_url && photos.includes(j.photo_url) ? j.photo_url : null,
     fond: photos[i % photos.length],
   }))
+  if (libre) plan.push(libre)
   plan.push({ type: 'merci', rdv: rendezVous(prochain) })
   return plan
 }
 
-/** Les 4 images de la story (3 sans participants). */
+/** Les 4 images de la story (3 sans participants), plus l'expression libre s'il y en a une. */
 export function planStory(donnees) {
   const { event, participants, photos, jeux, prochain, maintenant } = donnees
   if (!photos.length) return []
@@ -142,6 +160,8 @@ export function planStory(donnees) {
     type: 'grille', photo: base.jeux,
     jeux: choisirJeux(jeux).retenus.map(j => ({ nom: j.name, jaquette: j.image, dispo: !!j.in_catalogue })),
   })
+  const libre = diapoLibre(donnees.expression, photos, base.ouverture)
+  if (libre) plan.push(libre)
   plan.push({ type: 'merci', rdv: rendezVous(prochain) })
   return plan
 }

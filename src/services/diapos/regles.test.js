@@ -130,3 +130,49 @@ test('le 1er du mois s’écrit « 1er »', () => {
   assert.equal(formuleOuverture('2026-10-01 19:00:00', new Date('2026-10-20T10:00:00')), 'Le 1er octobre,')
   assert.equal(quandRendezVous({ date: '2026-11-01 14:00:00' }), 'Dimanche 1er novembre · 14h')
 })
+
+// ---------- Expression libre ----------
+
+const soireeComplete = (extra = {}) => ({
+  event: soiree, participants: 26, photos: ['a', 'b', 'c'], photoOuverture: null, photoJeux: null,
+  jeux: [jeu(1, 'c', true), jeu(2), jeu(3), jeu(4), jeu(5), jeu(6)], prochain: null,
+  maintenant: new Date('2026-10-05T10:00:00'), ...extra,
+})
+
+test('expression libre : absente → carrousel inchangé (10 images)', () => {
+  assert.deepEqual(planCarrousel(soireeComplete()).map(d => d.type), ['ouverture', 'nombre', 'transition', 'jeu', 'jeu', 'jeu', 'jeu', 'jeu', 'jeu', 'merci'])
+  assert.equal(planCarrousel(soireeComplete({ expression: null })).length, 10)
+})
+
+test('expression libre : 10 images au plus, le dernier jeu laisse sa place, juste avant « Merci »', () => {
+  const plan = planCarrousel(soireeComplete({ expression: { texte: '  Super ambiance !  ', photo: 'b' } }))
+  assert.deepEqual(plan.map(d => d.type), ['ouverture', 'nombre', 'transition', 'jeu', 'jeu', 'jeu', 'jeu', 'jeu', 'libre', 'merci'])
+  assert.deepEqual(plan.filter(d => d.type === 'jeu').map(d => d.nom), ['Jeu 1', 'Jeu 2', 'Jeu 3', 'Jeu 4', 'Jeu 5'])
+  assert.deepEqual(plan[8], { type: 'libre', texte: 'Super ambiance !', photo: 'b', fond: 'a' })
+})
+
+test('expression libre : sans participants, les 6 jeux restent (10 images)', () => {
+  const plan = planCarrousel(soireeComplete({ participants: null, expression: { texte: 'Super ambiance !', photo: null } }))
+  assert.deepEqual(plan.map(d => d.type), ['ouverture', 'transition', 'jeu', 'jeu', 'jeu', 'jeu', 'jeu', 'jeu', 'libre', 'merci'])
+})
+
+test('expression libre : texte vide ou espaces → pas d’image', () => {
+  for (const texte of ['', '   ', '\n', null, undefined]) {
+    assert.equal(planCarrousel(soireeComplete({ expression: { texte, photo: 'b' } })).some(d => d.type === 'libre'), false, `texte = ${JSON.stringify(texte)}`)
+    assert.equal(planStory(soireeComplete({ expression: { texte, photo: 'b' } })).some(d => d.type === 'libre'), false)
+  }
+})
+
+test('expression libre : photo absente des photos du bilan → fond flouté (photo null)', () => {
+  const plan = planCarrousel(soireeComplete({ photoOuverture: 'c', expression: { texte: 'Bravo', photo: 'supprimee.jpg' } }))
+  const libre = plan.find(d => d.type === 'libre')
+  assert.equal(libre.photo, null)
+  assert.equal(libre.fond, 'c')
+})
+
+test('expression libre : story, juste avant « Merci », grille inchangée', () => {
+  const plan = planStory(soireeComplete({ expression: { texte: 'Super ambiance !', photo: 'b' } }))
+  assert.deepEqual(plan.map(d => d.type), ['ouverture', 'nombre', 'grille', 'libre', 'merci'])
+  assert.equal(plan[2].jeux.length, 6)
+  assert.deepEqual(plan[3], { type: 'libre', texte: 'Super ambiance !', photo: 'b', fond: 'a' })
+})

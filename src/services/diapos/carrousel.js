@@ -3,6 +3,7 @@ import {
   rectArrondi, police, couperLignes, etiquette, pastille, texteContoure, liberer,
 } from './dessin.js'
 import { detourer, echelleDetouree, autocollant } from './autocollant.js'
+import { dessinerLibre } from './libre.js'
 
 /**
  * Diapositives du carrousel de bilan (1080 × 1350), d'après la maquette validée
@@ -273,7 +274,10 @@ export async function carteRendezVous(ctx, rdv, { x, bas, haut, largeur, affiche
   return { y, h }
 }
 
-const DESSINS = { ouverture, nombre, transition, jeu, merci }
+// Expression libre : photo choisie, ou photo d'ouverture floutée
+const libre = (ctx, d, logo) => dessinerLibre(ctx, d, logo, { hauteur: H })
+
+const DESSINS = { ouverture, nombre, transition, jeu, libre, merci }
 
 /**
  * Dessine les images du plan. Avec `onDiapo(canvas, index)` (fonction async), chaque

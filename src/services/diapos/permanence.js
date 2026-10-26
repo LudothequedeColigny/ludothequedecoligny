@@ -6,6 +6,7 @@ import {
   espacer, largeur, baseLigne, carte, tailleQuiTient, limiterLignes, dessinerPlan,
 } from './annonce.js'
 import { detourer, autocollant, tenir } from './autocollant.js'
+import { dessinerLibre } from './libre.js'
 
 /**
  * Diapositives du bilan d'une permanence (carrousel 3 images 1080 × 1350), d'après la
@@ -369,10 +370,15 @@ export async function prochaine(ctx, d, logo) {
   })
 }
 
-const DESSINS = { nombre, grille, prochaine }
+// ---------- Expression libre (avant « Prochaine permanence ») ----------
+
+/** Photo choisie, ou à défaut la mosaïque floutée des jaquettes. */
+const libre = (ctx, d, logo) => dessinerLibre(ctx, d, logo, { hauteur: H, fondFloute: c => fondMosaique(c, d.mosaique) })
+
+const DESSINS = { nombre, grille, libre, prochaine }
 
 /**
- * Dessine les 3 images du bilan (4:5). Avec `onDiapo(canvas, index)` (fonction async),
+ * Dessine les 3 images du bilan (4 avec l'expression libre, 4:5). Avec `onDiapo(canvas, index)` (fonction async),
  * chaque image lui est confiée dès qu'elle est dessinée puis libérée : une seule image
  * pleine taille en mémoire à la fois (téléphones). Sans `onDiapo`, les canvas sont rendus
  * et l'appelant les libère. En cas d'erreur, tout est libéré puis l'erreur relancée.

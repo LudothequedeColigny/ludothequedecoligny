@@ -77,7 +77,12 @@ export function prochainePermanence({ evenements = [], horaires = {}, maintenant
   return { date: iso(premier.d), jour: jourComplet(premier.d), heures: plageHoraire(premier.c.debut, premier.c.fin || null), lieu }
 }
 
-export function planBilanPermanence({ event, prets, prochaine }) {
+/**
+ * `expression` = { texte, photo } (phrase libre de la fenêtre Bilan, facultative) : image
+ * ajoutée juste avant « Prochaine permanence », sur une des `photos` du bilan ou, à défaut,
+ * sur la mosaïque floutée des jaquettes.
+ */
+export function planBilanPermanence({ event, prets, prochaine, expression = null, photos = [] }) {
   // Nombre affiché = jeux distincts empruntés : nombre, grille et texte disent la même chose
   const jeux = jeuxDistincts(pretsPartis(prets))
   if (!jeux.length) return []
@@ -87,6 +92,10 @@ export function planBilanPermanence({ event, prets, prochaine }) {
     ? [...jeux.slice(0, MAX_CASES - 1).map(j => ({ nom: j.nom, jaquette: j.jaquette })), { autres: jeux.length - (MAX_CASES - 1) }]
     : jeux.map(j => ({ nom: j.nom, jaquette: j.jaquette }))
   const n = jeux.length
+  const texteLibre = typeof expression?.texte === 'string' ? expression.texte.trim() : ''
+  const libre = texteLibre
+    ? [{ type: 'libre', texte: texteLibre, photo: expression.photo && photos.includes(expression.photo) ? expression.photo : null, mosaique }]
+    : []
   return [
     {
       type: 'nombre', mosaique,
@@ -95,6 +104,7 @@ export function planBilanPermanence({ event, prets, prochaine }) {
       suite: n === 1 ? 'jeu a été emprunté !' : 'jeux ont été empruntés !',
     },
     { type: 'grille', cases },
+    ...libre,
     { type: 'prochaine', mosaique, prochaine },
   ]
 }
