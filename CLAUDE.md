@@ -37,7 +37,7 @@ Le site est publié via Vercel.
 
 | Adresse | Page | Fichier |
 |---|---|---|
-| `/` | Accueil | `src/pages/Home.jsx` |
+| `/` | Accueil (vignettes : rendez-vous des 2 prochains mois seulement, sinon le prochain ; tout le reste dans le calendrier) | `src/pages/Home.jsx` |
 | `/catalogue` | Catalogue des jeux | `src/pages/Catalogue.jsx` |
 | `/comment-emprunter` | Modalités et tarifs | `src/pages/HowToBorrow.jsx` |
 | `/vie-association` | Vie de la ludothèque (bilans façon publications : chiffres clés, fréquentation, cartes d'événement, permanences, prochain rendez-vous ; briques dans `src/components/site/vie/`, règles dans `src/services/vieLudotheque.js`) | `src/pages/VieAssociation.jsx` |
@@ -165,6 +165,7 @@ Dans `src/components/site/` :
 | `MaskIcon` | icône de `public/icons/` recolorée à la charte |
 | `FloatingIcons` | icônes qui dérivent en fond de section |
 | `RecevoirDates` | encart « Recevoir les prochaines dates par e-mail » (accueil) |
+| `CalendrierEvenements` | fenêtre « Voir le calendrier » de l'accueil : mois par mois, couleur par type, export des mois cochés en images 4:5 ou en PDF A4 (`services/calendrier.js` pour les règles, `diapos/calendrier-mois.js` pour le dessin, `services/pdfImages.js` fabrique le PDF sans bibliothèque) |
 | `PageLegale` | mise en page des pages Mentions légales et Confidentialité |
 | `styles.js` | classes des boutons et champs (`BTN_PRIMARY`, `INPUT`…) |
 

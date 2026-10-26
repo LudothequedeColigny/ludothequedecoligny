@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../services/supabaseClient'
 import { compterVisite } from '../services/visites'
 import { usePageMeta, useJsonLd, ficheLudotheque, evenementsPourGoogle } from '../services/seo'
@@ -7,6 +7,8 @@ import TitrePactes from '../components/TitrePactes'
 import PublicLayout from '../components/site/PublicLayout'
 import FloatingIcons from '../components/site/FloatingIcons'
 import MaskIcon from '../components/site/MaskIcon'
+import CalendrierEvenements from '../components/site/CalendrierEvenements'
+import { vignettesAccueil } from '../services/calendrier'
 import Reveal from '../components/site/Reveal'
 import CountUp from '../components/site/CountUp'
 import Modal from '../components/site/Modal'
@@ -28,6 +30,7 @@ export default function Home() {
   const [playerCount, setPlayerCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [selectedEvent, setSelectedEvent] = useState(null)
+  const [calendrierOuvert, setCalendrierOuvert] = useState(false)
 
   // Chiffres et visuels résumant la page « Vie de la ludothèque »
   const [vie, setVie] = useState({ photos: [], photoCount: 0, editions: 0, jeuxJoues: 0 })
@@ -169,6 +172,10 @@ export default function Home() {
     if (loading || hash !== '#agenda') return
     document.getElementById('agenda')?.scrollIntoView({ behavior: 'instant', block: 'start' })
   }, [loading, hash])
+
+  // Vignettes : les 2 prochains mois seulement ; le calendrier montre tout
+  const vignettes = useMemo(() => vignettesAccueil(events.upcoming, new Date()), [events.upcoming])
+  const agendaComplet = useMemo(() => [...events.past, ...events.upcoming], [events])
 
   const formatEventDuration = (dateIso, endTime) => {
     if (!dateIso) return "H-NC";
@@ -368,6 +375,11 @@ export default function Home() {
               <h2 className="mt-2.5 font-display text-[28px] font-extrabold tracking-[-0.04em] md:text-[44px]">
                 Nos prochains rendez-vous
               </h2>
+              {!loading && (events.upcoming.length > 0 || events.past.length > 0) && (
+                <button type="button" onClick={() => setCalendrierOuvert(true)} className={`${BTN_SECONDARY} mt-6`}>
+                  <MaskIcon file="ludo-calendrier.svg" size={22} color="currentColor" /> Voir le calendrier
+                </button>
+              )}
             </Reveal>
 
             {loading ? (
@@ -380,9 +392,9 @@ export default function Home() {
               </div>
             ) : (
               <>
-                {events.upcoming.length > 0 && (
+                {vignettes.length > 0 && (
                   <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                    {events.upcoming.map((event, i) => (
+                    {vignettes.map((event, i) => (
                       <Reveal
                         key={event.id}
                         as="button"
@@ -414,6 +426,14 @@ export default function Home() {
                       </Reveal>
                     ))}
                   </div>
+                )}
+
+                {events.upcoming.length > vignettes.length && (
+                  <Reveal className="mt-7 text-center">
+                    <button type="button" onClick={() => setCalendrierOuvert(true)} className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#1a5f7a] underline decoration-2 underline-offset-4 hover:text-[#e38154]">
+                      Et {events.upcoming.length - vignettes.length} autre{events.upcoming.length - vignettes.length > 1 ? 's' : ''} rendez-vous déjà prévu{events.upcoming.length - vignettes.length > 1 ? 's' : ''} : voir le calendrier →
+                    </button>
+                  </Reveal>
                 )}
 
                 {events.past.length > 0 && (
@@ -575,6 +595,13 @@ export default function Home() {
           </div>
         )}
       </Modal>
+
+      <CalendrierEvenements
+        open={calendrierOuvert}
+        onClose={() => setCalendrierOuvert(false)}
+        evenements={agendaComplet}
+        onChoisir={event => { setCalendrierOuvert(false); setSelectedEvent(event) }}
+      />
     </PublicLayout>
   )
 }
