@@ -127,6 +127,14 @@ d'en-tête de chaque écran, via la brique `MaskIcon` qui les recolore.
 | `ludo-pret.svg` | Prêts et historique des prêts |
 | `ludo-notifications.svg` | bouton des notifications |
 
+Icônes dessinées en octobre 2026 dans le même esprit (trait rond de 8 sur 300, fichiers `ludo-<idée>.svg`,
+une icône par idée, validées par Victor lot par lot ; liste complète et planches dans
+`Bureau/PERSO/Ludothèque/Maquette bilan soirée jeux/icones-proposition/`). Lot 1 (tableau de bord et
+Communication) en place : `boite-jeu`, `carte-adherent`, `calendrier-evenement`, `objectif`, `visites`, `appli`,
+`affiche`, `affiche-pinceau`, `post`, `nouveau-jeu`, `annonce`, `bilan`, `joueurs`, `photo`, `jeux-joues`,
+`ecrire-mail`, `carnet`, `modeles`, `presse`, `ecole`, `archives`. Trop fines sous 18 px : les petits boutons
+d'action gardent leurs pictogrammes simples.
+
 Les fichiers `01.svg` à `07.svg` restent utilisés pour les petites vignettes de
 compteurs ; ce sont les icônes génériques d'origine.
 

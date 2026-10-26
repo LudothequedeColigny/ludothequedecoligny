@@ -396,10 +396,10 @@ export default function Dashboard() {
   const progressionObjectif = Math.min(100, Math.round((stats.totalMembers / objectif.cible) * 100))
 
   const cards = [
-    { title: 'Jeux', value: stats.totalGames, trend: stats.newGamesThisMonth, icon: '02.svg', link: '/admin/jeux', accent: '#1a5f7a', tint: '#f0f7f9' },
-    { title: 'Adhérents à jour', value: stats.totalMembers, trend: stats.newMembersThisMonth, icon: '04.svg', link: '/admin/adherents', accent: '#e38154', tint: '#fdf1ea' },
-    { title: 'Prêts', value: stats.activeLoans, trend: stats.newLoansThisMonth, icon: '03.svg', link: '/admin/prets', accent: '#1a5f7a', tint: '#f1f5f9' },
-    { title: 'Événements', value: stats.totalEvents, trend: stats.newEventsThisMonth, icon: '06.svg', link: '/admin/evenements', accent: '#10b981', tint: '#ecfdf5' },
+    { title: 'Jeux', value: stats.totalGames, trend: stats.newGamesThisMonth, icon: 'ludo-boite-jeu.svg', link: '/admin/jeux', accent: '#1a5f7a', tint: '#f0f7f9' },
+    { title: 'Adhérents à jour', value: stats.totalMembers, trend: stats.newMembersThisMonth, icon: 'ludo-carte-adherent.svg', link: '/admin/adherents', accent: '#e38154', tint: '#fdf1ea' },
+    { title: 'Prêts', value: stats.activeLoans, trend: stats.newLoansThisMonth, icon: 'ludo-pret.svg', link: '/admin/prets', accent: '#1a5f7a', tint: '#f1f5f9' },
+    { title: 'Événements', value: stats.totalEvents, trend: stats.newEventsThisMonth, icon: 'ludo-calendrier-evenement.svg', link: '/admin/evenements', accent: '#10b981', tint: '#ecfdf5' },
   ]
 
   return (
@@ -457,7 +457,7 @@ export default function Dashboard() {
                     className="mx-auto mb-4 flex h-[46px] w-[46px] items-center justify-center rounded-[16px] border-2 border-[#0f172a]"
                     style={{ background: card.tint }}
                   >
-                    <MaskIcon file={card.icon} size={20} color={card.accent} />
+                    <MaskIcon file={card.icon} size={30} color={card.accent} />
                   </div>
                   <CountUp
                     value={card.value}
@@ -475,7 +475,7 @@ export default function Dashboard() {
             <Reveal className="rounded-[34px] border-2 border-[#0f172a] bg-white p-6 shadow-[6px_6px_0_#e38154] md:p-9">
               <div className="mb-6 flex items-center gap-3.5">
                 <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#fdf1ea]">
-                  <MaskIcon file="04.svg" size={20} color="#e38154" />
+                  <MaskIcon file="ludo-objectif.svg" size={30} color="#e38154" />
                 </div>
                 <div>
                   <h3 className="font-display text-[20px] font-extrabold uppercase tracking-[-0.03em]">Objectifs</h3>
@@ -580,7 +580,7 @@ export default function Dashboard() {
             <Reveal className="rounded-[34px] border-2 border-[#0f172a] bg-white p-6 shadow-[6px_6px_0_#1a5f7a] md:p-9">
               <div className="mb-6 flex items-center gap-3.5">
                 <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#f0f7f9]">
-                  <MaskIcon file="06.svg" size={20} color="#1a5f7a" />
+                  <MaskIcon file="ludo-visites.svg" size={30} color="#1a5f7a" />
                 </div>
                 <div>
                   <h3 className="font-display text-[20px] font-extrabold uppercase tracking-[-0.03em]">Visites du site</h3>
@@ -627,7 +627,7 @@ export default function Dashboard() {
               className="flex flex-wrap items-center gap-5 rounded-[34px] border-2 border-[#0f172a] bg-[#10b981] p-6 text-white shadow-[6px_6px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[3px_3px_0_#0f172a] md:p-8"
             >
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] border-2 border-[#0f172a] bg-white/25">
-                <MaskIcon file="05.svg" size={24} color="#ffffff" />
+                <MaskIcon file="ludo-appli.svg" size={36} color="#ffffff" />
               </div>
               <div className="flex-1 basis-[260px]">
                 <h3 className="font-display text-[21px] font-extrabold uppercase leading-none tracking-[-0.03em]">

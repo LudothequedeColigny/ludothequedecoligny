@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Download, Eye, Palette, ArrowRight, Loader2, X } from 'lucide-react'
+import { Download, Eye, ArrowRight, Loader2, X } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
+import MaskIcon from '../../components/site/MaskIcon'
 
 // Config chargée depuis Supabase (affiche_templates)
 
@@ -282,7 +283,7 @@ export default function GenerateurAffiche({ onCreateEvent }) {
     <div className="overflow-hidden rounded-[34px] border-2 border-[#0f172a] bg-white shadow-[6px_6px_0_#e38154]">
       <div className="flex items-center gap-3.5 border-b-2 border-[#0f172a] px-6 py-5">
         <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#fdf1ea] text-[#e38154]">
-          <Palette size={20} />
+          <MaskIcon file="ludo-affiche-pinceau.svg" size={30} color="#e38154" />
         </div>
         <div>
           <h2 className="font-display text-[19px] font-extrabold uppercase tracking-[-0.03em]">Générateur d'affiches</h2>

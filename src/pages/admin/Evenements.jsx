@@ -7,6 +7,7 @@ import { volunteerHeaders } from '../../services/functionHeaders'
 import { sendEmail } from '../../services/emailService'
 import { useToast } from '../../components/ToastContext'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
+import MaskIcon from '../../components/site/MaskIcon'
 import IconButton from '../../components/admin/IconButton'
 import SearchField from '../../components/admin/SearchField'
 import ConfirmModal from '../../components/admin/ConfirmModal'
@@ -27,8 +28,8 @@ const COMM_TABS = [
 ]
 import {
   Calendar, MapPin, Plus, Trash2, Clock, ImageIcon,
-  X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2, Users, ChevronDown, ChevronUp, PlusCircle, Paperclip, GripVertical, Building2, Trash, Share2, Megaphone, BarChart2, Search, Dice5, Archive, ArchiveRestore, LayoutGrid, List, ImagePlus, Copy,
-  Newspaper, School, FileText
+  X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2, Users, ChevronDown, ChevronUp, PlusCircle, Paperclip, GripVertical, Building2, Trash, Share2, BarChart2, Search, Dice5, Archive, ArchiveRestore, LayoutGrid, List, Copy,
+  Newspaper, School
 } from 'lucide-react'
 import ModelesMessages from '../../components/admin/ModelesMessages'
 import SocialPostPreview from '../../components/admin/SocialPostPreview'
@@ -1545,7 +1546,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
         {COMM_TABS.map(tab => {
           const active = activeTab === tab.id
           const count = { events: upcomingEventsCount, affiche: templatesCount, posts: postsCount, jeux: jeuxAAnnoncerCount }[tab.id]
-          const Icon = { events: Calendar, affiche: ImagePlus, posts: Megaphone, jeux: Dice5 }[tab.id]
+          const icone = { events: 'ludo-calendrier-evenement.svg', affiche: 'ludo-affiche.svg', posts: 'ludo-post.svg', jeux: 'ludo-nouveau-jeu.svg' }[tab.id]
           return (
             <button
               key={tab.id}
@@ -1557,7 +1558,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
                 transform: active ? 'translate(2px, 2px)' : undefined,
               }}
             >
-              <Icon size={26} className="h-5 w-5 sm:h-[26px] sm:w-[26px]" style={{ color: active ? tab.shadow : '#94a3b8' }} />
+              <MaskIcon file={icone} size={40} color={active ? tab.shadow : '#64748b'} />
               <span className="inline-flex flex-wrap items-center justify-center gap-1.5 text-center text-[8.5px] font-extrabold uppercase leading-snug tracking-[0.08em] sm:gap-2 sm:text-[10px] sm:tracking-[0.16em]" style={{ color: active ? '#0f172a' : '#64748b' }}>
                 {tab.label}
                 {count > 0 && (
@@ -1582,7 +1583,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
           <DataCard shadow="#10b981">
             <div className="flex items-center gap-3.5 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#ecfdf5] text-[#10b981]">
-                <Share2 size={20} />
+                <MaskIcon file="ludo-post.svg" size={30} color="#10b981" />
               </div>
               <div>
                 <h2 className="font-display text-[19px] font-extrabold uppercase tracking-[-0.03em]">Nouveau post</h2>
@@ -1839,7 +1840,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
 
             <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex min-w-0 items-center gap-3.5">
-                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#fffbeb] text-[#f59e0b]"><Mail size={20} /></div>
+                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#fffbeb] text-[#f59e0b]"><MaskIcon file="ludo-ecrire-mail.svg" size={30} color="#f59e0b" /></div>
                 <div className="min-w-0">
                   <h3 className="font-display text-[19px] font-extrabold tracking-[-0.04em]">Composer l'<span className="text-[#f59e0b]">email</span></h3>
                   <p className="mt-1.5 truncate text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-400">{composeModal.event?.title}</p>
@@ -2202,13 +2203,13 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
         <button
           onClick={() => setModelesOpen(true)}
           className="flex items-center gap-2 rounded-[16px] border-2 border-[#0f172a] bg-white px-5 py-3 text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-slate-500 transition-colors hover:bg-[#1a5f7a] hover:text-white">
-          <FileText size={14} /> Modèles de messages
+          <MaskIcon file="ludo-modeles.svg" size={20} color="currentColor" /> Modèles de messages
         </button>
         <button
           data-tutorial="evt-collectivites-btn"
           onClick={() => setCollectivitesModal(true)}
           className="flex items-center gap-2 rounded-[16px] border-2 border-[#0f172a] bg-white px-5 py-3 text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-slate-500 transition-colors hover:bg-[#1a5f7a] hover:text-white">
-          <Building2 size={14} /> Destinataires enregistrés
+          <MaskIcon file="ludo-carnet.svg" size={20} color="currentColor" /> Destinataires enregistrés
         </button>
       </div>
 
@@ -2218,7 +2219,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
           onClick={() => setArchivedOpen(v => !v)}
           className="flex w-full items-center justify-between rounded-[20px] border-2 border-[#0f172a] bg-white p-5 shadow-[4px_4px_0_#f59e0b] transition-[transform,box-shadow] duration-200 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#f59e0b]">
           <span className="flex items-center gap-3 text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-700">
-            <Archive size={16} className="text-[#f59e0b]" /> Événements archivés
+            <MaskIcon file="ludo-archives.svg" size={22} color="#f59e0b" /> Événements archivés
             <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[9px] text-slate-500">{archivedEvents.length}</span>
           </span>
           {archivedOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
@@ -2260,7 +2261,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
 
             <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex items-center gap-3.5">
-                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#f0f7f9] text-[#1a5f7a]"><Building2 size={20} /></div>
+                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#f0f7f9] text-[#1a5f7a]"><MaskIcon file="ludo-carnet.svg" size={30} color="#1a5f7a" /></div>
                 <div>
                   <h3 className="font-display text-[21px] font-extrabold tracking-[-0.04em]">Destinataires <span className="text-[#1a5f7a]">enregistrés</span></h3>
                   <p className="mt-1.5 text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-400">{collectivites.length} contact{collectivites.length > 1 ? 's' : ''} : mairies, presse, écoles</p>
@@ -2400,7 +2401,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
 
             <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex min-w-0 items-center gap-3.5">
-                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#eff6ff] text-[#3b82f6]"><Share2 size={20} /></div>
+                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#eff6ff] text-[#3b82f6]"><MaskIcon file="ludo-annonce.svg" size={30} color="#3b82f6" /></div>
                 <div className="min-w-0">
                   <h3 className="font-display text-[19px] font-extrabold tracking-[-0.04em] text-[#3b82f6]">Annonce</h3>
                   <p className="mt-1.5 truncate text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-400">{fbModal.event?.title}</p>
@@ -2441,7 +2442,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
 
             <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="flex min-w-0 items-center gap-3.5">
-                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#ecfdf5] text-[#10b981]"><BarChart2 size={20} /></div>
+                <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#ecfdf5] text-[#10b981]"><MaskIcon file="ludo-bilan.svg" size={30} color="#10b981" /></div>
                 <div className="min-w-0">
                   <h3 className="font-display text-[19px] font-extrabold tracking-[-0.04em]">Bilan de l'<span className="text-[#10b981]">événement</span></h3>
                   <p className="mt-1.5 truncate text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-400">{bilanModal.event?.title}</p>
@@ -2456,7 +2457,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
               {/* SECTION PARTICIPANTS */}
               <div className="space-y-3">
                 <h4 className="text-[10px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2">
-                  <Users size={14} /> Participants
+                  <MaskIcon file="ludo-joueurs.svg" size={22} color="currentColor" /> Participants
                 </h4>
                 <div className="flex gap-2.5 sm:gap-3">
                   <input
@@ -2476,7 +2477,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
               {/* SECTION PHOTOS */}
               <div className="space-y-3">
                 <h4 className="text-[10px] font-black text-[#e38154] uppercase tracking-widest flex items-center gap-2">
-                  <ImageIcon size={14} /> Photos
+                  <MaskIcon file="ludo-photo.svg" size={22} color="currentColor" /> Photos
                 </h4>
 
                 {bilanPhotoFiles.length > 0 ? (
@@ -2546,7 +2547,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
               {/* SECTION JEUX JOUÉS */}
               <div className="space-y-3">
                 <h4 className="text-[10px] font-black text-[#1a5f7a] uppercase tracking-widest flex items-center gap-2">
-                  <Dice5 size={14} /> Jeux joués
+                  <MaskIcon file="ludo-jeux-joues.svg" size={22} color="currentColor" /> Jeux joués
                 </h4>
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
@@ -2621,7 +2622,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
               {/* SECTION PUBLIER SUR LES RÉSEAUX */}
               <div className="space-y-3">
                 <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-2">
-                  <Share2 size={14} /> Publier sur les réseaux
+                  <MaskIcon file="ludo-post.svg" size={22} color="currentColor" /> Publier sur les réseaux
                 </h4>
                 {estPermanence(bilanModal.event.title) ? (
                   <PublicationBilanPermanence

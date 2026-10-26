@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CheckCircle2, Dice5, Loader2, RefreshCw, Share2 } from 'lucide-react'
+import { CheckCircle2, Loader2, RefreshCw, Share2 } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
 import { DataCard } from './DataCard'
+import MaskIcon from '../site/MaskIcon'
 import { chargerJeuxAAnnoncer } from '../../services/nouveauxJeux'
 import SocialPostPreview from './SocialPostPreview'
 import { publierSurReseaux, uploadSocialBlob } from '../../services/reseauxSociaux'
@@ -264,7 +265,7 @@ export default function NouveauxJeux({ onCountChange }) {
     <DataCard shadow="#f59e0b">
       <div className="flex items-center gap-3.5 border-b-2 border-[#0f172a] px-6 py-5">
         <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#fffbeb] text-[#f59e0b]">
-          <Dice5 size={20} />
+          <MaskIcon file="ludo-nouveau-jeu.svg" size={30} color="#f59e0b" />
         </div>
         <div>
           <h2 className="font-display text-[19px] font-extrabold uppercase tracking-[-0.03em]">Nouveaux jeux</h2>

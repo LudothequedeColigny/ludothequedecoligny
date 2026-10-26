@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Check, Copy, Loader2, Mail, Newspaper, School } from 'lucide-react'
+import { Check, Copy, Loader2, Mail } from 'lucide-react'
 import FormModal from './FormModal'
+import MaskIcon from '../site/MaskIcon'
 import { supabase } from '../../services/supabaseClient'
 
 /**
@@ -88,8 +89,8 @@ ${signature}`,
 }
 
 const ONGLETS = [
-  { id: 'presse', label: 'Presse', icon: Newspaper, aide: 'Proposer un article sur la ludothèque' },
-  { id: 'ecole', label: 'École', icon: School, aide: 'Informer les familles, proposer un temps de jeu' },
+  { id: 'presse', label: 'Presse', icon: 'ludo-presse.svg', aide: 'Proposer un article sur la ludothèque' },
+  { id: 'ecole', label: 'École', icon: 'ludo-ecole.svg', aide: 'Informer les familles, proposer un temps de jeu' },
 ]
 
 const CHAMP = 'w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4 text-[13px] font-medium text-[#0f172a] outline-none focus:bg-white'
@@ -141,8 +142,7 @@ export default function ModelesMessages({ open, onClose }) {
     >
       <div className="mb-4 grid grid-cols-2 gap-1.5 rounded-[18px] border-2 border-[#0f172a] bg-slate-100 p-1.5 sm:flex sm:w-fit">
         {ONGLETS.map(o => {
-          const Icone = o.icon
-          return (
+                    return (
             <button
               key={o.id}
               type="button"
@@ -150,7 +150,7 @@ export default function ModelesMessages({ open, onClose }) {
               className={'flex items-center justify-center gap-2 rounded-[12px] px-4 py-2.5 text-[9.5px] font-extrabold uppercase tracking-[0.14em] transition-colors ' +
                 (onglet === o.id ? 'bg-white text-[#1a5f7a] shadow-sm' : 'text-slate-400 hover:text-slate-600')}
             >
-              <Icone size={12} /> {o.label}
+              <MaskIcon file={o.icon} size={18} color="currentColor" /> {o.label}
             </button>
           )
         })}
