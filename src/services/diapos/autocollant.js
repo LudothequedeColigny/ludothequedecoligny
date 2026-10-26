@@ -14,14 +14,43 @@ const SEUIL_BLANC = 228
 const ECART_GRIS = 18
 // Au-delà, c'est la boîte elle-même qui est blanche : on n'y touche pas
 const PART_RETIREE_MAX = 0.85
+// Ligne de l'image comptée dans le contour de la boîte si au moins 2 % de ses pixels restent
+const LIGNE_MIN = 0.02
 // Côté maximal du calcul de détourage (mémoire des téléphones)
 export const COTE_DETOURAGE = 900
 
+/** Enveloppe convexe de points entiers [x, y] (chaîne monotone), sans points alignés. */
+function enveloppeConvexe(points) {
+  const p = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1])
+  const tour = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+  const demi = liste => {
+    const c = []
+    for (const q of liste) {
+      while (c.length >= 2 && tour(c[c.length - 2], c[c.length - 1], q) <= 0) c.pop()
+      c.push(q)
+    }
+    c.pop()
+    return c
+  }
+  return [...demi(p), ...demi([...p].reverse())]
+}
+
+/** Aire d'un polygone (formule du lacet). */
+function aire(poly) {
+  let s = 0
+  poly.forEach(([x, y], i) => {
+    const [x2, y2] = poly[(i + 1) % poly.length]
+    s += x * y2 - x2 * y
+  })
+  return Math.abs(s) / 2
+}
+
 /**
- * Retire le fond blanc d'une jaquette : seulement le blanc relié aux bords (remplissage
- * depuis les bords, le blanc de l'illustration reste), puis recadre sur la boîte.
- * Sécurité : si plus de 85 % de l'image serait retirée (boîte blanche sur fond blanc),
- * l'image est gardée telle quelle. Calcul sur 900 px de côté au plus.
+ * Retire le fond blanc d'une jaquette : le blanc relié aux bords est repéré (remplissage
+ * depuis les bords), puis seule l'enveloppe convexe de ce qui reste est gardée, sur l'image
+ * d'origine : le blanc de l'illustration et les côtés blancs de la boîte restent.
+ * Recadre ensuite sur la boîte. Sécurité : si plus de 85 % de l'image serait retirée
+ * (boîte blanche sur fond blanc), l'image est gardée telle quelle. Calcul sur 900 px de côté au plus.
  * Renvoie un canvas, à libérer par l'appelant.
  */
 export function detourer(img, coteMax = COTE_DETOURAGE) {
@@ -61,25 +90,48 @@ export function detourer(img, coteMax = COTE_DETOURAGE) {
       if (k >= w) pousser(k - w)
       if (k < (h - 1) * w) pousser(k + w)
     }
-    if (fin === 0 || fin > PART_RETIREE_MAX * w * h) return canvas
+    if (fin === 0) return canvas
 
-    let x0 = w
-    let y0 = h
-    let x1 = -1
-    let y1 = -1
-    for (let k = 0; k < w * h; k++) {
-      if (vu[k]) { px[k * 4 + 3] = 0; continue }
-      const x = k % w
-      const y = (k - x) / w
-      if (x < x0) x0 = x
-      if (x > x1) x1 = x
-      if (y < y0) y0 = y
-      if (y > y1) y1 = y
+    // Une boîte de jeu est convexe : on garde l'enveloppe convexe des pixels restants,
+    // dessinée sur l'image d'origine. Les côtés blancs de la boîte, reliés au fond et
+    // donc effacés par le remplissage, sont ainsi rendus.
+    const points = []
+    const minLigne = Math.max(3, Math.ceil(LIGNE_MIN * w))
+    for (let y = 0; y < h; y++) {
+      const base = y * w
+      let n = 0
+      for (let x = 0; x < w; x++) if (!vu[base + x]) n++
+      // Ligne presque vide (poussières, ombre) : ignorée
+      if (n < minLigne) continue
+      // Bords de la ligne : premier et dernier pixel d'une suite d'au moins 3 pixels gardés
+      let g = -1
+      let d = -1
+      for (let x = 0; x + 2 < w; x++) if (!vu[base + x] && !vu[base + x + 1] && !vu[base + x + 2]) { g = x; break }
+      for (let x = w - 1; x >= 2; x--) if (!vu[base + x] && !vu[base + x - 1] && !vu[base + x - 2]) { d = x; break }
+      if (g < 0 || d < g) continue
+      points.push([g, y], [g, y + 1], [d + 1, y], [d + 1, y + 1])
     }
-    ctx.putImageData(donnees, 0, 0)
-    // Recadrage sur la boîte (marges devenues transparentes retirées)
-    const lw = x1 - x0 + 1
-    const lh = y1 - y0 + 1
+    if (points.length < 3) return canvas
+    const contour = enveloppeConvexe(points)
+    // Sécurité : plus de 85 % de l'image hors de l'enveloppe → boîte blanche sur fond blanc
+    if (contour.length < 3 || w * h - aire(contour) > PART_RETIREE_MAX * w * h) return canvas
+
+    // Masque : l'enveloppe remplie (« destination-in » garde l'image seulement dedans)
+    ctx.globalCompositeOperation = 'destination-in'
+    ctx.fillStyle = '#000000'
+    ctx.beginPath()
+    contour.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)))
+    ctx.closePath()
+    ctx.fill()
+    ctx.globalCompositeOperation = 'source-over'
+
+    // Recadrage sur l'enveloppe
+    const xs = contour.map(q => q[0])
+    const ys = contour.map(q => q[1])
+    const x0 = Math.min(...xs)
+    const y0 = Math.min(...ys)
+    const lw = Math.max(...xs) - x0
+    const lh = Math.max(...ys) - y0
     if (lw === w && lh === h) return canvas
     const { canvas: rogne, ctx: r } = nouveauCanvas(lw, lh)
     try {

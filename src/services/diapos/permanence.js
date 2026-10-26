@@ -209,8 +209,9 @@ async function grille(ctx, d, logo) {
         try {
           const debord = AUTOCOLLANT_CASE.lisere + AUTOCOLLANT_CASE.bord + 4
           const t = tenir(boite, lCase - 2 * debord, hCase - 2 * debord)
+          // Posée en bas de la case, juste au-dessus du nom (une boîte plate ne flotte pas)
           autocollant(ctx, boite, {
-            ...AUTOCOLLANT_CASE, cx: x + lCase / 2, cy: y + hCase / 2, w: t.w, h: t.h,
+            ...AUTOCOLLANT_CASE, cx: x + lCase / 2, cy: y + hCase - debord - t.h / 2, w: t.w, h: t.h,
             angle: [0, -2, 0, 2][i % 4], couleurOmbre: ombre,
           })
         } finally {

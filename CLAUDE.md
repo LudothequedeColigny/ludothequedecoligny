@@ -183,8 +183,10 @@ envoi vide → rien. Toute image doit donc être déposée dans notre stockage a
 Les images non carrées sont posées sur le fond bois bleu canard `public/social/fond-bois.jpg`
 (déjà flouté dans le fichier : le flou du navigateur ne marche pas sur Safari) — pour les
 affiches et photos des posts. Choix de Victor, octobre 2026, à la place du fond blanc.
-Les « Nouveaux jeux » n'utilisent plus ce fond : boîtes détourées en autocollant
-(`diapos/nouveaux-jeux.js`, fond blanc relié aux bords retiré, sécurité à 85 %).
+Les boîtes de jeu (nouveaux jeux, bilans de soirée et de permanence, story) n'utilisent plus
+ce fond : elles sont détourées en « autocollant » par `diapos/autocollant.js` (fond blanc relié
+aux bords retiré, puis enveloppe convexe de la boîte pour garder ses côtés blancs ; sécurité à
+85 % ; liseré blanc, contour encre, ombre pleine). Effet choisi par Victor le 23/10/2026.
 
 Les visuels de bilan sont dessinés par `src/services/diapos/` : `regles.js` (textes,
 jeux retenus, plan — testé par `npm test`), `dessin.js` (outils canvas), `carrousel.js`,
