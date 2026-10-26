@@ -8,7 +8,7 @@ import { versBlob, liberer, viderCache } from '../../../services/diapos/dessin'
 import { publierSurReseaux, uploadSocialBlob } from '../../../services/reseauxSociaux'
 import SocialPostPreview from '../SocialPostPreview'
 import VueAgrandie from '../VueAgrandie'
-import { partagerFichiers } from '../../../services/diapos/partage'
+import { partagerFichiers, telecharger, peutEnregistrerDansPhotos, nomFichierStory } from '../../../services/diapos/partage'
 
 /**
  * Annonce d'un événement à venir : carrousel de 5 images 4:5 au plus (publié via Make)
@@ -242,7 +242,7 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
         suite()
         setApercuStory(s)
         if (blobs.length && blobs.every(Boolean)) {
-          setFichiersStory(blobs.map(b => new File([b], `story-jour-j-${evenementStory.id}.jpg`, { type: 'image/jpeg' })))
+          setFichiersStory(blobs.map(b => new File([b], nomFichierStory(`jour-j-${evenementStory.title}`, evenementStory.date, 1), { type: 'image/jpeg' })))
           setErreur(e => (e === ERREUR_STORY ? '' : e))
         } else {
           setFichiersStory(null)
@@ -325,8 +325,16 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
     }
   }
 
-  // Aucune attente avant le partage : le fichier est prêt depuis l'aperçu
-  const enregistrerStory = async () => {
+  // Téléchargement direct de l'image de la story (prête depuis l'aperçu)
+  const telechargerStory = () => {
+    if (!fichiersStory) { setErreur(ERREUR_STORY); return }
+    setErreur('')
+    telecharger(fichiersStory)
+  }
+
+  // iPhone : feuille de partage (« Enregistrer l'image » → Photos). Aucune attente avant
+  // le partage : le fichier est prêt depuis l'aperçu
+  const enregistrerDansPhotos = async () => {
     const fichiers = fichiersStory
     if (!fichiers) { setErreur(ERREUR_STORY); return }
     setErreur('')
@@ -389,9 +397,9 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
   )
 
   const boutonStory = (
-    <button type="button" onClick={enregistrerStory} disabled={etat === 'story' || calculStory || !fichiersStory}
+    <button type="button" onClick={telechargerStory} disabled={etat === 'story' || calculStory || !fichiersStory}
       className="flex items-center justify-center gap-2 rounded-2xl border-2 border-[#0f172a] bg-white py-4 text-[10px] font-black uppercase tracking-widest text-[#1a5f7a] transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
-      {etat === 'story' ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} Enregistrer la story du jour J
+      {etat === 'story' ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} Télécharger la story du jour J
     </button>
   )
 
@@ -474,6 +482,13 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
         ))}
         {boutonStory}
       </div>
+
+      {peutEnregistrerDansPhotos(fichiersStory) && (
+        <button type="button" onClick={enregistrerDansPhotos} disabled={etat === 'story'}
+          className="mx-auto block text-[10px] font-bold text-[#1a5f7a] underline underline-offset-2 hover:text-[#e38154] disabled:opacity-40">
+          iPhone : enregistrer l'image dans Photos
+        </button>
+      )}
 
       {agrandie != null && (
         <VueAgrandie images={apercuStory} index={agrandie} onIndex={setAgrandie} onFermer={() => setAgrandie(null)} />

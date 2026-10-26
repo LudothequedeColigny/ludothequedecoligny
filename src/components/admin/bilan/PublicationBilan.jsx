@@ -11,7 +11,7 @@ import VueAgrandie from '../VueAgrandie'
 import ChoixPhoto from './ChoixPhoto'
 import ExpressionLibre from './ExpressionLibre'
 import useExpressionLibre, { expressionPourApercu } from '../../../hooks/useExpressionLibre'
-import { partagerFichiers } from '../../../services/diapos/partage'
+import { partagerFichiers, telecharger, peutEnregistrerDansPhotos, nomFichierStory } from '../../../services/diapos/partage'
 
 /**
  * Publication du bilan d'une soirée ou d'un après-midi : choix des photos,
@@ -148,7 +148,7 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
         setApercuStory(s)
         setPlans(plan)
         if (blobs.every(Boolean)) {
-          setFichiersStory(blobs.map((b, i) => new File([b], `story-${event.id}-${i + 1}.jpg`, { type: 'image/jpeg' })))
+          setFichiersStory(blobs.map((b, i) => new File([b], nomFichierStory(event.title, event.date, i + 1), { type: 'image/jpeg' })))
           setErreur(e => (e === ERREUR_APERCU || e === ERREUR_STORY ? '' : e))
         } else {
           setFichiersStory(null)
@@ -224,8 +224,16 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
     }
   }
 
-  // Aucune attente avant le partage : les fichiers sont prêts depuis l'aperçu
-  const enregistrerStory = async () => {
+  // Téléchargement direct des images de la story (prêtes depuis l'aperçu)
+  const telechargerStory = () => {
+    if (!fichiersStory) { setErreur(ERREUR_STORY); return }
+    setErreur('')
+    telecharger(fichiersStory)
+  }
+
+  // iPhone : feuille de partage (« Enregistrer N images » → Photos). Aucune attente avant
+  // le partage : les fichiers sont prêts depuis l'aperçu
+  const enregistrerDansPhotos = async () => {
     const fichiers = fichiersStory
     if (!fichiers) { setErreur(ERREUR_STORY); return }
     setErreur('')
@@ -324,11 +332,18 @@ export default function PublicationBilan({ event, photos, jeux, participants, te
             {etat === 'publication' ? <><Loader2 size={14} className="animate-spin" /> Publication…</> : <><Share2 size={14} /> Publier sur Facebook & Instagram ({apercuCarrousel.length})</>}
           </button>
         )}
-        <button type="button" onClick={enregistrerStory} disabled={etat === 'story' || calcul || !apercuStory.length}
+        <button type="button" onClick={telechargerStory} disabled={etat === 'story' || calcul || !fichiersStory}
           className="flex items-center justify-center gap-2 rounded-2xl border-2 border-[#0f172a] bg-white py-4 text-[10px] font-black uppercase tracking-widest text-[#1a5f7a] transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
-          {etat === 'story' ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} Enregistrer la story
+          {etat === 'story' ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} Télécharger la story ({apercuStory.length} images)
         </button>
       </div>
+
+      {peutEnregistrerDansPhotos(fichiersStory) && (
+        <button type="button" onClick={enregistrerDansPhotos} disabled={etat === 'story'}
+          className="mx-auto block text-[10px] font-bold text-[#1a5f7a] underline underline-offset-2 hover:text-[#e38154] disabled:opacity-40">
+          iPhone : enregistrer les images dans Photos
+        </button>
+      )}
 
       {agrandie && (
         <VueAgrandie
