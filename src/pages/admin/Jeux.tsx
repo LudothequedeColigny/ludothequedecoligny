@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Dice5, Plus, Trash2, Edit2, X, Hash, AlertCircle, Search, CheckCircle, ImageIcon, Link as LinkIcon, Tag, ExternalLink, Users, PlayCircle, Clock, FileText, WifiOff, Eye, Loader2, Camera, ScanLine, Sparkles, QrCode, Printer } from 'lucide-react'
+import { Plus, Trash2, Edit2, X, Hash, AlertCircle, Search, ImageIcon, ExternalLink, PlayCircle, FileText, Loader2, Camera, ScanLine, Sparkles, QrCode, Printer } from 'lucide-react'
+import MaskIcon from '../../components/site/MaskIcon'
 import { supabase } from '../../services/supabaseClient'
 import { volunteerHeaders } from '../../services/functionHeaders'
 import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
@@ -220,7 +221,7 @@ ${jeuxSelectionnes.map(jeu => `<div class="card">
         <div className="flex shrink-0 items-start justify-between gap-4 border-b-2 border-[#0f172a] px-7 py-6">
           <div className="flex items-center gap-3.5">
             <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#e38154] text-white">
-              <QrCode size={20} />
+              <MaskIcon file="ludo-etiquette-qr.svg" size={30} color="#ffffff" />
             </div>
             <div>
               <h2 className="font-display text-[21px] font-extrabold tracking-[-0.04em]">
@@ -269,7 +270,7 @@ ${jeuxSelectionnes.map(jeu => `<div class="card">
           <div className="flex-1 overflow-y-auto bg-[#fdfaf6] p-6">
             {jeuxSelectionnes.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-3">
-                <QrCode size={40} />
+                <MaskIcon file="ludo-etiquette-qr.svg" size={56} color="currentColor" />
                 <p className="font-black text-xs uppercase tracking-wide">Sélectionnez des jeux</p>
               </div>
             ) : (
@@ -687,7 +688,7 @@ export default function Jeux() {
               }}
               className={`${BTN_TEAL} flex-1 md:flex-none`}
             >
-              <ScanLine size={16} strokeWidth={3} /> Ajouter par scan
+              <MaskIcon file="ludo-scan.svg" size={22} color="currentColor" /> Ajouter par scan
             </button>
 
             {/* Étiquettes QR — masqué sur mobile, la génération se fait sur ordinateur */}
@@ -698,7 +699,7 @@ export default function Jeux() {
                 title={`Générer des étiquettes QR (${nbJeuxAvecVideo} jeu${nbJeuxAvecVideo > 1 ? 'x' : ''} avec vidéo)`}
                 className={`${BTN_OUTLINE} relative`}
               >
-                <QrCode size={16} strokeWidth={2.5} />
+                <MaskIcon file="ludo-etiquette-qr.svg" size={22} color="currentColor" />
                 <span className="hidden lg:inline">Étiquettes</span>
                 {nbJeuxAvecVideo > 0 && (
                   <span className="absolute -right-2 -top-2 flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-[#0f172a] bg-[#e38154] text-[9px] font-extrabold leading-none text-white">
@@ -714,7 +715,7 @@ export default function Jeux() {
       <main>
 
         {!navigator.onLine && (
-          <AdminBanner tone="warn" icon={<WifiOff size={18} />}>
+          <AdminBanner tone="warn" icon={<MaskIcon file="ludo-hors-ligne.svg" size={24} color="currentColor" />}>
             Catalogue en mode lecture seule (hors-ligne)
           </AdminBanner>
         )}
@@ -936,7 +937,7 @@ export default function Jeux() {
             </DataHeader>
 
             {filteredJeux.length === 0 ? (
-              <DataEmpty icon={<Dice5 size={36} className="text-slate-200" />}>
+              <DataEmpty icon={<MaskIcon file="ludo-etagere-vide.svg" size={56} color="#94a3b8" />}>
                 Aucun jeu ne correspond à cette recherche.
               </DataEmpty>
             ) : filteredJeux.map((jeu, idx) => (
@@ -963,7 +964,7 @@ export default function Jeux() {
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] p-1">
                     {jeu.image_url
                       ? <img src={jeu.image_url} loading="lazy" decoding="async" className="max-h-full max-w-full object-contain" alt="" />
-                      : <Dice5 size={22} className="text-slate-200" />}
+                      : <MaskIcon file="ludo-boite-jeu.svg" size={34} color="#cbd5e1" />}
                   </div>
                   <div className="min-w-0">
                     <div className="text-[13.5px] font-extrabold uppercase tracking-[-0.01em]">{jeu.name}</div>
@@ -999,7 +1000,7 @@ export default function Jeux() {
           <div className="space-y-4 md:hidden">
             {filteredJeux.length === 0 && (
               <DataCard>
-                <DataEmpty icon={<Dice5 size={36} className="text-slate-200" />}>
+                <DataEmpty icon={<MaskIcon file="ludo-etagere-vide.svg" size={56} color="#94a3b8" />}>
                   Aucun jeu ne correspond à cette recherche.
                 </DataEmpty>
               </DataCard>
@@ -1010,7 +1011,7 @@ export default function Jeux() {
                   <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center overflow-hidden rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-1.5">
                     {jeu.image_url
                       ? <img src={jeu.image_url} loading="lazy" decoding="async" className="max-h-full max-w-full object-contain" alt="" />
-                      : <Dice5 size={26} className="text-slate-200" />}
+                      : <MaskIcon file="ludo-boite-jeu.svg" size={40} color="#cbd5e1" />}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -1106,7 +1107,7 @@ export default function Jeux() {
         confirmLabel="Oui, supprimer"
         cancelLabel="Conserver"
         tone="danger"
-        icon={<Trash2 size={26} />}
+        icon={<MaskIcon file="ludo-corbeille.svg" size={40} color="currentColor" />}
       />
 
       {/* TUTORIEL */}

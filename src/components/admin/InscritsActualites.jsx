@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Mail, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import MaskIcon from '../site/MaskIcon'
 import IconButton from './IconButton'
 
 /**
@@ -27,7 +28,7 @@ export default function InscritsActualites({ liste, onSupprimer }) {
         className={`flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-[#fdfaf6] ${ouvert ? 'border-b-2 border-[#0f172a]' : ''}`}
       >
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#1a5f7a] text-white">
-          <Mail size={18} />
+          <MaskIcon file="ludo-actualites.svg" size={26} color="currentColor" />
         </span>
         <span className="min-w-0">
           <span className="block font-display text-[18px] font-extrabold uppercase tracking-[-0.03em]">

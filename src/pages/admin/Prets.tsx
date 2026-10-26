@@ -1,30 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
-import {
-  Share2, ChevronDown, ChevronUp,
-  Trash2,
-  Edit2,
-  X,
-  Plus,
-  Hash,
-  CreditCard,
-  Phone,
-  Mail,
-  Search,
-  MapPin,
-  Eye,
-  User,
-  Send,
-  AlertTriangle,
-  Building2,
-  Home,
-  ChevronRight,
-  ExternalLink,
-  Calendar,
-  Clock,
-  CheckCircle,
-  Loader2,
-  ScanLine
-} from 'lucide-react'
+import { X, Plus, Mail, Send, AlertTriangle, Calendar, Clock, CheckCircle, Loader2 } from 'lucide-react'
+import MaskIcon from '../../components/site/MaskIcon'
 import { supabase } from '../../services/supabaseClient'
 import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
 import { sendEmail } from '../../services/emailService'
@@ -592,7 +568,7 @@ www.ludothequedecoligny.fr`
               onClick={() => { setScannedGamesForLoan([]); setShowScanner(true) }}
               className={BTN_INK}
             >
-              <ScanLine size={16} /> Scan rapide
+              <MaskIcon file="ludo-scan.svg" size={22} color="currentColor" /> Scan rapide
             </button>
             <button data-tutorial="prets-add-btn" onClick={openNewLoan} className={BTN_ORANGE}>
               <Plus size={16} /> Nouveau prêt
@@ -645,7 +621,7 @@ www.ludothequedecoligny.fr`
                       Emprunteur : {l.members?.last_name} {l.members?.first_name}
                     </p>
                   </div>
-                  {late && <AlertTriangle size={18} className="shrink-0 text-[#f43f5e]" />}
+                  {late && <MaskIcon file="ludo-retard.svg" size={28} color="#f43f5e" className="shrink-0" />}
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -807,7 +783,7 @@ www.ludothequedecoligny.fr`
           onClose={() => setScanReturnConfirm(null)}
           onConfirm={confirmScanReturn}
           tone="success"
-          icon={<CheckCircle size={32} />}
+          icon={<MaskIcon file="ludo-retour.svg" size={44} color="currentColor" />}
           title="Confirmer le retour ?"
           message={`« ${scanReturnConfirm.games?.name} » ramené par ${scanReturnConfirm.members?.first_name} ${scanReturnConfirm.members?.last_name}`}
           confirmLabel="Valider le retour"
@@ -823,7 +799,7 @@ www.ludothequedecoligny.fr`
 
             <div className="mb-5 flex items-start justify-between gap-4">
               <div className="flex h-[62px] w-[62px] items-center justify-center rounded-[20px] border-2 border-[#0f172a] bg-[#fffbeb] text-[#b45309] shadow-[4px_4px_0_#f59e0b]">
-                <Share2 size={28} />
+                <MaskIcon file="ludo-relance.svg" size={40} color="currentColor" />
               </div>
               <button
                 onClick={() => setRenewalAction(null)}
@@ -843,15 +819,15 @@ www.ludothequedecoligny.fr`
             {/* Coordonnées */}
             <div data-tutorial="prets-relance-coordonnees" className="mb-6 space-y-2.5">
               <div className="flex items-center gap-4 rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4">
-                <Mail size={18} className="shrink-0 text-[#1a5f7a]" />
+                <MaskIcon file="ludo-enveloppe.svg" size={22} color="#1a5f7a" className="shrink-0" />
                 <span className="truncate text-sm font-bold text-[#0f172a]">{renewalAction.members?.email || 'Email non renseigné'}</span>
               </div>
               <div className="flex items-center gap-4 rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4">
-                <Phone size={18} className="shrink-0 text-[#1a5f7a]" />
+                <MaskIcon file="ludo-contact.svg" size={22} color="#1a5f7a" className="shrink-0" />
                 <span className="text-sm font-bold text-[#0f172a]">{renewalAction.members?.phone || 'Téléphone non renseigné'}</span>
               </div>
               <div className="flex items-start gap-4 rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4">
-                <MapPin size={18} className="mt-0.5 shrink-0 text-[#1a5f7a]" />
+                <MaskIcon file="ludo-lieu.svg" size={22} color="#1a5f7a" className="shrink-0" />
                 <span className="text-sm font-bold leading-relaxed text-[#0f172a]">{renewalAction.members?.address || 'Adresse non renseignée'}</span>
               </div>
             </div>
@@ -930,7 +906,7 @@ www.ludothequedecoligny.fr`
             <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-6 py-5">
               <div className="min-w-0">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#fffbeb] text-[#b45309]"><Mail size={18} /></div>
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#fffbeb] text-[#b45309]"><MaskIcon file="ludo-relance.svg" size={28} color="currentColor" /></div>
                   <h3 className="truncate font-display text-lg font-extrabold tracking-[-0.03em] text-[#0f172a]">
                     Relance — {composeModal.member?.first_name} {composeModal.member?.last_name}
                   </h3>
@@ -1022,7 +998,7 @@ www.ludothequedecoligny.fr`
           onClose={() => setConfirmAction(null)}
           onConfirm={processConfirmAction}
           tone={confirmAction.type === 'return' ? 'success' : 'neutral'}
-          icon={confirmAction.type === 'return' ? <CheckCircle size={32} /> : <Clock size={32} />}
+          icon={confirmAction.type === 'return' ? <MaskIcon file="ludo-retour.svg" size={44} color="currentColor" /> : <MaskIcon file="ludo-prolonger.svg" size={44} color="currentColor" />}
           title={confirmAction.type === 'return' ? 'Confirmer le retour de ce jeu' : "Prolonger l'emprunt de 14 jours"}
           message="Voulez-vous valider cette action ?"
         >

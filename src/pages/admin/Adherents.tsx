@@ -1,11 +1,7 @@
 import TutorialOverlay, { TutorialButton } from '../../components/TutorialOverlay'
 import { useState, useEffect, useMemo } from 'react'
-import { 
-  Users, Trash2, Edit2, X, Plus, CreditCard, 
-  Phone, Mail, Search, MapPin, Eye, User, Send, AlertTriangle, 
-  Building2, ExternalLink, Calendar, ShieldCheck, ShieldOff, CheckCircle2, ChevronRight, Info,
-  RefreshCw, Loader2
-} from 'lucide-react'
+import { Trash2, Edit2, X, Plus, CreditCard, Mail, Eye, User, Send, Building2, CheckCircle2, Info, RefreshCw, Loader2 } from 'lucide-react'
+import MaskIcon from '../../components/site/MaskIcon'
 import { supabase } from '../../services/supabaseClient'
 import { sendEmail } from '../../services/emailService'
 import { useToast } from '../../components/ToastContext'
@@ -630,7 +626,7 @@ www.ludothequedecoligny.fr`
               </DataRow>
             ))
           ) : filteredMembers.length === 0 ? (
-            <DataEmpty icon={<Users size={36} className="text-slate-200" />}>
+            <DataEmpty icon={<MaskIcon file="ludo-carte-adherent.svg" size={56} color="#94a3b8" />}>
               Aucun adhérent ne correspond à cette recherche.
             </DataEmpty>
           ) : filteredMembers.map((m, idx) => {
@@ -668,8 +664,8 @@ www.ludothequedecoligny.fr`
                   {!isCautionActive
                     ? <span className="italic text-slate-300">N/A</span>
                     : m.caution_received
-                      ? <span className="flex items-center gap-2 text-orange-600"><ShieldCheck size={15} /> OK</span>
-                      : <span className="flex items-center gap-2 text-rose-400"><ShieldOff size={15} /> Manquante</span>}
+                      ? <span className="flex items-center gap-2 text-orange-600"><MaskIcon file="ludo-caution.svg" size={20} color="currentColor" /> OK</span>
+                      : <span className="flex items-center gap-2 text-rose-400"><MaskIcon file="ludo-caution.svg" size={20} color="currentColor" /> Manquante</span>}
                 </div>
 
                 <div className="flex flex-wrap justify-end gap-2">
@@ -705,7 +701,7 @@ www.ludothequedecoligny.fr`
         <div className="space-y-4 md:hidden">
           {!loading && filteredMembers.length === 0 && (
             <DataCard shadow="#e38154">
-              <DataEmpty icon={<Users size={36} className="text-slate-200" />}>
+              <DataEmpty icon={<MaskIcon file="ludo-carte-adherent.svg" size={56} color="#94a3b8" />}>
                 Aucun adhérent ne correspond à cette recherche.
               </DataEmpty>
             </DataCard>
@@ -990,7 +986,7 @@ www.ludothequedecoligny.fr`
 
             <div className="mb-6 flex items-center gap-3.5 pr-12">
               <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[18px] border-2 border-[#0f172a] bg-[#ecfdf5] text-[#047857] shadow-[3px_3px_0_#10b981]">
-                <RefreshCw size={22} />
+                <MaskIcon file="ludo-renouveler.svg" size={34} color="currentColor" />
               </div>
               <div className="min-w-0">
                 <h2 className="font-display text-[20px] font-extrabold uppercase leading-[1.05] tracking-[-0.04em]">Renouveler l'adhésion</h2>
@@ -1075,9 +1071,9 @@ www.ludothequedecoligny.fr`
             <h2 className="mb-5 pr-12 font-display text-[24px] font-extrabold uppercase tracking-[-0.04em]">Relancer l'adhérent</h2>
 
             <div className="mb-6 flex flex-col gap-2.5">
-              <div className={A_INFO_ROW}><Mail size={18} className="shrink-0 text-[#1a5f7a]" /> <span className="truncate">{renewalAction.email || 'N/A'}</span></div>
-              <div className={A_INFO_ROW}><Phone size={18} className="shrink-0 text-[#1a5f7a]" /> {renewalAction.phone || 'N/A'}</div>
-              <div className={`${A_INFO_ROW} items-start`}><MapPin size={18} className="mt-0.5 shrink-0 text-[#1a5f7a]" /> <span className="leading-[1.5]">{renewalAction.address || 'N/A'}</span></div>
+              <div className={A_INFO_ROW}><MaskIcon file="ludo-enveloppe.svg" size={22} color="#1a5f7a" className="shrink-0" /> <span className="truncate">{renewalAction.email || 'N/A'}</span></div>
+              <div className={A_INFO_ROW}><MaskIcon file="ludo-contact.svg" size={22} color="#1a5f7a" className="shrink-0" /> {renewalAction.phone || 'N/A'}</div>
+              <div className={`${A_INFO_ROW} items-start`}><MaskIcon file="ludo-lieu.svg" size={22} color="#1a5f7a" className="shrink-0" /> <span className="leading-[1.5]">{renewalAction.address || 'N/A'}</span></div>
             </div>
 
             <button onClick={() => openComposeMember(renewalAction)} className={`${BTN_TEAL} mb-3 w-full py-5`}>
@@ -1128,9 +1124,9 @@ www.ludothequedecoligny.fr`
             </div>
 
             <div className="mb-6 flex flex-col gap-2.5">
-              <div className={A_INFO_ROW}><Mail size={19} className="shrink-0 text-[#1a5f7a]" /> <span className="truncate">{viewMember.email || 'N/A'}</span></div>
-              <div className={A_INFO_ROW}><Phone size={19} className="shrink-0 text-[#1a5f7a]" /> {viewMember.phone || 'N/A'}</div>
-              <div className={`${A_INFO_ROW} items-start`}><MapPin size={19} className="mt-0.5 shrink-0 text-[#1a5f7a]" /> <span className="leading-[1.55]">{viewMember.address || 'N/A'}</span></div>
+              <div className={A_INFO_ROW}><MaskIcon file="ludo-enveloppe.svg" size={22} color="#1a5f7a" className="shrink-0" /> <span className="truncate">{viewMember.email || 'N/A'}</span></div>
+              <div className={A_INFO_ROW}><MaskIcon file="ludo-contact.svg" size={22} color="#1a5f7a" className="shrink-0" /> {viewMember.phone || 'N/A'}</div>
+              <div className={`${A_INFO_ROW} items-start`}><MaskIcon file="ludo-lieu.svg" size={22} color="#1a5f7a" className="shrink-0" /> <span className="leading-[1.55]">{viewMember.address || 'N/A'}</span></div>
               <div className="flex items-center gap-3.5 rounded-[20px] border-2 border-slate-200 bg-[#f0f7f9] px-5 py-4 text-[13.5px] font-bold text-[#1a5f7a]">
                 <CreditCard size={19} className="shrink-0" /> Cotisation {viewMember.fee_amount}€
               </div>
@@ -1142,7 +1138,7 @@ www.ludothequedecoligny.fr`
             {viewMember.type === 'Particulier' && (
               <>
                 <div className="mb-3.5 flex items-center gap-2.5 border-t-2 border-slate-100 pt-5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400">
-                  <Users size={15} /> Membres du foyer
+                  <MaskIcon file="ludo-famille.svg" size={22} color="currentColor" /> Membres du foyer
                 </div>
                 {viewMember.family_members?.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
@@ -1169,7 +1165,7 @@ www.ludothequedecoligny.fr`
         confirmLabel="Oui, supprimer"
         cancelLabel="Conserver"
         tone="danger"
-        icon={<Trash2 size={26} />}
+        icon={<MaskIcon file="ludo-corbeille.svg" size={40} color="currentColor" />}
       />
 
       <ConfirmModal
@@ -1181,7 +1177,7 @@ www.ludothequedecoligny.fr`
         confirmLabel="Oui, supprimer"
         cancelLabel="Conserver"
         tone="danger"
-        icon={<Trash2 size={26} />}
+        icon={<MaskIcon file="ludo-corbeille.svg" size={40} color="currentColor" />}
       />
 
       <ConfirmModal
@@ -1193,7 +1189,7 @@ www.ludothequedecoligny.fr`
         confirmLabel="Oui, retirer"
         cancelLabel="Conserver"
         tone="danger"
-        icon={<Trash2 size={26} />}
+        icon={<MaskIcon file="ludo-corbeille.svg" size={40} color="currentColor" />}
       />
 
       {/* ---------- RÉDACTION DE LA RELANCE ---------- */}

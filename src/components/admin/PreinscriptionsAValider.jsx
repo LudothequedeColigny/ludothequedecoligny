@@ -1,4 +1,5 @@
-import { UserPlus, Trash2, Mail, Phone, MapPin, Building2 } from 'lucide-react'
+import { Trash2, Mail, Phone, MapPin, Building2 } from 'lucide-react'
+import MaskIcon from '../site/MaskIcon'
 import IconButton from './IconButton'
 import { BTN_ORANGE } from './buttons'
 
@@ -23,7 +24,7 @@ export default function PreinscriptionsAValider({ liste, onValider, onSupprimer 
     >
       <div className="flex items-center gap-3 border-b-2 border-[#0f172a] bg-white px-5 py-4">
         <span className="flex h-10 w-10 items-center justify-center rounded-[13px] border-2 border-[#0f172a] bg-[#e38154] text-white">
-          <UserPlus size={18} />
+          <MaskIcon file="ludo-preinscription.svg" size={26} color="currentColor" />
         </span>
         <h2 className="font-display text-[18px] font-extrabold uppercase tracking-[-0.03em]">
           Pré-inscriptions <span className="text-[#e38154]">à valider</span>

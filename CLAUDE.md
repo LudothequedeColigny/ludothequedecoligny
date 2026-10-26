@@ -132,7 +132,9 @@ une icône par idée, validées par Victor lot par lot ; liste complète et plan
 `Bureau/PERSO/Ludothèque/Maquette bilan soirée jeux/icones-proposition/`). Lot 1 (tableau de bord et
 Communication) en place : `boite-jeu`, `carte-adherent`, `calendrier-evenement`, `objectif`, `visites`, `appli`,
 `affiche`, `affiche-pinceau`, `post`, `nouveau-jeu`, `annonce`, `bilan`, `joueurs`, `photo`, `jeux-joues`,
-`ecrire-mail`, `carnet`, `modeles`, `presse`, `ecole`, `archives`. Trop fines sous 18 px : les petits boutons
+`ecrire-mail`, `carnet`, `modeles`, `presse`, `ecole`, `archives`. Lot 2 (Jeux, Adhérents, Prêts) : `etagere-vide`,
+`etiquette-qr`, `scan`, `hors-ligne`, `corbeille`, `preinscription`, `actualites`, `renouveler`, `caution`,
+`contact`, `enveloppe`, `lieu`, `famille`, `retard`, `retour`, `prolonger`, `relance`. Trop fines sous 18 px : les petits boutons
 d'action gardent leurs pictogrammes simples.
 
 Les fichiers `01.svg` à `07.svg` restent utilisés pour les petites vignettes de
