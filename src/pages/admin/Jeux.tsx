@@ -130,6 +130,8 @@ export default function Jeux() {
   const [deleteModal, setDeleteModal] = useState({ show: false, id: null, name: '' })
   const [showScanner, setShowScanner] = useState(false)
   const [showEtiquettes, setShowEtiquettes] = useState(false)
+  // Fiche ouverte depuis la fenêtre Étiquettes : elle s'affiche par-dessus, et la fermer y ramène
+  const [ficheDepuisEtiquettes, setFicheDepuisEtiquettes] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
   const [categoryInput, setCategoryInput] = useState('')
@@ -368,6 +370,7 @@ export default function Jeux() {
 
   const cancelEdit = () => {
     setNewGame(initialGameState); setEditingId(null); setShowForm(false); setBggResults([]); setBggFilled(false); setAbsentWikiludo(false)
+    setFicheDepuisEtiquettes(false)
   }
 
   const handleFileUpload = async (e) => {
@@ -543,7 +546,9 @@ export default function Jeux() {
 
         {/* MODALE DU FORMULAIRE */}
         {showForm && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-[22px]">
+          <div className={ficheDepuisEtiquettes
+            ? 'fixed inset-0 z-[170] flex items-center justify-center p-3 sm:p-[22px]'
+            : 'fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-[22px]'}>
             <div className="anim-fade-in absolute inset-0 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }} onClick={cancelEdit} />
             <div
               data-tutorial="jeux-form-modal"
@@ -886,7 +891,7 @@ export default function Jeux() {
           jeux={jeux}
           categories={categories}
           onClose={() => setShowEtiquettes(false)}
-          onOuvrirJeu={jeu => { setShowEtiquettes(false); startEdit(jeu) }}
+          onOuvrirJeu={jeu => { if (navigator.onLine) setFicheDepuisEtiquettes(true); startEdit(jeu) }}
           onChange={fetchJeux}
         />
       )}
