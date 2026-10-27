@@ -254,6 +254,8 @@ async function getGameDetails(id: string) {
   const m = info.metrics || {}
   const cm = (v: any) => Math.ceil(parseFloat(v) || 0)   // Wikiludo : arrondi au centimètre supérieur
   const format = m.len && m.width && m.height ? `${cm(m.len)} x ${cm(m.width)} x ${cm(m.height)}` : ''
+  // Épaisseur de la boîte (hauteur MyLudo, en cm) : largeur de l'étiquette code-barres
+  const thicknessMm = parseFloat(m.height) > 0 ? Math.round(parseFloat(m.height) * 10) : null
 
   return {
     name:        game.title || '',
@@ -268,6 +270,7 @@ async function getGameDetails(id: string) {
     distributors: avecRole(/distribut/i),
     contents:    contenu.length ? contenu.join(' + ') : sansHtml(String(info.content || '')),
     format,
+    thicknessMm,
     weight:      m.weight ? `${m.weight} ${m.unit || ''}`.trim() : '',
     themes:      Object.values(themes.theme || {}) as string[],
     mechanisms:  Object.values(themes.mecanisme || {}) as string[],
