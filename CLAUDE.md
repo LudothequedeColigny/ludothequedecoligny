@@ -370,6 +370,11 @@ Les animations et effets sont définis dans `src/index.css`.
   floutée, jamais l'affichage de l'éditeur ; un rectangle dessiné est flouté même sans clic sur
   « Appliquer le flou ». Le 25/10/2026, une photo était partie avec les visages en clair sous les
   repères orange (bouton « Terminer » cliqué avant « Appliquer ») : ne pas revenir en arrière.
+- **Page ouverte avant une mise en ligne** : les morceaux de code chargés à la demande (pages, PDF des
+  étiquettes) changent de nom à chaque publication ; l'ancienne page ne les trouve plus (« Failed to fetch
+  dynamically imported module », vu le 27/10/2026). `src/services/nouvelleVersion.js` recharge alors la
+  page une fois (évènement `vite:preloadError` dans `main.jsx`, et le bouton PDF des étiquettes). Tout
+  nouvel `import()` à la demande doit traiter cette erreur de la même façon.
 - **Le site utilise le défilement « doux »** : tout script qui fait défiler la page
   doit préciser `behavior: 'instant'`, sinon il n'atteint jamais le bas.
 - `index.html` interdit volontairement le zoom sur mobile (`user-scalable=no`).

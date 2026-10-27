@@ -8,6 +8,7 @@ import { useToast } from '../../ToastContext'
 import { preparer, repartir, raisons, depasse, numeroEtiquette, PAGE } from '../../../services/etiquettes/regles.js'
 import { dessinerPage } from '../../../services/etiquettes/dessin.js'
 import { versSvg } from '../../../services/etiquettes/rendu-svg.js'
+import { estFichierPerime, rechargerPourNouvelleVersion } from '../../../services/nouvelleVersion.js'
 
 /**
  * Onglet « Code-barres » de la fenêtre Étiquettes : jeux dont l'étiquette n'est pas
@@ -60,7 +61,11 @@ export default function OngletCodeBarres({ jeux, categories, onOuvrirJeu, onChan
       setTimeout(() => URL.revokeObjectURL(a.href), 10000)
       if (!seulementPremiere) setTelecharges(choisies.map(e => e.id))
     } catch (e) {
-      addToast('Le PDF n’a pas pu être fabriqué : ' + e.message, 'error')
+      // Page ouverte avant une mise en ligne : on la recharge pour prendre la nouvelle version
+      if (estFichierPerime(e)) {
+        addToast('Une nouvelle version du site vient d’être mise en ligne : la page se recharge, recommencez ensuite.', 'warning', 4000)
+        setTimeout(() => rechargerPourNouvelleVersion(), 1500)
+      } else addToast('Le PDF n’a pas pu être fabriqué : ' + e.message, 'error')
     } finally { setOccupe(false) }
   }
 
