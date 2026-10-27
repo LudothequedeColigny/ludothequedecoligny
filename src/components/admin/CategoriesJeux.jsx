@@ -33,7 +33,10 @@ export default function CategoriesJeux({ onClose }) {
   async function enregistrer(id, champs) {
     setCategories(cs => cs.map(c => (c.id === id ? { ...c, ...champs } : c)))
     const { error } = await supabase.from('categories_jeux').update(champs).eq('id', id)
-    if (error) { addToast("Enregistrement impossible : " + error.message, 'error'); charger() }
+    if (error) {
+      addToast(error.code === '23505' ? 'Ce nom existe déjà.' : "Enregistrement impossible : " + error.message, 'error')
+      charger()
+    }
   }
 
   async function ajouter() {
@@ -44,12 +47,15 @@ export default function CategoriesJeux({ onClose }) {
   }
 
   async function deplacer(i, sens) {
-    const a = categories[i], b = categories[i + sens]
-    if (!b) return
-    await Promise.all([
-      supabase.from('categories_jeux').update({ ordre: b.ordre }).eq('id', a.id),
-      supabase.from('categories_jeux').update({ ordre: a.ordre }).eq('id', b.id),
-    ])
+    if (!categories[i + sens]) return
+    const nouvelles = [...categories]
+    ;[nouvelles[i], nouvelles[i + sens]] = [nouvelles[i + sens], nouvelles[i]]
+    // Ordre réécrit pour toutes les lignes (répare aussi les ordres en double)
+    const resultats = await Promise.all(
+      nouvelles.map((c, k) => c.ordre === k + 1 ? null : supabase.from('categories_jeux').update({ ordre: k + 1 }).eq('id', c.id))
+    )
+    const echec = resultats.find(r => r && r.error)
+    if (echec) addToast('Ordre non enregistré : ' + echec.error.message, 'error')
     charger()
   }
 
@@ -85,7 +91,7 @@ export default function CategoriesJeux({ onClose }) {
               <label className="relative h-10 w-10 shrink-0 cursor-pointer rounded-[12px] border-2 border-[#0f172a]" style={{ background: c.couleur }} title="Changer la couleur">
                 <input type="color" value={c.couleur} onChange={e => enregistrer(c.id, { couleur: e.target.value.toUpperCase() })} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
               </label>
-              <input defaultValue={c.nom} onBlur={e => e.target.value.trim() && e.target.value.trim() !== c.nom && enregistrer(c.id, { nom: e.target.value.trim() })}
+              <input key={c.id + c.nom} defaultValue={c.nom} onBlur={e => e.target.value.trim() && e.target.value.trim() !== c.nom && enregistrer(c.id, { nom: e.target.value.trim() })}
                 className="min-w-0 flex-1 rounded-[12px] border-2 border-transparent bg-transparent px-2 py-1.5 text-[13.5px] font-bold outline-none focus:border-[#0f172a] focus:bg-white" />
               <span className="shrink-0 text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400">{nombres[c.id] || 0} jeu{(nombres[c.id] || 0) > 1 ? 'x' : ''}</span>
               <button type="button" onClick={() => deplacer(i, -1)} disabled={i === 0} aria-label="Monter" className="text-slate-400 hover:text-[#1a5f7a] disabled:opacity-30"><ArrowUp size={16} /></button>
