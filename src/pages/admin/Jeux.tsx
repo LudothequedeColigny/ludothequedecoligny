@@ -52,7 +52,8 @@ async function bggGetDetails(id: string) {
     duration:    item.duration    || 0,
     image:       item.image       || '',
     categories:  item.categories  || [],
-    barcode:     item.barcode     || ''
+    barcode:     item.barcode     || '',
+    thicknessMm: item.thicknessMm || null
   }
 }
 
@@ -348,6 +349,7 @@ export default function Jeux() {
 
   const [categoryInput, setCategoryInput] = useState('')
   const [availableCategories, setAvailableCategories] = useState([])
+  const [categories, setCategories] = useState<any[]>([]) // catégories de la ludothèque (table categories_jeux), triées par ordre
 
   const [bggResults, setBggResults] = useState<{ id: string; name: string; year: string; language?: string }[]>([])
   const [bggLoading, setBggLoading] = useState(false)
@@ -363,7 +365,8 @@ export default function Jeux() {
   const initialGameState = {
     registration_number: '', barcode: '', name: '', description: '', observations: '',
     min_players: 1, max_players: 4, min_age: 3, duration: 30,
-    category: '', image_url: '', youtube_url: '', is_available: true
+    category: '', image_url: '', youtube_url: '', is_available: true,
+    categorie_id: null as number | null, epaisseur_mm: '' as any, etiquette_imprimee_le: null as string | null
   }
 
   const [newGame, setNewGame] = useState(initialGameState)
@@ -419,6 +422,8 @@ export default function Jeux() {
       image_url:   w?.image           || m?.image       || prev.image_url,
       category:    m?.categories?.join(', ') || motsWikiludo.join(', ') || prev.category,
       youtube_url: w?.video           || prev.youtube_url,
+      // L'épaisseur n'est reprise que si la base l'acceptera (1 à 300 mm)
+      epaisseur_mm: (typeof m?.thicknessMm === 'number' && m.thicknessMm >= 1 && m.thicknessMm <= 300) ? m.thicknessMm : prev.epaisseur_mm,
       registration_number: prev.registration_number || getNextRegistrationNumber()
     }))
     setBggFilled(w && m ? 'Wikiludo et MyLudo' : w ? 'Wikiludo' : 'MyLudo')
@@ -502,10 +507,14 @@ export default function Jeux() {
           setJeux(fetchedJeux)
           localStorage.setItem('cache_games_list', JSON.stringify(fetchedJeux))
           updateCategoriesList(fetchedJeux)
+          const { data: cats } = await supabase.from('categories_jeux').select('*').order('ordre')
+          setCategories(cats || [])
+          localStorage.setItem('cache_categories_jeux', JSON.stringify(cats || []))
         }
       } else {
         const cachedJeux = JSON.parse(localStorage.getItem('cache_games_list') || '[]')
         setJeux(cachedJeux)
+        setCategories(JSON.parse(localStorage.getItem('cache_categories_jeux') || '[]'))
         updateCategoriesList(cachedJeux)
       }
     } catch (err) { console.error("Erreur de chargement des jeux:", err) }
@@ -555,6 +564,15 @@ export default function Jeux() {
   const startEdit = (jeu) => {
     if (!navigator.onLine) { addToast("La modification est désactivée en mode hors-ligne.", 'warning'); return }
     setNewGame(jeu); setEditingId(jeu.id); setShowForm(true); setBggFilled(false); setAbsentWikiludo(false); setBggResults([])
+  }
+
+  // Étiquette abîmée : le jeu revient dans la liste « à imprimer » de la fenêtre Étiquettes
+  const reimprimerEtiquette = async () => {
+    const { error } = await supabase.from('games').update({ etiquette_imprimee_le: null }).eq('id', editingId)
+    if (error) { addToast('Impossible : ' + error.message, 'error'); return }
+    setNewGame(g => ({ ...g, etiquette_imprimee_le: null }))
+    fetchJeux()
+    addToast("L'étiquette sera proposée à la prochaine impression.", 'success')
   }
 
   const cancelEdit = () => {
@@ -622,12 +640,15 @@ export default function Jeux() {
         } catch (e) { console.warn('Image upload skipped:', e) }
       }
       const gameData = {
-        registration_number: newGame.registration_number, barcode: newGame.barcode || '',
+        registration_number: newGame.registration_number, barcode: (newGame.barcode || '').replace(/\s+/g, ''),
         name: newGame.name, description: newGame.description || '', observations: newGame.observations || '',
         min_players: parseInt(newGame.min_players as any) || 1, max_players: parseInt(newGame.max_players as any) || 1,
         min_age: parseInt(newGame.min_age as any) || 0, duration: parseInt(newGame.duration as any) || 0,
         category: newGame.category || '', image_url: finalImageUrl,
-        youtube_url: newGame.youtube_url || '', is_available: newGame.is_available ?? true
+        youtube_url: newGame.youtube_url || '', is_available: newGame.is_available ?? true,
+        categorie_id: newGame.categorie_id || null,
+        // hors de 1 à 300 mm, la base refuserait tout l'enregistrement : on laisse vide
+        epaisseur_mm: (() => { const e = parseInt(newGame.epaisseur_mm as any); return e >= 1 && e <= 300 ? e : null })()
       }
       let error
       const wasEditing = !!editingId
@@ -848,6 +869,28 @@ export default function Jeux() {
                         <input type="number" className={F_INPUT} value={newGame.max_players} onChange={e => setNewGame({ ...newGame, max_players: parseInt(e.target.value) })} />
                       </div>
                     </div>
+
+                    <div className="mb-3.5 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_150px]">
+                      <div>
+                        <label className={F_LABEL}>Catégorie de la ludothèque</label>
+                        <div className="flex items-center gap-2">
+                          <span className="h-[46px] w-3 shrink-0 rounded-full border-2 border-[#0f172a]" style={{ background: categories.find(c => c.id === newGame.categorie_id)?.couleur || '#ffffff' }} />
+                          <select className={F_INPUT} value={newGame.categorie_id ?? ''} onChange={e => setNewGame({ ...newGame, categorie_id: e.target.value ? Number(e.target.value) : null })}>
+                            <option value="">— à choisir —</option>
+                            {categories.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className={F_LABEL}>Épaisseur boîte (mm)</label>
+                        <input type="number" min="1" max="300" placeholder="ex. 45" className={F_INPUT} value={newGame.epaisseur_mm ?? ''} onChange={e => setNewGame({ ...newGame, epaisseur_mm: e.target.value })} />
+                      </div>
+                    </div>
+                    {editingId && newGame.etiquette_imprimee_le && (
+                      <button type="button" onClick={reimprimerEtiquette} className="mb-3.5 flex items-center gap-2 rounded-[12px] border-2 border-[#0f172a] bg-white px-4 py-2 text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#1a5f7a] transition-colors hover:bg-[#1a5f7a] hover:text-white">
+                        <Printer size={13} /> Réimprimer l'étiquette
+                      </button>
+                    )}
 
                     <div>
                       <label className={F_LABEL}>Catégories</label>
