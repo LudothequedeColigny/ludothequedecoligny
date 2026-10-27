@@ -4,6 +4,7 @@ import { supabase } from '../../services/supabaseClient'
 import { useToast } from '../ToastContext'
 import ConfirmModal from './ConfirmModal'
 import MaskIcon from '../site/MaskIcon'
+import { creerEnregistrementDiffere } from './enregistrementDiffere'
 
 /**
  * Paramètres → « Catégories des jeux » : catégories de rangement de la ludothèque
@@ -16,12 +17,16 @@ export default function CategoriesJeux({ onClose }) {
   const [nombres, setNombres] = useState({})
   const [chargement, setChargement] = useState(true)
   const [aSupprimer, setASupprimer] = useState(null)
+  const montee = useRef(true)   // faux après démontage : plus aucun setState
+  const baseCouleurs = useRef({}) // couleur connue en base, par catégorie
 
   async function charger() {
     const [{ data: cats }, { data: jeux }] = await Promise.all([
       supabase.from('categories_jeux').select('*').order('ordre'),
       supabase.from('games').select('categorie_id'),
     ])
+    if (!montee.current) return
+    baseCouleurs.current = Object.fromEntries((cats || []).map(c => [c.id, c.couleur.toUpperCase()]))
     setCategories(cats || [])
     const n = {}
     for (const j of jeux || []) if (j.categorie_id) n[j.categorie_id] = (n[j.categorie_id] || 0) + 1
@@ -31,7 +36,8 @@ export default function CategoriesJeux({ onClose }) {
   useEffect(() => { charger() }, [])
 
   async function enregistrer(id, champs) {
-    setCategories(cs => cs.map(c => (c.id === id ? { ...c, ...champs } : c)))
+    if (champs.couleur) baseCouleurs.current[id] = champs.couleur.toUpperCase()
+    if (montee.current) setCategories(cs => cs.map(c => (c.id === id ? { ...c, ...champs } : c)))
     const { error } = await supabase.from('categories_jeux').update(champs).eq('id', id)
     if (error) {
       addToast(error.code === '23505' ? 'Ce nom existe déjà.' : "Enregistrement impossible : " + error.message, 'error')
@@ -39,22 +45,35 @@ export default function CategoriesJeux({ onClose }) {
     }
   }
 
-  // Couleur : l'état local suit le sélecteur en direct ; la base n'est écrite qu'une fois, à la fin du choix
-  const enAttente = useRef({})
+  // Couleur : l'état local suit le sélecteur en direct ; la base n'est écrite qu'une fois, la couleur finale
+  // choisie (400 ms après le dernier changement, ou tout de suite au blur / change, à la fermeture, au démontage)
+  const differe = useRef(null)
+  if (!differe.current) {
+    differe.current = creerEnregistrementDiffere({
+      delai: 400,
+      ecrire: (id, v) => { if (baseCouleurs.current[id] !== v) enregistrer(id, { couleur: v }) },
+    })
+  }
+  useEffect(() => {
+    montee.current = true
+    return () => { montee.current = false; differe.current.viderTout() }
+  }, [])
+  function fermer() { differe.current.viderTout(); onClose() }
+  useEffect(() => {
+    const surTouche = e => { if (e.key === 'Escape' && !aSupprimer) fermer() }
+    window.addEventListener('keydown', surTouche)
+    return () => window.removeEventListener('keydown', surTouche)
+  })
   function choisirCouleur(id, valeur) {
     const v = valeur.toUpperCase()
     setCategories(cs => cs.map(c => (c.id === id ? { ...c, couleur: v } : c)))
-    enAttente.current[id] = v
+    differe.current.planifier(id, v)
   }
-  function validerCouleur(id) {
-    const v = enAttente.current[id]
-    if (!v) return
-    delete enAttente.current[id]
-    enregistrer(id, { couleur: v })
-  }
+  function validerCouleur(id) { differe.current.vider(id) }
   function validerCode(c, e) {
     const v = e.target.value.trim()
-    if (/^#[0-9A-Fa-f]{6}$/.test(v)) { if (v.toUpperCase() !== c.couleur.toUpperCase()) enregistrer(c.id, { couleur: v.toUpperCase() }) }
+    differe.current.annuler(c.id) // le code tapé gagne sur une couleur de pipette en attente
+    if (/^#[0-9A-Fa-f]{6}$/.test(v)) { if (v.toUpperCase() !== (baseCouleurs.current[c.id] || c.couleur.toUpperCase())) enregistrer(c.id, { couleur: v.toUpperCase() }) }
     else { e.target.value = c.couleur; addToast('Code couleur invalide (ex. #548DD4).', 'error') }
   }
 
@@ -88,7 +107,7 @@ export default function CategoriesJeux({ onClose }) {
 
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-[22px]">
-      <div className="anim-fade-in absolute inset-0 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }} onClick={onClose} />
+      <div className="anim-fade-in absolute inset-0 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }} onClick={fermer} />
       <div className="anim-modal-in relative flex max-h-[88vh] w-full max-w-[640px] flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a]">
         <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-7 py-6">
           <div className="flex items-center gap-3.5">
@@ -100,7 +119,7 @@ export default function CategoriesJeux({ onClose }) {
               <p className="mt-1 text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-400">Couleur du bandeau des étiquettes</p>
             </div>
           </div>
-          <button onClick={onClose} aria-label="Fermer" className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"><X size={22} /></button>
+          <button onClick={fermer} aria-label="Fermer" className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white"><X size={22} /></button>
         </div>
 
         <div className="flex-1 space-y-3 overflow-y-auto p-6">
@@ -108,7 +127,7 @@ export default function CategoriesJeux({ onClose }) {
           {categories.map((c, i) => (
             <div key={c.id} className="flex items-center gap-3 rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-3">
               <label className="relative h-10 w-10 shrink-0 cursor-pointer rounded-[12px] border-2 border-[#0f172a]" style={{ background: c.couleur }} title="Changer la couleur">
-                <input type="color" value={c.couleur} onChange={e => choisirCouleur(c.id, e.target.value)} onBlur={() => validerCouleur(c.id)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+                <input type="color" value={c.couleur} onChange={e => choisirCouleur(c.id, e.target.value)} onBlur={() => validerCouleur(c.id)} ref={el => { if (el) el.onchange = () => validerCouleur(c.id) }} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
               </label>
               <input key={c.id + c.couleur} defaultValue={c.couleur.toUpperCase()} maxLength={7} aria-label="Code couleur" spellCheck={false}
                 onBlur={e => validerCode(c, e)} onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
