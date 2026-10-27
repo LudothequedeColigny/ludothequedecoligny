@@ -16,7 +16,10 @@ export default function CategoriesJeux({ onClose }) {
   const [categories, setCategories] = useState([])
   const [nombres, setNombres] = useState({})
   const [chargement, setChargement] = useState(true)
-  const [aSupprimer, setASupprimer] = useState(null)
+  const [aSupprimer, setASupprimerEtat] = useState(null)
+  const confirmationOuverte = useRef(false) // à jour tout de suite (Échap de la confirmation)
+  const racine = useRef(null)
+  function setASupprimer(v) { confirmationOuverte.current = !!v; setASupprimerEtat(v) }
   const montee = useRef(true)   // faux après démontage : plus aucun setState
   const baseCouleurs = useRef({}) // couleur connue en base, par catégorie
 
@@ -58,12 +61,21 @@ export default function CategoriesJeux({ onClose }) {
     montee.current = true
     return () => { montee.current = false; differe.current.viderTout() }
   }, [])
-  function fermer() { differe.current.viderTout(); onClose() }
+  function fermer() {
+    // Un nom en cours de frappe est enregistré par son blur : on le déclenche avant de fermer
+    const actif = document.activeElement
+    if (actif && racine.current && racine.current.contains(actif)) actif.blur()
+    differe.current.viderTout()
+    onClose()
+  }
+  const fermerRef = useRef(fermer)
+  fermerRef.current = fermer
   useEffect(() => {
-    const surTouche = e => { if (e.key === 'Escape' && !aSupprimer) fermer() }
-    window.addEventListener('keydown', surTouche)
-    return () => window.removeEventListener('keydown', surTouche)
-  })
+    // Phase de capture : passe avant l'Échap de la fenêtre de confirmation, qui referme celle-ci
+    const surTouche = e => { if (e.key === 'Escape' && !e.defaultPrevented && !confirmationOuverte.current) fermerRef.current() }
+    window.addEventListener('keydown', surTouche, true)
+    return () => window.removeEventListener('keydown', surTouche, true)
+  }, [])
   function choisirCouleur(id, valeur) {
     const v = valeur.toUpperCase()
     setCategories(cs => cs.map(c => (c.id === id ? { ...c, couleur: v } : c)))
@@ -72,8 +84,12 @@ export default function CategoriesJeux({ onClose }) {
   function validerCouleur(id) { differe.current.vider(id) }
   function validerCode(c, e) {
     const v = e.target.value.trim()
-    differe.current.annuler(c.id) // le code tapé gagne sur une couleur de pipette en attente
-    if (/^#[0-9A-Fa-f]{6}$/.test(v)) { if (v.toUpperCase() !== (baseCouleurs.current[c.id] || c.couleur.toUpperCase())) enregistrer(c.id, { couleur: v.toUpperCase() }) }
+    if (/^#[0-9A-Fa-f]{6}$/.test(v)) {
+      const base = baseCouleurs.current[c.id] || c.couleur.toUpperCase()
+      differe.current.annuler(c.id) // le code tapé gagne sur une couleur de pipette en attente
+      if (v.toUpperCase() !== base) enregistrer(c.id, { couleur: v.toUpperCase() })
+      else setCategories(cs => cs.map(x => (x.id === c.id ? { ...x, couleur: base } : x)))
+    }
     else { e.target.value = c.couleur; addToast('Code couleur invalide (ex. #548DD4).', 'error') }
   }
 
@@ -106,7 +122,7 @@ export default function CategoriesJeux({ onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-[22px]">
+    <div ref={racine} className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-[22px]">
       <div className="anim-fade-in absolute inset-0 backdrop-blur-[6px]" style={{ background: 'rgba(15,23,42,.7)' }} onClick={fermer} />
       <div className="anim-modal-in relative flex max-h-[88vh] w-full max-w-[640px] flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a]">
         <div className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-[#0f172a] px-7 py-6">
