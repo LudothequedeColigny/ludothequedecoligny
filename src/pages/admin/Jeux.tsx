@@ -12,6 +12,7 @@ import FicheWikiludo from '../../components/admin/FicheWikiludo'
 import SearchField from '../../components/admin/SearchField'
 import IconButton from '../../components/admin/IconButton'
 import ConfirmModal from '../../components/admin/ConfirmModal'
+import { preparer } from '../../services/etiquettes/regles.js'
 import FenetreEtiquettes from '../../components/admin/etiquettes/FenetreEtiquettes'
 import { DataCard, DataHeader, DataRow, DataEmpty } from '../../components/admin/DataCard'
 import { BTN_ORANGE, BTN_TEAL, BTN_INK, BTN_OUTLINE } from '../../components/admin/buttons'
@@ -470,7 +471,7 @@ export default function Jeux() {
     () => { setShowForm(false); setEditingId(null) }
   ), []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const nbEtiquettesAImprimer = jeux.filter(j => !j.etiquette_imprimee_le && j.categorie_id && j.epaisseur_mm > 0 && (j.barcode || '').trim()).length
+  const nbEtiquettesAImprimer = useMemo(() => preparer(jeux.filter(j => !j.etiquette_imprimee_le), new Map(categories.map(c => [c.id, c]))).length, [jeux, categories])
 
   return (
     <div className="min-h-screen bg-[#fdfaf6] p-5 font-body text-[#0f172a] md:p-11">

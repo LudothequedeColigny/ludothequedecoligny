@@ -26,7 +26,7 @@ export default function OngletCodeBarres({ jeux, categories, onOuvrirJeu, onChan
   const [filtre, setFiltre] = useState('')
   const [voirBloques, setVoirBloques] = useState(false)
   const [occupe, setOccupe] = useState(false)
-  const [telecharge, setTelecharge] = useState(false)
+  const [telecharges, setTelecharges] = useState(null) // ids des étiquettes du dernier PDF complet
   const [confirmer, setConfirmer] = useState(false)
   const [agrandie, setAgrandie] = useState(null)
 
@@ -37,7 +37,8 @@ export default function OngletCodeBarres({ jeux, categories, onOuvrirJeu, onChan
   const visibles = aImprimer.filter(e => e.nom.toLowerCase().includes(filtre.toLowerCase()) || e.numero.includes(filtre))
 
   const basculer = id => setSelection(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
-  const tout = () => setSelection(selection.size === aImprimer.length ? new Set() : new Set(aImprimer.map(e => e.id)))
+  const toutCoche = aImprimer.length > 0 && aImprimer.every(e => selection.has(e.id))
+  const tout = () => setSelection(toutCoche ? new Set() : new Set(aImprimer.map(e => e.id)))
 
   async function telecharger(seulementPremiere) {
     setOccupe(true)
@@ -49,19 +50,19 @@ export default function OngletCodeBarres({ jeux, categories, onOuvrirJeu, onChan
       a.download = seulementPremiere ? 'etiquettes-page-essai.pdf' : `etiquettes-code-barres-${new Date().toISOString().slice(0, 10)}.pdf`
       a.click()
       setTimeout(() => URL.revokeObjectURL(a.href), 10000)
-      if (!seulementPremiere) setTelecharge(true)
+      if (!seulementPremiere) setTelecharges(choisies.map(e => e.id))
     } catch (e) {
       addToast('Le PDF n’a pas pu être fabriqué : ' + e.message, 'error')
     } finally { setOccupe(false) }
   }
 
   async function marquer() {
-    const ids = choisies.map(e => e.id)
+    const ids = telecharges
     const { error } = await supabase.from('games').update({ etiquette_imprimee_le: new Date().toISOString() }).in('id', ids)
     setConfirmer(false)
     if (error) { addToast('Impossible : ' + error.message, 'error'); return }
     addToast(`${ids.length} étiquette${ids.length > 1 ? 's' : ''} marquée${ids.length > 1 ? 's' : ''} comme imprimée${ids.length > 1 ? 's' : ''}.`, 'success')
-    setTelecharge(false)
+    setTelecharges(null)
     onChange()
   }
 
@@ -81,7 +82,7 @@ export default function OngletCodeBarres({ jeux, categories, onOuvrirJeu, onChan
                 className="w-full rounded-[14px] border-2 border-[#0f172a] bg-[#fdfaf6] py-2.5 pl-8 pr-3 text-xs font-bold outline-none focus:bg-white" />
             </div>
             <button onClick={tout} className="whitespace-nowrap rounded-[14px] border-2 border-[#0f172a] bg-white px-3 py-2.5 text-[9px] font-extrabold uppercase tracking-wide text-slate-600 transition-colors hover:bg-[#1a5f7a] hover:text-white">
-              {selection.size === aImprimer.length ? 'Aucun' : 'Tous'}
+              {toutCoche ? 'Aucun' : 'Tous'}
             </button>
           </div>
           <div className="flex-1 space-y-0.5 overflow-y-auto px-4 pb-4">
@@ -153,7 +154,7 @@ export default function OngletCodeBarres({ jeux, categories, onOuvrirJeu, onChan
             className={`${BTN} bg-[#1a5f7a] text-white shadow-[4px_4px_0_#0f172a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0f172a]`}>
             {occupe ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} Télécharger le PDF
           </button>
-          <button onClick={() => setConfirmer(true)} disabled={!telecharge || occupe} className={`${BTN} bg-[#e38154] text-white`}>
+          <button onClick={() => setConfirmer(true)} disabled={!telecharges?.length || occupe} className={`${BTN} bg-[#e38154] text-white`}>
             <FileCheck size={16} /> Marquer comme imprimées
           </button>
         </div>
@@ -170,7 +171,7 @@ export default function OngletCodeBarres({ jeux, categories, onOuvrirJeu, onChan
         onConfirm={marquer}
         tone="success"
         title="Étiquettes imprimées ?"
-        message={`Les ${choisies.length} étiquettes du PDF sortiront de la liste. Une étiquette abîmée pourra être remise dans la liste depuis la fiche du jeu (« Réimprimer l'étiquette »).`}
+        message={`${telecharges?.length === 1 ? 'L’étiquette du PDF sortira' : `Les ${telecharges?.length ?? 0} étiquettes du PDF sortiront`} de la liste. Une étiquette abîmée pourra être remise dans la liste depuis la fiche du jeu (« Réimprimer l'étiquette »).`}
         confirmLabel="Marquer comme imprimées"
       />
     </>
