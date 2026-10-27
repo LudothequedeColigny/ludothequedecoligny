@@ -9,7 +9,11 @@ import { dessinerPage } from './dessin.js'
 const MM_EN_PT = 72 / 25.4
 
 async function base64(url) {
-  const octets = new Uint8Array(await (await fetch(url)).arrayBuffer())
+  const res = await fetch(url)
+  const octets = new Uint8Array(res.ok ? await res.arrayBuffer() : 0)
+  // Signature TrueType / OpenType : sinon c'est une page HTML renvoyée à la place
+  const sig = String.fromCharCode(...octets.subarray(0, 4))
+  if (!['\x00\x01\x00\x00', 'true', 'OTTO'].includes(sig)) throw new Error(`Police introuvable : ${url}`)
   let s = ''
   for (let i = 0; i < octets.length; i += 0x8000) s += String.fromCharCode(...octets.subarray(i, i + 0x8000))
   return btoa(s)
@@ -19,7 +23,7 @@ async function base64(url) {
 async function feuillePng() {
   const img = new Image()
   img.src = '/logo-feuille.svg'
-  await img.decode()
+  try { await img.decode() } catch { throw new Error('Logo de la ludothèque introuvable (/logo-feuille.svg)') }
   const c = document.createElement('canvas')
   c.width = c.height = 512
   c.getContext('2d').drawImage(img, 0, 0, 512, 512)
