@@ -77,6 +77,11 @@ Tous suivent la maquette `Admin 1C.dc.html`, **page et fenêtres comprises** (vo
 `settings` (horaires, adresse, tarifs, contact), `games`, `members`, `events`,
 `event_photos`, `event_games_played`, `shifts`, `page_views` (compteur de visites).
 
+Côté gestion seulement (bénévoles connectés, rien pour le visiteur) : `categories_jeux` (catégories de la
+ludothèque : nom, couleur, ordre) et, sur `games`, les colonnes `categorie_id`, `epaisseur_mm` (1 à 300,
+reprise de MyLudo) et `etiquette_imprimee_le` (vide = étiquette à imprimer)
+(`supabase/migrations/20261027_etiquettes_code_barres.sql`).
+
 Le visiteur **écrit sans pouvoir lire** dans `preinscriptions` et `abonnes_dates`
 (fonctions `preinscrire` et `inscrire_dates`, `supabase/migrations/20261022_preinscriptions.sql`).
 La fonction serveur `send-email` envoie alors la confirmation ou le mail de bienvenue,
@@ -126,6 +131,7 @@ d'en-tête de chaque écran, via la brique `MaskIcon` qui les recolore.
 | `ludo-suggestions.svg` | Suggestions |
 | `ludo-pret.svg` | Prêts et historique des prêts |
 | `ludo-notifications.svg` | bouton des notifications |
+| `ludo-etiquettes.svg` | bouton « Étiquettes » de l'écran Jeux et carte « Catégories » des Paramètres (à valider par Victor) |
 
 Icônes dessinées en octobre 2026 dans le même esprit (trait rond de 8 sur 300, fichiers `ludo-<idée>.svg`,
 une icône par idée, validées par Victor lot par lot ; liste complète et planches dans
@@ -194,7 +200,19 @@ Pour l'espace de gestion, dans `src/components/admin/` :
 | `bilan/PublicationBilan` | fenêtre Bilan : choix des photos (ouverture, « plein de jeux », une par jeu), aperçu et publication du carrousel 4:5, story 9:16 à enregistrer ; « Expression libre » facultative (phrase de 90 caractères + fond flouté ou photo du bilan, avant le « Merci », `events.bilan_expression`) |
 | `annonce/PublicationAnnonce` | fenêtre Annonce (bouton « Publier sur Facebook & Instagram » d'un événement) : textes modifiables, aperçu et publication du carrousel d'annonce 4:5, story du jour J ; permanence et autres événements = une image (affiche sur son fond flouté + phrase modifiable, « Plus de N jeux… » calculé sur la collection) + story |
 | `bilan/PublicationBilanPermanence` | fenêtre Bilan d'une permanence : 3 images 4:5 tirées des prêts du jour (jeux distincts, un prêt rendu le jour même ne compte pas), jamais l'emprunteur ; prochaine permanence = événement saisi, sinon Paramètres ; même « Expression libre » (avant « Prochaine permanence ») |
+| `CategoriesJeux` | fenêtre « Catégories des jeux » (carte « Catégories » des Paramètres) : couleur, renommer, ajouter, réordonner, supprimer avec confirmation ; la table est aussi dans la sauvegarde Excel |
+| `etiquettes/FenetreEtiquettes` | fenêtre « Étiquettes » de l'écran Jeux, deux onglets. `OngletCodeBarres` : étiquettes pas encore imprimées, aperçu des pages A4 identique au PDF, « Page d'essai », « Télécharger le PDF », « Marquer comme imprimées » (marque exactement les étiquettes du dernier PDF téléchargé). `OngletQr` : l'ancien générateur de QR des règles, déplacé tel quel |
 | `VueAgrandie` | vue agrandie d'une image (flèches, glisser, clavier), partagée par les fenêtres Bilan et Annonce |
+
+Les étiquettes code-barres sont calculées par `src/services/etiquettes/` : `ean13.js`, `regles.js` (tailles et
+mise en page, testé par `npm test`), `dessin.js` (primitives de dessin), `rendu-svg.js` (aperçu) et `pdf.js`
+(jsPDF 4.2.1 chargé à la demande ; polices `public/fonts/pdf/*.ttf`, converties des WOFF2 du site car jsPDF veut
+du TTF ; erreur claire si une police ou le logo manque). **L'aperçu ne se dessine jamais autrement que par les
+primitives de `dessin.js`**, les mêmes que le PDF. Règles : hauteur 36 mm, largeur = épaisseur − 4 mm bornée
+entre 22 et 50, trois mises en page (seuils 48 / 30 / 26 mm), planche A4 étiquettes accolées, bande de noms sous
+chaque rangée, repères de coupe, réglette de 10 cm. Fiche d'un jeu : « Catégorie de la ludothèque », « Épaisseur
+boîte (mm) » (remplie depuis MyLudo par `bgg-proxy`), bouton « Réimprimer l'étiquette » ; codes-barres enregistrés
+sans espaces.
 
 Toute publication vers Facebook/Instagram passe par `src/services/reseauxSociaux.js`
 (adresse du webhook Make, mise au carré des images, `publierSurReseaux`). Le scénario
@@ -308,6 +326,10 @@ Les animations et effets sont définis dans `src/index.css`.
   Wikiludo ne donne la durée qu'en « court/moyen/long » : les minutes viennent de MyLudo.
   Wikiludo ne sait chercher **que par code-barres** (titre, auteur… ignorés) : la
   recherche par nom passe par MyLudo, puis le code-barres trouvé interroge Wikiludo.
+- **Étiquettes code-barres : module de 0,21 mm validé par la page d'essai du ../.. (Android, iPhone)** — date à
+  compléter après l'essai réel d'impression ; tant qu'elle est vide, le module n'est pas confirmé. Ne pas le
+  réduire. Vérifier la réglette de 10 cm de la page (impression à 100 %). En cas d'échec de scan : passer
+  `MODULE` à 0,25 dans `regles.js` et ajuster les tests.
 - **Tarifs affichés : toujours lus dans les Paramètres**, y compris l'adhésion à PACTES
   (`cotisation_pactes`, Paramètres → Finance, 10 € en octobre 2026). Ne jamais écrire un
   montant en dur dans une page.
