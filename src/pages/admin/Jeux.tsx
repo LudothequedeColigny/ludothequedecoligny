@@ -507,9 +507,15 @@ export default function Jeux() {
           setJeux(fetchedJeux)
           localStorage.setItem('cache_games_list', JSON.stringify(fetchedJeux))
           updateCategoriesList(fetchedJeux)
-          const { data: cats } = await supabase.from('categories_jeux').select('*').order('ordre')
-          setCategories(cats || [])
-          localStorage.setItem('cache_categories_jeux', JSON.stringify(cats || []))
+          const { data: cats, error: errCats } = await supabase.from('categories_jeux').select('*').order('ordre')
+          if (!errCats) {
+            setCategories(cats || [])
+            localStorage.setItem('cache_categories_jeux', JSON.stringify(cats || []))
+          } else {
+            // échec : on garde la liste déjà affichée, sinon celle du cache
+            console.warn('Catégories non chargées :', errCats.message)
+            setCategories(prev => prev.length ? prev : JSON.parse(localStorage.getItem('cache_categories_jeux') || '[]'))
+          }
         }
       } else {
         const cachedJeux = JSON.parse(localStorage.getItem('cache_games_list') || '[]')
