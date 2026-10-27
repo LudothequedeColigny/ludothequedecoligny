@@ -6,7 +6,7 @@
  */
 import { codeEan13 } from './ean13.js'
 
-export const HAUTEUR = 36
+export const HAUTEUR = 42
 export const BANDE_NOM = 5
 export const MARGE = 10
 export const PAGE = { l: 210, h: 297 }
@@ -16,7 +16,8 @@ export const CALME = 8
 const PIED = 6
 
 export const largeurEtiquette = epaisseur => Math.min(50, Math.max(22, Math.round(epaisseur) - 4))
-export const miseEnPage = l => (l >= 48 ? 'large' : l >= 30 ? 'moyenne' : 'etroite')
+// code-barres à plat (plate) ou tourné d'un quart de tour (etroite) ; même disposition sinon
+export const miseEnPage = l => (l >= 30 ? 'plate' : 'etroite')
 export const estMini = l => l < 26
 export const depasse = epaisseur => epaisseur < 26
 export const numeroEtiquette = num => 'n° ' + String(num).trim().padStart(4, '0')

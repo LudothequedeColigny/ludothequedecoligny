@@ -15,10 +15,8 @@ test('largeur : épaisseur − 4 mm, bornée entre 22 et 50', () => {
 })
 
 test('mise en page selon la largeur', () => {
-  assert.equal(miseEnPage(50), 'large')
-  assert.equal(miseEnPage(48), 'large')
-  assert.equal(miseEnPage(47), 'moyenne')
-  assert.equal(miseEnPage(30), 'moyenne')
+  assert.equal(miseEnPage(50), 'plate')
+  assert.equal(miseEnPage(30), 'plate')
   assert.equal(miseEnPage(29), 'etroite')
   assert.equal(estMini(25), true)
   assert.equal(estMini(26), false)
@@ -59,13 +57,14 @@ test('préparer : tri numérique, jeux complets seulement', () => {
 test('répartir : rangées accolées dans la marge, nouvelle page quand c’est plein', () => {
   const e = l => ({ id: l, largeur: 50 })
   const pages = repartir(Array.from({ length: 30 }, (_, i) => e(i)))
-  // 190 mm utiles : 3 étiquettes de 50 par rangée ; (297 − 20 − 6) / 41 → 6 rangées
-  assert.equal(pages[0].rangees.length, 6)
+  // 190 mm utiles : 3 étiquettes de 50 par rangée ; (297 − 20 − 6) / 47 → 5 rangées
+  assert.equal(HAUTEUR, 42)
+  assert.equal(pages[0].rangees.length, 5)
   assert.equal(pages[0].rangees[0].items.length, 3)
   assert.deepEqual(pages[0].rangees[0].items.map(i => i.x), [MARGE, MARGE + 50, MARGE + 100])
   assert.equal(pages[0].rangees[1].y, MARGE + HAUTEUR + BANDE_NOM)
   assert.equal(pages.length, 2)
-  assert.equal(pages[1].rangees[0].items[0].id, 18)
+  assert.equal(pages[1].rangees[0].items[0].id, 15)
   const derniere = pages[0].rangees.at(-1)
   assert.ok(derniere.y + HAUTEUR + BANDE_NOM <= PAGE.h - MARGE - 6)
 })

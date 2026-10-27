@@ -155,7 +155,7 @@ export default function OngletCodeBarres({ jeux, categories, onOuvrirJeu, onChan
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-t-2 border-[#0f172a] p-6">
-        <p className="text-[10px] font-semibold text-slate-400">A4 portrait · étiquettes 36 mm · noms sous chaque rangée · repères de coupe</p>
+        <p className="text-[10px] font-semibold text-slate-400">A4 portrait · étiquettes 42 mm · noms sous chaque rangée · repères de coupe</p>
         <div className="flex flex-wrap gap-2.5">
           <button onClick={() => telecharger(true)} disabled={!choisies.length || occupe} className={`${BTN} bg-white text-[#1a5f7a]`}>Page d'essai</button>
           <button onClick={() => telecharger(false)} disabled={!choisies.length || occupe}

@@ -72,7 +72,7 @@ Même bouton qu'aujourd'hui (masqué sur téléphone, comme aujourd'hui). Nouvel
      jour à chaque case cochée ou décochée. Un clic sur une page l'ouvre en grand
      (`VueAgrandie`, avec les flèches pour passer d'une page à l'autre). Sans sélection : icône et
      « Sélectionnez des jeux », comme pour les QR.
-   - **Pied** : « A4 portrait · étiquettes 36 mm · noms sous chaque rangée · repères de coupe », et
+   - **Pied** : « A4 portrait · étiquettes 42 mm · noms sous chaque rangée · repères de coupe », et
      les boutons :
      - **« Page d'essai »** : PDF de la première page seulement ; ne marque rien.
      - **« Télécharger le PDF »** (bouton principal) : les pages de la sélection.
@@ -84,7 +84,7 @@ Même bouton qu'aujourd'hui (masqué sur téléphone, comme aujourd'hui). Nouvel
 
 Style A « bandeau de couleur », habillage « papier découpé » du site.
 
-- **Rectangle à angles droits**, hauteur fixe **36 mm**. Le contour noir sert de trait de coupe ;
+- **Rectangle à angles droits**, hauteur fixe **42 mm** (36 mm au départ ; portée à 42 pour loger le numéro sous un code-barres vertical). Le contour noir sert de trait de coupe ;
   l'ombre pleine décalée (0,9 mm, encre) est dessinée à l'intérieur, en bas et à droite.
 - **Largeur** = épaisseur de la boîte − 4 mm, bornée entre **22 mm** et **50 mm**.
 - **Bandeau** à la couleur de la catégorie, filet encre dessous ; **médaillon** blanc contourné
@@ -93,13 +93,14 @@ Style A « bandeau de couleur », habillage « papier découpé » du site.
   les fiches gardent leur numéro).
 - Fond crème `#fdfaf6` ; code-barres dans une **fenêtre blanche** contournée.
 - Polices : Bricolage Grotesque (nom, numéro), chiffres du code-barres en chasse fixe.
-- **Trois mises en page** selon la largeur W :
-
-| W | Épaisseur de boîte | Disposition |
-|---|---|---|
-| ≥ 48 mm | ≥ 52 mm | bandeau : médaillon + « Ludothèque / de Coligny » (deux tons : encre / bleu canard) + pastille ; code-barres à plat dessous |
-| 30 à 48 mm | 34 à 52 mm | bandeau : médaillon + pastille ; code-barres à plat ; « Ludothèque de Coligny » sur une ligne sous la fenêtre |
-| < 30 mm | < 34 mm | bandeau : médaillon + pastille (réduits sous 26 mm) ; code-barres tourné d'un quart de tour ; nom en vertical à côté |
+- **Une seule disposition**, sur les trois largeurs :
+  1. **Bandeau** (11 mm, 10 mm si W < 30) : médaillon à gauche (rayon 4,1 mm ; 3,3 sous 30 mm ;
+     2,8 sous 26 mm), puis « Ludothèque » (encre) / « de Coligny » (bleu canard) sur deux lignes
+     à sa droite, taille 2,9 mm réduite si la place manque. Plus de pastille dans le bandeau.
+  2. **Fenêtre blanche** avec le code-barres : à plat si W ≥ 30 mm, tourné d'un quart de tour
+     en dessous (fenêtre centrée dans l'étiquette).
+  3. **Pastille orange du numéro sous la fenêtre**, centrée, à l'horizontale (police 3 mm ;
+     2,6 mm sous 30 mm ; 2,3 mm sous 26 mm).
 
 - **Code-barres EAN-13** : module 0,21 mm (≈ 64 % de la taille nominale), marges blanches de
   8 modules, barres de 10 mm (9 mm en mise en page étroite, 8 mm sous 26 mm), chiffres sous les
@@ -111,7 +112,7 @@ Style A « bandeau de couleur », habillage « papier découpé » du site.
 ## La planche A4
 
 - A4 portrait, marges de **10 mm**.
-- Étiquettes **accolées** dans une rangée, rangées de 36 mm, remplies de gauche à droite dans
+- Étiquettes **accolées** dans une rangée, rangées de 42 mm (5 rangées par page, environ 20 étiquettes ; une quinzaine de pages pour la collection), remplies de gauche à droite dans
   l'ordre des **numéros d'inventaire** (tri numérique).
 - Sous chaque rangée, une **bande de 5 mm** (jetée à la découpe) porte le **nom du jeu** centré
   sous son étiquette : Poppins 600, 2,5 mm, réduit jusqu'à 1,8 mm puis raccourci par « … » si
@@ -122,7 +123,7 @@ Style A « bandeau de couleur », habillage « papier découpé » du site.
 - Pied de page : « Ludothèque de Coligny — étiquettes code-barres — page x / n », et une
   **réglette de 10 cm** légendée « doit mesurer 10 cm » pour vérifier que l'impression n'a pas
   été réduite (« ajuster à la page »).
-- Environ 25 étiquettes par page (6 rangées) : une quinzaine de pages pour la collection.
+- Environ 20 étiquettes par page (5 rangées) : une quinzaine de pages pour la collection.
 - **PDF vectoriel** (traits nets à toute résolution, indispensable au code-barres), polices du
   site intégrées, téléchargé directement.
 
@@ -169,7 +170,7 @@ Migration `supabase/migrations/20261027_etiquettes_code_barres.sql` :
 ## Vérifications
 
 - `npm test` : `ean13` (codes réels de la collection, clés fausses, UPC-A) et `regles`
-  (bornes de largeur, seuils 26/30/48 mm, 4 chiffres, raccourci des noms, pagination).
+  (bornes de largeur, seuils 26/30 mm, 4 chiffres, raccourci des noms, pagination).
 - `npm run lint` (0 erreur), construction dans un dossier temporaire.
 - Photos (`admin-shot.js`) : onglet Code-barres (sélection complète, partielle, vide), page
   ouverte en grand, onglet Vidéo des règles, encadré Paramètres, fiche d'un jeu, fenêtres de
@@ -185,3 +186,5 @@ Migration `supabase/migrations/20261027_etiquettes_code_barres.sql` :
 - Catégories affichées sur le site public (catalogue) : possible plus tard, la table le permet.
 - Planches prédécoupées du commerce (cases de taille fixe, incompatibles avec la largeur variable).
 - Étiquettes QR « vidéo des règles » : inchangées.
+
+Modifié le 27/10/2026 à la demande de Victor : disposition unique, hauteur 42 mm, numéro sous le code-barres.

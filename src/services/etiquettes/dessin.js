@@ -53,7 +53,7 @@ const fenetre = (x, y, l, h) => ({ t: 'rect', x, y, l, h, fond: BLANC, trait: EN
 export function dessinerEtiquette(e, ox = 0, oy = 0) {
   const W = e.largeur, H = HAUTEUR, cw = W - OMBRE, ch = H - OMBRE
   const forme = miseEnPage(W), mini = estMini(W)
-  const hh = forme === 'etroite' ? 9 : 11
+  const hh = forme === 'etroite' ? 10 : 11
   const p = [
     { t: 'rect', x: 0, y: 0, l: W, h: H, fond: BLANC },
     // ombre pleine décalée, à l'intérieur du rectangle de coupe
@@ -70,33 +70,27 @@ export function dessinerEtiquette(e, ox = 0, oy = 0) {
   p.push({ t: 'cercle', cx: cx + 0.5, cy: cy + 0.5, r, fond: ENCRE })
   p.push({ t: 'cercle', cx, cy, r, fond: BLANC, trait: ENCRE, ep: 0.35 })
   p.push({ t: 'image', x: cx - r * 0.775, y: cy - r * 0.775, l: r * 1.55, h: r * 1.55, src: 'feuille' })
-  // pastille du numéro
-  const tn = mini ? 2.3 : forme === 'etroite' ? 2.6 : 3
-  const pl = e.numero.length * 0.56 * tn + 0.9 * tn, ph = 1.55 * tn, px = cw - 1.1 - pl
-  p.push({ t: 'rect', x: px + 0.45, y: cy - ph / 2 + 0.45, l: pl, h: ph, fond: ENCRE, rayon: ph / 2 })
-  p.push({ t: 'rect', x: px, y: cy - ph / 2, l: pl, h: ph, fond: ORANGE, trait: ENCRE, ep: 0.3, rayon: ph / 2 })
-  p.push(texte(px + pl / 2, cy + tn * 0.35, e.numero, tn, 'titre', 'middle'))
-
-  if (forme === 'large') {
-    p.push(texte(cx + r + 2, cy - 0.5, 'Ludothèque', 2.9, 'titre'))
-    p.push(texte(cx + r + 2, cy + 2.9, [{ texte: 'de Coligny', couleur: CANARD }], 2.9, 'titre'))
-    const fx = 1.7, fy = hh + 1.1, fl = cw - 2.9, fh = ch - hh - 2.1, barres = Math.min(10, fh - 4.2)
+  // titre en deux lignes, juste à droite du médaillon (taille réduite si la place manque)
+  const tx = cx + r + 1.5, tt = Math.min(2.9, (cw - tx - 1.2) / (10 * 0.64))
+  p.push(texte(tx, cy - tt * 0.15, 'Ludothèque', tt, 'titre'))
+  p.push(texte(tx, cy + tt * 1.05, [{ texte: 'de Coligny', couleur: CANARD }], tt, 'titre'))
+  // rangée du numéro sous la fenêtre : pastille orange centrée, à l'horizontale
+  const tn = mini ? 2.3 : forme === 'etroite' ? 2.6 : 3, rangee = 1.55 * tn + 2.2
+  const etroite = forme === 'etroite'
+  const fy = hh + (etroite ? 0.9 : 1.1), fh = ch - fy - rangee - (etroite ? 0.4 : 0.6)
+  if (!etroite) {
+    const fx = 1.7, fl = cw - 2.9, barres = Math.min(10, fh - 4)
     p.push(fenetre(fx, fy, fl, fh))
     p.push(...codeBarres(e.code, fx + (fl - longueurCode()) / 2, fy + (fh - hauteurCode(barres)) / 2, barres))
-  } else if (forme === 'moyenne') {
-    const fx = 1.7, fy = hh + 1.1, fl = cw - 2.9, fh = ch - hh - 6.4, barres = Math.min(10, fh - 4)
-    p.push(fenetre(fx, fy, fl, fh))
-    p.push(...codeBarres(e.code, fx + (fl - longueurCode()) / 2, fy + (fh - hauteurCode(barres)) / 2, barres))
-    p.push(texte(cw / 2, ch - 1.5, [{ texte: 'Ludothèque ', couleur: ENCRE }, { texte: 'de Coligny', couleur: CANARD }], 2.5, 'titre', 'middle'))
   } else {
-    const barres = mini ? 8 : 9, fx = 1.4, fy = hh + 0.9, fh = ch - hh - 1.9, fl = hauteurCode(barres) + 2
+    const barres = mini ? 8 : 9, fl = hauteurCode(barres) + 2, fx = (cw - fl) / 2
     p.push(fenetre(fx, fy, fl, fh))
     p.push(...codeBarresTourne(e.code, fx + 1, fy + (fh - longueurCode()) / 2, barres))
-    // nom en vertical (se lit de bas en haut), dans la colonne restante
-    const tx = fx + fl + (cw - fx - fl) / 2 - 0.8, my = fy + fh / 2, tt = mini ? 2.1 : 2.5
-    p.push(texte(tx, my, 'Ludothèque', tt, 'titre', 'middle', -90))
-    p.push(texte(tx + (mini ? 2.7 : 3.2), my, [{ texte: 'de Coligny', couleur: CANARD }], tt, 'titre', 'middle', -90))
   }
+  const pl = e.numero.length * 0.56 * tn + 0.9 * tn, ph = 1.55 * tn, px = (cw - pl) / 2, py = fy + fh + rangee / 2 + 0.2 - ph / 2
+  p.push({ t: 'rect', x: px + 0.45, y: py + 0.45, l: pl, h: ph, fond: ENCRE, rayon: ph / 2 })
+  p.push({ t: 'rect', x: px, y: py, l: pl, h: ph, fond: ORANGE, trait: ENCRE, ep: 0.3, rayon: ph / 2 })
+  p.push(texte(cw / 2, py + ph / 2 + tn * 0.35, e.numero, tn, 'titre', 'middle'))
   return p.map(x => decaler(x, ox, oy))
 }
 

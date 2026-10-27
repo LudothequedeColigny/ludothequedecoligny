@@ -209,8 +209,8 @@ Les étiquettes code-barres sont calculées par `src/services/etiquettes/` : `ea
 mise en page, testé par `npm test`), `dessin.js` (primitives de dessin), `rendu-svg.js` (aperçu) et `pdf.js`
 (jsPDF 4.2.1 chargé à la demande ; polices `public/fonts/pdf/*.ttf`, converties des WOFF2 du site car jsPDF veut
 du TTF ; erreur claire si une police ou le logo manque). **L'aperçu ne se dessine jamais autrement que par les
-primitives de `dessin.js`**, les mêmes que le PDF. Règles : hauteur 36 mm, largeur = épaisseur − 4 mm bornée
-entre 22 et 50, trois mises en page (seuils 48 / 30 / 26 mm), planche A4 étiquettes accolées, bande de noms sous
+primitives de `dessin.js`**, les mêmes que le PDF. Règles : hauteur 42 mm, largeur = épaisseur − 4 mm bornée
+entre 22 et 50, une seule disposition (bandeau : feuille + titre sur deux lignes ; fenêtre du code-barres, à plat dès 30 mm, tourné dessous ; numéro dans sa pastille sous la fenêtre ; seuils 30 / 26 mm), planche A4 étiquettes accolées, bande de noms sous
 chaque rangée, repères de coupe, réglette de 10 cm. Fiche d'un jeu : « Catégorie de la ludothèque », « Épaisseur
 boîte (mm) » (remplie depuis MyLudo par `bgg-proxy`), bouton « Réimprimer l'étiquette » ; codes-barres enregistrés
 sans espaces.
@@ -331,9 +331,9 @@ Les animations et effets sont définis dans `src/index.css`.
   (impression à 100 %, réglette de 10 cm mesurée, scan à l'écran Prêts sur Android et iPhone) et noter ici la
   date de validation. Une fois validé, ne pas réduire. Pendant l'essai, scanner d'abord les étiquettes
   étroites (< 3 cm) : ce sont celles dont la marge blanche est la plus juste. Si un scan échoue : un module
-  plus grand (0,25 mm donne 27,75 mm de code + marges) ne tient plus dans les mises en page étroite
-  (fenêtre 24,2 mm) et de 30 mm (26,2 mm) : il faut aussi retravailler ces mises en page (relever les seuils
-  30/48, ou laisser la fenêtre blanche servir de marge). Ne jamais assouplir les tests « dans le cadre ».
+  plus grand (0,25 mm donne 27,75 mm de code + marges) ne tient plus dans la mise en page étroite
+  (fenêtre 24,2 mm) et à 30 mm (26,2 mm) : il faut aussi la retravailler (relever le seuil
+  de 30 mm, ou laisser la fenêtre blanche servir de marge). Ne jamais assouplir les tests « dans le cadre ».
 - **Tarifs affichés : toujours lus dans les Paramètres**, y compris l'adhésion à PACTES
   (`cotisation_pactes`, Paramètres → Finance, 10 € en octobre 2026). Ne jamais écrire un
   montant en dur dans une page.
