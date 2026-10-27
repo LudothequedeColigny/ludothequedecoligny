@@ -201,7 +201,7 @@ Pour l'espace de gestion, dans `src/components/admin/` :
 | `annonce/PublicationAnnonce` | fenêtre Annonce (bouton « Publier sur Facebook & Instagram » d'un événement) : textes modifiables, aperçu et publication du carrousel d'annonce 4:5, story du jour J ; permanence et autres événements = une image (affiche sur son fond flouté + phrase modifiable, « Plus de N jeux… » calculé sur la collection) + story |
 | `bilan/PublicationBilanPermanence` | fenêtre Bilan d'une permanence : 3 images 4:5 tirées des prêts du jour (jeux distincts, un prêt rendu le jour même ne compte pas), jamais l'emprunteur ; prochaine permanence = événement saisi, sinon Paramètres ; même « Expression libre » (avant « Prochaine permanence ») |
 | `CategoriesJeux` | fenêtre « Catégories des jeux » (carte « Catégories » des Paramètres) : couleur, renommer, ajouter, réordonner, supprimer avec confirmation ; la table est aussi dans la sauvegarde Excel |
-| `etiquettes/FenetreEtiquettes` | fenêtre « Étiquettes » de l'écran Jeux, deux onglets. `OngletCodeBarres` : étiquettes pas encore imprimées, aperçu des pages A4 identique au PDF, « Page d'essai », « Télécharger le PDF », « Marquer comme imprimées » (marque exactement les étiquettes du dernier PDF téléchargé). `OngletQr` : l'ancien générateur de QR des règles, déplacé tel quel |
+| `etiquettes/FenetreEtiquettes` | fenêtre « Étiquettes » de l'écran Jeux, deux onglets. Onglet « Code-barres » (`OngletCodeBarres`) : étiquettes pas encore imprimées, aperçu des pages A4 identique au PDF, « Page d'essai », « Télécharger le PDF », « Marquer comme imprimées » (marque exactement les étiquettes du dernier PDF téléchargé). Onglet « Vidéo des règles » (`OngletQr`) : l'ancien générateur de QR des règles, déplacé tel quel |
 | `VueAgrandie` | vue agrandie d'une image (flèches, glisser, clavier), partagée par les fenêtres Bilan et Annonce |
 
 Les étiquettes code-barres sont calculées par `src/services/etiquettes/` : `ean13.js`, `regles.js` (tailles et
@@ -326,10 +326,10 @@ Les animations et effets sont définis dans `src/index.css`.
   Wikiludo ne donne la durée qu'en « court/moyen/long » : les minutes viennent de MyLudo.
   Wikiludo ne sait chercher **que par code-barres** (titre, auteur… ignorés) : la
   recherche par nom passe par MyLudo, puis le code-barres trouvé interroge Wikiludo.
-- **Étiquettes code-barres : module de 0,21 mm validé par la page d'essai du ../.. (Android, iPhone)** — date à
-  compléter après l'essai réel d'impression ; tant qu'elle est vide, le module n'est pas confirmé. Ne pas le
-  réduire. Vérifier la réglette de 10 cm de la page (impression à 100 %). En cas d'échec de scan : passer
-  `MODULE` à 0,25 dans `regles.js` et ajuster les tests.
+- **Étiquettes code-barres : module EAN de 0,21 mm, pas encore validé.** Faire la page d'essai
+  (impression à 100 %, réglette de 10 cm mesurée, scan à l'écran Prêts sur Android et iPhone) et noter ici la
+  date de validation. Une fois validé, ne pas réduire. Si un scan échoue : passer `MODULE` à 0,25 dans
+  `regles.js` et ajuster les tests.
 - **Tarifs affichés : toujours lus dans les Paramètres**, y compris l'adhésion à PACTES
   (`cotisation_pactes`, Paramètres → Finance, 10 € en octobre 2026). Ne jamais écrire un
   montant en dur dans une page.
