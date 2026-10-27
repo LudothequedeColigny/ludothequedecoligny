@@ -7,6 +7,7 @@ import ConfirmModal from '../../components/admin/ConfirmModal'
 import { useRef } from 'react'
 import { UserPlus, Save, Loader2, X, ChevronRight, Info, CheckCircle2, Trash2, Clock, MapPin, Plus, Edit2, Target, Eye, Download, KeyRound } from 'lucide-react'
 import MaskIcon from '../../components/site/MaskIcon'
+import CategoriesJeux from '../../components/admin/CategoriesJeux'
 
 export default function Parametres() {
   const { addToast } = useToast()
@@ -31,6 +32,7 @@ export default function Parametres() {
   const [showHorairesModal, setShowHorairesModal] = useState(false) // MODALE HORAIRES
   const [showAdresseModal, setShowAdresseModal] = useState(false) // MODALE ADRESSE
   const [showAffichesModal, setShowAffichesModal] = useState(false) // MODALE AFFICHES
+  const [showCategoriesModal, setShowCategoriesModal] = useState(false) // MODALE CATÉGORIES DES JEUX
   const [affichesTemplates, setAffichesTemplates] = useState([])
   const [editingTemplate, setEditingTemplate] = useState(null) // null = nouveau, sinon l'objet
   const [templateForm, setTemplateForm] = useState({
@@ -74,6 +76,7 @@ export default function Parametres() {
   const [exportSelection, setExportSelection] = useState({
     members: true,
     games: true,
+    categories_jeux: true,
     loans: true,
     loan_history: true,
     financial_transactions: true,
@@ -454,6 +457,7 @@ export default function Parametres() {
     const allTables = [
       { name: 'Adhérents', table: 'members', key: 'members' },
       { name: 'Jeux', table: 'games', key: 'games' },
+      { name: 'Catégories des jeux', table: 'categories_jeux', key: 'categories_jeux' },
       { name: 'Prêts en cours', table: 'loans', key: 'loans' },
       { name: 'Historique prêts', table: 'loan_history', key: 'loan_history' },
       { name: 'Transactions', table: 'financial_transactions', key: 'financial_transactions' },
@@ -554,6 +558,7 @@ export default function Parametres() {
           { onClick: () => setShowHorairesModal(true),  icon: <MaskIcon file="ludo-horloge.svg" size={30} color="currentColor" />, color: '#f59e0b', tint: '#fffbeb', title: 'Horaires',  desc: "Jours & heures d'ouverture",   cta: 'Modifier' },
           { onClick: () => setShowAdresseModal(true),   icon: <MaskIcon file="ludo-lieu.svg" size={30} color="currentColor" />, color: '#f43f5e', tint: '#fff1f2', title: 'Adresse',   desc: 'Localisation de la ludothèque', cta: 'Modifier' },
           { onClick: openAffichesModal,                 icon: <MaskIcon file="ludo-affiche.svg" size={30} color="currentColor" />, color: '#a855f7', tint: '#faf5ff', title: 'Affiches',  desc: 'Modèles du générateur',        cta: 'Gérer' },
+          { onClick: () => setShowCategoriesModal(true), icon: <MaskIcon file="ludo-etiquettes.svg" size={30} color="currentColor" />, color: '#1a5f7a', tint: '#f0f7f9', title: 'Catégories', desc: 'Couleurs des étiquettes',     cta: 'Gérer' },
         ].map(card => (
           <button
             key={card.title}
@@ -627,6 +632,7 @@ export default function Parametres() {
                 {[
                   { key: 'members', label: 'Adhérents', desc: 'Fiches, contacts, cotisations' },
                   { key: 'games', label: 'Jeux', desc: 'Catalogue complet' },
+                  { key: 'categories_jeux', label: 'Catégories des jeux', desc: 'Rangement et couleurs des étiquettes' },
                   { key: 'loans', label: 'Prêts en cours', desc: 'Emprunts actifs' },
                   { key: 'loan_history', label: 'Historique des prêts', desc: 'Tous les prêts passés' },
                   { key: 'financial_transactions', label: 'Transactions', desc: 'Suivi financier' },
@@ -1139,6 +1145,8 @@ export default function Parametres() {
       {/* ═══════════════════════════════════════════════════════
           MODALE GESTION DES MODÈLES D'AFFICHES
       ═══════════════════════════════════════════════════════ */}
+      {showCategoriesModal && <CategoriesJeux onClose={() => setShowCategoriesModal(false)} />}
+
       {showAffichesModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 backdrop-blur-[6px] sm:p-[22px]" style={{ background: 'rgba(15,23,42,.7)' }}>
           <div className="anim-modal-in flex max-h-[88vh] w-full flex-col overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white shadow-[12px_12px_0_#1a5f7a] max-h-[92vh] max-w-4xl">
