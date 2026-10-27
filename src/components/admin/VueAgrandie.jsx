@@ -3,9 +3,9 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 
 /**
  * Image agrandie, avec passage à la précédente / suivante (flèches, glisser, clavier).
- * Partagée par les fenêtres Bilan et Annonce de l'écran Communication.
+ * Partagée par les fenêtres Bilan et Annonce de l'écran Communication, et par l'aperçu des étiquettes (`rendre`).
  */
-export default function VueAgrandie({ images, index, onIndex, onFermer }) {
+export default function VueAgrandie({ images, index, onIndex, onFermer, rendre }) {
   const debutToucher = useRef(null)
   const n = images.length
   const aller = i => { if (i >= 0 && i < n) onIndex(i) }
@@ -31,8 +31,10 @@ export default function VueAgrandie({ images, index, onIndex, onFermer }) {
         debutToucher.current = null
         if (Math.abs(ecart) > 40) aller(index + (ecart < 0 ? 1 : -1))
       }}>
-      <img src={images[index]} alt={`Image ${index + 1} sur ${n}`} onClick={e => e.stopPropagation()}
-        className="max-h-[86vh] max-w-full rounded-xl border-2 border-white" />
+      {rendre
+        ? <div onClick={e => e.stopPropagation()} className="max-h-[86vh] overflow-hidden rounded-xl border-2 border-white bg-white">{rendre(index)}</div>
+        : <img src={images[index]} alt={`Image ${index + 1} sur ${n}`} onClick={e => e.stopPropagation()}
+            className="max-h-[86vh] max-w-full rounded-xl border-2 border-white" />}
       <span className="absolute left-1/2 top-4 -translate-x-1/2 rounded-full bg-slate-900/80 px-3 py-1 text-[11px] font-black text-white">
         {index + 1} / {n}
       </span>
