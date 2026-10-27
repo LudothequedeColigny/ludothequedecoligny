@@ -4,3 +4,6 @@ dist
 .env
 correspondances-jaquettes-*.json
 sauvegarde-jaquettes-originales/
+
+# Maquettes de travail (brainstorming)
+.superpowers/
