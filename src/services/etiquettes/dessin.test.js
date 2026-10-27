@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { dessinerEtiquette, dessinerPage } from './dessin.js'
-import { repartir, HAUTEUR } from './regles.js'
+import { repartir, HAUTEUR, MARGE, PAGE } from './regles.js'
 
 const etiquette = (largeur, o = {}) => ({ id: 1, nom: 'Catane', numero: 'n° 0126', code: '0688623905027', couleur: '#92CDDC', largeur, epaisseur: largeur + 4, ...o })
 const textes = p => p.filter(x => x.t === 'texte').map(x => x.morceaux.map(m => m.texte).join(''))
@@ -48,4 +48,8 @@ test('page : étiquettes placées, noms dessous, repères, pied et réglette', (
   const reglette = p.find(x => x.t === 'ligne' && Math.abs(x.x2 - x.x1 - 100) < 0.001)
   assert.ok(reglette)
   assert.ok(p.filter(x => x.t === 'ligne' && x.ep === 0.2).length >= 7)
+  // repères horizontaux : uniquement dans les marges gauche ou droite de la page
+  const horiz = p.filter(x => x.t === 'ligne' && x.ep === 0.2 && x.y1 === x.y2)
+  assert.ok(horiz.length >= 4)
+  for (const h of horiz) assert.ok(Math.max(h.x1, h.x2) <= MARGE || Math.min(h.x1, h.x2) >= PAGE.l - MARGE, `repère en x=${h.x1}`)
 })

@@ -112,8 +112,8 @@ export function dessinerPage(page, numero, total) {
   const repere = (x1, y1, x2, y2) => reperes.push({ t: 'ligne', x1, y1, x2, y2, trait: ENCRE, ep: 0.2 })
   page.rangees.forEach((rangee, iRangee) => {
     const y = rangee.y, fin = rangee.items.at(-1).x + rangee.items.at(-1).largeur
-    // repères horizontaux dans les marges, en haut et en bas de la rangée
-    for (const yy of [y, y + HAUTEUR]) { repere(MARGE - 1 - REP, yy, MARGE - 1, yy); repere(fin + 1, yy, fin + 1 + REP, yy) }
+    // repères horizontaux dans les marges gauche et droite de la page, en haut et en bas de la rangée
+    for (const yy of [y, y + HAUTEUR]) { repere(MARGE - 1 - REP, yy, MARGE - 1, yy); repere(PAGE.l - MARGE + 1, yy, PAGE.l - MARGE + 1 + REP, yy) }
     // repères verticaux à chaque bord d'étiquette, sous la rangée (et au-dessus de la première)
     for (const xx of [...rangee.items.map(e => e.x), fin]) {
       if (iRangee === 0) repere(xx, y - 0.8, xx, y - 0.8 - REP)

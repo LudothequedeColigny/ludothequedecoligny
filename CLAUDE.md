@@ -77,9 +77,10 @@ Tous suivent la maquette `Admin 1C.dc.html`, **page et fenêtres comprises** (vo
 `settings` (horaires, adresse, tarifs, contact), `games`, `members`, `events`,
 `event_photos`, `event_games_played`, `shifts`, `page_views` (compteur de visites).
 
-Côté gestion seulement (bénévoles connectés, rien pour le visiteur) : `categories_jeux` (catégories de la
-ludothèque : nom, couleur, ordre) et, sur `games`, les colonnes `categorie_id`, `epaisseur_mm` (1 à 300,
+Côté gestion seulement (bénévoles connectés) : `categories_jeux` (catégories de la
+ludothèque : nom, couleur, ordre ; réservée aux bénévoles) et, sur `games`, les colonnes `categorie_id`, `epaisseur_mm` (1 à 300,
 reprise de MyLudo) et `etiquette_imprimee_le` (vide = étiquette à imprimer)
+(lisibles par le visiteur comme le reste de la table, sans usage côté public)
 (`supabase/migrations/20261027_etiquettes_code_barres.sql`).
 
 Le visiteur **écrit sans pouvoir lire** dans `preinscriptions` et `abonnes_dates`
@@ -328,8 +329,11 @@ Les animations et effets sont définis dans `src/index.css`.
   recherche par nom passe par MyLudo, puis le code-barres trouvé interroge Wikiludo.
 - **Étiquettes code-barres : module EAN de 0,21 mm, pas encore validé.** Faire la page d'essai
   (impression à 100 %, réglette de 10 cm mesurée, scan à l'écran Prêts sur Android et iPhone) et noter ici la
-  date de validation. Une fois validé, ne pas réduire. Si un scan échoue : passer `MODULE` à 0,25 dans
-  `regles.js` et ajuster les tests.
+  date de validation. Une fois validé, ne pas réduire. Pendant l'essai, scanner d'abord les étiquettes
+  étroites (< 3 cm) : ce sont celles dont la marge blanche est la plus juste. Si un scan échoue : un module
+  plus grand (0,25 mm donne 27,75 mm de code + marges) ne tient plus dans les mises en page étroite
+  (fenêtre 24,2 mm) et de 30 mm (26,2 mm) : il faut aussi retravailler ces mises en page (relever les seuils
+  30/48, ou laisser la fenêtre blanche servir de marge). Ne jamais assouplir les tests « dans le cadre ».
 - **Tarifs affichés : toujours lus dans les Paramètres**, y compris l'adhésion à PACTES
   (`cotisation_pactes`, Paramètres → Finance, 10 € en octobre 2026). Ne jamais écrire un
   montant en dur dans une page.

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search, Loader2, Download, FileCheck, ChevronDown, AlertCircle } from 'lucide-react'
 import MaskIcon from '../../site/MaskIcon'
 import ConfirmModal from '../ConfirmModal'
@@ -23,6 +23,14 @@ export default function OngletCodeBarres({ jeux, categories, onOuvrirJeu, onChan
     .filter(x => x.r.length > 0 && !x.jeu.etiquette_imprimee_le), [jeux, categoriesParId])
 
   const [selection, setSelection] = useState(() => new Set(aImprimer.map(e => e.id)))
+  // Étiquettes arrivées après l'ouverture (chargement tardif) : cochées d'office ; un décochage manuel est conservé
+  const connus = useRef(new Set(aImprimer.map(e => e.id)))
+  useEffect(() => {
+    const nouveaux = aImprimer.filter(e => !connus.current.has(e.id)).map(e => e.id)
+    if (!nouveaux.length) return
+    nouveaux.forEach(id => connus.current.add(id))
+    setSelection(s => new Set([...s, ...nouveaux]))
+  }, [aImprimer])
   const [filtre, setFiltre] = useState('')
   const [voirBloques, setVoirBloques] = useState(false)
   const [occupe, setOccupe] = useState(false)
@@ -44,7 +52,7 @@ export default function OngletCodeBarres({ jeux, categories, onOuvrirJeu, onChan
     setOccupe(true)
     try {
       const { fabriquerPdf } = await import('../../../services/etiquettes/pdf.js')
-      const blob = await fabriquerPdf(seulementPremiere ? pages.slice(0, 1) : pages)
+      const blob = await fabriquerPdf(seulementPremiere ? pages.slice(0, 1) : pages, pages.length)
       const a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
       a.download = seulementPremiere ? 'etiquettes-page-essai.pdf' : `etiquettes-code-barres-${new Date().toISOString().slice(0, 10)}.pdf`
@@ -124,7 +132,7 @@ export default function OngletCodeBarres({ jeux, categories, onOuvrirJeu, onChan
           {choisies.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-slate-300">
               <MaskIcon file="ludo-etiquettes.svg" size={56} color="currentColor" />
-              <p className="text-xs font-black uppercase tracking-wide">Sélectionnez des jeux</p>
+              <p className="text-xs font-black uppercase tracking-wide">{aImprimer.length === 0 ? 'Toutes les étiquettes sont imprimées' : 'Sélectionnez des jeux'}</p>
             </div>
           ) : (
             <>

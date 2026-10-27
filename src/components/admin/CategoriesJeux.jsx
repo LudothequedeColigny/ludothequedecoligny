@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Plus, Trash2, X, ArrowUp, ArrowDown, Loader2 } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
 import { useToast } from '../ToastContext'
@@ -37,6 +37,25 @@ export default function CategoriesJeux({ onClose }) {
       addToast(error.code === '23505' ? 'Ce nom existe déjà.' : "Enregistrement impossible : " + error.message, 'error')
       charger()
     }
+  }
+
+  // Couleur : l'état local suit le sélecteur en direct ; la base n'est écrite qu'une fois, à la fin du choix
+  const enAttente = useRef({})
+  function choisirCouleur(id, valeur) {
+    const v = valeur.toUpperCase()
+    setCategories(cs => cs.map(c => (c.id === id ? { ...c, couleur: v } : c)))
+    enAttente.current[id] = v
+  }
+  function validerCouleur(id) {
+    const v = enAttente.current[id]
+    if (!v) return
+    delete enAttente.current[id]
+    enregistrer(id, { couleur: v })
+  }
+  function validerCode(c, e) {
+    const v = e.target.value.trim()
+    if (/^#[0-9A-Fa-f]{6}$/.test(v)) { if (v.toUpperCase() !== c.couleur.toUpperCase()) enregistrer(c.id, { couleur: v.toUpperCase() }) }
+    else { e.target.value = c.couleur; addToast('Code couleur invalide (ex. #548DD4).', 'error') }
   }
 
   async function ajouter() {
@@ -89,8 +108,11 @@ export default function CategoriesJeux({ onClose }) {
           {categories.map((c, i) => (
             <div key={c.id} className="flex items-center gap-3 rounded-[18px] border-2 border-[#0f172a] bg-[#fdfaf6] p-3">
               <label className="relative h-10 w-10 shrink-0 cursor-pointer rounded-[12px] border-2 border-[#0f172a]" style={{ background: c.couleur }} title="Changer la couleur">
-                <input type="color" value={c.couleur} onChange={e => enregistrer(c.id, { couleur: e.target.value.toUpperCase() })} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+                <input type="color" value={c.couleur} onChange={e => choisirCouleur(c.id, e.target.value)} onBlur={() => validerCouleur(c.id)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
               </label>
+              <input key={c.id + c.couleur} defaultValue={c.couleur.toUpperCase()} maxLength={7} aria-label="Code couleur" spellCheck={false}
+                onBlur={e => validerCode(c, e)} onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
+                className="w-[84px] shrink-0 rounded-[12px] border-2 border-transparent bg-transparent px-2 py-1.5 font-mono text-[11px] font-bold uppercase text-slate-500 outline-none focus:border-[#0f172a] focus:bg-white" />
               <input key={c.id + c.nom} defaultValue={c.nom} onBlur={e => e.target.value.trim() && e.target.value.trim() !== c.nom && enregistrer(c.id, { nom: e.target.value.trim() })}
                 className="min-w-0 flex-1 rounded-[12px] border-2 border-transparent bg-transparent px-2 py-1.5 text-[13.5px] font-bold outline-none focus:border-[#0f172a] focus:bg-white" />
               <span className="shrink-0 text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400">{nombres[c.id] || 0} jeu{(nombres[c.id] || 0) > 1 ? 'x' : ''}</span>

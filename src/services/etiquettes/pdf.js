@@ -64,7 +64,7 @@ function dessiner(doc, p, feuille) {
   }
 }
 
-export async function fabriquerPdf(pages) {
+export async function fabriquerPdf(pages, total = pages.length) {
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true })
   doc.addFileToVFS('BricolageGrotesque-ExtraBold.ttf', await base64('/fonts/pdf/BricolageGrotesque-ExtraBold.ttf'))
@@ -74,7 +74,7 @@ export async function fabriquerPdf(pages) {
   const feuille = await feuillePng()
   pages.forEach((page, i) => {
     if (i > 0) doc.addPage('a4', 'portrait')
-    for (const p of dessinerPage(page, i + 1, pages.length)) dessiner(doc, p, feuille)
+    for (const p of dessinerPage(page, i + 1, total)) dessiner(doc, p, feuille)
   })
   return doc.output('blob')
 }
