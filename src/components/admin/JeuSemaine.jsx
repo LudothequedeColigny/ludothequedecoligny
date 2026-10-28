@@ -144,7 +144,14 @@ export default function JeuSemaine({ onCountChange }) {
     try {
       const url = await preparerVideo(video)
       await publierVideoSurReseaux({ message: legende, videoUrl: url, extra: { jeu: jeu.name } })
-      await enregistrerVideo(video, { game_id: jeu.id, legende, publie_le: new Date().toISOString() })
+      try {
+        await enregistrerVideo(video, { game_id: jeu.id, legende, publie_le: new Date().toISOString() })
+      } catch (errNote) {
+        console.error('Vidéo envoyée mais non notée comme publiée :', errNote)
+        setConfirmation(false)
+        setErreur("La vidéo a bien été envoyée, mais elle n'a pas pu être notée comme publiée. Ne la republiez pas : rechargez la page dans un moment.")
+        return
+      }
       setConfirmation(false)
       setSucces(true)
       setChoixId(null)
@@ -152,7 +159,7 @@ export default function JeuSemaine({ onCountChange }) {
     } catch (err) {
       console.error('Publication jeu de la semaine :', err)
       setConfirmation(false)
-      setErreur(err?.message?.startsWith('Erreur Make') ? 'La publication a échoué. Réessayez dans un instant.' : (err?.message || 'La publication a échoué. Réessayez dans un instant.'))
+      setErreur(err?.message?.startsWith('Erreur Make') || !err?.message ? 'La publication a échoué. Réessayez dans un instant.' : err.message)
     } finally {
       setEnvoi(false)
     }
