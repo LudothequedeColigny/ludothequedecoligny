@@ -151,3 +151,20 @@ export async function publierSurReseaux({ message, imageUrls, extra = {} }) {
   })
   if (!res.ok) throw new Error('Erreur Make: ' + res.status)
 }
+
+/**
+ * Envoie une vidéo (Reel) à Make : publiée en Reel sur Instagram et sur Facebook
+ * (voie « Vidéo » du scénario). La vidéo doit être hébergée chez nous (espace
+ * « reels ») : Instagram ne lit pas Google Drive, et la voie vidéo n'accepte qu'une
+ * adresse contenant « supabase.co ». Ni `image_url` ni `photo_count` : les voies
+ * carrousel et photo seule ne doivent pas réagir.
+ */
+export async function publierVideoSurReseaux({ message, videoUrl, extra = {} }) {
+  if (!String(videoUrl || '').includes('supabase.co')) throw new Error('Vidéo non hébergée chez nous')
+  const res = await fetch(MAKE_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, video_url: videoUrl, ...extra }),
+  })
+  if (!res.ok) throw new Error('Erreur Make: ' + res.status)
+}
