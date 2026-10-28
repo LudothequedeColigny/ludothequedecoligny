@@ -8,7 +8,7 @@ import { blocDeFloutage, pixelateRegion, COTE_MAX_PHOTO } from '../../services/f
  * l'image rendue est TOUJOURS la photo floutée, jamais l'affichage de l'éditeur ; un rectangle
  * tracé est flouté même sans clic sur « Appliquer le flou » (incident du 25-26/10/2026).
  */
-export default function EditeurFloutagePhoto({ fichier, onTermine, onAnnuler }) {
+export default function EditeurFloutagePhoto({ fichier, onTermine, onAnnuler, onErreur }) {
   const canvasRef = useRef(null)
   const base = useRef(null)          // pixels floutés validés
   const rects = useRef([])           // rectangles tracés, pas encore floutés
@@ -17,15 +17,21 @@ export default function EditeurFloutagePhoto({ fichier, onTermine, onAnnuler }) 
   const [pret, setPret] = useState(false)
   const [floute, setFloute] = useState(false)
   const [export_, setExport] = useState(false)
+  const jeton = useRef(0)            // chargement le plus récent seul valable
+
+  const fermer = (suite) => { base.current = null; rects.current = []; suite() }
 
   const charger = () => {
     const canvas = canvasRef.current
     if (!canvas || !fichier) return
     setPret(false)
     setFloute(false)
+    const mien = ++jeton.current
     const img = new Image()
     const url = URL.createObjectURL(fichier)
     img.onload = () => {
+      URL.revokeObjectURL(url)
+      if (mien !== jeton.current) return
       const k = Math.min(1, COTE_MAX_PHOTO / Math.max(img.naturalWidth, img.naturalHeight))
       canvas.width = Math.round(img.naturalWidth * k)
       canvas.height = Math.round(img.naturalHeight * k)
@@ -35,9 +41,13 @@ export default function EditeurFloutagePhoto({ fichier, onTermine, onAnnuler }) 
       rects.current = []
       setEnAttente(false)
       setPret(true)
-      URL.revokeObjectURL(url)
     }
-    img.onerror = () => { URL.revokeObjectURL(url); onAnnuler() }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      if (mien !== jeton.current) return
+      onErreur?.("Cette photo n'a pas pu être ouverte. Essayez avec une photo au format JPEG ou PNG.")
+      fermer(onAnnuler)
+    }
     img.src = url
   }
   // La fenêtre (et son canvas) n'existe qu'une fois ouverte : chargement au tour suivant
@@ -95,17 +105,17 @@ export default function EditeurFloutagePhoto({ fichier, onTermine, onAnnuler }) 
     if (rects.current.length > 0) appliquer()
     depart.current = null
     c.getContext('2d').putImageData(base.current, 0, 0)
-    c.toBlob(blob => { setExport(false); if (blob) onTermine(blob) }, 'image/webp', 0.82)
+    c.toBlob(blob => { setExport(false); if (blob) fermer(() => onTermine(blob)) }, 'image/webp', 0.82)
   }
 
   const BTN = 'flex-1 rounded-[14px] border-2 border-[#0f172a] py-3 text-[10px] font-extrabold uppercase tracking-[0.14em] transition-colors disabled:opacity-40'
   return (
-    <Modal open={!!fichier} onClose={() => { if (!export_) onAnnuler() }} title="Flouter les visages" maxWidth={720} backdrop="ink" panelClassName="p-6 md:p-8">
+    <Modal open={!!fichier} onClose={() => { if (!export_) fermer(onAnnuler) }} title="Flouter les visages" maxWidth={720} backdrop="ink" panelClassName="p-6 md:p-8">
       <h2 className="mb-1 font-display text-[22px] font-extrabold uppercase tracking-[-0.03em]">Flouter les visages</h2>
       <p className="mb-4 text-[12px] font-medium text-slate-500">Tracez un rectangle sur chaque visage à cacher (enfants notamment). C'est la photo floutée qui sera utilisée.</p>
       <canvas
         ref={canvasRef}
-        className="max-h-[60vh] w-full cursor-crosshair touch-none rounded-2xl border-2 border-dashed border-slate-200 object-contain"
+        className="mx-auto block h-auto w-auto max-h-[60vh] max-w-full cursor-crosshair touch-none rounded-2xl border-2 border-dashed border-slate-200"
         onMouseDown={e => bas(e.clientX, e.clientY)}
         onMouseMove={e => bouge(e.clientX, e.clientY)}
         onMouseUp={e => haut(e.clientX, e.clientY)}
@@ -119,7 +129,7 @@ export default function EditeurFloutagePhoto({ fichier, onTermine, onAnnuler }) 
         <button type="button" onClick={charger} disabled={!pret || export_} className={`${BTN} bg-white text-slate-500`}>Recommencer</button>
       </div>
       <div className="mt-2.5 flex flex-wrap gap-2.5">
-        <button type="button" onClick={onAnnuler} disabled={export_} className={`${BTN} bg-[#fdfaf6] text-slate-500`}>Annuler</button>
+        <button type="button" onClick={() => fermer(onAnnuler)} disabled={export_} className={`${BTN} bg-[#fdfaf6] text-slate-500`}>Annuler</button>
         <button type="button" onClick={terminer} disabled={!pret || export_} className={`${BTN} bg-[#1a5f7a] text-white`}>
           {export_ ? <Loader2 size={13} className="mx-auto animate-spin" /> : (enAttente || floute ? 'Terminer' : 'Pas de visage à flouter')}
         </button>

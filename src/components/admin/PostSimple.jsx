@@ -56,6 +56,7 @@ export default function PostSimple({ onPublie }) {
   const maj = (cle, valeur) => setChamps(c => ({ ...c, [cle]: valeur }))
   const avecImage = avecPhoto(champs.modele)
   const manque = postPret(champs, !!photoUrl)
+  const indice = manque || (message.trim() ? '' : 'Écrivez le texte de publication.')
 
   const changerPhoto = url => {
     if (photoUrlRef.current) { oublierImage(photoUrlRef.current); URL.revokeObjectURL(photoUrlRef.current) }
@@ -106,10 +107,10 @@ export default function PostSimple({ onPublie }) {
         setErreur("L'image n'a pas pu être enregistrée. Réessayez.")
         return
       }
-      await publierSurReseaux({ message, imageUrls: [url], extra: { modele: champs.modele } })
+      await publierSurReseaux({ message, imageUrls: [url] })
       const { error } = await supabase.from('posts').insert({ message, image_url: url, has_image: true })
       if (error) console.warn('Publication non enregistrée dans `posts` :', error.message)
-      onPublie?.()
+      else onPublie?.()
       setConfirmation(false)
       setSucces(true)
       setChamps(champsVides())
@@ -231,15 +232,14 @@ export default function PostSimple({ onPublie }) {
         </div>
 
         <div>
-          <div className={SECTION}>Aperçu</div>
           <SocialPostPreview text={message} imageUrls={apercu ? [apercu] : []} portrait />
           {dessin && (
             <p className="mt-3 flex items-center gap-2 text-[11px] font-semibold text-slate-400">
               <Loader2 size={13} className="animate-spin" /> Mise à jour de l'aperçu…
             </p>
           )}
-          {manque && (
-            <p className="mt-3 rounded-[14px] border-2 border-[#f59e0b] bg-[#fffbeb] px-4 py-3 text-[11px] font-semibold text-[#b45309]">{manque}</p>
+          {indice && (
+            <p className="mt-3 rounded-[14px] border-2 border-[#f59e0b] bg-[#fffbeb] px-4 py-3 text-[11px] font-semibold text-[#b45309]">{indice}</p>
           )}
           {erreur && (
             <p className="mt-3 rounded-[14px] border-2 border-rose-400 bg-rose-50 px-4 py-3 text-[11px] font-semibold text-rose-600">{erreur}</p>
@@ -263,6 +263,7 @@ export default function PostSimple({ onPublie }) {
         fichier={fichier}
         onTermine={blob => { changerPhoto(URL.createObjectURL(blob)); setFichier(null) }}
         onAnnuler={() => setFichier(null)}
+        onErreur={setErreur}
       />
       <ConfirmModal
         open={confirmation}
