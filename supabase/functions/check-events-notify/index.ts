@@ -1,7 +1,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 // Règles des rappels : module JavaScript testé par `npm test`
-import { rappelsAEnvoyer, estPermanence } from './rappels.js'
+import { rappelsAEnvoyer, estPermanence, semaineDuRappel, rappelJeuSemaine, fileJeuSemaine } from './rappels.js'
+import { listerVideosDrive } from '../_shared/drive.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -46,6 +47,58 @@ const json = (corps: unknown, status = 200) =>
 
 // Mot de passe partagé avec la tâche planifiée (cron.job « check-events-notify »)
 const CRON_SECRET = Deno.env.get('CRON_SECRET') || ''
+
+// send-push a accepté et joint au moins un téléphone (ou aucun n'est abonné) :
+// sinon nouvel essai 15 min plus tard
+function accepte({ status, reponse }: { status: number; reponse: string }) {
+  if (status < 200 || status >= 300) return false
+  let resultat: { total?: number; sent?: number } = {}
+  try { resultat = JSON.parse(reponse) } catch { /* réponse illisible : considérée comme acceptée */ }
+  return !(resultat.total && !resultat.sent)
+}
+
+// Rappel du jeudi (jeu de la semaine) : lu seulement le jeudi à partir de 17 h, tant
+// qu'il n'est pas parti cette semaine. Le dossier Drive n'est donc pas interrogé
+// toutes les 15 min. Une erreur (clé Google, dossier) n'envoie rien : surtout pas
+// « Plus de vidéo en réserve » à tort.
+async function rappelDuJeudi(maintenant: string) {
+  const semaine = semaineDuRappel(maintenant)
+  if (!semaine) return null
+  const { data: deja, error } = await supabase.from('rappels_jeu_semaine').select('semaine').eq('semaine', semaine).maybeSingle()
+  if (error) { console.error('Rappel jeu de la semaine (déjà envoyé ?) :', error.message); return null }
+  if (deja) return null
+  try {
+    const [fichiers, lignes, jeux] = await Promise.all([
+      listerVideosDrive(Deno.env.get('GOOGLE_DRIVE_CLE') || ''),
+      supabase.from('jeux_semaine').select('drive_id, nom_fichier, game_id, legende, publie_le'),
+      supabase.from('games').select('id, name, is_available'),
+    ])
+    if (lignes.error) throw lignes.error
+    if (jeux.error) throw jeux.error
+    const { attente } = fileJeuSemaine({ fichiers, lignes: lignes.data ?? [], jeux: jeux.data ?? [] })
+    const publications = (lignes.data ?? []).filter(l => l.publie_le).map(l => heureDeParis(new Date(l.publie_le)))
+    return rappelJeuSemaine({ semaine, attente, publications })
+  } catch (e) {
+    console.error('Rappel jeu de la semaine :', (e as { message?: string })?.message ?? String(e))
+    return null
+  }
+}
+
+// Copies des vidéos publiées depuis plus de 7 jours : effacées de l'espace « reels »
+async function effacerCopiesAnciennes() {
+  const limite = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()
+  const { data, error } = await supabase.from('jeux_semaine')
+    .select('drive_id, copie_chemin')
+    .not('copie_chemin', 'is', null).is('copie_effacee_le', null).lt('publie_le', limite)
+  if (error) { console.error('Ménage des vidéos :', error.message); return 0 }
+  if (!data?.length) return 0
+  const { error: supprErr } = await supabase.storage.from('reels').remove(data.map(l => l.copie_chemin))
+  if (supprErr) { console.error('Ménage des vidéos (stockage) :', supprErr.message); return 0 }
+  const { error: majErr } = await supabase.from('jeux_semaine')
+    .update({ copie_effacee_le: new Date().toISOString() }).in('drive_id', data.map(l => l.drive_id))
+  if (majErr) console.error('Ménage des vidéos (base) :', majErr.message)
+  return data.length
+}
 
 serve(async (req) => {
   if (!CRON_SECRET || req.headers.get('x-cron-secret') !== CRON_SECRET) {
@@ -125,23 +178,28 @@ serve(async (req) => {
     }
 
     const rappels = rappelsAEnvoyer({ maintenant, evenements: evenements ?? [], pretsParJour })
-    if (simulation) return json({ simulation: true, maintenant, rappels })
+    // 3. Jeu de la semaine : rappel du jeudi 17 h
+    const jeuSemaine = await rappelDuJeudi(maintenant)
+    if (simulation) return json({ simulation: true, maintenant, rappels, jeu_semaine: jeuSemaine })
 
     let envoyes = 0
     for (const r of rappels) {
-      const { status, reponse } = await sendPush({ title: r.title, body: r.body, url: r.url })
-      // Mémorisé seulement si send-push a accepté et joint au moins un téléphone (ou qu'aucun
-      // n'est abonné) : sinon nouvel essai 15 min plus tard
-      if (status < 200 || status >= 300) continue
-      let resultat: { total?: number; sent?: number } = {}
-      try { resultat = JSON.parse(reponse) } catch { /* réponse illisible : considérée comme acceptée */ }
-      if (resultat.total && !resultat.sent) continue
+      const envoi = await sendPush({ title: r.title, body: r.body, url: r.url })
+      if (!accepte(envoi)) continue
       envoyes++
       const { error } = await supabase.from('events').update({ [r.colonne]: new Date().toISOString() }).eq('id', r.id)
       if (error) console.error(`Erreur mise à jour ${r.colonne}:`, error.message)
     }
 
-    return json({ success: true, starting_notified: startingCount, rappels: rappels.length, envoyes })
+    let jeuSemaineEnvoye = false
+    if (jeuSemaine && accepte(await sendPush({ title: jeuSemaine.title, body: jeuSemaine.body, url: jeuSemaine.url }))) {
+      jeuSemaineEnvoye = true
+      const { error } = await supabase.from('rappels_jeu_semaine').insert({ semaine: jeuSemaine.semaine })
+      if (error) console.error('Rappel jeu de la semaine (mémorisation) :', error.message)
+    }
+    const copiesEffacees = await effacerCopiesAnciennes()
+
+    return json({ success: true, starting_notified: startingCount, rappels: rappels.length, envoyes, jeu_semaine_envoye: jeuSemaineEnvoye, copies_effacees: copiesEffacees })
   } catch (error) {
     console.error('Erreur générale check-events-notify:', error)
     // Les erreurs de Supabase ne sont pas toujours des « Error » : on lit leur message
