@@ -19,12 +19,13 @@ const E_SECTION = 'mb-4 flex items-center gap-2 text-[10px] font-extrabold upper
 const E_LABEL = 'mb-2 block text-[9px] font-extrabold uppercase italic tracking-[0.14em] text-slate-400'
 const E_INPUT = 'w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none placeholder:font-semibold placeholder:text-slate-300 focus:bg-white'
 
-// Les quatre onglets de l'écran Communication
+// Les cinq onglets de l'écran Communication
 const COMM_TABS = [
   { id: 'events', label: 'Événements', shadow: '#1a5f7a' },
   { id: 'affiche', label: "Générateur d'affiches", shadow: '#e38154' },
   { id: 'posts', label: 'Posts', shadow: '#10b981' },
   { id: 'jeux', label: 'Nouveaux jeux', shadow: '#f59e0b' },
+  { id: 'semaine', label: 'Jeu de la semaine', shadow: '#8b5cf6' },
 ]
 import {
   Calendar, MapPin, Plus, Trash2, Clock, ImageIcon,
@@ -35,6 +36,8 @@ import ModelesMessages from '../../components/admin/ModelesMessages'
 import SocialPostPreview from '../../components/admin/SocialPostPreview'
 import useApercusCarres from '../../hooks/useApercusCarres'
 import NouveauxJeux from '../../components/admin/NouveauxJeux'
+import JeuSemaine from '../../components/admin/JeuSemaine'
+import { chargerFileJeuSemaine } from '../../services/jeuSemaineFile'
 import { chargerJeuxAAnnoncer } from '../../services/nouveauxJeux'
 import { copierJaquette } from '../../services/diapos/jaquettes'
 import { typeEvenement as getEventType, sansAccents } from '../../services/diapos/regles'
@@ -176,12 +179,13 @@ export default function Evenements() {
   const [searchParams, setSearchParams] = useSearchParams()
   const adresseTraitee = useRef(null)
   const [events, setEvents] = useState([])
-  const [activeTab, setActiveTab] = useState('events') // 'events' | 'affiche' | 'posts' | 'jeux'
+  const [activeTab, setActiveTab] = useState('events') // 'events' | 'affiche' | 'posts' | 'jeux' | 'semaine'
   const [loading, setLoading] = useState(true)
   // Compteurs des badges d'onglets
   const [templatesCount, setTemplatesCount] = useState(0)
   const [postsCount, setPostsCount] = useState(0)
   const [jeuxAAnnoncerCount, setJeuxAAnnoncerCount] = useState(0)
+  const [jeuSemaineCount, setJeuSemaineCount] = useState(0)
   // Vue grille / liste des événements actifs — persistée en localStorage
   const [viewMode, setViewModeState] = useState(() => {
     if (typeof window === 'undefined') return 'grid'
@@ -306,6 +310,10 @@ export default function Evenements() {
 
       chargerJeuxAAnnoncer()
         .then(({ aAnnoncer }) => setJeuxAAnnoncerCount(aAnnoncer.length))
+        .catch(() => {})   // badge simplement absent
+
+      chargerFileJeuSemaine()
+        .then(({ attente }) => setJeuSemaineCount(attente.length))
         .catch(() => {})   // badge simplement absent
     }
     fetchCounters()
@@ -1042,6 +1050,16 @@ www.ludothequedecoligny.fr`
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, searchParams])
 
+  // Rappel du jeudi (jeu de la semaine) : ouvre l'onglet, puis retire le paramètre
+  useEffect(() => {
+    if (searchParams.get('onglet') !== 'jeu-semaine') return
+    setActiveTab('semaine')
+    const sansOnglet = new URLSearchParams(searchParams)
+    sansOnglet.delete('onglet')
+    setSearchParams(sansOnglet, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
   const deleteBilanPhoto = async (photo) => {
     try {
       const { error: deleteError } = await supabase.from('event_photos').delete().eq('id', photo.id)
@@ -1362,8 +1380,8 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
   },
   {
     id: 'evt-tabs',
-    title: `Onglets Événements / Affiches`,
-    description: `Basculez entre la gestion des événements, le générateur d'affiches, les posts libres et l'annonce des nouveaux jeux. Le générateur crée une affiche A4 haute résolution et peut pré-remplir automatiquement le formulaire d'événement avec la date et le lieu. "Nouveaux jeux" prépare un carrousel Facebook & Instagram avec les jeux qui viennent d'arriver.`,
+    title: `Onglets de Communication`,
+    description: `Basculez entre la gestion des événements, le générateur d'affiches, les posts libres et l'annonce des nouveaux jeux. Le générateur crée une affiche A4 haute résolution et peut pré-remplir automatiquement le formulaire d'événement avec la date et le lieu. "Nouveaux jeux" prépare un carrousel Facebook & Instagram avec les jeux qui viennent d'arriver. "Jeu de la semaine" publie chaque semaine une des vidéos du dossier Drive en Reel sur Facebook & Instagram ; un rappel arrive le jeudi à 17 h.`,
     action: () => { closeForm(); openCompose(false); openCollectivites(false) },
   },
   {
@@ -1542,11 +1560,11 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
       </div>
 
       {/* Onglets */}
-      <div data-tutorial="evt-tabs" className="mb-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3.5">
+      <div data-tutorial="evt-tabs" className="mb-6 grid grid-cols-3 gap-2.5 sm:grid-cols-5 sm:gap-3.5">
         {COMM_TABS.map(tab => {
           const active = activeTab === tab.id
-          const count = { events: upcomingEventsCount, affiche: templatesCount, posts: postsCount, jeux: jeuxAAnnoncerCount }[tab.id]
-          const icone = { events: 'ludo-calendrier-evenement.svg', affiche: 'ludo-affiche.svg', posts: 'ludo-post.svg', jeux: 'ludo-nouveau-jeu.svg' }[tab.id]
+          const count = { events: upcomingEventsCount, affiche: templatesCount, posts: postsCount, jeux: jeuxAAnnoncerCount, semaine: jeuSemaineCount }[tab.id]
+          const icone = { events: 'ludo-calendrier-evenement.svg', affiche: 'ludo-affiche.svg', posts: 'ludo-post.svg', jeux: 'ludo-nouveau-jeu.svg', semaine: 'ludo-video.svg' }[tab.id]
           return (
             <button
               key={tab.id}
@@ -1578,6 +1596,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
         )}
 
         {activeTab === 'jeux' && <NouveauxJeux onCountChange={setJeuxAAnnoncerCount} />}
+        {activeTab === 'semaine' && <JeuSemaine onCountChange={setJeuSemaineCount} />}
 
         {activeTab === 'posts' && (
           <DataCard shadow="#10b981">
