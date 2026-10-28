@@ -46,6 +46,7 @@ import PublicationBilanPermanence from '../../components/admin/bilan/Publication
 import { estPermanence } from '../../services/diapos/permanence-regles'
 import PublicationAnnonce from '../../components/admin/annonce/PublicationAnnonce'
 import { uploadSquareVersion, publierSurReseaux } from '../../services/reseauxSociaux'
+import { blocDeFloutage, pixelateRegion, COTE_MAX_PHOTO } from '../../services/floutage'
 
 // Destinataires enregistrés : trois catégories, chacune avec son propre texte
 // d'annonce. À l'envoi, seules les mairies sont cochées d'office (choix de
@@ -147,30 +148,6 @@ Merci à tous les participants ! On se retrouve très vite pour la prochaine éd
 
 Ludothèque de Coligny
 www.ludothequedecoligny.fr`
-}
-
-// Effet mosaïque : moyenne les couleurs par bloc. 15 px pour une photo de
-// 1 200 px de large ; le bloc grandit avec la photo, pour que le floutage
-// reste aussi fort quelle que soit sa définition.
-const BLUR_BLOCK_SIZE = 15
-const blocDeFloutage = largeurPhoto => Math.max(BLUR_BLOCK_SIZE, Math.round(BLUR_BLOCK_SIZE * largeurPhoto / 1200))
-function pixelateRegion(ctx, x, y, w, h, bloc = BLUR_BLOCK_SIZE) {
-  for (let by = y; by < y + h; by += bloc) {
-    for (let bx = x; bx < x + w; bx += bloc) {
-      const bw = Math.min(bloc, x + w - bx)
-      const bh = Math.min(bloc, y + h - by)
-      if (bw <= 0 || bh <= 0) continue
-      const block = ctx.getImageData(bx, by, bw, bh)
-      let r = 0, g = 0, b = 0, a = 0
-      const n = block.data.length / 4
-      for (let i = 0; i < block.data.length; i += 4) {
-        r += block.data[i]; g += block.data[i + 1]; b += block.data[i + 2]; a += block.data[i + 3]
-      }
-      r = Math.round(r / n); g = Math.round(g / n); b = Math.round(b / n); a = Math.round(a / n)
-      ctx.fillStyle = `rgba(${r},${g},${b},${a / 255})`
-      ctx.fillRect(bx, by, bw, bh)
-    }
-  }
 }
 
 export default function Evenements() {
@@ -1104,8 +1081,7 @@ www.ludothequedecoligny.fr`
       // 2 400 px au plus sur le grand côté (1 200 px de large auparavant) : une
       // photo prise en largeur reste nette une fois recadrée en hauteur dans
       // les diapositives du bilan (1 080 × 1 350).
-      const COTE_MAX = 2400
-      const scale = Math.min(1, COTE_MAX / Math.max(img.naturalWidth, img.naturalHeight))
+      const scale = Math.min(1, COTE_MAX_PHOTO / Math.max(img.naturalWidth, img.naturalHeight))
       const w = Math.round(img.naturalWidth * scale)
       const h = Math.round(img.naturalHeight * scale)
       canvas.width = w
