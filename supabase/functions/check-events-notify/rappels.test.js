@@ -1,6 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { typeEvenement, estPermanence, jeuxEmpruntes, rappelsAEnvoyer } from './rappels.js'
+import * as serveur from './rappels.js'
+import * as site from '../../../src/services/jeuSemaine.js'
 
 const halloween = { id: 42, title: 'Soirée jeux de société - Spécial Halloween', date: '2026-11-06 19:00:00', end_time: '', archived_at: null }
 const perm = { id: 43, title: 'Permanence de la ludothèque', date: '2026-11-07 10:00:00', end_time: '12:00', archived_at: null }
@@ -93,4 +95,63 @@ test('bilan de soirée : le lendemain à partir de 9h, pas si publié', () => {
   assert.deepEqual(rappels('2026-11-08T09:00:00', [h]), [])
   assert.deepEqual(rappels('2026-11-07T09:00:00', [{ ...h, bilan_publie_le: 'x' }]), [])
   assert.deepEqual(rappels('2026-11-08T09:00:00', [{ ...perm, notif_jour_sent_at: 'x' }], {}), [])
+})
+// ── Jeu de la semaine ──────────────────────────────────────────────────────
+const { semaineDuRappel, rappelJeuSemaine } = serveur
+const jeuxSemaine = [
+  { id: 1, name: 'Sky Team', is_available: true },
+  { id: 2, name: 'Harmonies', is_available: false },
+  { id: 3, name: 'Skyjo', is_available: true },
+]
+const fichiersSemaine = [
+  { id: 'h', name: 'Harmonies_jeu-de-la-semaine.mp4', createdTime: '2026-10-27T09:00:00.000Z' },
+  { id: 's', name: 'SkyTeam_jeu-de-la-semaine.mp4', createdTime: '2026-10-28T14:30:00.000Z' },
+  { id: 'x', name: 'Sky_jeu.mp4', createdTime: '2026-10-26T09:00:00.000Z' },
+]
+
+test('jeu de la semaine : les deux copies des règles donnent les mêmes résultats', () => {
+  const lignes = [{ drive_id: 'x', nom_fichier: 'Sky_jeu.mp4', game_id: 3, legende: null, publie_le: null }]
+  const entree = { fichiers: fichiersSemaine, lignes, jeux: jeuxSemaine }
+  assert.deepEqual(serveur.fileJeuSemaine(entree), site.fileJeuSemaine(entree))
+  const { attente } = site.fileJeuSemaine(entree)
+  assert.deepEqual(serveur.prochaineVideo(attente), site.prochaineVideo(attente))
+  for (const nom of ['Sky_jeu.mp4', 'SkyTeam_x.mp4', 'Élan_1.mov', '_.mp4']) {
+    assert.deepEqual(serveur.reconnaitreJeu(nom, jeuxSemaine), site.reconnaitreJeu(nom, jeuxSemaine))
+    assert.equal(serveur.nomDuFichier(nom), site.nomDuFichier(nom))
+  }
+})
+
+test('jeu de la semaine : seulement le jeudi à partir de 17h', () => {
+  assert.equal(semaineDuRappel('2026-11-05T16:59:00'), null)        // jeudi 16h59
+  assert.equal(semaineDuRappel('2026-11-05T17:00:00'), '2026-11-02') // jeudi 17h → lundi 2
+  assert.equal(semaineDuRappel('2026-11-05T23:45:00'), '2026-11-02')
+  assert.equal(semaineDuRappel('2026-11-06T17:05:00'), null)        // vendredi : pas de relance
+  assert.equal(semaineDuRappel('2026-11-02T17:05:00'), null)        // lundi
+  assert.equal(semaineDuRappel('2026-12-31T17:05:00'), '2026-12-28') // semaine à cheval sur l'année
+})
+
+test('jeu de la semaine : texte du rappel, jeu en prêt sauté, réserve vide', () => {
+  const { attente } = serveur.fileJeuSemaine({ fichiers: fichiersSemaine, lignes: [], jeux: jeuxSemaine })
+  assert.deepEqual(rappelJeuSemaine({ semaine: '2026-11-02', attente, publications: [] }), {
+    semaine: '2026-11-02',
+    title: '🎬 Jeu de la semaine : Sky Team',
+    body: 'Publiez la vidéo sur Facebook et Instagram.',
+    url: '/admin/evenements?onglet=jeu-semaine',
+  })
+  // Aucun jeu reconnu : nom tiré du fichier
+  const inconnue = serveur.fileJeuSemaine({ fichiers: [fichiersSemaine[2]], lignes: [], jeux: jeuxSemaine }).attente
+  assert.equal(rappelJeuSemaine({ semaine: '2026-11-02', attente: inconnue, publications: [] }).title, '🎬 Jeu de la semaine : Sky')
+  assert.deepEqual(rappelJeuSemaine({ semaine: '2026-11-02', attente: [], publications: [] }), {
+    semaine: '2026-11-02',
+    title: '🎬 Plus de vidéo en réserve',
+    body: 'Ajoutez une nouvelle vidéo dans le dossier Drive.',
+    url: '/admin/evenements?onglet=jeu-semaine',
+  })
+})
+
+test('jeu de la semaine : pas de rappel si une vidéo est déjà publiée cette semaine', () => {
+  const { attente } = serveur.fileJeuSemaine({ fichiers: fichiersSemaine, lignes: [], jeux: jeuxSemaine })
+  assert.equal(rappelJeuSemaine({ semaine: '2026-11-02', attente, publications: ['2026-11-02T00:00:00'] }), null)
+  assert.equal(rappelJeuSemaine({ semaine: '2026-11-02', attente, publications: ['2026-11-04T10:00:00'] }), null)
+  assert.notEqual(rappelJeuSemaine({ semaine: '2026-11-02', attente, publications: ['2026-11-01T23:59:00'] }), null) // dimanche précédent
 })
