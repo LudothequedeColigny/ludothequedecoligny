@@ -196,6 +196,7 @@ Pour l'espace de gestion, dans `src/components/admin/` :
 | `PreinscriptionsAValider` | bloc de l'écran Adhérents : demandes faites sur `/adherer`, bouton « Valider l'adhésion » qui pré-remplit la fiche |
 | `FicheWikiludo` | fenêtre « Fiche pour Wikiludo » : chaque champ de la grille Wikiludo avec un bouton Copier (catalogue + MyLudo), ordinateur seulement |
 | `NouveauxJeux` | onglet « Nouveaux jeux » de Communication : jeux ajoutés depuis le 01/09/2026, carrousel 4:5 (couverture, une image par jeu — 8 au plus, boîte détourée en autocollant —, prochaine permanence) dessiné par `diapos/nouveaux-jeux-regles.js` / `nouveaux-jeux.js` ; cochés → « annonce », décochés → « ecarte » (table `annonces_jeux`, bénévoles seulement) |
+| `JeuSemaine` | onglet « Jeu de la semaine » de Communication : vidéos (Reels) du dossier Drive `1bdQWQauOTWyaGZwvuAcZh-dvF-G_evWs` (règles `services/jeuSemaine.js`, données `services/jeuSemaineFile.js`), la plus ancienne non publiée dont le jeu est disponible ; copie temporaire dans l'espace public `reels` (fonction `jeu-semaine`, clé `GOOGLE_DRIVE_CLE`), effacée 7 jours après ; publiée en Reel par la voie « Vidéo » de Make (`video_url`) |
 | `ModelesMessages` | fenêtre « Modèles de messages » : textes presse et école à copier, lus dans les Paramètres |
 | `SocialPostPreview` | aperçu d'une publication Facebook/Instagram |
 | `bilan/PublicationBilan` | fenêtre Bilan : choix des photos (ouverture, « plein de jeux », une par jeu), aperçu et publication du carrousel 4:5, story 9:16 à enregistrer ; « Expression libre » facultative (phrase de 90 caractères + fond flouté ou photo du bilan, avant le « Merci », `events.bilan_expression`) |
@@ -219,7 +220,7 @@ Toute publication vers Facebook/Instagram passe par `src/services/reseauxSociaux
 (adresse du webhook Make, mise au carré des images, `publierSurReseaux`). Le scénario
 Make aiguille sur `photo_count` : 2 images ou plus → carrousel ; 1 image **hébergée chez nous**
 (adresse contenant `supabase.co`) → photo seule ; texte sans image → Facebook seulement ;
-envoi vide → rien. Toute image doit donc être déposée dans notre stockage avant l'envoi
+envoi vide → rien ; `video_url` hébergée chez nous → Reel Instagram + Reel Facebook (la voie « texte seul » exige l'absence de `video_url`). Toute image doit donc être déposée dans notre stockage avant l'envoi
 (jamais de données brutes `data:` ni de lien extérieur). Le 23/10/2026, deux envois vides
 (robot ayant visité l'adresse du webhook, lisible dans le code du site) avaient fait
 **désactiver** le scénario : s'il s'arrête de nouveau, lire l'historique Make
@@ -366,6 +367,12 @@ Les animations et effets sont définis dans `src/index.css`.
   (réponse dans `net._http_response` ; prévoir `timeout_milliseconds := 30000`, 5 s ne suffisent pas).
   Un rappel ouvre `/admin/evenements?annonce={id}` ou `?bilan={id}` : l'écran Communication
   ouvre la fenêtre puis retire le paramètre ; déconnecté, la connexion y ramène.
+  Jeu de la semaine le jeudi dès 17h (une fois par semaine, table `rappels_jeu_semaine` ; rien si une vidéo
+  est déjà publiée depuis le lundi ; « Plus de vidéo en réserve » si la file est vide) ; les règles du jeu de
+  la semaine sont aussi **recopiées** dans `rappels.js` (test d'égalité dans `rappels.test.js`).
+- **Vidéos du jeu de la semaine** : Instagram ne lit jamais une adresse Google Drive (même partagée) : toujours
+  passer par la copie dans `reels`. Le dossier Drive doit rester partagé « toute personne disposant du lien ».
+  Facebook refuse les Reels de plus de 90 s.
 - **Floutage des visages (photos des bilans)** : l'image enregistrée est toujours la photo
   floutée, jamais l'affichage de l'éditeur ; un rectangle dessiné est flouté même sans clic sur
   « Appliquer le flou ». Le 25/10/2026, une photo était partie avec les visages en clair sous les
