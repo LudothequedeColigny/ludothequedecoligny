@@ -27,6 +27,16 @@ async function erreurDe(res: Response): Promise<ErreurDrive> {
   return new ErreurDrive("Le dossier Drive n'a pas pu être lu. Réessayez dans un instant.")
 }
 
+// Clé envoyée en en-tête (jamais dans l'adresse, qui finit dans les journaux) ; délai limité
+async function appelDrive(url: string | URL, cle: string, delaiMs: number): Promise<Response> {
+  try {
+    return await fetch(url, { headers: { 'x-goog-api-key': cle }, signal: AbortSignal.timeout(delaiMs) })
+  } catch (error) {
+    console.error('Google Drive : appel impossible', (error as Error).name)
+    throw new ErreurDrive("Le dossier Drive n'a pas pu être lu. Réessayez dans un instant.")
+  }
+}
+
 export async function listerVideosDrive(cle: string): Promise<FichierDrive[]> {
   if (!cle) throw new ErreurDrive('La clé Google est absente ou refusée : vérifiez le secret GOOGLE_DRIVE_CLE.', 500)
   const fichiers: FichierDrive[] = []
@@ -37,9 +47,8 @@ export async function listerVideosDrive(cle: string): Promise<FichierDrive[]> {
     url.searchParams.set('fields', 'nextPageToken, files(id, name, createdTime, size, mimeType)')
     url.searchParams.set('orderBy', 'createdTime')
     url.searchParams.set('pageSize', '200')
-    url.searchParams.set('key', cle)
     if (page) url.searchParams.set('pageToken', page)
-    const res = await fetch(url)
+    const res = await appelDrive(url, cle, 15000)
     if (!res.ok) throw await erreurDe(res)
     const corps = await res.json()
     fichiers.push(...(corps.files ?? []))
@@ -49,7 +58,7 @@ export async function listerVideosDrive(cle: string): Promise<FichierDrive[]> {
 }
 
 export async function telechargerVideoDrive(cle: string, id: string): Promise<Uint8Array> {
-  const res = await fetch(`${API}/${encodeURIComponent(id)}?alt=media&key=${encodeURIComponent(cle)}`)
+  const res = await appelDrive(`${API}/${encodeURIComponent(id)}?alt=media`, cle, 60000)
   if (!res.ok) throw await erreurDe(res)
   return new Uint8Array(await res.arrayBuffer())
 }

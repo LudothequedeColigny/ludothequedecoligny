@@ -5,7 +5,7 @@ import { DataCard } from './DataCard'
 import ConfirmModal from './ConfirmModal'
 import SuccessModal from '../site/SuccessModal'
 import MaskIcon from '../site/MaskIcon'
-import { chargerFileJeuSemaine, enregistrerVideo, preparerVideo } from '../../services/jeuSemaineFile'
+import { chargerFileJeuSemaine, enregistrerVideo, preparerVideo, MessageBenevole } from '../../services/jeuSemaineFile'
 import { publierVideoSurReseaux } from '../../services/reseauxSociaux'
 import { prochaineVideo, legendeProposee, nomDuFichier, LIEN_DOSSIER_DRIVE } from '../../services/jeuSemaine'
 import { prochainePermanence } from '../../services/diapos/permanence-regles'
@@ -53,6 +53,7 @@ export default function JeuSemaine({ onCountChange }) {
   const [envoi, setEnvoi] = useState(false)
   const [succes, setSucces] = useState(false)
   const [erreur, setErreur] = useState('')
+  const [nonNotees, setNonNotees] = useState(() => new Set())   // vidéos envoyées mais non notées : plus de publication avant rechargement
 
   const charger = useCallback(async () => {
     setChargement(true)
@@ -79,7 +80,7 @@ export default function JeuSemaine({ onCountChange }) {
       onCountChange?.(donnees.attente.length)
     } catch (err) {
       console.error('Jeu de la semaine :', err)
-      setErreurChargement(err?.message || "Le dossier Drive n'a pas pu être lu. Réessayez dans un instant.")
+      setErreurChargement(err instanceof MessageBenevole ? err.message : "Le dossier Drive n'a pas pu être lu. Réessayez dans un instant.")
     } finally {
       setChargement(false)
     }
@@ -94,7 +95,7 @@ export default function JeuSemaine({ onCountChange }) {
 
   // Légende : celle enregistrée pour cette vidéo, sinon le modèle
   useEffect(() => {
-    setLegende(video?.legende ?? (jeu ? legendeProposee(jeu, permanence) : ''))
+    setLegende(video?.legende || (jeu ? legendeProposee(jeu, permanence) : ''))
     setLegendeModifiee(!!video?.legende)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [video?.driveId, jeu?.id, permanence])
@@ -105,8 +106,9 @@ export default function JeuSemaine({ onCountChange }) {
   const enregistrerLegende = async () => {
     if (!video || !legendeModifiee || legende === video.legende) return
     try {
-      await enregistrerVideo(video, { legende })
-      majLocale(video.driveId, { legende })
+      const aGarder = legende.trim() ? legende : null
+      await enregistrerVideo(video, { legende: aGarder })
+      majLocale(video.driveId, { legende: aGarder })
     } catch (err) {
       console.error('Légende non enregistrée :', err)
       setErreur("La légende n'a pas pu être enregistrée. Vérifiez la connexion.")
@@ -148,6 +150,7 @@ export default function JeuSemaine({ onCountChange }) {
         await enregistrerVideo(video, { game_id: jeu.id, legende, publie_le: new Date().toISOString() })
       } catch (errNote) {
         console.error('Vidéo envoyée mais non notée comme publiée :', errNote)
+        setNonNotees(n => new Set(n).add(video.driveId))
         setConfirmation(false)
         setErreur("La vidéo a bien été envoyée, mais elle n'a pas pu être notée comme publiée. Ne la republiez pas : rechargez la page dans un moment.")
         return
@@ -159,13 +162,13 @@ export default function JeuSemaine({ onCountChange }) {
     } catch (err) {
       console.error('Publication jeu de la semaine :', err)
       setConfirmation(false)
-      setErreur(err?.message?.startsWith('Erreur Make') || !err?.message ? 'La publication a échoué. Réessayez dans un instant.' : err.message)
+      setErreur(err instanceof MessageBenevole ? err.message : 'La publication a échoué. Vérifiez la connexion puis réessayez.')
     } finally {
       setEnvoi(false)
     }
   }
 
-  const peutPublier = !!video && !!jeu && !!legende.trim() && !envoi
+  const peutPublier = !!video && !!jeu && !!legende.trim() && !envoi && !nonNotees.has(video.driveId)
 
   return (
     <DataCard shadow={VIOLET}>

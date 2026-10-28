@@ -164,7 +164,8 @@ export async function publierVideoSurReseaux({ message, videoUrl, extra = {} }) 
   const res = await fetch(MAKE_WEBHOOK_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, video_url: videoUrl, ...extra }),
+    // extra d'abord : il ne peut ni écraser ni ajouter les champs d'aiguillage
+    body: JSON.stringify({ ...extra, message, video_url: videoUrl }),
   })
   if (!res.ok) throw new Error('Erreur Make: ' + res.status)
 }
