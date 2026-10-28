@@ -176,12 +176,12 @@ export default function JeuSemaine({ onCountChange }) {
         <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#f5f3ff]">
           <MaskIcon file="ludo-video.svg" size={30} color={VIOLET} />
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[180px] flex-1">
           <h2 className="font-display text-[19px] font-extrabold uppercase tracking-[-0.03em]">Jeu de la semaine</h2>
           <p className="mt-1 text-[11px] font-semibold text-slate-400">Une vidéo par semaine en Reel sur Facebook &amp; Instagram — rappel le jeudi à 17 h</p>
         </div>
         <a href={LIEN_DOSSIER_DRIVE} target="_blank" rel="noreferrer"
-          className="flex items-center gap-1.5 rounded-[14px] border-2 border-[#0f172a] bg-white px-3.5 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#0f172a] shadow-[3px_3px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[1px_1px_0_#0f172a]">
+          className="flex w-full items-center justify-center gap-1.5 rounded-[14px] border-2 border-[#0f172a] bg-white px-3.5 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#0f172a] shadow-[3px_3px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[1px_1px_0_#0f172a] sm:w-auto">
           <ExternalLink size={13} /> Ouvrir le dossier Drive
         </a>
       </div>
@@ -291,7 +291,7 @@ export default function JeuSemaine({ onCountChange }) {
                 {file.attente.map(v => (
                   <div key={v.driveId} className={`flex flex-wrap items-center gap-3 rounded-[18px] border-2 p-2.5 pr-4 ${v === video ? 'border-[#8b5cf6] bg-[#f5f3ff]' : 'border-[#0f172a] bg-white'}`}>
                     <Jaquette jeu={v.jeu} />
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-[140px] flex-1">
                       <p className="truncate text-[12.5px] font-extrabold text-[#0f172a]">{v.jeu?.name || nomDuFichier(v.nomFichier)}</p>
                       <p className="text-[10px] font-semibold text-slate-400">{v.creeLe ? `Ajoutée le ${dateCourte(v.creeLe)}` : v.nomFichier}</p>
                     </div>
@@ -313,9 +313,9 @@ export default function JeuSemaine({ onCountChange }) {
               <div className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400">Déjà publiées ({file.publiees.length})</div>
               <div className="space-y-2">
                 {file.publiees.map(v => (
-                  <div key={v.driveId} className="flex items-center gap-3 rounded-[18px] border-2 border-slate-200 bg-[#fdfaf6] p-2.5 pr-4">
+                  <div key={v.driveId} className="flex flex-wrap items-center gap-3 rounded-[18px] border-2 border-slate-200 bg-[#fdfaf6] p-2.5 pr-4">
                     <Jaquette jeu={v.jeu} />
-                    <p className="min-w-0 flex-1 truncate text-[12.5px] font-extrabold text-slate-500">{v.jeu?.name || nomDuFichier(v.nomFichier)}</p>
+                    <p className="min-w-[140px] flex-1 truncate text-[12.5px] font-extrabold text-slate-500">{v.jeu?.name || nomDuFichier(v.nomFichier)}</p>
                     <p className="text-[10px] font-semibold text-slate-400">Publiée le {dateCourte(v.publieLe)}</p>
                   </div>
                 ))}
