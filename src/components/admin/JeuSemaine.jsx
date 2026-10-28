@@ -206,12 +206,13 @@ export default function JeuSemaine({ onCountChange }) {
               {/* Prochaine vidéo */}
               <div>
                 <div className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#1a5f7a]">Prochaine vidéo</div>
-                <div className="mx-auto w-full max-w-[280px] overflow-hidden rounded-[28px] border-2 border-[#0f172a] bg-[#0f172a] shadow-[5px_5px_0_#8b5cf6]">
+                {/* Bord de téléphone autour du lecteur : les coins arrondis ne doivent pas rogner ses boutons */}
+                <div className="mx-auto w-full max-w-[280px] rounded-[28px] border-2 border-[#0f172a] bg-[#0f172a] px-2 py-6 shadow-[5px_5px_0_#8b5cf6]">
                   <iframe
                     key={video.driveId}
                     title={`Vidéo ${jeu?.name || nomDuFichier(video.nomFichier)}`}
                     src={`https://drive.google.com/file/d/${video.driveId}/preview`}
-                    className="aspect-[9/16] w-full"
+                    className="block aspect-[9/16] w-full rounded-[6px] border-0"
                     allow="autoplay"
                   />
                 </div>
