@@ -206,15 +206,19 @@ export default function JeuSemaine({ onCountChange }) {
               {/* Prochaine vidéo */}
               <div>
                 <div className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#1a5f7a]">Prochaine vidéo</div>
-                {/* Bord de téléphone autour du lecteur : les coins arrondis ne doivent pas rogner ses boutons */}
-                <div className="mx-auto w-full max-w-[280px] rounded-[28px] border-2 border-[#0f172a] bg-[#0f172a] px-2 py-6 shadow-[5px_5px_0_#8b5cf6]">
-                  <iframe
-                    key={video.driveId}
-                    title={`Vidéo ${jeu?.name || nomDuFichier(video.nomFichier)}`}
-                    src={`https://drive.google.com/file/d/${video.driveId}/preview`}
-                    className="block aspect-[9/16] w-full rounded-[6px] border-0"
-                    allow="autoplay"
-                  />
+                {/* Bord de téléphone autour du lecteur. Le lecteur Google Drive a une largeur minimale
+                    (~320 px) : plus étroit, il déborde et cache ses boutons. Il est donc affiché à
+                    360 × 640 puis réduit à l'échelle du cadre (264 × 469). */}
+                <div className="mx-auto w-fit rounded-[28px] border-2 border-[#0f172a] bg-[#0f172a] px-2 py-6 shadow-[5px_5px_0_#8b5cf6]">
+                  <div className="h-[469px] w-[264px] overflow-hidden rounded-[6px]">
+                    <iframe
+                      key={video.driveId}
+                      title={`Vidéo ${jeu?.name || nomDuFichier(video.nomFichier)}`}
+                      src={`https://drive.google.com/file/d/${video.driveId}/preview`}
+                      className="block h-[640px] w-[360px] origin-top-left scale-[0.7333] border-0"
+                      allow="autoplay"
+                    />
+                  </div>
                 </div>
                 <div className="mt-5 flex items-center gap-3 rounded-[18px] border-2 border-[#0f172a] bg-white p-2.5 pr-4">
                   <Jaquette jeu={jeu} />
