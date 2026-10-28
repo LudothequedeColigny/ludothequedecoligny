@@ -1,6 +1,6 @@
 // src/services/diapos/post.js
 import {
-  COULEURS, chargerImage, chargerPolices, nouveauCanvas, recouvrir, dessinerFlou, degradeBas, voile,
+  COULEURS, chargerImage, chargerPolices, nouveauCanvas, liberer, recouvrir, dessinerFlou, degradeBas, voile,
   police, couperLignes, pastille, texteContoure, rectArrondi,
 } from './dessin.js'
 import { espacer, largeur, baseLigne, carte, limiterLignes } from './annonce.js'
@@ -86,8 +86,10 @@ function photoEncadree(ctx, p, logo, photo) {
   ctx.textAlign = 'center'
   let y = 230
   if (p.intro) {
-    police(ctx, 600, 46)
+    let ti = 46
+    police(ctx, 600, ti)
     espacer(ctx, 0)
+    while (ti > 30 && largeur(ctx, p.intro) > 960) { ti -= 2; police(ctx, 600, ti) }
     ctx.fillStyle = COULEURS.creme
     ctx.fillText(p.intro, L / 2, y)
   }
@@ -146,13 +148,28 @@ function photoEncadree(ctx, p, logo, photo) {
   adresse(ctx)
 }
 
+// Phrases tapées sur plusieurs lignes : chaque ligne reste sur une seule ligne si possible (texte réduit) ;
+// sinon repli sur l'ancien découpage en 3 lignes au plus.
+function phrasesMessage(ctx, texte) {
+  const n = texte.split('\n').length
+  if (n <= 3) {
+    const essai = ajuster(ctx, texte, { max: 44, min: 34, nbLignes: n, large: 960, poids: 600, famille: 'Poppins', serre: false })
+    police(ctx, 600, essai.taille)
+    espacer(ctx, 0)
+    // Découpage sans troncature : chaque ligne doit tenir sans retour à la ligne
+    const brutes = texte.split('\n').flatMap(l => couperLignes(ctx, l, 960))
+    if (brutes.length <= n && brutes.every(l => largeur(ctx, l) <= 960)) return essai
+  }
+  return ajuster(ctx, texte, { max: 44, min: 32, nbLignes: 3, large: 960, poids: 600, famille: 'Poppins', serre: false })
+}
+
 function message(ctx, p, logo, bois) {
   if (bois) recouvrir(ctx, bois, 0, 0, L, H)
   else voile(ctx, L, H, COULEURS.bleu)
   pastille(ctx, logo, 56, 56)
   const titre = ajuster(ctx, p.titre, { max: 150, min: 90, nbLignes: 2, large: 900 })
   const hT = titre.taille * 1.07
-  const phrases = p.phrases ? ajuster(ctx, p.phrases, { max: 44, min: 32, nbLignes: 3, large: 960, poids: 600, famille: 'Poppins', serre: false }) : { lignes: [], taille: 44 }
+  const phrases = p.phrases ? phrasesMessage(ctx, p.phrases) : { lignes: [], taille: 44 }
   const hP = phrases.taille * 1.4
   const hBoutons = p.boutons.length ? 76 + 70 : 0
   const total = titre.lignes.length * hT + (phrases.lignes.length ? 60 + phrases.lignes.length * hP : 0) + hBoutons
@@ -199,8 +216,13 @@ export async function dessinerPost(plan, { photo = null } = {}) {
     plan.modele === 'message' ? chargerImage('/social/fond-bois.jpg') : null,
   ])
   const { canvas, ctx } = nouveauCanvas(L, H)
-  if (plan.modele === 'photo-encadree') photoEncadree(ctx, plan, logo, image)
-  else if (plan.modele === 'message') message(ctx, plan, logo, bois)
-  else photoCarte(ctx, plan, logo, image)
+  try {
+    if (plan.modele === 'photo-encadree') photoEncadree(ctx, plan, logo, image)
+    else if (plan.modele === 'message') message(ctx, plan, logo, bois)
+    else photoCarte(ctx, plan, logo, image)
+  } catch (erreur) {
+    liberer(canvas)
+    throw erreur
+  }
   return canvas
 }
