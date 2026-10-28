@@ -205,6 +205,8 @@ Pour l'espace de gestion, dans `src/components/admin/` :
 | `CategoriesJeux` | fenêtre « Catégories des jeux » (carte « Catégories » des Paramètres) : couleur, renommer, ajouter, réordonner, supprimer avec confirmation ; la table est aussi dans la sauvegarde Excel |
 | `etiquettes/FenetreEtiquettes` | fenêtre « Étiquettes » de l'écran Jeux, deux onglets. Onglet « Code-barres » (`OngletCodeBarres`) : étiquettes pas encore imprimées, aperçu des pages A4 identique au PDF, « Page d'essai », « Télécharger le PDF », « Marquer comme imprimées » (marque exactement les étiquettes du dernier PDF téléchargé). Onglet « Vidéo des règles » (`OngletQr`) : l'ancien générateur de QR des règles, déplacé tel quel |
 | `VueAgrandie` | vue agrandie d'une image (flèches, glisser, clavier), partagée par les fenêtres Bilan et Annonce |
+| `PostSimple` | onglet « Posts » de Communication : trois modèles d'image 4:5 (A photo + carte, B photo encadrée, C message), règles `services/diapos/post-regles.js`, dessin `services/diapos/post.js`, maquettes `Bureau/PERSO/Ludothèque/Maquette bilan soirée jeux/post-simple-maquette/` ; publication en photo seule (une image hébergée chez nous) |
+| `EditeurFloutagePhoto` | fenêtre de floutage d'une photo (onglet Posts) ; calcul partagé `services/floutage.js` avec la fenêtre Bilan |
 
 Les étiquettes code-barres sont calculées par `src/services/etiquettes/` : `ean13.js`, `regles.js` (tailles et
 mise en page, testé par `npm test`), `dessin.js` (primitives de dessin), `rendu-svg.js` (aperçu) et `pdf.js`

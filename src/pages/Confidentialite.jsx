@@ -65,7 +65,7 @@ export default function Confidentialite() {
             d'inscription, visible de tous, pour que les bénévoles s'organisent.
           </li>
           <li>
-            <strong>Photos d'événements</strong> : prises et publiées avec l'accord des personnes ; les visages
+            <strong>Photos d'événements et des publications</strong> : prises et publiées avec l'accord des personnes ; les visages
             des enfants sont floutés. Retrait sur simple demande.
           </li>
         </ul>

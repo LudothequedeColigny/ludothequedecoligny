@@ -29,12 +29,11 @@ const COMM_TABS = [
 ]
 import {
   Calendar, MapPin, Plus, Trash2, Clock, ImageIcon,
-  X, Loader2, Type, AlignLeft, Edit2, Mail, Send, CheckCircle2, Users, ChevronDown, ChevronUp, PlusCircle, Paperclip, GripVertical, Building2, Trash, Share2, BarChart2, Search, Dice5, Archive, ArchiveRestore, LayoutGrid, List, Copy,
+  X, Loader2, Type, AlignLeft, Edit2, Mail, Send, Users, ChevronDown, ChevronUp, PlusCircle, Paperclip, GripVertical, Building2, Trash, Share2, BarChart2, Search, Dice5, Archive, ArchiveRestore, LayoutGrid, List, Copy,
   Newspaper, School
 } from 'lucide-react'
 import ModelesMessages from '../../components/admin/ModelesMessages'
-import SocialPostPreview from '../../components/admin/SocialPostPreview'
-import useApercusCarres from '../../hooks/useApercusCarres'
+import PostSimple from '../../components/admin/PostSimple'
 import NouveauxJeux from '../../components/admin/NouveauxJeux'
 import JeuSemaine from '../../components/admin/JeuSemaine'
 import { chargerFileJeuSemaine } from '../../services/jeuSemaineFile'
@@ -45,7 +44,6 @@ import PublicationBilan from '../../components/admin/bilan/PublicationBilan'
 import PublicationBilanPermanence from '../../components/admin/bilan/PublicationBilanPermanence'
 import { estPermanence } from '../../services/diapos/permanence-regles'
 import PublicationAnnonce from '../../components/admin/annonce/PublicationAnnonce'
-import { uploadSquareVersion, publierSurReseaux } from '../../services/reseauxSociaux'
 import { blocDeFloutage, pixelateRegion, COTE_MAX_PHOTO } from '../../services/floutage'
 
 // Destinataires enregistrés : trois catégories, chacune avec son propre texte
@@ -193,14 +191,6 @@ export default function Evenements() {
   // Publication en cours : la fenêtre ne se ferme pas, pour que le résultat reste visible
   const [annonceEnPublication, setAnnonceEnPublication] = useState(false)
   const fermerAnnonce = () => { if (!annonceEnPublication) setFbModal({ show: false, event: null }) }
-  // Post Facebook/Instagram autonome (sans événement lié)
-  const [postText, setPostText] = useState('')
-  const [postImageUrl, setPostImageUrl] = useState('')
-  const [postUploading, setPostUploading] = useState(false)
-  const [publishingPost, setPublishingPost] = useState(false)
-  const [postSuccess, setPostSuccess] = useState(false)
-  // Aperçus fidèles : images mises au carré sur le fond bois, comme à la publication
-  const apercuPost = useApercusCarres(postImageUrl ? [postImageUrl] : [])
   const [groupesOuverts, setGroupesOuverts] = useState({ mairie: true, presse: true, ecole: true })
   const [modelesOpen, setModelesOpen] = useState(false)
   const [showAdherents, setShowAdherents] = useState(true)
@@ -428,22 +418,6 @@ export default function Evenements() {
     } finally {
       setUploading(false)
     }
-  }
-
-  function handlePostFileUpload(event) {
-    const file = event.target.files[0]
-    if (!file) return
-    setPostUploading(true)
-    const reader = new FileReader()
-    reader.onload = () => {
-      setPostImageUrl(reader.result)
-      setPostUploading(false)
-    }
-    reader.onerror = () => {
-      addToast("Erreur de lecture du fichier", 'error')
-      setPostUploading(false)
-    }
-    reader.readAsDataURL(file)
   }
 
   async function handleSubmit(e) {
@@ -802,51 +776,6 @@ www.ludothequedecoligny.fr`
     setFbText(text)
     setAnnonceEnPublication(false)
     setFbModal({ show: true, event })
-  }
-
-  const handlePublishPost = async () => {
-    if (!postText.trim()) return
-    setPublishingPost(true)
-    setPostSuccess(false)
-    try {
-      // L'image (fichier de l'ordinateur ou lien) est d'abord déposée chez nous,
-      // mise au carré : Make ne sait télécharger qu'une adresse publique, et son
-      // scénario ne publie une photo que si elle est hébergée dans notre stockage.
-      // Sans image : texte seul, publié sur Facebook uniquement (Instagram
-      // refuse les publications sans image).
-      let imageHebergee = null
-      if (postImageUrl) {
-        imageHebergee = await uploadSquareVersion(postImageUrl, `posts/post-${Date.now()}-social.jpg`)
-        if (!imageHebergee) {
-          addToast("L'image n'a pas pu être préparée. Essayez avec un fichier enregistré sur l'ordinateur.", 'error')
-          return
-        }
-      }
-
-      await publierSurReseaux({ message: postText, imageUrls: imageHebergee ? [imageHebergee] : [] })
-
-      // Trace de la publication : le texte et l'adresse de l'image déposée chez
-      // nous (jamais l'image elle-même, qui gonflerait la base).
-      const { error: postSaveError } = await supabase.from('posts').insert({
-        message: postText,
-        image_url: imageHebergee,
-        has_image: !!postImageUrl,
-      })
-      // La table `posts` est facultative : si elle n'existe pas encore, la
-      // publication reste réussie, seul l'historique est manquant.
-      if (postSaveError) console.warn('Publication non enregistrée dans `posts` :', postSaveError.message)
-      else setPostsCount(c => c + 1)
-
-      setPostSuccess(true)
-      setPostText('')
-      setPostImageUrl('')
-      addToast('Publication envoyée avec succès.', 'success')
-    } catch (err) {
-      console.error('Erreur publication post:', err)
-      addToast("Erreur lors de la publication. Vérifiez la console.", 'error')
-    } finally {
-      setPublishingPost(false)
-    }
   }
 
   // Diapositives déjà publiées (event-images/bilans/{id}/ pour le bilan,
@@ -1357,7 +1286,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
   {
     id: 'evt-tabs',
     title: `Onglets de Communication`,
-    description: `Basculez entre la gestion des événements, le générateur d'affiches, les posts libres et l'annonce des nouveaux jeux. Le générateur crée une affiche A4 haute résolution et peut pré-remplir automatiquement le formulaire d'événement avec la date et le lieu. "Nouveaux jeux" prépare un carrousel Facebook & Instagram avec les jeux qui viennent d'arriver. "Jeu de la semaine" publie chaque semaine une des vidéos du dossier Drive en Reel sur Facebook & Instagram ; un rappel arrive le jeudi à 17 h.`,
+    description: `Basculez entre la gestion des événements, le générateur d'affiches, les posts aux couleurs de la ludothèque (trois modèles) et l'annonce des nouveaux jeux. Le générateur crée une affiche A4 haute résolution et peut pré-remplir automatiquement le formulaire d'événement avec la date et le lieu. "Nouveaux jeux" prépare un carrousel Facebook & Instagram avec les jeux qui viennent d'arriver. "Jeu de la semaine" publie chaque semaine une des vidéos du dossier Drive en Reel sur Facebook & Instagram ; un rappel arrive le jeudi à 17 h.`,
     action: () => { closeForm(); openCompose(false); openCollectivites(false) },
   },
   {
@@ -1574,65 +1503,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
         {activeTab === 'jeux' && <NouveauxJeux onCountChange={setJeuxAAnnoncerCount} />}
         {activeTab === 'semaine' && <JeuSemaine onCountChange={setJeuSemaineCount} />}
 
-        {activeTab === 'posts' && (
-          <DataCard shadow="#10b981">
-            <div className="flex items-center gap-3.5 border-b-2 border-[#0f172a] px-6 py-5">
-              <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#ecfdf5] text-[#10b981]">
-                <MaskIcon file="ludo-post.svg" size={30} color="#10b981" />
-              </div>
-              <div>
-                <h2 className="font-display text-[19px] font-extrabold uppercase tracking-[-0.03em]">Nouveau post</h2>
-                <p className="mt-1 text-[11px] font-semibold text-slate-400">Publier directement sur Facebook &amp; Instagram, sans lien avec un événement</p>
-              </div>
-            </div>
-
-            <div className="max-w-2xl p-6 md:p-8">
-              <div className={`${E_SECTION} text-[#1a5f7a]`}>Message</div>
-              <textarea
-                rows={8}
-                placeholder="Rédigez votre publication..."
-                className="mb-5 w-full resize-y rounded-[24px] border-2 border-[#0f172a] bg-[#fdfaf6] p-5 text-[13.5px] font-medium text-[#0f172a] outline-none placeholder:text-slate-300 focus:bg-white"
-                value={postText}
-                onChange={e => setPostText(e.target.value)}
-              />
-
-              <div className={`${E_SECTION} text-[#1a5f7a]`}>Photo (optionnel)</div>
-              <input
-                placeholder="Lien URL de l'image..."
-                className={`${E_INPUT} mb-3.5 text-[12.5px]`}
-                value={postImageUrl}
-                onChange={e => setPostImageUrl(e.target.value)}
-              />
-              <div className="mb-5 flex flex-col items-center gap-3.5 rounded-[24px] border-[3px] border-dashed border-slate-300 bg-[#fdfaf6] p-6">
-                {postImageUrl && <img src={postImageUrl} className="h-28 object-contain" alt="Aperçu" />}
-                <label className="cursor-pointer rounded-[16px] border-2 border-[#0f172a] bg-white px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#1a5f7a] transition-colors hover:bg-slate-100">
-                  {postUploading ? "Chargement..." : "Uploader un fichier"}
-                  <input type="file" accept="image/*" className="hidden" onChange={handlePostFileUpload} />
-                </label>
-              </div>
-
-              <SocialPostPreview text={postText} imageUrls={apercuPost} />
-
-              {postSuccess ? (
-                <div className="mt-5 flex w-full items-center justify-center gap-2 rounded-[18px] border-2 border-[#0f172a] bg-[#10b981] py-5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white">
-                  <CheckCircle2 size={16} /> Publié avec succès !
-                </div>
-              ) : (
-                <button
-                  onClick={handlePublishPost}
-                  disabled={publishingPost || !postText.trim()}
-                  className={`mt-5 flex w-full items-center justify-center gap-2.5 rounded-[18px] border-2 border-[#0f172a] py-5 text-[11px] font-extrabold uppercase tracking-[0.16em] transition-[transform,box-shadow] duration-200 ${
-                    publishingPost || !postText.trim()
-                      ? 'cursor-not-allowed bg-slate-100 text-slate-300'
-                      : 'bg-[#e38154] text-white shadow-[5px_5px_0_#0f172a] hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[2px_2px_0_#0f172a]'
-                  }`}
-                >
-                  {publishingPost ? <><Loader2 size={16} className="animate-spin" /> Publication...</> : <><Share2 size={16} /> Publier</>}
-                </button>
-              )}
-            </div>
-          </DataCard>
-        )}
+        {activeTab === 'posts' && <PostSimple onPublie={() => setPostsCount(c => c + 1)} />}
 
         {activeTab === 'events' && (<>
         {showForm && (
