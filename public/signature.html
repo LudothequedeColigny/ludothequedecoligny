@@ -52,6 +52,10 @@
       <label for="fonction">Rôle</label>
       <input id="fonction" value="Bénévole référent" autocomplete="off">
     </div>
+    <div>
+      <label for="telephone">Téléphone (laisser vide pour ne pas l'afficher)</label>
+      <input id="telephone" value="06 71 41 56 96" autocomplete="off" inputmode="tel">
+    </div>
   </div>
 
   <div class="apercu" id="apercu"></div>
@@ -89,7 +93,13 @@
     </tr>`
   }
 
-  function signature(nom, fonction) {
+  // « 06 71 41 56 96 » → « tel:+33671415696 », pour appeler d'un toucher sur téléphone
+  function lienTelephone(numero) {
+    const chiffres = numero.replace(/[^\d+]/g, '')
+    return 'tel:' + (chiffres.startsWith('0') ? '+33' + chiffres.slice(1) : chiffres)
+  }
+
+  function signature(nom, fonction, telephone) {
     const lien = (href, texte, style) => `<a href="${href}" style="color:#0f172a;text-decoration:none;${style || ''}">${texte}</a>`
     const reseau = (href, texte) => lien(href, texte, 'color:#1a5f7a;font-weight:700')
     const reseaux = [reseau(FACEBOOK, 'Facebook'), INSTAGRAM && reseau(INSTAGRAM, 'Instagram')]
@@ -121,6 +131,7 @@
 
   <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse;width:100%">
     ${ligne('Mail', lien('mailto:' + MAIL, MAIL))}
+    ${telephone ? ligne('Tél.', lien(lienTelephone(telephone), echapper(telephone))) : ''}
     ${ligne('Site', lien(SITE, 'www.ludothequedecoligny.fr'))}
     ${ligne('Adresse', ADRESSE)}
     ${ligne('Suivre', reseaux)}
@@ -148,15 +159,17 @@
 
   const champNom = document.getElementById('nom')
   const champFonction = document.getElementById('fonction')
+  const champTelephone = document.getElementById('telephone')
   const apercu = document.getElementById('apercu')
   const message = document.getElementById('message')
 
   function dessiner() {
-    apercu.innerHTML = signature(champNom.value.trim() || 'Prénom Nom', champFonction.value.trim() || 'Bénévole')
+    apercu.innerHTML = signature(champNom.value.trim() || 'Prénom Nom', champFonction.value.trim() || 'Bénévole', champTelephone.value.trim())
     message.textContent = ''
   }
   champNom.addEventListener('input', dessiner)
   champFonction.addEventListener('input', dessiner)
+  champTelephone.addEventListener('input', dessiner)
   dessiner()
 
   document.getElementById('copier').addEventListener('click', async () => {

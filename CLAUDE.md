@@ -50,7 +50,7 @@ Le site est publié via Vercel.
 | toute autre | Page 404 | `src/pages/NotFound.jsx` |
 
 Hors application : `/signature.html` (`public/signature.html`, page autonome non référencée) fabrique la
-signature mail Outlook des bénévoles (nom et rôle modifiables, bouton « Copier »). Le bouton « Adhérer » y est
+signature mail Outlook des bénévoles (nom, rôle et téléphone modifiables, bouton « Copier »). Le bouton « Adhérer » y est
 une image (`public/signature/bouton-adherer.png`) : en code, Outlook dédoublait son contour (29/10/2026).
 
 L'ancienne adresse `/evenements` (page inachevée, supprimée en octobre 2026) renvoie vers `/vie-association`.
