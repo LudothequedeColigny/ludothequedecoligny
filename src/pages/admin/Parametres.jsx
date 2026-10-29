@@ -1206,6 +1206,7 @@ export default function Parametres() {
                       onChange={e => setTemplateForm(prev => ({ ...prev, layout: e.target.value }))}>
                       <option value="famille">Jour / Date / Heure</option>
                       <option value="soirees">Date longue + Heure</option>
+                      <option value="permanence">Permanence (boîte qui déborde) : places et style fixes</option>
                     </select>
                   </div>
 
@@ -1422,7 +1423,7 @@ export default function Parametres() {
                             </div>
                             <div>
                               <p className="text-white text-[10px] font-black uppercase leading-tight drop-shadow-md">{t.label}</p>
-                              <p className="text-white/60 text-[8px] font-medium mt-0.5">{t.font_family} · {t.font_size}pt · {t.layout === 'famille' ? 'Jour/Date/Heure' : 'Date+Heure+Lieu'}</p>
+                              <p className="text-white/60 text-[8px] font-medium mt-0.5">{t.font_family} · {t.font_size}pt · {t.layout === 'famille' ? 'Jour/Date/Heure' : t.layout === 'permanence' ? 'Permanence : date, horaire, adresse' : 'Date+Heure+Lieu'}</p>
                             </div>
                           </div>
                         </div>

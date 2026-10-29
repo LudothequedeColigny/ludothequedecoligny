@@ -222,6 +222,14 @@ chaque rangée, repères de coupe, réglette de 10 cm. Fiche d'un jeu : « Caté
 boîte (mm) » (remplie depuis MyLudo par `bgg-proxy`), bouton « Réimprimer l'étiquette » ; codes-barres enregistrés
 sans espaces.
 
+Générateur d'affiches (onglet de Communication, `src/pages/admin/GenerateurAffiche.jsx`) : modèles dans la table
+`affiche_templates`. Le format `permanence` (affiche « La boîte qui déborde », octobre 2026) ne se règle pas par zones :
+jour, numéro, mois, horaire et adresse sont redessinés par `src/services/affichePermanence.js` aux places du modèle SVG,
+en police Fraunces 144pt SuperSoft Black (libre, OFL : `public/fonts/fraunces-144pt-supersoft-black.otf`, choisie
+le 29/10/2026 à la place d'Aloha Nineties, réservée à l'usage personnel), puis recouverts de la tuile de grain du modèle
+(`public/affiches/grain-permanence.png`) ; export en 2480 × 3508. Le fond (affiche sans ces textes) et le SVG modifiable
+sont dans `Bureau/PERSO/Ludothèque/Affiche ludothèque/PERMANENCES LUDOTHEQUE/`.
+
 Toute publication vers Facebook/Instagram passe par `src/services/reseauxSociaux.js`
 (adresse du webhook Make, mise au carré des images, `publierSurReseaux`). Le scénario
 Make aiguille sur `photo_count` : 2 images ou plus → carrousel ; 1 image **hébergée chez nous**
