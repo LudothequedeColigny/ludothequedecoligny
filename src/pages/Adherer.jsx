@@ -48,10 +48,13 @@ export default function Adherer() {
   }, [])
 
   // Cotisation ludothèque du mois, comme sur « Comment emprunter »
-  const base = Number(s.prix_particulier) || 0
-  const fee = s.mode_adhesion_particulier === 'degressif'
-    ? Math.max(base - new Date().getMonth() * (Number(s.degressivite_mensuelle) || 0), Number(s.prix_minimum) || 0)
-    : base
+  const cotisation = (prix, degressivite, minimum, mode) => mode === 'degressif'
+    ? Math.max((Number(prix) || 0) - new Date().getMonth() * (Number(degressivite) || 0), Number(minimum) || 0)
+    : Number(prix) || 0
+  const fee = cotisation(s.prix_particulier, s.degressivite_mensuelle, s.prix_minimum, s.mode_adhesion_particulier)
+  const feeAsso = cotisation(s.prix_association, s.degressivite_association, s.prix_minimum_asso, s.mode_adhesion_association)
+  // Durée affichée : jusqu'au 31 décembre (dégressif) ou un an de date à date
+  const duree = mode => mode === 'degressif' ? "jusqu'au 31 décembre" : 'pour un an'
   // Adhésion à l'association, réglée dans Paramètres → Finance (10 € jusqu'ici)
   const pactes = Number(s.cotisation_pactes ?? 10) || 0
   const total = fee + pactes
@@ -90,7 +93,8 @@ export default function Adherer() {
     { icon: 'ludo-raison-tester.svg', color: '#1a5f7a', tint: '#e6f0f3', title: "Testez avant d'acheter", text: "Jouez un mois à la maison, et n'achetez que les jeux qui vous plaisent vraiment." },
     { icon: 'ludo-raison-unique.svg', color: '#e38154', tint: '#fdf1ea', title: 'Les jeux à usage unique', text: "Unlock!, escape games, enquêtes : on n'y joue qu'une fois. Ici, ils s'empruntent." },
     { icon: 'ludo-raison-maison.svg', color: '#1a5f7a', tint: '#e6f0f3', title: gameCount ? `${gameCount} jeux à la maison` : 'Des centaines de jeux', text: 'Un nouveau jeu toutes les deux semaines, des tout-petits aux grands-parents.' },
-    { icon: 'ludo-raison-prix.svg', color: '#e38154', tint: '#fdf1ea', title: "Le prix d'un seul jeu", text: pret ? `${total} € pour l'année : adhésion PACTES (${pactes} €) et ludothèque (${fee} €) comprises.` : "L'adhésion de l'année coûte moins cher qu'un jeu neuf." },
+    // Prix du moment lu dans les Paramètres : il change avec le mois (dégressif) et le type d'adhérent
+    { icon: 'ludo-raison-prix.svg', color: '#e38154', tint: '#fdf1ea', title: pret ? `Toute la ludothèque pour ${total} €` : 'Une adhésion à petit prix', text: pret ? `Pour tout le foyer, ${duree(s.mode_adhesion_particulier)} : adhésion PACTES (${pactes} €) et ludothèque (${fee} €) comprises. Structures : ${feeAsso} € ${duree(s.mode_adhesion_association)}, plus l'adhésion PACTES.` : 'Tous les tarifs sont sur la page Comment emprunter.' },
   ]
 
   const ETAPES = [
