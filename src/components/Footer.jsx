@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Mail, Facebook } from 'lucide-react'
+import { Mail, Facebook, Instagram } from 'lucide-react'
 import TitrePactes from './TitrePactes'
 import ContactModal from './ContactModal'
 
-const FACEBOOK_URL = 'https://www.facebook.com/groups/ludothequedecoligny?locale=fr_FR'
+const RESEAUX = [
+  { label: 'Facebook', href: 'https://www.facebook.com/groups/ludothequedecoligny?locale=fr_FR', Icon: Facebook },
+  { label: 'Instagram', href: 'https://www.instagram.com/ludothequedecoligny/', Icon: Instagram },
+]
 
 const NAV_LINKS = [
   { label: 'Accueil', to: '/' },
@@ -54,14 +57,22 @@ export default function Footer() {
           </button>
           <img src="/logo-pactes.svg" alt="Logo association PACTES" className="h-14" />
           <TitrePactes className="text-sm" />
-          <a
-            href={FACEBOOK_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400 transition-colors hover:text-[#1a5f7a]"
-          >
-            <Facebook size={16} /> Nous suivre sur Facebook
-          </a>
+          <div className="flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
+            Nous suivre
+            {RESEAUX.map(({ label, href, Icon }) => (
+              <a
+                key={label}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Nous suivre sur ${label}`}
+                title={label}
+                className="transition-colors hover:text-[#1a5f7a]"
+              >
+                <Icon size={18} />
+              </a>
+            ))}
+          </div>
         </div>
       </div>
 

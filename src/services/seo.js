@@ -10,6 +10,7 @@ import { useEffect } from 'react'
 export const SITE_URL = 'https://www.ludothequedecoligny.fr'
 const NOM_SITE = 'Ludothèque de Coligny'
 export const FACEBOOK_URL = 'https://www.facebook.com/groups/ludothequedecoligny'
+export const INSTAGRAM_URL = 'https://www.instagram.com/ludothequedecoligny/'
 
 function setMeta(attr, key, content) {
   let el = document.head.querySelector(`meta[${attr}="${key}"]`)
@@ -97,7 +98,7 @@ const ADRESSE = adresse => ({
  * hebdomadaires : on donne à Google chaque date d'ouverture des trois prochains
  * mois, ce qui évite qu'il affiche « Ouvert » les samedis où c'est fermé.
  */
-export function ficheLudotheque({ adresse, horaires, telephone, facebook = FACEBOOK_URL }) {
+export function ficheLudotheque({ adresse, horaires, telephone, facebook = FACEBOOK_URL, instagram = INSTAGRAM_URL }) {
   const creneaux = [
     { jour: horaires.horaire_1_jour, rang: horaires.horaire_1_rang, debut: horaires.horaire_1_debut, fin: horaires.horaire_1_fin, actif: true },
     { jour: horaires.horaire_2_jour, rang: horaires.horaire_2_rang, debut: horaires.horaire_2_debut, fin: horaires.horaire_2_fin, actif: horaires.horaire_2_actif === 'true' },
@@ -118,7 +119,7 @@ export function ficheLudotheque({ adresse, horaires, telephone, facebook = FACEB
     priceRange: '€',
     areaServed: ['Coligny', 'Saint-Amour', 'Marboz', 'Beaupont', 'Pirajoux', 'Bresse', 'Ain'],
     parentOrganization: { '@type': 'Organization', name: 'Association PACTES' },
-    ...(facebook ? { sameAs: [facebook] } : {}),
+    ...(facebook || instagram ? { sameAs: [facebook, instagram].filter(Boolean) } : {}),
     ...(creneaux.length ? { openingHoursSpecification: datesOuverture(creneaux) } : {}),
   }
 }
