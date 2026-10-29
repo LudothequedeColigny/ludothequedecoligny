@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Download, Eye, ArrowRight, Loader2, X } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
 import MaskIcon from '../../components/site/MaskIcon'
-import { textesPermanence, dessinerPermanence, chargerPolicePermanence, GRAIN_URL } from '../../services/affichePermanence'
+import { textesPermanence, dessinerPermanence, chargerPolicePermanence, chargerGrainPermanence } from '../../services/affichePermanence'
 
 // Config chargée depuis Supabase (affiche_templates)
 
@@ -181,14 +181,10 @@ export default function GenerateurAffiche({ onCreateEvent }) {
   useEffect(() => {
     if (!estPermanence || permanencePrete) return
     let annule = false
-    const grain = new window.Image()
-    const grainCharge = new Promise(r => { grain.onload = r; grain.onerror = r })
-    grain.src = GRAIN_URL
-    Promise.all([chargerPolicePermanence(), grainCharge])
-      .catch(e => console.warn('Affiche permanence :', e))
-      .finally(() => {
+    Promise.all([chargerPolicePermanence().catch(e => console.warn('Affiche permanence :', e)), chargerGrainPermanence()])
+      .then(([, grain]) => {
         if (annule) return
-        grainRef.current = grain.naturalWidth ? grain : null
+        grainRef.current = grain
         setPermanencePrete(true)
       })
     return () => { annule = true }

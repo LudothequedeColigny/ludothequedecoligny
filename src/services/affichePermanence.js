@@ -126,3 +126,20 @@ export async function chargerPolicePermanence() {
   await face.load()
   document.fonts.add(face)
 }
+
+let grainEnCours = null
+// tuile de grain, chargée une fois (null si elle manque : les textes restent alors sans grain)
+export function chargerGrainPermanence() {
+  if (!grainEnCours) {
+    grainEnCours = new Promise(resolve => {
+      const img = new window.Image()
+      img.onload = () => resolve(img)
+      img.onerror = () => resolve(null)
+      img.src = GRAIN_URL
+    })
+  }
+  return grainEnCours
+}
+
+// textes d'exemple pour l'aperçu des Paramètres
+export const EXEMPLE_PERMANENCE = { jour: 'samedi', numero: '14', mois: 'novembre', horaire: '10h – 14h', adresse: '419 Grande Rue à Coligny' }

@@ -7,6 +7,7 @@ import ConfirmModal from '../../components/admin/ConfirmModal'
 import { useRef } from 'react'
 import { UserPlus, Save, Loader2, X, ChevronRight, Info, CheckCircle2, Trash2, Clock, MapPin, Plus, Edit2, Target, Eye, Download, KeyRound } from 'lucide-react'
 import MaskIcon from '../../components/site/MaskIcon'
+import { dessinerPermanence, chargerPolicePermanence, chargerGrainPermanence, EXEMPLE_PERMANENCE } from '../../services/affichePermanence'
 import CategoriesJeux from '../../components/admin/CategoriesJeux'
 
 export default function Parametres() {
@@ -65,7 +66,7 @@ export default function Parametres() {
     templateForm.font_family2, templateForm.font_size2, templateForm.color2, templateForm.text_align2,
     templateForm.x1, templateForm.y1, templateForm.w1, templateForm.h1,
     templateForm.x2, templateForm.y2, templateForm.w2, templateForm.h2,
-    previewImg
+    templateForm.layout, previewImg
   ])
 
   const [confirmModal, setConfirmModal] = useState({ show: false, title: '', message: '' })
@@ -292,9 +293,15 @@ export default function Parametres() {
     const ctx = canvas.getContext('2d')
     const img = new window.Image()
     img.crossOrigin = 'anonymous'
-    img.onload = () => {
+    img.onload = async () => {
       ctx.clearRect(0, 0, 794, 1123)
       ctx.drawImage(img, 0, 0, 794, 1123)
+      // modèle « Permanence » : textes aux places fixes du modèle, montrés avec un exemple
+      if (tf.layout === 'permanence') {
+        await chargerPolicePermanence().catch(() => {})
+        dessinerPermanence(canvas, EXEMPLE_PERMANENCE, await chargerGrainPermanence())
+        return
+      }
       if (tf.x1 != null && tf.w1 > 0)
         drawZoneRect(ctx, tf.x1, tf.y1, tf.w1, tf.h1, '#e38154', '1', tf.color, tf.font_family, tf.font_size, 'Samedi 14 juin 2025', tf.text_align || 'center')
       if (tf.x2 != null && tf.w2 > 0)
@@ -1210,7 +1217,15 @@ export default function Parametres() {
                     </select>
                   </div>
 
-                  {/* Repères de positionnement */}
+                  {templateForm.layout === 'permanence' ? (
+                    <div className="space-y-1.5 rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4">
+                      <p className="text-[11px] font-extrabold text-[#1a5f7a]">Emplacements fixés d'après le modèle de l'affiche</p>
+                      <p className="text-[10px] font-medium leading-relaxed text-slate-500">
+                        Le jour, le numéro, le mois, l'horaire et l'adresse sont placés exactement comme sur l'affiche « La boîte qui déborde »,
+                        dans sa police et avec son grain : rien à régler. L'aperçu montre un exemple.
+                      </p>
+                    </div>
+                  ) : (
                   <div className="space-y-3">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
                       <Target size={10} /> Positionnement (cliquez sur l'aperçu)
@@ -1346,6 +1361,7 @@ export default function Parametres() {
                     )}
                     <p className="text-[8px] text-slate-300 italic ml-1">La zone ① (Date) est obligatoire. La zone ② (Lieu) est optionnelle.</p>
                   </div>
+                  )}
 
                   {/* Boutons */}
                   <div className="flex gap-2 pt-2">
@@ -1375,11 +1391,11 @@ export default function Parametres() {
                       <div className="rounded-2xl border-2 border-slate-100 shadow-lg" style={{ maxHeight: '65vh', overflowY: 'auto' }}>
                         <canvas
                           width={794} height={1123}
-                          style={{ width: '100%', height: 'auto', display: 'block', cursor: 'crosshair', userSelect: 'none' }}
-                          onMouseDown={handleCanvasMouseDown}
-                          onMouseMove={handleCanvasMouseMove}
-                          onMouseUp={handleCanvasMouseUp}
-                          onMouseLeave={handleCanvasMouseUp}
+                          style={{ width: '100%', height: 'auto', display: 'block', cursor: templateForm.layout === 'permanence' ? 'default' : 'crosshair', userSelect: 'none' }}
+                          onMouseDown={templateForm.layout === 'permanence' ? undefined : handleCanvasMouseDown}
+                          onMouseMove={templateForm.layout === 'permanence' ? undefined : handleCanvasMouseMove}
+                          onMouseUp={templateForm.layout === 'permanence' ? undefined : handleCanvasMouseUp}
+                          onMouseLeave={templateForm.layout === 'permanence' ? undefined : handleCanvasMouseUp}
                           ref={el => {
                             if (el) {
                               previewCanvasRef.current = el
@@ -1389,7 +1405,7 @@ export default function Parametres() {
                         />
                       </div>
                       <p className="text-center text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                        ↑ Cliquez-glissez pour définir la zone ① ou ②
+                        {templateForm.layout === 'permanence' ? 'Exemple de rendu' : '↑ Cliquez-glissez pour définir la zone ① ou ②'}
                       </p>
                     </div>
                   ) : (
