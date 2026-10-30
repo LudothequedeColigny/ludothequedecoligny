@@ -1,0 +1,3 @@
+Roboto Bold (Christian Robertson, Google) : police libre, licence Apache 2.0
+https://www.apache.org/licenses/LICENSE-2.0
+Utilisée par les affiches « Soirée jeux » du générateur (src/services/afficheSoiree.js).

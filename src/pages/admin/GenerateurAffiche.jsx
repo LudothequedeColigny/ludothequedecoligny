@@ -3,6 +3,7 @@ import { Download, Eye, ArrowRight, Loader2, X } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
 import MaskIcon from '../../components/site/MaskIcon'
 import { textesPermanence, dessinerPermanence, chargerPolicePermanence, chargerGrainPermanence } from '../../services/affichePermanence'
+import { textesSoiree, dessinerSoiree, chargerPolicesSoiree, chargerGrainSoiree } from '../../services/afficheSoiree'
 
 // Config chargée depuis Supabase (affiche_templates)
 
@@ -97,6 +98,8 @@ export default function GenerateurAffiche({ onCreateEvent }) {
   const [adresse, setAdresse] = useState('419 Grande Rue à Coligny')
   const [permanencePrete, setPermanencePrete] = useState(false)
   const grainRef = useRef(null)
+  const [soireePrete, setSoireePrete] = useState(false)
+  const grainSoireeRef = useRef(null)
   const [fontLoaded, setFontLoaded] = useState(false)
   const [imgLoaded, setImgLoaded] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -110,6 +113,9 @@ export default function GenerateurAffiche({ onCreateEvent }) {
 
   const config = templates.find(t => t.id === selectedId) || null
   const estPermanence = config?.layout === 'permanence'
+  const estSoireeTitre = config?.layout === 'soiree-titre'
+  // modèles dont le lieu s'écrit sur l'affiche et passe dans l'événement créé
+  const avecLieu = config?.layout === 'soirees' || estSoireeTitre
 
   // ── Charger les templates depuis Supabase ──
   useEffect(() => {
@@ -190,6 +196,19 @@ export default function GenerateurAffiche({ onCreateEvent }) {
     return () => { annule = true }
   }, [estPermanence, permanencePrete])
 
+  // ── Polices et grain des affiches « Soirée jeux » (date dans le style du titre) ──
+  useEffect(() => {
+    if (!estSoireeTitre || soireePrete) return
+    let annule = false
+    Promise.all([chargerPolicesSoiree().catch(e => console.warn('Affiche soirée :', e)), chargerGrainSoiree()])
+      .then(([, grain]) => {
+        if (annule) return
+        grainSoireeRef.current = grain
+        setSoireePrete(true)
+      })
+    return () => { annule = true }
+  }, [estSoireeTitre, soireePrete])
+
   // ── Charger le fond quand le template change ──
   useEffect(() => {
     if (!config) return
@@ -219,6 +238,12 @@ export default function GenerateurAffiche({ onCreateEvent }) {
       return
     }
 
+    if (config.layout === 'soiree-titre') {
+      if (!soireePrete) return
+      dessinerSoiree(canvas, textesSoiree(selectedDate, selectedEndTime, selectedLocation), grainSoireeRef.current)
+      return
+    }
+
     const { x1, y1, w1, h1, fontSize, fontFamily, color, layout,
             x2, y2, w2, h2, fontSize2, color2, fontFamily2,
             textAlign, textAlign2 } = config
@@ -243,7 +268,7 @@ export default function GenerateurAffiche({ onCreateEvent }) {
     if (x2 != null && w2 > 0 && selectedLocation) {
       drawTextInZone(ctx, [selectedLocation], x2, y2, w2, h2, fontSize2, fontFamily2, color2, 'normal', textAlign2 || 'center')
     }
-  }, [selectedDate, selectedEndTime, selectedLocation, adresse, config, imgLoaded, fontLoaded, permanencePrete])
+  }, [selectedDate, selectedEndTime, selectedLocation, adresse, config, imgLoaded, fontLoaded, permanencePrete, soireePrete])
 
   useEffect(() => { draw(canvasRef.current) }, [draw])
 
@@ -292,7 +317,7 @@ export default function GenerateurAffiche({ onCreateEvent }) {
         date: selectedDate,
         end_time: selectedEndTime,
         title: config?.label || '',
-        location: config?.layout === 'soirees' ? selectedLocation : '',
+        location: avecLieu ? selectedLocation : '',
         image_url: dataUrl,
       })
     } catch (e) {
@@ -301,7 +326,7 @@ export default function GenerateurAffiche({ onCreateEvent }) {
         date: selectedDate,
         end_time: selectedEndTime,
         title: config?.label || '',
-        location: config?.layout === 'soirees' ? selectedLocation : '',
+        location: avecLieu ? selectedLocation : '',
         image_url: '',
       })
     } finally {
@@ -309,7 +334,7 @@ export default function GenerateurAffiche({ onCreateEvent }) {
     }
   }
 
-  const canDownload = !!selectedDate && imgLoaded && fontLoaded && (!estPermanence || permanencePrete)
+  const canDownload = !!selectedDate && imgLoaded && fontLoaded && (!estPermanence || permanencePrete) && (!estSoireeTitre || soireePrete)
 
   return (
     <div className="overflow-hidden rounded-[34px] border-2 border-[#0f172a] bg-white shadow-[6px_6px_0_#e38154]">

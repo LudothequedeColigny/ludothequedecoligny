@@ -229,6 +229,20 @@ en police Fraunces 144pt SuperSoft Black (libre, OFL : `public/fonts/fraunces-14
 le 29/10/2026 à la place d'Aloha Nineties, réservée à l'usage personnel), puis recouverts de la tuile de grain du modèle
 (`public/affiches/grain-permanence.png`) ; export en 2480 × 3508. Le fond (affiche sans ces textes) et le SVG modifiable
 sont dans `Bureau/PERSO/Ludothèque/Affiche ludothèque/PERMANENCES LUDOTHEQUE/`.
+Le modèle « Soirées jeux » (format `soirees`, zones date et lieu en haut) a reçu le 30/10/2026 le fond « profondeur »
+(lumière, ombres projetées, objets en volume, titre en Lilita One, libre) : `event-font/fond-soiree-jeux-profondeur.jpg`.
+L'ancien fond `FOND - Soirees jeux de societe.png` reste dans le stockage (retour en arrière : remettre son adresse dans
+`affiche_templates.url`). Fond et SVG modifiable : `Bureau/PERSO/Ludothèque/Affiche ludothèque/SOIREES JEUX/`.
+Variantes de la soirée jeux, même format `soirees` et mêmes zones (copiées du modèle « Soirées jeux ») : « Soirées jeux –
+Catan » (30/10/2026, fond `event-font/fond-soiree-jeux-catan.jpg`, table verte). Le nom du modèle devient le titre de
+l'événement créé depuis le générateur : il doit contenir « soirée » pour être reconnu (`typeEvenement`). Fichiers dans
+`SOIREES JEUX/Variantes/`. Zone du lieu descendue le 30/10/2026 (`y2` 57 → 66) sur les deux modèles de soirée, pour
+l'espacer de l'horaire comme l'horaire l'est de la date.
+Format `soiree-titre` (choix de Victor le 30/10/2026, « option A ») : la date s'écrit en haut, entre le paquet de cartes
+et les dés, dans le style du titre (Lilita One crème, contour et épaisseur noirs, sans l'année), avec « horaire · lieu »
+dessous en Roboto blanc ; places fixes, sans zones, réduites seules si le texte est long ; grain du fond reposé dessus
+(`public/affiches/grain-soiree.png`). Dessin : `src/services/afficheSoiree.js` ; polices hébergées
+`public/fonts/lilita-one.ttf` et `roboto-bold.ttf`. Toute nouvelle variante doit laisser cette bande libre en haut.
 
 Toute publication vers Facebook/Instagram passe par `src/services/reseauxSociaux.js`
 (adresse du webhook Make, mise au carré des images, `publierSurReseaux`). Le scénario

@@ -8,6 +8,7 @@ import { useRef } from 'react'
 import { UserPlus, Save, Loader2, X, ChevronRight, Info, CheckCircle2, Trash2, Clock, MapPin, Plus, Edit2, Target, Eye, Download, KeyRound } from 'lucide-react'
 import MaskIcon from '../../components/site/MaskIcon'
 import { dessinerPermanence, chargerPolicePermanence, chargerGrainPermanence, EXEMPLE_PERMANENCE } from '../../services/affichePermanence'
+import { dessinerSoiree, chargerPolicesSoiree, chargerGrainSoiree, EXEMPLE_SOIREE } from '../../services/afficheSoiree'
 import CategoriesJeux from '../../components/admin/CategoriesJeux'
 
 export default function Parametres() {
@@ -300,6 +301,12 @@ export default function Parametres() {
       if (tf.layout === 'permanence') {
         await chargerPolicePermanence().catch(() => {})
         dessinerPermanence(canvas, EXEMPLE_PERMANENCE, await chargerGrainPermanence())
+        return
+      }
+      // modèles « Soirée jeux » : date en haut dans le style du titre, montrée avec un exemple
+      if (tf.layout === 'soiree-titre') {
+        await chargerPolicesSoiree().catch(() => {})
+        dessinerSoiree(canvas, EXEMPLE_SOIREE, await chargerGrainSoiree())
         return
       }
       if (tf.x1 != null && tf.w1 > 0)
@@ -1214,6 +1221,7 @@ export default function Parametres() {
                       <option value="famille">Jour / Date / Heure</option>
                       <option value="soirees">Date longue + Heure</option>
                       <option value="permanence">Permanence (boîte qui déborde) : places et style fixes</option>
+                      <option value="soiree-titre">Soirée jeux (date en haut, style du titre) : places et style fixes</option>
                     </select>
                   </div>
 
@@ -1223,6 +1231,14 @@ export default function Parametres() {
                       <p className="text-[10px] font-medium leading-relaxed text-slate-500">
                         Le jour, le numéro, le mois, l'horaire et l'adresse sont placés exactement comme sur l'affiche « La boîte qui déborde »,
                         dans sa police et avec son grain : rien à régler. L'aperçu montre un exemple.
+                      </p>
+                    </div>
+                  ) : templateForm.layout === 'soiree-titre' ? (
+                    <div className="space-y-1.5 rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] p-4">
+                      <p className="text-[11px] font-extrabold text-[#1a5f7a]">Emplacements fixés d'après les affiches « Soirée jeux »</p>
+                      <p className="text-[10px] font-medium leading-relaxed text-slate-500">
+                        La date s'écrit en haut, entre le paquet de cartes et les dés, dans le style du titre ; l'horaire et le lieu dessous.
+                        Même place sur toutes les variantes : rien à régler. L'aperçu montre un exemple.
                       </p>
                     </div>
                   ) : (
@@ -1391,11 +1407,11 @@ export default function Parametres() {
                       <div className="rounded-2xl border-2 border-slate-100 shadow-lg" style={{ maxHeight: '65vh', overflowY: 'auto' }}>
                         <canvas
                           width={794} height={1123}
-                          style={{ width: '100%', height: 'auto', display: 'block', cursor: templateForm.layout === 'permanence' ? 'default' : 'crosshair', userSelect: 'none' }}
-                          onMouseDown={templateForm.layout === 'permanence' ? undefined : handleCanvasMouseDown}
-                          onMouseMove={templateForm.layout === 'permanence' ? undefined : handleCanvasMouseMove}
-                          onMouseUp={templateForm.layout === 'permanence' ? undefined : handleCanvasMouseUp}
-                          onMouseLeave={templateForm.layout === 'permanence' ? undefined : handleCanvasMouseUp}
+                          style={{ width: '100%', height: 'auto', display: 'block', cursor: ['permanence', 'soiree-titre'].includes(templateForm.layout) ? 'default' : 'crosshair', userSelect: 'none' }}
+                          onMouseDown={['permanence', 'soiree-titre'].includes(templateForm.layout) ? undefined : handleCanvasMouseDown}
+                          onMouseMove={['permanence', 'soiree-titre'].includes(templateForm.layout) ? undefined : handleCanvasMouseMove}
+                          onMouseUp={['permanence', 'soiree-titre'].includes(templateForm.layout) ? undefined : handleCanvasMouseUp}
+                          onMouseLeave={['permanence', 'soiree-titre'].includes(templateForm.layout) ? undefined : handleCanvasMouseUp}
                           ref={el => {
                             if (el) {
                               previewCanvasRef.current = el
@@ -1405,7 +1421,7 @@ export default function Parametres() {
                         />
                       </div>
                       <p className="text-center text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                        {templateForm.layout === 'permanence' ? 'Exemple de rendu' : '↑ Cliquez-glissez pour définir la zone ① ou ②'}
+                        {['permanence', 'soiree-titre'].includes(templateForm.layout) ? 'Exemple de rendu' : '↑ Cliquez-glissez pour définir la zone ① ou ②'}
                       </p>
                     </div>
                   ) : (
@@ -1439,7 +1455,7 @@ export default function Parametres() {
                             </div>
                             <div>
                               <p className="text-white text-[10px] font-black uppercase leading-tight drop-shadow-md">{t.label}</p>
-                              <p className="text-white/60 text-[8px] font-medium mt-0.5">{t.font_family} · {t.font_size}pt · {t.layout === 'famille' ? 'Jour/Date/Heure' : t.layout === 'permanence' ? 'Permanence : date, horaire, adresse' : 'Date+Heure+Lieu'}</p>
+                              <p className="text-white/60 text-[8px] font-medium mt-0.5">{t.font_family} · {t.font_size}pt · {t.layout === 'famille' ? 'Jour/Date/Heure' : t.layout === 'permanence' ? 'Permanence : date, horaire, adresse' : t.layout === 'soiree-titre' ? 'Soirée jeux : date, horaire, lieu' : 'Date+Heure+Lieu'}</p>
                             </div>
                           </div>
                         </div>
