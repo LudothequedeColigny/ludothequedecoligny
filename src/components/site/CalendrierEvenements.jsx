@@ -11,6 +11,10 @@ import { telecharger } from '../../services/diapos/partage'
 
 const cleMois = m => `${m.annee}-${m.mois}`
 
+// Image d'un rendez-vous en fond : le centre de l'affiche (le titre, en haut, reste hors cadre)
+const fondImage = url => `url(${JSON.stringify(url)})`
+const CADRAGE = 'center 45%'
+
 /**
  * Fenêtre « Calendrier » de l'accueil : tous les rendez-vous à venir, mois par mois,
  * et export des mois choisis en images (publications) ou en PDF A4.
@@ -134,6 +138,7 @@ export default function CalendrierEvenements({ open, onClose, evenements, onChoi
           const passe = c.cle < aujourdhui
           const choisi = jourChoisi === c.cle
           const cat = liste.length ? CATEGORIES[categorie(liste[0])] : null
+          const image = liste.find(e => e.image_url)?.image_url
           return (
             <button
               key={c.cle}
@@ -148,19 +153,26 @@ export default function CalendrierEvenements({ open, onClose, evenements, onChoi
                 boxShadow: choisi ? '0 0 0 3px #e38154' : liste.length ? '3px 3px 0 #0f172a' : 'none',
               }}
             >
-              <span className={`font-display text-[13px] font-extrabold leading-none sm:text-[15px] ${
+              {image && (
+                <>
+                  <span aria-hidden className="absolute inset-0 bg-cover" style={{ backgroundImage: fondImage(image), backgroundPosition: CADRAGE }} />
+                  {/* bandeau de la couleur du rendez-vous en haut, pour lire le jour et l'heure */}
+                  <span aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${cat.fond} 0%, ${cat.fond} 26%, transparent 70%)` }} />
+                </>
+              )}
+              <span className={`relative font-display text-[13px] font-extrabold leading-none sm:text-[15px] ${
                 c.cle === aujourdhui ? 'rounded-full bg-[#e38154] px-1.5 py-0.5 text-white' : liste.length ? 'text-[#0f172a]' : 'text-slate-400'
               }`}>
                 {c.jour}
               </span>
               {/* Téléphone : une pastille par rendez-vous */}
-              <span className="mt-auto flex gap-1 sm:hidden">
+              <span className="relative mt-auto flex gap-1 sm:hidden">
                 {liste.slice(0, 3).map(e => (
-                  <span key={e.id} className="h-2 w-2 rounded-full" style={{ background: CATEGORIES[categorie(e)].couleur }} />
+                  <span key={e.id} className="h-2.5 w-2.5 rounded-full border-[1.5px] border-white" style={{ background: CATEGORIES[categorie(e)].couleur }} />
                 ))}
               </span>
               {/* Ordinateur : l'heure et le titre */}
-              <span className="mt-1 hidden w-full flex-col gap-1 sm:flex">
+              <span className="relative mt-1 hidden w-full flex-col gap-1 sm:flex">
                 {liste.slice(0, 2).map(e => (
                   <span
                     key={e.id}
@@ -170,7 +182,7 @@ export default function CalendrierEvenements({ open, onClose, evenements, onChoi
                     {horaire(e).split(' ')[0]} · {e.title}
                   </span>
                 ))}
-                {liste.length > 2 && <span className="text-[10px] font-extrabold text-slate-500">+{liste.length - 2}</span>}
+                {liste.length > 2 && <span className="w-fit rounded-full bg-white px-1.5 text-[10px] font-extrabold text-slate-500">+{liste.length - 2}</span>}
               </span>
             </button>
           )
@@ -202,20 +214,33 @@ export default function CalendrierEvenements({ open, onClose, evenements, onChoi
                   key={e.id}
                   type="button"
                   onClick={() => onChoisir(e)}
-                  className="flex items-center gap-3.5 rounded-[20px] border-2 border-[#0f172a] bg-white p-3 text-left shadow-[4px_4px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0f172a]"
+                  className="relative flex items-center gap-3.5 overflow-hidden rounded-[20px] border-2 border-[#0f172a] bg-white p-3 text-left shadow-[4px_4px_0_#0f172a] transition-[transform,box-shadow] duration-200 hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0f172a]"
                 >
-                  <span className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-[14px] border-2 border-[#0f172a] text-white" style={{ background: cat.couleur }}>
+                  {e.image_url && (
+                    // l'affiche à droite, fondue vers le texte
+                    <span
+                      aria-hidden
+                      className="absolute inset-y-0 right-0 w-[28%] bg-[length:190%_auto] bg-[center_62%] sm:w-[45%] sm:bg-cover sm:bg-[center_60%]"
+                      style={{
+                        backgroundImage: fondImage(e.image_url),
+                        WebkitMaskImage: 'linear-gradient(90deg, transparent 0%, #000 70%)',
+                        maskImage: 'linear-gradient(90deg, transparent 0%, #000 70%)',
+                      }}
+                    />
+                  )}
+                  <span className="relative flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-[14px] border-2 border-[#0f172a] text-white" style={{ background: cat.couleur }}>
                     <span className="font-display text-[18px] font-extrabold leading-none">{Number(String(e.date).slice(8, 10))}</span>
                     <span className="text-[8.5px] font-extrabold uppercase tracking-[0.06em]">{MOIS_COURTS[Number(String(e.date).slice(5, 7)) - 1]}</span>
                   </span>
-                  <span className="min-w-0 flex-1">
+                  <span className="relative min-w-0 flex-1">
                     <span className="block text-[10px] font-extrabold uppercase tracking-[0.14em]" style={{ color: cat.couleur }}>
                       {jourLong(e)} · {horaire(e)}
                     </span>
-                    <span className="block truncate font-display text-[16px] font-extrabold tracking-[-0.02em]">{e.title}</span>
-                    {e.location && <span className="block truncate text-[12px] text-slate-500">{e.location}</span>}
+                    {/* sur téléphone, le titre et le lieu s'arrêtent avant l'image */}
+                    <span className={`block truncate font-display text-[16px] font-extrabold tracking-[-0.02em] ${e.image_url ? 'pr-[18%] sm:pr-0' : ''}`}>{e.title}</span>
+                    {e.location && <span className={`block truncate text-[12px] text-slate-500 ${e.image_url ? 'pr-[18%] sm:pr-0' : ''}`}>{e.location}</span>}
                   </span>
-                  <span className="hidden shrink-0 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#1a5f7a] sm:block">Détails →</span>
+                  <span className="relative hidden shrink-0 rounded-full border-2 border-[#0f172a] bg-white px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#1a5f7a] sm:block">Détails →</span>
                 </button>
               )
             })}

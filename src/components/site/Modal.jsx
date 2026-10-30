@@ -59,24 +59,25 @@ export default function Modal({
       />
 
       <div
-        className={`anim-modal-in relative w-full rounded-[36px] border-2 border-[#0f172a] bg-white ${
-          scroll ? 'max-h-[90vh] overflow-y-auto overflow-x-hidden' : 'overflow-hidden'
-        } ${panelClassName}`}
+        className={`anim-modal-in relative w-full overflow-hidden rounded-[36px] border-2 border-[#0f172a] bg-white ${scroll ? '' : panelClassName}`}
         style={{ maxWidth, boxShadow: `12px 12px 0 ${shadowColor}` }}
       >
-        {showClose && (
-          <button
-            onClick={onClose}
-            aria-label="Fermer"
-            className={`absolute right-4 top-4 z-[3] flex h-11 w-11 items-center justify-center rounded-[14px] border-2 border-[#0f172a] text-base font-extrabold text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white ${
-              closeTone === 'cream' ? 'bg-[#fdfaf6]' : 'bg-white'
-            }`}
-          >
-            ✕
-          </button>
-        )}
+        {/* Contenu qui défile : la barre de défilement reste dans le panneau, loin des coins arrondis */}
+        <div className={scroll ? `defilement-fenetre relative max-h-[90vh] overflow-y-auto overflow-x-hidden ${panelClassName}` : 'contents'}>
+          {showClose && (
+            <button
+              onClick={onClose}
+              aria-label="Fermer"
+              className={`absolute right-4 top-4 z-[3] flex h-11 w-11 items-center justify-center rounded-[14px] border-2 border-[#0f172a] text-base font-extrabold text-[#1a5f7a] transition-colors hover:bg-[#e38154] hover:text-white ${
+                closeTone === 'cream' ? 'bg-[#fdfaf6]' : 'bg-white'
+              }`}
+            >
+              ✕
+            </button>
+          )}
 
-        {children}
+          {children}
+        </div>
 
         {strip && <div className="h-2.5 border-t-2 border-[#0f172a] bg-[#e38154]" />}
       </div>
