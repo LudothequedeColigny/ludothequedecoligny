@@ -14,7 +14,8 @@ import { BTN_PRIMARY, INPUT } from './styles'
  * puis le serveur envoie un mail de bienvenue avec le lien de désinscription.
  * Les abonnés reçoivent ensuite les mails d'actualités de l'écran Communication.
  */
-export default function RecevoirDates() {
+// sansCadre : posé directement sur le fond de la page (accueil), sans bulle contourée
+export default function RecevoirDates({ sansCadre = false }) {
   const [email, setEmail] = useState('')
   const [etat, setEtat] = useState('saisie') // saisie | envoi | fait | erreur
 
@@ -31,14 +32,29 @@ export default function RecevoirDates() {
 
   return (
     <section className="px-4 pt-14 md:px-10 md:pt-20">
-      <Reveal className="mx-auto flex max-w-[1180px] flex-col gap-6 rounded-[32px] border-2 border-[#0f172a] bg-[#fdf1ea] p-7 shadow-[8px_8px_0_#e38154] md:flex-row md:items-center md:gap-10 md:rounded-[44px] md:p-11">
+      <Reveal
+        className={sansCadre
+          ? 'mx-auto flex max-w-[1180px] flex-col gap-6 border-t-2 border-[#0f172a]/10 pt-12 md:flex-row md:items-center md:gap-10 md:pt-16'
+          : 'mx-auto flex max-w-[1180px] flex-col gap-6 rounded-[32px] border-2 border-[#0f172a] bg-[#fdf1ea] p-7 shadow-[8px_8px_0_#e38154] md:flex-row md:items-center md:gap-10 md:rounded-[44px] md:p-11'}
+      >
         <div className="min-w-0 md:flex-1">
-          <div className="mb-4 flex h-[58px] w-[58px] items-center justify-center rounded-[20px] border-2 border-[#0f172a] bg-white text-[#e38154]">
-            <MaskIcon file="ludo-dates-mail.svg" size={34} color="currentColor" />
-          </div>
-          <h2 className="mb-2 font-display text-[24px] font-extrabold leading-[1.1] tracking-[-0.04em] md:text-[34px]">
-            Ne ratez plus <span className="text-[#e38154]">une soirée jeux</span>
-          </h2>
+          {sansCadre ? (
+            <div className="mb-3 flex items-center gap-3.5">
+              <MaskIcon file="ludo-dates-mail.svg" size={44} color="#e38154" className="shrink-0" />
+              <h2 className="text-balance font-display text-[24px] font-extrabold leading-[1.1] tracking-[-0.04em] md:text-[34px]">
+                Ne ratez plus <span className="text-[#e38154]">une soirée jeux</span>
+              </h2>
+            </div>
+          ) : (
+            <>
+              <div className="mb-4 flex h-[58px] w-[58px] items-center justify-center rounded-[20px] border-2 border-[#0f172a] bg-white text-[#e38154]">
+                <MaskIcon file="ludo-dates-mail.svg" size={34} color="currentColor" />
+              </div>
+              <h2 className="mb-2 font-display text-[24px] font-extrabold leading-[1.1] tracking-[-0.04em] md:text-[34px]">
+                Ne ratez plus <span className="text-[#e38154]">une soirée jeux</span>
+              </h2>
+            </>
+          )}
           <p className="text-[14.5px] font-medium leading-[1.6] text-slate-600">
             Recevez les prochaines dates par e-mail, une fois par mois au plus. Pas besoin d'être adhérent.
           </p>

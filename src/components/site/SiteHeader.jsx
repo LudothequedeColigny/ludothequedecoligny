@@ -81,7 +81,7 @@ export default function SiteHeader() {
             <div className="flex shrink-0 items-center gap-2 xl:hidden">
               <Link
                 to="/adherer"
-                className="flex h-11 items-center rounded-[14px] border-2 border-[#0f172a] bg-[#e38154] px-3 text-[10px] font-extrabold uppercase tracking-[0.12em] text-white shadow-[3px_3px_0_#0f172a]"
+                className="flex h-11 items-center rounded-[14px] border-2 border-[#0f172a] bg-[#e38154] px-3 text-[12px] font-extrabold uppercase tracking-[0.1em] text-white shadow-[3px_3px_0_#0f172a]"
               >
                 Adhérer
               </Link>

@@ -14,6 +14,7 @@ const NAV_LINKS = [
   { label: 'Catalogue', to: '/catalogue' },
   { label: 'Comment emprunter', to: '/comment-emprunter' },
   { label: 'La vie de la ludothèque', to: '/vie-association' },
+  { label: 'Adhérer', to: '/adherer' },
 ]
 
 export default function Footer() {
@@ -32,7 +33,7 @@ export default function Footer() {
 
         {/* Navigation */}
         <div className="flex flex-col items-center gap-3">
-          <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400">
+          <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-500">
             Navigation
           </span>
           {NAV_LINKS.map((link) => (
@@ -57,7 +58,7 @@ export default function Footer() {
           </button>
           <img src="/logo-pactes.svg" alt="Logo association PACTES" className="h-14" />
           <TitrePactes className="text-sm" />
-          <div className="flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
+          <div className="flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
             Nous suivre
             {RESEAUX.map(({ label, href, Icon }) => (
               <a
@@ -77,8 +78,8 @@ export default function Footer() {
       </div>
 
       <div className="mx-auto mt-9 max-w-[1180px] border-t border-slate-200 pt-5 text-center">
-        <p className="text-xs text-slate-400">© {new Date().getFullYear()} Association PACTES — Ludothèque de Coligny</p>
-        <p className="mt-2 flex justify-center gap-4 text-xs text-slate-400">
+        <p className="text-xs text-slate-500">© {new Date().getFullYear()} Association PACTES — Ludothèque de Coligny</p>
+        <p className="mt-2 flex justify-center gap-4 text-xs text-slate-500">
           <Link to="/mentions-legales" className="underline-offset-2 transition-colors hover:text-[#1a5f7a] hover:underline">Mentions légales</Link>
           <Link to="/confidentialite" className="underline-offset-2 transition-colors hover:text-[#1a5f7a] hover:underline">Confidentialité</Link>
         </p>

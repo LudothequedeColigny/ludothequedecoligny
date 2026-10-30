@@ -32,4 +32,4 @@ export const EYEBROW = 'text-[11px] font-extrabold uppercase tracking-[0.3em] te
 
 /** Champ de saisie contouré */
 export const INPUT =
-  'w-full rounded-[20px] border-2 border-[#0f172a] bg-[#fdfaf6] px-5 py-4 text-[15px] font-bold text-[#0f172a] outline-none placeholder:text-slate-400 focus:bg-white'
+  'w-full rounded-[20px] border-2 border-[#0f172a] bg-[#fdfaf6] px-5 py-4 text-[15px] font-bold text-[#0f172a] outline-none placeholder:text-slate-500 focus:bg-white'

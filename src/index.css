@@ -173,6 +173,40 @@
   [data-anim] [data-reveal='right'] { transform: translateX(38px); }
 }
 
+/* Entrées propres à certaines parties de l'accueil, pour qu'on sente qu'on change de sujet :
+   'deroule' : la rangée de jeux se déroule depuis la droite (sens du défilement) ;
+   'bande'   : une bande de couleur s'ouvre depuis sa ligne du milieu ;
+   'pose'    : une photo tombe sur la table comme un tirage papier.
+   Le bloc observé reste entier (un bloc tout masqué n'est jamais « vu » par le navigateur) :
+   seul son contenu, ou son fond, est découpé. */
+[data-anim] [data-reveal='deroule'] { opacity: 1; }
+[data-anim] [data-reveal='deroule'] > * {
+  clip-path: inset(0 0 0 100%);
+  transition: clip-path 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+[data-anim] [data-reveal='deroule'][data-in] > * { clip-path: inset(0 0 0 0); }
+
+/* La bande : fond et traits dessinés par ::before, qui s'ouvre depuis la ligne du milieu */
+[data-reveal='bande'] { position: relative; isolation: isolate; }
+[data-reveal='bande']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: #fdf1ea;
+  border-top: 2px solid #0f172a;
+  border-bottom: 2px solid #0f172a;
+  transition: transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+}
+[data-anim] [data-reveal='bande'] { opacity: 1; }
+[data-anim] [data-reveal='bande']:not([data-in])::before { transform: scaleY(0.03); }
+[data-anim] [data-reveal='pose'] {
+  transform: translateY(-40px) scale(1.14) rotate(-6deg);
+  transition:
+    opacity 0.45s ease-out,
+    transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* Plus spécifique que les règles ci-dessus : gagne quel que soit l'écran. */
 [data-anim] [data-reveal][data-in] { opacity: 1; transform: none; }
 
@@ -288,9 +322,27 @@
 .hatch { background-image: repeating-linear-gradient(45deg, #e2e8f0 0 9px, #f1f5f9 9px 18px); }
 .hatch-light { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.35) 0 9px, rgba(255,255,255,0.15) 9px 18px); }
 
+/* Défilement continu des derniers jeux (accueil). La liste est écrite deux fois :
+   à -50 %, la seconde copie est exactement à la place de la première, sans coupure. */
+@keyframes defile {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.anim-defile { animation: defile var(--duree-defile, 120s) linear infinite; }
+.anim-defile:hover { animation-play-state: paused; }
+.bords-fondus {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
+  /* Pas de mouvement : la rangée se fait défiler au doigt */
+  .anim-defile { animation: none; }
+  .bords-fondus { overflow-x: auto; }
   [data-anim] [data-reveal] { opacity: 1; transform: none; transition: none; }
+  [data-anim] [data-reveal='deroule'] > * { clip-path: none; transition: none; }
+  [data-anim] [data-reveal='bande']::before { transform: none; transition: none; }
   .anim-word-up,
   .anim-soft-in,
   .anim-die-drop,

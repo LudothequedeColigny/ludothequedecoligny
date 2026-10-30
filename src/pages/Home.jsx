@@ -13,7 +13,9 @@ import Reveal from '../components/site/Reveal'
 import CountUp from '../components/site/CountUp'
 import Modal from '../components/site/Modal'
 import RecevoirDates from '../components/site/RecevoirDates'
-import { BTN_PRIMARY, BTN_SECONDARY, BTN_ON_COLOR, EYEBROW } from '../components/site/styles'
+import BoiteAutocollant from '../components/site/vie/BoiteAutocollant'
+import { cotisationDuMois, dureeAdhesion } from '../services/tarifs'
+import { BTN_PRIMARY, BTN_SECONDARY, EYEBROW } from '../components/site/styles'
 import { Loader2 } from 'lucide-react'
 
 // Les trois dés qui tombent en ouverture de la page
@@ -22,6 +24,11 @@ const HERO_DICE = [
   { icon: '03.svg', pip: '#e38154', shadow: '#1a5f7a', drop: 0.15, pipDelay: 0.95, idle: 1.8 },
   { icon: '06.svg', pip: '#1a5f7a', shadow: '#e38154', drop: 0.3, pipDelay: 1.1, idle: 2 },
 ]
+
+// Adresse pour laquelle public/plan-ludotheque.svg a été dessiné
+const ADRESSE_PLAN = '419 Grande Rue, 01270 Coligny'
+const normaliser = (a) => a.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '')
+const memeAdresse = (a, b) => normaliser(a) === normaliser(b)
 
 export default function Home() {
   const navigate = useNavigate()
@@ -56,6 +63,10 @@ export default function Home() {
   })
 
   const [telephone, setTelephone] = useState('')
+
+  // Tarifs (Paramètres) pour le bloc « Adhérer », et derniers jeux arrivés
+  const [reglages, setReglages] = useState({})
+  const [nouveauxJeux, setNouveauxJeux] = useState([])
 
   // Ce que Google lit : titre, description, fiche d'identité, événements à venir
   usePageMeta({
@@ -106,7 +117,17 @@ export default function Home() {
           })
           setHoraires(h)
           setAdresse(a)
+          setReglages(Object.fromEntries(settingsData.map(r => [r.id, r.value])))
         }
+
+        // Jaquettes copiées chez nous seulement (MyLudo interdit le détourage des siennes)
+        const { data: recents } = await supabase
+          .from('games')
+          .select('id, name, image_url, created_at')
+          .like('image_url', '%supabase.co/storage/%')
+          .order('created_at', { ascending: false })
+          .limit(30)
+        setNouveauxJeux(recents || [])
 
         const { count: gCount } = await supabase
           .from('games')
@@ -192,6 +213,18 @@ export default function Home() {
   const formatEventDay = (dateIso) =>
     new Date(dateIso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
 
+  // Prix du bloc « Adhérer » : même calcul que la page Adhérer (services/tarifs.js), PACTES compris
+  const tarifConnu = !!reglages.prix_particulier
+  const pactes = Number(reglages.cotisation_pactes ?? 10) || 0
+  const totalAdhesion = cotisationDuMois(reglages.prix_particulier, reglages.degressivite_mensuelle, reglages.prix_minimum, reglages.mode_adhesion_particulier) + pactes
+  const dureeTexte = dureeAdhesion(reglages.mode_adhesion_particulier)
+
+  const RAISONS_ADHERER = [
+    { icon: 'ludo-raison-tester.svg', color: '#1a5f7a', title: "Testez avant d'acheter", text: "Un mois à la maison pour savoir si le jeu vous plaît vraiment." },
+    { icon: 'ludo-raison-unique.svg', color: '#e38154', title: 'Les jeux à usage unique', text: "Escape games, enquêtes : on n'y joue qu'une fois, ici ils s'empruntent." },
+    { icon: 'ludo-raison-maison.svg', color: '#1a5f7a', title: 'Pour tout le foyer', text: 'Une seule adhésion, des tout-petits aux grands-parents.' },
+  ]
+
   const vieChips = [
     { value: vie.photoCount, label: 'Photos' },
     { value: vie.editions, label: 'Événements' },
@@ -248,13 +281,15 @@ export default function Home() {
               </span>
             </h1>
 
-            <p
-              className="anim-soft-in mx-auto mb-7 max-w-[32em] text-[15px] font-medium leading-[1.65] text-slate-500 md:text-[19px]"
-              style={{ animationDelay: '0.9s' }}
-            >
-              Portée par l'association <TitrePactes />, notre ludothèque est un espace de rencontre et de partage,
-              ouvert aux habitants de Coligny, <span className="whitespace-nowrap">Saint-Amour</span>, Marboz, Beaupont, Pirajoux et des villages alentour.
-            </p>
+            <div className="anim-soft-in mx-auto mb-7 max-w-[30em]" style={{ animationDelay: '0.9s' }}>
+              <p className="text-balance text-[17px] font-bold leading-[1.4] text-[#0f172a] md:text-[22px]">
+                Empruntez un jeu de société et gardez-le un mois à la maison.
+              </p>
+              <p className="mt-2.5 text-balance text-[15px] font-medium leading-[1.6] text-slate-600 md:text-[17px]">
+                Pour toute la famille et à petit prix, avec l'association <TitrePactes />,
+                à Coligny, <span className="whitespace-nowrap">Saint-Amour</span>, Marboz, Beaupont, Pirajoux et alentour.
+              </p>
+            </div>
 
             <div
               className="anim-soft-in flex flex-wrap justify-center gap-3.5"
@@ -271,18 +306,18 @@ export default function Home() {
         </section>
 
         {/* ---------- CHIFFRES CLÉS ---------- */}
-        <section className="px-4 pb-8 md:px-10 md:pb-14">
-          <div className={`mx-auto grid gap-4 ${loading || playerCount > 0 ? 'max-w-[900px] grid-cols-1 sm:grid-cols-2' : 'max-w-[440px] grid-cols-1'}`}>
+        <section className="px-4 pb-10 md:px-10 md:pb-16">
+          <div className="mx-auto flex max-w-[760px] justify-center divide-x-2 divide-[#0f172a]/15">
             <Reveal
               as="button"
               variant="scale"
               onClick={() => navigate('/catalogue')}
-              className="rounded-[30px] border-2 border-[#0f172a] bg-white px-6 py-7 text-center shadow-[5px_5px_0_#1a5f7a] transition-transform duration-300 hover:-translate-y-1 hover:-rotate-[1.5deg] md:px-8 md:py-8"
+              className="flex flex-1 flex-col items-center justify-start px-3 py-2 text-center transition-transform duration-300 hover:-translate-y-1 md:px-8"
             >
               <div className="font-display text-[40px] font-extrabold leading-none tracking-[-0.05em] text-[#1a5f7a] md:text-[58px]">
                 {loading ? '···' : <CountUp value={gameCount} />}
               </div>
-              <div className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-500">
+              <div className="mt-2 text-[12px] font-extrabold uppercase tracking-[0.14em] text-slate-600">
                 Jeux à emprunter
               </div>
             </Reveal>
@@ -293,12 +328,12 @@ export default function Home() {
                 variant="scale"
                 delay={90}
                 onClick={() => navigate('/comment-emprunter')}
-                className="rounded-[30px] border-2 border-[#0f172a] bg-white px-6 py-7 text-center shadow-[5px_5px_0_#e38154] transition-transform duration-300 hover:-translate-y-1 hover:rotate-[1.5deg] md:px-8 md:py-8"
+                className="flex flex-1 flex-col items-center justify-start px-3 py-2 text-center transition-transform duration-300 hover:-translate-y-1 md:px-8"
               >
                 <div className="font-display text-[40px] font-extrabold leading-none tracking-[-0.05em] text-[#e38154] md:text-[58px]">
                   {loading ? '···' : <CountUp value={playerCount} />}
                 </div>
-                <div className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-500">
+                <div className="mt-2 text-[12px] font-extrabold uppercase tracking-[0.14em] text-slate-600">
                   Joueurs passionnés
                 </div>
               </Reveal>
@@ -306,66 +341,110 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ---------- LA VIE DE LA LUDOTHÈQUE ---------- */}
-        <section className="px-4 py-8 md:px-10 md:py-14">
-          <Reveal className="mx-auto max-w-[1180px] overflow-hidden rounded-[32px] border-2 border-[#0f172a] bg-[#e38154] text-white shadow-[10px_10px_0_#0f172a] md:rounded-[52px]">
-            <div className={`grid grid-cols-1 items-center ${vie.photos.length > 0 ? 'lg:grid-cols-2' : ''}`}>
-              <div className="p-7 md:p-12">
-                <div className="mb-5 inline-flex items-center gap-2.5 rounded-full bg-[#0f172a] px-4 py-2.5">
-                  <span className="relative flex h-2 w-2">
-                    <span className="anim-pulse-ring absolute inset-0 rounded-full bg-[#e38154]" />
-                    <span className="relative h-2 w-2 rounded-full bg-white" />
-                  </span>
-                  <span className="text-[10px] font-extrabold uppercase tracking-[0.2em]">Notre quotidien</span>
+        {/* ---------- DERNIERS ARRIVÉS ---------- */}
+        {nouveauxJeux.length >= 4 && (
+          <section className="border-y-2 border-[#0f172a] bg-white px-4 py-12 md:px-10 md:py-16">
+            <div className="mx-auto max-w-[1180px]">
+              <Reveal className="mb-7 flex flex-col items-center gap-4 text-center md:mb-9 md:flex-row md:items-end md:justify-between md:text-left">
+                <div>
+                  <h2 className="font-display text-[26px] font-extrabold leading-[1.02] tracking-[-0.04em] md:text-[40px]">
+                    Tout juste arrivés <span className="text-[#1a5f7a]">sur nos étagères</span>
+                  </h2>
+                  <p className="mt-2 text-[15px] font-medium text-slate-600">À emprunter dès la prochaine permanence.</p>
                 </div>
+                <button onClick={() => navigate('/catalogue')} className={`${BTN_SECONDARY} shrink-0`}>
+                  Tout le catalogue →
+                </button>
+              </Reveal>
+            </div>
+            {/* Les 30 derniers jeux défilent sans fin : la liste est écrite deux fois (index.css, anim-defile) */}
+            <Reveal variant="deroule" delay={150} className="-mx-4 md:-mx-10">
+              <div className="bords-fondus overflow-hidden py-3">
+              <div
+                className="anim-defile flex w-max"
+                style={{ '--duree-defile': `${nouveauxJeux.length * 3.2}s` }}
+              >
+                {[0, 1].map(copie => nouveauxJeux.map((jeu, i) => (
+                  <button
+                    key={`${copie}-${jeu.id}`}
+                    type="button"
+                    onClick={() => navigate('/catalogue')}
+                    aria-hidden={copie === 1 || undefined}
+                    tabIndex={copie === 1 ? -1 : undefined}
+                    className="group shrink-0 px-3 md:px-4"
+                  >
+                    <BoiteAutocollant image={jeu.image_url} nom={jeu.name} teinte={i % 2 ? 'bleu' : 'orange'} penche={i} />
+                  </button>
+                )))}
+              </div>
+              </div>
+            </Reveal>
+          </section>
+        )}
 
-                <h2 className="mb-4 font-display text-[26px] font-extrabold leading-[0.98] tracking-[-0.045em] sm:text-[32px] md:text-[50px]">
-                  La vie de la ludothèque
+        {/* ---------- LA VIE DE LA LUDOTHÈQUE ---------- */}
+        {/* La bande rose s'ouvre, puis le texte monte et les photos tombent une à une (index.css, data-reveal) */}
+        <Reveal
+          as="section"
+          variant="bande"
+          className="mt-12 px-4 py-14 md:mt-16 md:px-10 md:py-20"
+        >
+          <div className="mx-auto max-w-[1180px]">
+            <div className={`grid grid-cols-1 items-center gap-10 ${vie.photos.length > 0 ? 'lg:grid-cols-2 lg:gap-14' : ''}`}>
+              <Reveal delay={350}>
+                <h2 className="mb-4 font-display text-[30px] font-extrabold leading-[0.98] tracking-[-0.045em] md:text-[50px]">
+                  La vie de la <span className="text-[#e38154]">ludothèque</span>
                 </h2>
-                <p className="mb-7 max-w-[30em] text-[14px] font-medium leading-[1.62] text-white/85 md:text-[17px]">
+                <p className="mb-7 max-w-[30em] text-[15px] font-medium leading-[1.62] text-slate-600 md:text-[17px]">
                   Les photos, les jeux joués et les moments partagés à chaque permanence.
                   C'est ici que la ludothèque raconte sa vie.
                 </p>
 
                 {vieChips.length > 0 && (
-                  <div className="mb-7 flex flex-wrap gap-2.5">
+                  <div className="mb-8 flex flex-wrap gap-x-8 gap-y-4">
                     {vieChips.map(chip => (
-                      <div
-                        key={chip.label}
-                        className="flex items-baseline gap-2 rounded-full border border-white/30 bg-white/20 px-4 py-3"
-                      >
-                        <CountUp value={chip.value} className="font-display text-[22px] font-extrabold" />
-                        <span className="text-[10px] font-extrabold uppercase tracking-[0.16em]">{chip.label}</span>
+                      <div key={chip.label}>
+                        <CountUp value={chip.value} className="block font-display text-[34px] font-extrabold leading-none tracking-[-0.04em] text-[#e38154] md:text-[42px]" />
+                        <span className="mt-1.5 block text-[12px] font-extrabold uppercase tracking-[0.12em] text-slate-600">{chip.label}</span>
                       </div>
                     ))}
                   </div>
                 )}
 
-                <button onClick={() => navigate('/vie-association')} className={BTN_ON_COLOR}>
+                <button onClick={() => navigate('/vie-association')} className={BTN_PRIMARY}>
                   Voir la vie de la ludothèque →
                 </button>
-              </div>
+              </Reveal>
 
-              {/* Aperçu photo — masqué tant qu'aucune photo n'a été publiée */}
+              {/* Photos posées en vrac comme des tirages papier — masquées tant qu'aucune photo n'a été publiée */}
               {vie.photos.length > 0 && (
-                <div className="grid grid-cols-2 gap-3.5 p-5 md:p-8">
+                <div className="relative mx-auto h-[300px] w-full max-w-[520px] md:h-[400px]">
                   {vie.photos.map((photo, i) => (
-                    <div
+                    <Reveal
                       key={photo.id}
-                      className={`overflow-hidden border-2 border-[#0f172a] ${
-                        i === 0
-                          ? 'col-span-2 h-[156px] rounded-[26px] -rotate-1'
-                          : `h-[118px] rounded-[22px] ${i === 1 ? 'rotate-[1.5deg]' : '-rotate-1'}`
-                      }`}
+                      variant="pose"
+                      delay={600 + i * 260}
+                      className={`absolute ${[
+                        'left-0 top-0 z-10 h-[60%] w-[74%]',
+                        'right-0 top-[24%] z-20 h-[46%] w-[54%]',
+                        'bottom-0 left-[10%] z-30 h-[42%] w-[50%]',
+                      ][i]}`}
                     >
-                      <img src={photo.url} alt="" loading="lazy" className="h-full w-full object-cover" />
-                    </div>
+                      <div className={`h-full w-full border-2 border-[#0f172a] bg-white p-2 md:p-2.5 ${[
+                        '-rotate-[3deg] shadow-[6px_6px_0_#e38154]',
+                        'rotate-[4deg] shadow-[6px_6px_0_#1a5f7a]',
+                        '-rotate-[1.5deg] shadow-[6px_6px_0_#0f172a]',
+                      ][i]}`}
+                      >
+                        <img src={photo.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                      </div>
+                    </Reveal>
                   ))}
                 </div>
               )}
             </div>
-          </Reveal>
-        </section>
+          </div>
+        </Reveal>
 
         {/* ---------- AGENDA ---------- */}
         <section id="agenda" className="scroll-mt-24 border-y-2 border-[#0f172a] bg-white px-4 py-14 md:px-10 md:py-20">
@@ -410,16 +489,16 @@ export default function Home() {
                           )}
                         </div>
                         <div className="p-5 md:p-6">
-                          <div className="mb-3 inline-block rounded-full bg-[#0f172a] px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-white">
+                          <div className="mb-3 inline-block rounded-full bg-[#0f172a] px-3 py-1.5 text-[12px] font-extrabold uppercase tracking-[0.1em] text-white">
                             {formatEventDay(event.date)} · {formatEventDuration(event.date, event.end_time)}
                           </div>
                           <div className="mb-2 font-display text-[19px] font-extrabold leading-tight tracking-[-0.03em] md:text-[24px]">
                             {event.title}
                           </div>
-                          <p className="line-clamp-3 text-[13.5px] italic leading-[1.55] text-slate-500">
+                          <p className="line-clamp-3 text-[15px] leading-[1.55] text-slate-600">
                             {event.description}
                           </p>
-                          <div className="mt-4 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#1a5f7a]">
+                          <div className="mt-4 text-[12px] font-extrabold uppercase tracking-[0.12em] text-[#1a5f7a]">
                             Voir les détails →
                           </div>
                         </div>
@@ -430,7 +509,7 @@ export default function Home() {
 
                 {events.upcoming.length > vignettes.length && (
                   <Reveal className="mt-7 text-center">
-                    <button type="button" onClick={() => setCalendrierOuvert(true)} className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#1a5f7a] underline decoration-2 underline-offset-4 hover:text-[#e38154]">
+                    <button type="button" onClick={() => setCalendrierOuvert(true)} className="text-[13px] font-extrabold uppercase tracking-[0.1em] text-[#1a5f7a] underline decoration-2 underline-offset-4 hover:text-[#e38154]">
                       Et {events.upcoming.length - vignettes.length} autre{events.upcoming.length - vignettes.length > 1 ? 's' : ''} rendez-vous déjà prévu{events.upcoming.length - vignettes.length > 1 ? 's' : ''} : voir le calendrier →
                     </button>
                   </Reveal>
@@ -475,8 +554,49 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ---------- ADHÉRER ---------- */}
+        <section className="px-4 pt-14 md:px-10 md:pt-20">
+          <Reveal className="mx-auto grid max-w-[1180px] grid-cols-1 gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
+            <div>
+              <h2 className="font-display text-[30px] font-extrabold leading-[1.02] tracking-[-0.045em] md:text-[50px]">
+                Adhérez, et toute la ludothèque <span className="text-[#1a5f7a]">vient chez vous</span>
+              </h2>
+              {tarifConnu && (
+                <p className="mt-6 flex items-center gap-4">
+                  <span className="font-display text-[56px] font-extrabold leading-[0.8] tracking-[-0.05em] text-[#0f172a] md:text-[72px]">{totalAdhesion} €</span>
+                  <span className="text-[15px] font-semibold leading-[1.35] text-slate-600 md:text-[17px]">pour tout le foyer,<br />{dureeTexte}</span>
+                </p>
+              )}
+              <p className="mt-5 max-w-[34em] text-[15px] font-medium leading-[1.6] text-slate-600">
+                Pré-inscription en ligne en deux minutes, sans payer sur internet.
+                On règle et on signe la charte de prêt à la permanence, et on repart le jour même avec ses jeux.
+              </p>
+              <div className="mt-7 flex flex-wrap gap-3.5">
+                <button onClick={() => navigate('/adherer')} className={BTN_PRIMARY}>
+                  Me pré-inscrire →
+                </button>
+                <button onClick={() => navigate('/comment-emprunter')} className={BTN_SECONDARY}>
+                  Voir tous les tarifs
+                </button>
+              </div>
+            </div>
+
+            <ul className="flex flex-col justify-center gap-7">
+              {RAISONS_ADHERER.map(r => (
+                <li key={r.title} className="flex items-start gap-4">
+                  <MaskIcon file={r.icon} size={44} color={r.color} className="shrink-0" />
+                  <div>
+                    <div className="font-display text-[19px] font-extrabold leading-tight tracking-[-0.02em]">{r.title}</div>
+                    <p className="mt-1 text-[15px] leading-[1.5] text-slate-600">{r.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Reveal>
+        </section>
+
         {/* ---------- RECEVOIR LES DATES ---------- */}
-        <RecevoirDates />
+        <RecevoirDates sansCadre />
 
         {/* ---------- ADRESSE & HORAIRES ---------- */}
         <section className="px-4 py-14 md:px-10 md:py-20">
@@ -485,11 +605,11 @@ export default function Home() {
               <div>
                 <h2 className="mb-6 font-display text-[26px] font-extrabold leading-[1.08] tracking-[-0.04em] md:text-[42px]">
                   Nous vous attendons au<br />
-                  <span className="text-[#e38154]">{adresseComplete}</span>
+                  <span className="text-[#ffd7c2]">{adresseComplete}</span>
                 </h2>
-                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                  <div className="rounded-[24px] border border-white/20 bg-white/10 p-5">
-                    <div className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#ffd7c2]">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                  <div className="border-t-2 border-white/25 pt-4">
+                    <div className="mb-2 text-[12px] font-extrabold uppercase tracking-[0.12em] text-[#ffe6d9]">
                       {rangLabel(horaires.horaire_1_rang, horaires.horaire_1_jour)}
                     </div>
                     <div className="font-display text-[22px] font-extrabold tracking-[-0.03em]">
@@ -497,8 +617,8 @@ export default function Home() {
                     </div>
                   </div>
                   {horaires.horaire_2_actif === 'true' && (
-                    <div className="rounded-[24px] border border-white/20 bg-white/10 p-5">
-                      <div className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#ffd7c2]">
+                    <div className="border-t-2 border-white/25 pt-4">
+                      <div className="mb-2 text-[12px] font-extrabold uppercase tracking-[0.12em] text-[#ffe6d9]">
                         {rangLabel(horaires.horaire_2_rang, horaires.horaire_2_jour)}
                       </div>
                       <div className="font-display text-[22px] font-extrabold tracking-[-0.03em]">
@@ -509,13 +629,21 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="text-center">
-                <div className="mb-5 flex h-[150px] flex-col items-center justify-center gap-3 rounded-[26px] border-2 border-white/30 bg-white/10 px-4">
-                  <MaskIcon file="ludo-lieu-plan.svg" size={46} color="#e38154" />
-                  <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/70">
-                    {adresseComplete}
-                  </span>
-                </div>
+              <div className="flex flex-col items-center gap-6 text-center">
+                {/* Plan dessiné une fois depuis OpenStreetMap (public/plan-ludotheque.svg) : aucun service
+                    extérieur appelé. Il ne vaut que pour ADRESSE_PLAN : si l'adresse des Paramètres change,
+                    il est masqué (l'icône revient) jusqu'à ce qu'on le redessine. */}
+                {memeAdresse(adresseComplete, ADRESSE_PLAN) ? (
+                  <img
+                    src="/plan-ludotheque.svg"
+                    alt={`Plan : la ludothèque au ${adresseComplete}`}
+                    width="640"
+                    height="400"
+                    className="h-auto w-full rotate-[1deg] rounded-[22px] border-2 border-[#0f172a] shadow-[6px_6px_0_#0f172a]"
+                  />
+                ) : (
+                  <MaskIcon file="ludo-lieu-plan.svg" size={72} color="#ffd7c2" />
+                )}
                 <a
                   href={`https://www.google.com/maps/dir/?api=1&destination=${addressQuery}`}
                   target="_blank"
@@ -579,7 +707,7 @@ export default function Home() {
                       <MaskIcon file={row.icon} size={22} color="#1a5f7a" />
                     </div>
                     <div>
-                      <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
+                      <div className="text-[12px] font-extrabold uppercase tracking-[0.12em] text-slate-500">
                         {row.label}
                       </div>
                       <div className="mt-[3px] text-sm font-bold">{row.value}</div>

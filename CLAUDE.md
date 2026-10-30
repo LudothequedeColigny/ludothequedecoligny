@@ -37,7 +37,7 @@ Le site est publié via Vercel.
 
 | Adresse | Page | Fichier |
 |---|---|---|
-| `/` | Accueil (vignettes : rendez-vous du mois et demi à venir seulement, sinon le prochain ; tout le reste dans le calendrier) | `src/pages/Home.jsx` |
+| `/` | Accueil (vignettes : rendez-vous du mois et demi à venir seulement, sinon le prochain ; tout le reste dans le calendrier). Refait le 30/10/2026 après critique Impeccable, validé par Victor sur images : accroche « Empruntez un jeu… un mois à la maison » ; chiffres à plat ; bande blanche « Tout juste arrivés » (30 derniers jeux à jaquette chez nous, défilement sans fin, sans noms) ; « Vie de la ludothèque » en bande rose pâle avec photos posées en vrac ; bloc « Adhérez » avec prix des Paramètres (`services/tarifs.js`, partagé avec `/adherer`) ; plan du quartier dans le bloc adresse. Chaque partie a son entrée (`data-reveal` `deroule`, `bande`, `pose` dans `index.css`). Victor garde le texte **blanc** sur l'orange et les événements passés **grisés** | `src/pages/Home.jsx` |
 | `/catalogue` | Catalogue des jeux | `src/pages/Catalogue.jsx` |
 | `/comment-emprunter` | Modalités et tarifs | `src/pages/HowToBorrow.jsx` |
 | `/vie-association` | Vie de la ludothèque (bilans façon publications : chiffres clés, fréquentation, cartes d'événement, permanences, prochain rendez-vous ; briques dans `src/components/site/vie/`, règles dans `src/services/vieLudotheque.js`) | `src/pages/VieAssociation.jsx` |
@@ -175,7 +175,7 @@ Dans `src/components/site/` :
 | `SuccessModal` | fenêtre de confirmation (coche verte) |
 | `MaskIcon` | icône de `public/icons/` recolorée à la charte |
 | `FloatingIcons` | icônes qui dérivent en fond de section |
-| `RecevoirDates` | encart « Recevoir les prochaines dates par e-mail » (accueil) |
+| `RecevoirDates` | encart « Recevoir les prochaines dates par e-mail » (accueil sans bulle avec `sansCadre`, page Vie de la ludothèque avec sa bulle) |
 | `CalendrierEvenements` | fenêtre « Voir le calendrier » de l'accueil : mois par mois, couleur par type, export des mois cochés en images 4:5 ou en PDF A4 (`services/calendrier.js` pour les règles, `diapos/calendrier-mois.js` pour le dessin, `services/pdfImages.js` fabrique le PDF sans bibliothèque) |
 | `PageLegale` | mise en page des pages Mentions légales et Confidentialité |
 | `styles.js` | classes des boutons et champs (`BTN_PRIMARY`, `INPUT`…) |
@@ -410,6 +410,11 @@ Les animations et effets sont définis dans `src/index.css`.
   dynamically imported module », vu le 27/10/2026). `src/services/nouvelleVersion.js` recharge alors la
   page une fois (évènement `vite:preloadError` dans `main.jsx`, et le bouton PDF des étiquettes). Tout
   nouvel `import()` à la demande doit traiter cette erreur de la même façon.
+- **Plan du bloc adresse de l'accueil** (`public/plan-ludotheque.svg`) : image fixe dessinée depuis OpenStreetMap
+  (mention « © OpenStreetMap » obligatoire) et la Base Adresse Nationale ; aucun service extérieur côté visiteur.
+  Il ne vaut que pour `ADRESSE_PLAN` (`src/pages/Home.jsx`) : si l'adresse des Paramètres diffère, il est masqué
+  (garde-fou voulu par Victor). Pour une nouvelle adresse : `node scripts/plan-ludotheque.mjs "<adresse>"`, regarder
+  l'image, puis mettre la même adresse dans `ADRESSE_PLAN`.
 - **Le site utilise le défilement « doux »** : tout script qui fait défiler la page
   doit préciser `behavior: 'instant'`, sinon il n'atteint jamais le bas.
 - `index.html` interdit volontairement le zoom sur mobile (`user-scalable=no`).

@@ -9,6 +9,7 @@ import MaskIcon from '../components/site/MaskIcon'
 import SuccessModal from '../components/site/SuccessModal'
 import { BTN_PRIMARY, EYEBROW, INPUT } from '../components/site/styles'
 import { ORIGINES } from '../services/origines'
+import { cotisationDuMois, dureeAdhesion } from '../services/tarifs'
 import { Loader2 } from 'lucide-react'
 
 /**
@@ -47,14 +48,11 @@ export default function Adherer() {
     supabase.from('games').select('id', { count: 'exact', head: true }).then(({ count }) => { if (count) setGameCount(count) })
   }, [])
 
-  // Cotisation ludothèque du mois, comme sur « Comment emprunter »
-  const cotisation = (prix, degressivite, minimum, mode) => mode === 'degressif'
-    ? Math.max((Number(prix) || 0) - new Date().getMonth() * (Number(degressivite) || 0), Number(minimum) || 0)
-    : Number(prix) || 0
-  const fee = cotisation(s.prix_particulier, s.degressivite_mensuelle, s.prix_minimum, s.mode_adhesion_particulier)
-  const feeAsso = cotisation(s.prix_association, s.degressivite_association, s.prix_minimum_asso, s.mode_adhesion_association)
+  // Cotisation ludothèque du mois, comme sur « Comment emprunter » (services/tarifs.js)
+  const fee = cotisationDuMois(s.prix_particulier, s.degressivite_mensuelle, s.prix_minimum, s.mode_adhesion_particulier)
+  const feeAsso = cotisationDuMois(s.prix_association, s.degressivite_association, s.prix_minimum_asso, s.mode_adhesion_association)
   // Durée affichée : jusqu'au 31 décembre (dégressif) ou un an de date à date
-  const duree = mode => mode === 'degressif' ? "jusqu'au 31 décembre" : 'pour un an'
+  const duree = dureeAdhesion
   // Adhésion à l'association, réglée dans Paramètres → Finance (10 € jusqu'ici)
   const pactes = Number(s.cotisation_pactes ?? 10) || 0
   const total = fee + pactes
