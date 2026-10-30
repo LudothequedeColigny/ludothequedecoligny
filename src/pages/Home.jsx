@@ -400,7 +400,7 @@ export default function Home() {
                         as="button"
                         delay={(i % 3) * 90}
                         onClick={() => setSelectedEvent(event)}
-                        className="overflow-hidden rounded-[32px] border-2 border-[#0f172a] bg-[#fdfaf6] text-left shadow-[6px_6px_0_#1a5f7a] transition-[transform,box-shadow] duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[3px_3px_0_#1a5f7a]"
+                        className="flex flex-col overflow-hidden rounded-[32px] border-2 border-[#0f172a] bg-[#fdfaf6] text-left shadow-[6px_6px_0_#1a5f7a] transition-[transform,box-shadow] duration-200 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-[3px_3px_0_#1a5f7a]"
                       >
                         <div className="flex h-[156px] items-center justify-center border-b-2 border-[#0f172a] bg-slate-100">
                           {event.image_url ? (
