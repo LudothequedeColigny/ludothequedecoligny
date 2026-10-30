@@ -369,6 +369,12 @@ export default function Evenements() {
     addToast('Événement désarchivé avec succès.', 'success')
   }
 
+  // Sur ordinateur, l'écran défile dans le cadre de l'espace de gestion (pas la page) :
+  // on amène donc le formulaire lui-même à l'écran, une fois affiché.
+  const montrerFormulaire = () => setTimeout(() => {
+    document.getElementById('evt-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, 50)
+
   const startEdit = (event) => {
     setNewEvent({
         ...event,
@@ -377,7 +383,7 @@ export default function Evenements() {
     })
     setEditingId(event.id)
     setShowForm(true)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    montrerFormulaire()
   }
 
   const cancelEdit = () => {
@@ -400,7 +406,7 @@ export default function Evenements() {
     setEditingId(null)
     setShowForm(true)
     setActiveTab('events')
-    setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 50)
+    montrerFormulaire()
   }
 
   async function handleFileUpload(event) {
@@ -1507,7 +1513,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
 
         {activeTab === 'events' && (<>
         {showForm && (
-          <form data-tutorial="evt-form" className="mb-6 rounded-[34px] border-2 border-[#0f172a] bg-white p-6 shadow-[6px_6px_0_#1a5f7a] md:p-10" onSubmit={handleSubmit}>
+          <form id="evt-form" data-tutorial="evt-form" className="mb-6 scroll-mt-6 rounded-[34px] border-2 border-[#0f172a] bg-white p-6 shadow-[6px_6px_0_#1a5f7a] md:p-10" onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 gap-7 lg:grid-cols-2 lg:gap-11">
               <div data-tutorial="evt-form-details">
                 <div className={`${E_SECTION} text-[#1a5f7a]`}><Type size={15} /> Détails</div>

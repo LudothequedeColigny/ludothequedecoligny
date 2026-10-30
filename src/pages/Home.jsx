@@ -173,7 +173,7 @@ export default function Home() {
     document.getElementById('agenda')?.scrollIntoView({ behavior: 'instant', block: 'start' })
   }, [loading, hash])
 
-  // Vignettes : les 2 prochains mois seulement ; le calendrier montre tout
+  // Vignettes : le mois et demi à venir seulement ; le calendrier montre tout
   const vignettes = useMemo(() => vignettesAccueil(events.upcoming, new Date()), [events.upcoming])
   const agendaComplet = useMemo(() => [...events.past, ...events.upcoming], [events])
 

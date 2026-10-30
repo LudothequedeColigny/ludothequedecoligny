@@ -5,8 +5,8 @@
  */
 import { dateLocale, sansAccents, typeEvenement } from './diapos/regles.js'
 
-/** Les vignettes de l'accueil ne montrent que les rendez-vous des 2 prochains mois. */
-export const MOIS_VIGNETTES = 2
+/** Les vignettes de l'accueil ne montrent que les rendez-vous du mois et demi à venir (2 mois : trop chargé, Victor, 30/10/2026). */
+export const MOIS_VIGNETTES = 1.5
 
 export const NOMS_MOIS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
 export const MOIS_COURTS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.']
@@ -34,12 +34,13 @@ const cleJour = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, 
 export const jourEvenement = event => String(event.date).slice(0, 10)
 
 /**
- * Vignettes de l'accueil : les événements à venir dans les 2 prochains mois.
+ * Vignettes de l'accueil : les événements à venir dans le mois et demi qui vient (les demi-mois comptent 15 jours).
  * S'il n'y en a aucun, le prochain quand même, pour que l'accueil ne soit jamais vide.
  */
 export function vignettesAccueil(aVenir, maintenant, mois = MOIS_VIGNETTES) {
   const limite = new Date(maintenant)
-  limite.setMonth(limite.getMonth() + mois)
+  limite.setMonth(limite.getMonth() + Math.floor(mois))
+  limite.setDate(limite.getDate() + Math.round((mois % 1) * 30))
   const proches = aVenir.filter(e => dateLocale(e.date) < limite)
   if (proches.length === 0 && aVenir.length > 0) return [aVenir[0]]
   return proches

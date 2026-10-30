@@ -14,13 +14,15 @@ test('catégorie selon le titre', () => {
   assert.equal(categorie(ev(1, '2026-11-07T10:00:00', 'Fête du jeu')), 'autre')
 })
 
-test('vignettes : seulement les 2 prochains mois', () => {
-  const maintenant = new Date(2026, 9, 26, 12)
-  const aVenir = [ev(1, '2026-11-07T10:00:00'), ev(2, '2026-12-19T14:00:00'), ev(3, '2026-12-27T10:00:00'), ev(4, '2027-02-06T10:00:00')]
+test('vignettes : seulement le mois et demi à venir', () => {
+  const maintenant = new Date(2026, 9, 26, 12) // 26 octobre : limite au 11 décembre
+  const aVenir = [ev(1, '2026-11-07T10:00:00'), ev(2, '2026-12-10T14:00:00'), ev(3, '2026-12-12T10:00:00'), ev(4, '2027-02-06T10:00:00')]
   assert.deepEqual(vignettesAccueil(aVenir, maintenant).map(e => e.id), [1, 2])
+  // le réglage en mois entiers marche toujours
+  assert.deepEqual(vignettesAccueil(aVenir, maintenant, 2).map(e => e.id), [1, 2, 3])
 })
 
-test('vignettes : rien dans les 2 mois → le prochain quand même', () => {
+test('vignettes : rien dans le mois et demi → le prochain quand même', () => {
   const maintenant = new Date(2026, 9, 26, 12)
   assert.deepEqual(vignettesAccueil([ev(4, '2027-02-06T10:00:00'), ev(5, '2027-03-06T10:00:00')], maintenant).map(e => e.id), [4])
   assert.deepEqual(vignettesAccueil([], maintenant), [])

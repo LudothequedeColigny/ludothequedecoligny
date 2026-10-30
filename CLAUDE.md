@@ -37,7 +37,7 @@ Le site est publié via Vercel.
 
 | Adresse | Page | Fichier |
 |---|---|---|
-| `/` | Accueil (vignettes : rendez-vous des 2 prochains mois seulement, sinon le prochain ; tout le reste dans le calendrier) | `src/pages/Home.jsx` |
+| `/` | Accueil (vignettes : rendez-vous du mois et demi à venir seulement, sinon le prochain ; tout le reste dans le calendrier) | `src/pages/Home.jsx` |
 | `/catalogue` | Catalogue des jeux | `src/pages/Catalogue.jsx` |
 | `/comment-emprunter` | Modalités et tarifs | `src/pages/HowToBorrow.jsx` |
 | `/vie-association` | Vie de la ludothèque (bilans façon publications : chiffres clés, fréquentation, cartes d'événement, permanences, prochain rendez-vous ; briques dans `src/components/site/vie/`, règles dans `src/services/vieLudotheque.js`) | `src/pages/VieAssociation.jsx` |
