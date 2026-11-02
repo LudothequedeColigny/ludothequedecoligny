@@ -10,6 +10,7 @@ import MaskIcon from '../../components/site/MaskIcon'
 import { dessinerPermanence, chargerPolicePermanence, chargerGrainPermanence, EXEMPLE_PERMANENCE } from '../../services/affichePermanence'
 import { dessinerSoiree, chargerPolicesSoiree, chargerGrainSoiree, EXEMPLE_SOIREE } from '../../services/afficheSoiree'
 import CategoriesJeux from '../../components/admin/CategoriesJeux'
+import ReglagesPublications from '../../components/admin/ReglagesPublications'
 
 export default function Parametres() {
   const { addToast } = useToast()
@@ -35,6 +36,7 @@ export default function Parametres() {
   const [showAdresseModal, setShowAdresseModal] = useState(false) // MODALE ADRESSE
   const [showAffichesModal, setShowAffichesModal] = useState(false) // MODALE AFFICHES
   const [showCategoriesModal, setShowCategoriesModal] = useState(false) // MODALE CATÉGORIES DES JEUX
+  const [showPublicationsModal, setShowPublicationsModal] = useState(false) // MODALE CALENDRIER DES PUBLICATIONS
   const [affichesTemplates, setAffichesTemplates] = useState([])
   const [editingTemplate, setEditingTemplate] = useState(null) // null = nouveau, sinon l'objet
   const [templateForm, setTemplateForm] = useState({
@@ -573,6 +575,7 @@ export default function Parametres() {
           { onClick: () => setShowAdresseModal(true),   icon: <MaskIcon file="ludo-lieu.svg" size={30} color="currentColor" />, color: '#f43f5e', tint: '#fff1f2', title: 'Adresse',   desc: 'Localisation de la ludothèque', cta: 'Modifier' },
           { onClick: openAffichesModal,                 icon: <MaskIcon file="ludo-affiche.svg" size={30} color="currentColor" />, color: '#a855f7', tint: '#faf5ff', title: 'Affiches',  desc: 'Modèles du générateur',        cta: 'Gérer' },
           { onClick: () => setShowCategoriesModal(true), icon: <MaskIcon file="ludo-etiquettes.svg" size={30} color="currentColor" />, color: '#1a5f7a', tint: '#f0f7f9', title: 'Catégories', desc: 'Couleurs des étiquettes',     cta: 'Gérer' },
+          { onClick: () => setShowPublicationsModal(true), icon: <MaskIcon file="ludo-calendrier.svg" size={30} color="currentColor" />, color: '#a855f7', tint: '#faf5ff', title: 'Publications', desc: 'Calendrier & rappels', cta: 'Régler' },
         ].map(card => (
           <button
             key={card.title}
@@ -1160,6 +1163,7 @@ export default function Parametres() {
           MODALE GESTION DES MODÈLES D'AFFICHES
       ═══════════════════════════════════════════════════════ */}
       {showCategoriesModal && <CategoriesJeux onClose={() => setShowCategoriesModal(false)} />}
+      {showPublicationsModal && <ReglagesPublications onClose={() => setShowPublicationsModal(false)} />}
 
       {showAffichesModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 backdrop-blur-[6px] sm:p-[22px]" style={{ background: 'rgba(15,23,42,.7)' }}>
