@@ -557,17 +557,22 @@ L'équipe de la Ludothèque de Coligny
     return { bodyCollectivites, bodyPresse, bodyEcole, bodyAdherents, blocksHtml }
   }
 
-  const openComposeModal = async (event) => {
+  // publics : 'tous' | 'collectivites' | 'adherents' (boutons du calendrier des publications)
+  const openComposeModal = async (event, publics = 'tous') => {
     setLoadingRecipients(true)
     setComposeModal({ show: true, event })
     setSelectedEvents([makeEventBlock(event)])
     setShowEventPicker(false)
-    setActiveMailTab('collectivites')
+    setActiveMailTab(publics === 'adherents' ? 'adherents' : 'collectivites')
     const subject = `Communication Événement - Association PACTES - ${event.title}`
     const { bodyCollectivites, bodyPresse, bodyEcole, bodyAdherents } = buildBodies([makeEventBlock(event)])
     const bodies = { bodyCollectivites, bodyPresse, bodyEcole, bodyAdherents }
-    // Mairies cochées d'office ; presse et écoles décochées (cochées à la demande)
-    const contactRecipients = collectivites.map(c => ({ ...c, group: c.categorie, checked: c.categorie === 'mairie' }))
+    // Mairies cochées d'office ; presse et écoles décochées (cochées à la demande).
+    // Depuis le calendrier : « Mail mairies » coche mairies, presse et écoles ; « Mail adhérents » aucun contact
+    const contactRecipients = collectivites.map(c => ({
+      ...c, group: c.categorie,
+      checked: publics === 'adherents' ? false : publics === 'collectivites' ? true : c.categorie === 'mairie',
+    }))
     try {
       const [{ data: members }, { data: abonnes }] = await Promise.all([
         supabase.from('members').select('email, first_name, last_name, refuse_actualites, jeton_desabonnement'),
@@ -576,14 +581,14 @@ L'équipe de la Ludothèque de Coligny
       // Les adhérents qui ont demandé à ne plus recevoir les actualités sont retirés
       const memberRecipients = members
         ? members.filter(m => m.email && m.email.includes('@') && !m.refuse_actualites)
-            .map(m => ({ email: m.email, label: `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email, group: 'adherent', checked: true, jeton: m.jeton_desabonnement }))
+            .map(m => ({ email: m.email, label: `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email, group: 'adherent', checked: publics !== 'collectivites', jeton: m.jeton_desabonnement }))
         : []
       // Inscrits aux dates depuis le site : même message que les adhérents.
       // Une adresse déjà connue comme adhérent (même désabonné) n'est pas reprise.
       const adressesAdherents = new Set((members || []).map(m => (m.email || '').trim().toLowerCase()))
       const abonneRecipients = (abonnes || [])
         .filter(a => !adressesAdherents.has(a.email.toLowerCase()))
-        .map(a => ({ email: a.email, label: a.email, group: 'abonne', checked: true, jeton: a.jeton_desabonnement }))
+        .map(a => ({ email: a.email, label: a.email, group: 'abonne', checked: publics !== 'collectivites', jeton: a.jeton_desabonnement }))
       setComposeData({ subject, ...bodies, recipients: [...contactRecipients, ...memberRecipients, ...abonneRecipients] })
     } catch (e) {
       setComposeData({ subject, ...bodies, recipients: contactRecipients })
@@ -748,8 +753,14 @@ L'équipe de la Ludothèque de Coligny
         send_confirmation: false,
       })
 
+      // Une date par public : le calendrier des publications sait ce qui est parti
+      const groupesEnvoyes = new Set(activeRecipients.filter(r => !failed.includes(r.email)).map(r => r.group))
+      const maintenantIso = new Date().toISOString()
+      const dates = { mail_sent_at: maintenantIso }
+      if (['mairie', 'presse', 'ecole'].some(g => groupesEnvoyes.has(g))) dates.mail_collectivites_envoye_le = maintenantIso
+      if (['adherent', 'abonne'].some(g => groupesEnvoyes.has(g))) dates.mail_adherents_envoye_le = maintenantIso
       for (const b of selectedEvents) {
-        await supabase.from('events').update({ mail_sent_at: new Date().toISOString() }).eq('id', b.event.id)
+        await supabase.from('events').update(dates).eq('id', b.event.id)
       }
       fetchEvents()
       setComposeModal({ show: false, event: null })
