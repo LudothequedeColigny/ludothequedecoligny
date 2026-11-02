@@ -332,6 +332,12 @@ Les animations et effets sont définis dans `src/index.css`.
   Pour le tableau de bord, `preinscriptions_journal` garde seulement les dates
   « reçue le / validée le » de chaque demande (rempli par un déclencheur, validation
   notée par l'écran Adhérents) : aucune donnée personnelle, donc pas d'effacement.
+- **Fiche d'adhésion en pièce jointe** (novembre 2026) : le mail « Nouvelle pré-inscription » joint un PDF à imprimer recto
+  verso : fiche (infos du formulaire, cases PACTES / payée / mode de paiement, montant à la main, tableau des tarifs lu dans les
+  Paramètres, signature) + charte publiée sur le site. Règles `send-email/fiche-adhesion-regles.js` (testées ; `cotisationDuMois`
+  y est **recopiée** de `services/tarifs.js`), dessin `fiche-adhesion-pdf.js` (pdf-lib, sans `demande` : version vierge à remplir à
+  la main). Polices, images (`public/pdf/`) et charte sont lues **sur le site en ligne** : publier le site avant la fonction. Si le PDF échoue,
+  le mail part sans lui, avec une phrase qui le dit. La fiche vierge n'est pas recalculée seule : la refaire si les tarifs changent.
 - **Inscrits aux dates** (`abonnes_dates`) : ils reçoivent le message « adhérents » de
   l'écran Communication, avec leur propre lien de désinscription, qui efface leur
   adresse. Une adresse déjà connue comme adhérent n'est pas reprise.

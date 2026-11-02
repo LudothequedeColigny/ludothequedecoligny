@@ -1,4 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { nomFichier } from './fiche-adhesion-regles.js'
+import { fabriquerPdfAdhesion, FICHIERS_PDF } from './fiche-adhesion-pdf.js'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -275,6 +277,30 @@ async function alerterBenevoles(title: string, body: string, url: string) {
 
 const RECENTE = () => new Date(Date.now() - 15 * 60 * 1000).toISOString()
 
+// Fiche d'adhésion + charte, à imprimer pour la prochaine permanence. pdf-lib n'est chargé
+// qu'ici, pour ne pas ralentir les autres mails. En cas d'échec, le mail part sans le PDF.
+async function pieceJointeAdhesion(d: Record<string, unknown>, r: Record<string, string>) {
+  try {
+    const [{ PDFDocument, rgb, degrees }, { default: fontkit }] = await Promise.all([
+      import('npm:pdf-lib@1.17.1'),
+      import('npm:@pdf-lib/fontkit@1.1.1'),
+    ])
+    const fichiers: Record<string, Uint8Array> = {}
+    await Promise.all(FICHIERS_PDF.map(async (f: string) => {
+      const res = await fetch(`${SITE_URL}/${f}`)
+      if (!res.ok) throw new Error(`${f} : ${res.status}`)
+      fichiers[f] = new Uint8Array(await res.arrayBuffer())
+    }))
+    const octets: Uint8Array = await fabriquerPdfAdhesion({ PDFDocument, rgb, degrees, fontkit, fichiers, demande: d, reglages: r })
+    let binaire = ''
+    for (let i = 0; i < octets.length; i += 8192) binaire += String.fromCharCode(...octets.subarray(i, i + 8192))
+    return { filename: nomFichier(d), content: btoa(binaire), type: 'application/pdf' }
+  } catch (e) {
+    console.error("Fiche d'adhésion non fabriquée :", e)
+    return null
+  }
+}
+
 async function traiterPreinscription(id: string): Promise<boolean> {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return false
   const rows = await rest(`preinscriptions?id=eq.${id}&confirmation_envoyee=eq.false&created_at=gte.${encodeURIComponent(RECENTE())}&select=*`)
@@ -306,15 +332,20 @@ async function traiterPreinscription(id: string): Promise<boolean> {
     ['Commune', d.commune], ['Foyer', d.foyer], ['Nous a connus', d.origine],
     ['Recevoir les dates', d.recevoir_dates ? 'oui' : 'non'],
   ].filter(([, v]) => v)
+  const pdf = await pieceJointeAdhesion(d, r)
   await envoyer({
     to: await destinatairesLudotheque(r),
     reply_to: d.email,
+    ...(pdf ? { attachments: [pdf] } : {}),
     subject: `Nouvelle pré-inscription : ${nomAffiche.replace(/[\r\n]/g, ' ')}`,
     html: habillage(`
       <p><strong>Nouvelle pré-inscription reçue sur le site.</strong></p>
       <table style="font-size:14px;border-collapse:collapse;">${lignes.map(([k, v]) =>
         `<tr><td style="padding:4px 16px 4px 0;color:#64748b;">${k}</td><td style="padding:4px 0;"><strong>${escapeHtml(String(v))}</strong></td></tr>`).join('')}
       </table>
+      ${pdf
+        ? "<p><strong>En pièce jointe :</strong> la fiche d'adhésion et la charte de prêt, à imprimer en recto verso pour la prochaine permanence.</p>"
+        : "<p><strong>La fiche d'adhésion n'a pas pu être fabriquée.</strong> Les informations ci-dessus restent complètes.</p>"}
       <p>Elle attend dans l'écran <a href="${SITE_URL}/admin/adherents" style="color:#1a5f7a;">Adhérents</a>, rubrique « Pré-inscriptions à valider ».</p>`),
   })
 
