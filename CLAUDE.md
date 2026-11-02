@@ -67,7 +67,7 @@ Tous suivent la maquette `Admin 1C.dc.html`, **page et fenêtres comprises** (vo
 | `/admin` | Tableau de bord | `src/pages/admin/Dashboard.tsx` |
 | `/admin/jeux` | Jeux | `src/pages/admin/Jeux.tsx` |
 | `/admin/adherents` | Adhérents | `src/pages/admin/Adherents.tsx` |
-| `/admin/evenements` | Communication | `src/pages/admin/Evenements.jsx` |
+| `/admin/evenements` | Communication (cinq modules en bulles ; bouton « Calendrier » à droite du titre : calendrier des publications, page de suivi) | `src/pages/admin/Evenements.jsx` |
 | `/admin/permanences` | Permanences | `src/pages/admin/GestionPermanences.jsx` |
 | `/admin/suivi-financier` | Suivi financier | `src/pages/admin/SuiviFinancier.tsx` |
 | `/admin/parametres` | Paramètres | `src/pages/admin/Parametres.jsx` |
@@ -201,6 +201,8 @@ Pour l'espace de gestion, dans `src/components/admin/` :
 | `FicheWikiludo` | fenêtre « Fiche pour Wikiludo » : chaque champ de la grille Wikiludo avec un bouton Copier (catalogue + MyLudo), ordinateur seulement |
 | `NouveauxJeux` | onglet « Nouveaux jeux » de Communication : jeux ajoutés depuis le 01/09/2026, carrousel 4:5 (couverture, une image par jeu — 8 au plus, boîte détourée en autocollant —, prochaine permanence) dessiné par `diapos/nouveaux-jeux-regles.js` / `nouveaux-jeux.js` ; cochés → « annonce », décochés → « ecarte » (table `annonces_jeux`, bénévoles seulement) |
 | `JeuSemaine` | onglet « Jeu de la semaine » de Communication : vidéos (Reels) du dossier Drive `1bdQWQauOTWyaGZwvuAcZh-dvF-G_evWs` (règles `services/jeuSemaine.js`, données `services/jeuSemaineFile.js`), la plus ancienne non publiée dont le jeu est disponible ; copie temporaire dans l'espace public `reels` (fonction `jeu-semaine`, clé `GOOGLE_DRIVE_CLE`), effacée 7 jours après ; publiée en Reel par la voie « Vidéo » de Make (`video_url`) |
+| `CalendrierPublications` | « Calendrier » de Communication (bouton à droite du titre, pas une bulle : c'est une page de suivi, choix de Victor) : grille du mois des actions de chaque événement (mail mairies J-21, annonce J-10, mail adhérents J-7, story veille J-1, story J, bilan), états fait / à faire / en retard / passé (gris), boutons vers les fenêtres existantes ; règle `services/calendrierPublications.js` (testée) ; conception `docs/superpowers/specs/2026-11-02-calendrier-publications-design.md` |
+| `ReglagesPublications` | carte « Publications » des Paramètres : délai, heure du rappel et interrupteur par action (clés `publication_<clé>_jours/_heure/_rappel` de `settings`) ; mêmes réglages pour le calendrier et les rappels |
 | `ModelesMessages` | fenêtre « Modèles de messages » : textes presse et école à copier, lus dans les Paramètres |
 | `SocialPostPreview` | aperçu d'une publication Facebook/Instagram |
 | `bilan/PublicationBilan` | fenêtre Bilan : choix des photos (ouverture, « plein de jeux », une par jeu), aperçu et publication du carrousel 4:5, story 9:16 à enregistrer ; « Expression libre » facultative (phrase de 90 caractères + fond flouté ou photo du bilan, avant le « Merci », `events.bilan_expression`) |
@@ -383,8 +385,11 @@ Les animations et effets sont définis dans `src/index.css`.
   service des fonctions le 22/10/2026, une autre clé est refusée (« Non autorisé »).
   Les dates des événements sont à l'**heure de Paris, sans fuseau** : toute comparaison
   côté serveur doit se faire à l'heure de Paris, pas en heure universelle.
-  **Rappels** (octobre 2026) : annonce à J-10 dès 18h (soirée, famille), story le jour J dès
-  9h (tout événement), bilan de permanence 1 h après la fin s'il y a eu des emprunts, bilan
+  **Rappels** (novembre 2026) : actions du calendrier des publications, délais et heures **lus dans les Paramètres**
+  (défauts : mail mairies J-21 18h et mail adhérents J-7 18h pour soirée et famille ; annonce J-10 18h, story veille J-1 17h,
+  story J 9h pour tout événement ; permanences sans mails ; colonnes « fait » `mail_collectivites_envoye_le`,
+  `mail_adherents_envoye_le`, `story_veille_faite_le`, `story_jour_faite_le`, « parti » `notif_*_sent_at`). La règle
+  `calendrierPublications.js` est **recopiée** dans `rappels.js` (test d'égalité). Bilans inchangés : bilan de permanence 1 h après la fin s'il y a eu des emprunts, bilan
   de soirée le lendemain dès 9h. Règles dans `check-events-notify/rappels.js` (testées par
   `npm test`) ; `typeEvenement`, `estPermanence` et la règle « rendu le jour même » y sont
   **recopiées** du site (la fonction ne peut pas importer `src/`) : les changer aux deux
