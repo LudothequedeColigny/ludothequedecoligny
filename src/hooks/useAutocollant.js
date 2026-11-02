@@ -35,7 +35,13 @@ let file = Promise.resolve()
 
 const pause = () => new Promise(r => setTimeout(r, 0))
 
-async function fabriquer(url, couleur) {
+/**
+ * Fabrique l'autocollant d'une jaquette et le rend en fichier image (Blob), ou null.
+ * `ombre: 0` donne un autocollant sans ombre, à qui la page ajoute la sienne
+ * (autocollants préparés à l'avance, services/autocollantsJeux.js) ; `type` : format voulu,
+ * le navigateur rend du PNG s'il ne sait pas l'écrire (Safari et le WebP).
+ */
+export async function fabriquerAutocollant(url, { couleur = COULEURS.orange, ombre = OMBRE, type = 'image/png', qualite } = {}) {
   const img = await chargerImage(url)
   if (!img) return null
   let boite = null
@@ -43,21 +49,29 @@ async function fabriquer(url, couleur) {
   try {
     boite = detourer(img, COTE)
     const { w, h } = tenir(boite, TAILLE, TAILLE)
-    sortie = nouveauCanvas(Math.ceil(w + 2 * MARGE + OMBRE), Math.ceil(h + 2 * MARGE + OMBRE))
+    sortie = nouveauCanvas(Math.ceil(w + 2 * MARGE + ombre), Math.ceil(h + 2 * MARGE + ombre))
     autocollant(sortie.ctx, boite, {
       cx: MARGE + w / 2, cy: MARGE + h / 2, w, h,
-      lisere: LISERE, bord: BORD, ombre: OMBRE, couleurOmbre: couleur,
+      lisere: LISERE, bord: BORD, ombre, couleurOmbre: couleur,
     })
-    const blob = await new Promise(resolve => {
+    return await new Promise(resolve => {
       // Image illisible (autre site) : toBlob refuse, on garde la jaquette encadrée
-      try { sortie.canvas.toBlob(b => resolve(b), 'image/png') } catch { resolve(null) }
+      try { sortie.canvas.toBlob(b => resolve(b), type, qualite) } catch { resolve(null) }
     })
-    return blob ? URL.createObjectURL(blob) : null
   } catch {
     return null
   } finally {
     liberer(boite)
     liberer(sortie?.canvas)
+  }
+}
+
+async function fabriquer(url, couleur) {
+  try {
+    const blob = await fabriquerAutocollant(url, { couleur })
+    return blob ? URL.createObjectURL(blob) : null
+  } catch {
+    return null
   }
 }
 

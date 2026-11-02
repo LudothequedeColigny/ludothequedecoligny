@@ -10,6 +10,8 @@ import useAutocollant from '../../../hooks/useAutocollant'
  * taille : 'grand' (bande « Et on a joué à… ») ou 'petit' (cartes de permanence)
  * teinte : 'orange' ou 'bleu' (couleur de l'ombre)
  * penche : n° de la boîte, pour varier l'inclinaison
+ * autocollant : autocollant déjà préparé, sans ombre (games.autocollant_url, accueil) — affiché tel quel
+ * detourage : false = ne jamais détourer sur place (sinon on voit la boîte se transformer)
  */
 const INCLINAISONS = ['-rotate-3', 'rotate-2', '-rotate-1']
 
@@ -33,8 +35,14 @@ const OMBRES = {
   petit: { orange: 'shadow-[3px_3px_0_#e38154]', bleu: 'shadow-[3px_3px_0_#1a5f7a]' },
 }
 
-export default function BoiteAutocollant({ image, nom, taille = 'grand', teinte = 'orange', penche = 0 }) {
-  const [ref, src] = useAutocollant(image, teinte)
+// Ombre d'un autocollant préparé : un filtre qui suit sa découpe, comme l'ombre pleine dessinée
+const OMBRES_DECOUPE = {
+  grand: { orange: '[filter:drop-shadow(5px_5px_0_#e38154)]', bleu: '[filter:drop-shadow(5px_5px_0_#1a5f7a)]' },
+  petit: { orange: '[filter:drop-shadow(3px_3px_0_#e38154)]', bleu: '[filter:drop-shadow(3px_3px_0_#1a5f7a)]' },
+}
+
+export default function BoiteAutocollant({ image, nom, taille = 'grand', teinte = 'orange', penche = 0, autocollant = null, detourage = true }) {
+  const [ref, src] = useAutocollant(autocollant || !detourage ? null : image, teinte)
   const t = TAILLES[taille]
   const inclinaison = INCLINAISONS[penche % INCLINAISONS.length]
 
@@ -43,7 +51,9 @@ export default function BoiteAutocollant({ image, nom, taille = 'grand', teinte 
       <span
         className={`flex max-h-full max-w-full items-end justify-center transition-transform duration-200 group-hover:-translate-y-1 group-hover:rotate-0 ${inclinaison}`}
       >
-        {src ? (
+        {autocollant ? (
+          <img src={autocollant} alt={nom} loading="lazy" className={`h-auto w-auto object-contain ${t.autocollant} ${OMBRES_DECOUPE[taille][teinte]}`} draggable={false} />
+        ) : src ? (
           <img src={src} alt={nom} className={`h-auto w-auto object-contain ${t.autocollant}`} draggable={false} />
         ) : image ? (
           <img

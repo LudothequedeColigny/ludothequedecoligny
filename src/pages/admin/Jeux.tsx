@@ -13,6 +13,7 @@ import SearchField from '../../components/admin/SearchField'
 import IconButton from '../../components/admin/IconButton'
 import ConfirmModal from '../../components/admin/ConfirmModal'
 import { preparer } from '../../services/etiquettes/regles.js'
+import { rattraperAutocollants } from '../../services/autocollantsJeux.js'
 import FenetreEtiquettes from '../../components/admin/etiquettes/FenetreEtiquettes'
 import { DataCard, DataHeader, DataRow, DataEmpty } from '../../components/admin/DataCard'
 import { BTN_ORANGE, BTN_TEAL, BTN_INK, BTN_OUTLINE } from '../../components/admin/buttons'
@@ -167,6 +168,17 @@ export default function Jeux() {
   }, [])
 
   useEffect(() => { fetchJeux() }, [])
+
+  // Autocollants des boîtes pour l'accueil, fabriqués en arrière-plan tant que l'écran est ouvert
+  // (services/autocollantsJeux.js) ; relancé après chaque enregistrement de jeu
+  const [autocollants, setAutocollants] = useState({ faits: 0, total: 0 })
+  const [relanceAutocollants, setRelanceAutocollants] = useState(0)
+  useEffect(() => {
+    if (!navigator.onLine) return
+    const arret = { stop: false }
+    rattraperAutocollants({ arret, onProgres: p => { if (!arret.stop) setAutocollants(p) } })
+    return () => { arret.stop = true }
+  }, [relanceAutocollants])
 
   useEffect(() => {
     const handler = (e) => {
@@ -448,7 +460,7 @@ export default function Jeux() {
       const wasEditing = !!editingId
       if (editingId) { const { error: e } = await supabase.from('games').update(gameData).eq('id', editingId); error = e }
       else { const { error: e } = await supabase.from('games').insert([gameData]); error = e }
-      if (!error) { cancelEdit(); fetchJeux(); addToast(wasEditing ? 'Jeu modifié avec succès.' : 'Jeu ajouté avec succès.', 'success') }
+      if (!error) { cancelEdit(); fetchJeux(); setRelanceAutocollants(n => n + 1); addToast(wasEditing ? 'Jeu modifié avec succès.' : 'Jeu ajouté avec succès.', 'success') }
       else addToast("Erreur lors de l'enregistrement : " + error.message, 'error')
     } else {
       addToast("⚠️ Le réseau est coupé. Impossible d'ajouter ou modifier un jeu pour le moment.", 'warning')
@@ -478,6 +490,12 @@ export default function Jeux() {
 
   return (
     <div className="min-h-screen bg-[#fdfaf6] p-5 font-body text-[#0f172a] md:p-11">
+      {autocollants.total > 0 && autocollants.faits < autocollants.total && (
+        <div className="fixed bottom-4 left-4 z-40 flex items-center gap-2.5 rounded-full border-2 border-[#0f172a] bg-white px-4 py-2.5 text-[12.5px] font-bold shadow-[3px_3px_0_#0f172a]">
+          <Loader2 size={15} className="animate-spin text-[#1a5f7a]" />
+          Autocollants de l'accueil : {autocollants.faits} / {autocollants.total}
+        </div>
+      )}
       <div className="mx-auto max-w-[1240px]">
 
       {/* HEADER */}

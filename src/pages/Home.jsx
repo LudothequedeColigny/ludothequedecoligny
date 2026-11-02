@@ -33,8 +33,9 @@ const memeAdresse = (a, b) => normaliser(a) === normaliser(b)
 export default function Home() {
   const navigate = useNavigate()
   const [events, setEvents] = useState({ upcoming: [], past: [] })
-  const [gameCount, setGameCount] = useState(0)
-  const [playerCount, setPlayerCount] = useState(0)
+  // null = pas encore arrivé (affiche « ··· ») ; chaque chiffre s'affiche dès qu'il arrive
+  const [gameCount, setGameCount] = useState(null)
+  const [playerCount, setPlayerCount] = useState(null)
   const [loading, setLoading] = useState(true)
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [calendrierOuvert, setCalendrierOuvert] = useState(false)
@@ -95,6 +96,24 @@ export default function Home() {
       try {
         setLoading(true)
 
+        // Les deux chiffres du haut et les derniers jeux partent tout de suite, en parallèle,
+        // sans attendre le reste : ils sont en haut de page
+        const chiffres = Promise.all([
+          supabase.from('games').select('id', { count: 'exact', head: true })
+            .then(({ count }) => setGameCount(count || 0)),
+          // Un visiteur n'a pas le droit de lire la liste des adhérents : la base
+          // lui donne seulement leur nombre (supabase/migrations/20261016_compteur_joueurs.sql).
+          // Si ce calcul n'est pas disponible, la case « Joueurs passionnés » est masquée.
+          supabase.rpc('nombre_joueurs')
+            .then(({ data, error }) => setPlayerCount(!error && data ? data : 0)),
+          // Jaquettes copiées chez nous seulement (MyLudo interdit le détourage des siennes)
+          supabase.from('games').select('id, name, image_url, autocollant_url, created_at')
+            .like('image_url', '%supabase.co/storage/%')
+            .order('created_at', { ascending: false })
+            .limit(30)
+            .then(({ data }) => setNouveauxJeux(data || [])),
+        ])
+
         // 1. Fetch Contact Settings
         const { data: settingsData } = await supabase.from('settings').select('*')
         if (settingsData) {
@@ -119,26 +138,6 @@ export default function Home() {
           setAdresse(a)
           setReglages(Object.fromEntries(settingsData.map(r => [r.id, r.value])))
         }
-
-        // Jaquettes copiées chez nous seulement (MyLudo interdit le détourage des siennes)
-        const { data: recents } = await supabase
-          .from('games')
-          .select('id, name, image_url, created_at')
-          .like('image_url', '%supabase.co/storage/%')
-          .order('created_at', { ascending: false })
-          .limit(30)
-        setNouveauxJeux(recents || [])
-
-        const { count: gCount } = await supabase
-          .from('games')
-          .select('*', { count: 'exact', head: true })
-        if (gCount) setGameCount(gCount)
-
-        // Un visiteur n'a pas le droit de lire la liste des adhérents : la base
-        // lui donne seulement leur nombre (supabase/migrations/20261016_compteur_joueurs.sql).
-        // Si ce calcul n'est pas disponible, la case « Joueurs passionnés » est masquée.
-        const { data: nbJoueurs, error: errJoueurs } = await supabase.rpc('nombre_joueurs')
-        if (!errJoueurs && nbJoueurs) setPlayerCount(nbJoueurs)
 
         // Un seul appel : l'agenda n'affiche que les événements non archivés,
         // tandis que les compteurs « vie de la ludothèque » portent sur tout l'historique.
@@ -174,6 +173,7 @@ export default function Home() {
           editions,
           jeuxJoues: uniqueGames.size,
         })
+        await chiffres
       } catch (error) {
         console.error("Erreur Home:", error.message)
       } finally {
@@ -315,14 +315,14 @@ export default function Home() {
               className="flex flex-1 flex-col items-center justify-start px-3 py-2 text-center transition-transform duration-300 hover:-translate-y-1 md:px-8"
             >
               <div className="font-display text-[40px] font-extrabold leading-none tracking-[-0.05em] text-[#1a5f7a] md:text-[58px]">
-                {loading ? '···' : <CountUp value={gameCount} />}
+                {gameCount === null ? '···' : <CountUp value={gameCount} />}
               </div>
               <div className="mt-2 text-[12px] font-extrabold uppercase tracking-[0.14em] text-slate-600">
                 Jeux à emprunter
               </div>
             </Reveal>
 
-            {(loading || playerCount > 0) && (
+            {(playerCount === null || playerCount > 0) && (
               <Reveal
                 as="button"
                 variant="scale"
@@ -331,7 +331,7 @@ export default function Home() {
                 className="flex flex-1 flex-col items-center justify-start px-3 py-2 text-center transition-transform duration-300 hover:-translate-y-1 md:px-8"
               >
                 <div className="font-display text-[40px] font-extrabold leading-none tracking-[-0.05em] text-[#e38154] md:text-[58px]">
-                  {loading ? '···' : <CountUp value={playerCount} />}
+                  {playerCount === null ? '···' : <CountUp value={playerCount} />}
                 </div>
                 <div className="mt-2 text-[12px] font-extrabold uppercase tracking-[0.14em] text-slate-600">
                   Joueurs passionnés
@@ -357,7 +357,8 @@ export default function Home() {
                 </button>
               </Reveal>
             </div>
-            {/* Les 30 derniers jeux défilent sans fin : la liste est écrite deux fois (index.css, anim-defile) */}
+            {/* Les 30 derniers jeux défilent sans fin : la liste est écrite deux fois (index.css, anim-defile).
+                Autocollants préparés à l'avance par l'écran Jeux ; à défaut, simple cadre (jamais de détourage en direct) */}
             <Reveal variant="deroule" delay={150} className="-mx-4 md:-mx-10">
               <div className="bords-fondus overflow-hidden py-3">
               <div
@@ -373,7 +374,7 @@ export default function Home() {
                     tabIndex={copie === 1 ? -1 : undefined}
                     className="group shrink-0 px-3 md:px-4"
                   >
-                    <BoiteAutocollant image={jeu.image_url} nom={jeu.name} teinte={i % 2 ? 'bleu' : 'orange'} penche={i} />
+                    <BoiteAutocollant image={jeu.image_url} autocollant={jeu.autocollant_url} detourage={false} nom={jeu.name} teinte={i % 2 ? 'bleu' : 'orange'} penche={i} />
                   </button>
                 )))}
               </div>

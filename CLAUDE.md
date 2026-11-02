@@ -410,6 +410,13 @@ Les animations et effets sont définis dans `src/index.css`.
   dynamically imported module », vu le 27/10/2026). `src/services/nouvelleVersion.js` recharge alors la
   page une fois (évènement `vite:preloadError` dans `main.jsx`, et le bouton PDF des étiquettes). Tout
   nouvel `import()` à la demande doit traiter cette erreur de la même façon.
+- **Autocollants préparés à l'avance** (bandeau « Tout juste arrivés » de l'accueil) : jamais de détourage en
+  direct sur l'accueil (on voyait les boîtes se transformer en défilant, et ça ralentissait les compteurs). L'écran
+  Jeux fabrique en arrière-plan les autocollants manquants, sans ombre, en WebP (~15 Ko), dans `game-images/autocollants/`,
+  adresse dans `games.autocollant_url` (`services/autocollantsJeux.js`, pastille d'avancement en bas à gauche) ; un
+  déclencheur vide cette adresse quand l'image du jeu change (`supabase/migrations/20261102_autocollants_jeux.sql`).
+  L'accueil pose l'ombre orange/bleue par un filtre `drop-shadow` ; sans autocollant, simple cadre. Les deux chiffres
+  du haut et les jeux sont demandés en premier, en parallèle (avant : 2 à 5 s, après : moins d'1 s).
 - **Plan du bloc adresse de l'accueil** (`public/plan-ludotheque.svg`) : image fixe dessinée depuis OpenStreetMap
   (mention « © OpenStreetMap » obligatoire) et la Base Adresse Nationale ; aucun service extérieur côté visiteur.
   Il ne vaut que pour `ADRESSE_PLAN` (`src/pages/Home.jsx`) : si l'adresse des Paramètres diffère, il est masqué
