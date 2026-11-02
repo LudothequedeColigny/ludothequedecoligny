@@ -50,7 +50,7 @@ export default function ReglagesPublications({ onClose }) {
       <div className="flex max-h-[92vh] w-full max-w-[640px] flex-col overflow-hidden rounded-[28px] border-2 border-[#0f172a] bg-white shadow-[8px_8px_0_#0f172a]" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between gap-4 border-b-2 border-slate-100 p-6">
           <div className="flex items-center gap-3.5">
-            <div className="flex h-12 w-12 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#faf5ff] text-[#a855f7]"><MaskIcon file="ludo-calendrier.svg" size={30} color="currentColor" /></div>
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] border-2 border-[#0f172a] bg-[#faf5ff] text-[#a855f7]"><MaskIcon file="ludo-calendrier.svg" size={30} color="currentColor" /></div>
             <div>
               <h3 className="font-display text-[19px] font-extrabold tracking-[-0.04em]">Calendrier des publications</h3>
               <p className="mt-1 text-[12.5px] text-slate-500">Quand communiquer avant chaque événement.</p>
