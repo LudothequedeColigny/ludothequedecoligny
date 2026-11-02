@@ -68,10 +68,16 @@ test('fait : lu dans les colonnes de l’événement ; archivé ou sans date : r
   assert.deepEqual(actionsEvenement({ id: 9, title: 'Soirée' }, defauts), [])
 })
 
-test('état : fait, à faire, en retard', () => {
-  assert.equal(etatAction({ jour: '2026-11-11', faitLe: 'x' }, '2026-11-20'), 'fait')
-  assert.equal(etatAction({ jour: '2026-11-11', faitLe: null }, '2026-11-11'), 'a_faire')
-  assert.equal(etatAction({ jour: '2026-11-11', faitLe: null }, '2026-11-12'), 'en_retard')
+test('état : fait, à faire, en retard, passé', () => {
+  const annonce = { cle: 'annonce', jour: '2026-11-11', jourEvenement: '2026-11-21', faitLe: null }
+  assert.equal(etatAction({ ...annonce, faitLe: 'x' }, '2026-11-20'), 'fait')
+  assert.equal(etatAction(annonce, '2026-11-11'), 'a_faire')
+  assert.equal(etatAction(annonce, '2026-11-12'), 'en_retard')
+  assert.equal(etatAction(annonce, '2026-11-21'), 'en_retard')
+  assert.equal(etatAction(annonce, '2026-11-22'), 'passe')
+  const bilan = { cle: 'bilan', jour: '2026-11-22', jourEvenement: '2026-11-21', faitLe: null }
+  assert.equal(etatAction(bilan, '2026-11-29'), 'en_retard')
+  assert.equal(etatAction(bilan, '2026-11-30'), 'passe')
 })
 
 test('par jour : actions rangées par date, dans l’ordre des actions', () => {

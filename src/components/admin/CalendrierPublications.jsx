@@ -12,7 +12,7 @@ import { ACTIONS_PUBLICATION, BILAN, reglagesPublication, actionsParJour, etatAc
  */
 const INFOS = Object.fromEntries([...ACTIONS_PUBLICATION, BILAN].map(a => [a.cle, a]))
 const auJour = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-const ETATS = { fait: 'Fait', a_faire: 'À faire', en_retard: 'En retard' }
+const ETATS = { fait: 'Fait', a_faire: 'À faire', en_retard: 'En retard', passe: 'Passé' }
 const jourCourt = jour => new Date(`${jour}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
 const jourLisible = jour => new Date(`${jour}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 
@@ -61,7 +61,7 @@ export default function CalendrierPublications({ evenements, jourInitial, onMail
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
               <span className="font-display text-[15px] font-extrabold leading-tight">{info.libelle}</span>
-              <span className={`rounded-full px-2.5 py-0.5 text-[10.5px] font-extrabold uppercase tracking-[0.08em] ${etat === 'fait' ? 'bg-emerald-50 text-emerald-700' : etat === 'en_retard' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-600'}`}>
+              <span className={`rounded-full px-2.5 py-0.5 text-[10.5px] font-extrabold uppercase tracking-[0.08em] ${etat === 'fait' ? 'bg-emerald-50 text-emerald-700' : etat === 'en_retard' ? 'bg-rose-50 text-rose-600' : etat === 'passe' ? 'bg-slate-100 text-slate-400' : 'bg-slate-100 text-slate-600'}`}>
                 {ETATS[etat]}
               </span>
             </div>
@@ -71,14 +71,14 @@ export default function CalendrierPublications({ evenements, jourInitial, onMail
             </div>
           </div>
         </div>
-        {(b && etat !== 'fait') || marquable ? (
+        {(b && etat !== 'fait' && etat !== 'passe') || (marquable && etat !== 'passe') ? (
           <div className="flex flex-wrap gap-2 pl-6 sm:shrink-0 sm:pl-0">
-            {b && etat !== 'fait' && (
+            {b && etat !== 'fait' && etat !== 'passe' && (
               <button type="button" onClick={b.agir} className="rounded-[12px] border-2 border-[#0f172a] bg-[#e38154] px-3.5 py-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-white shadow-[3px_3px_0_#0f172a] transition-[transform,box-shadow] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[1px_1px_0_#0f172a]">
                 {b.texte}
               </button>
             )}
-            {marquable && (
+            {marquable && etat !== 'passe' && (
               <button type="button" onClick={() => onMarquer(a.evenement, info.faitLe, a.faitLe ? null : new Date().toISOString())}
                 className="rounded-[12px] border-2 border-[#0f172a] bg-white px-3.5 py-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#1a5f7a] shadow-[3px_3px_0_#1a5f7a]">
                 {a.faitLe ? 'Annuler' : "C'est fait"}
@@ -96,7 +96,7 @@ export default function CalendrierPublications({ evenements, jourInitial, onMail
     return (
       <span key={`${a.cle}-${a.evenementId}`} title={`${info.libelle} — ${a.evenement.title}`}
         className={`flex items-center gap-1 truncate rounded-[6px] px-1.5 py-0.5 text-[10.5px] font-bold leading-tight text-white ${etat === 'fait' ? 'line-through opacity-50' : ''}`}
-        style={{ background: etat === 'en_retard' ? '#e11d48' : info.couleur }}>
+        style={{ background: etat === 'en_retard' ? '#e11d48' : etat === 'passe' ? '#cbd5e1' : info.couleur }}>
         {etat === 'fait' && <Check size={10} className="shrink-0" />}{info.court}
       </span>
     )
@@ -130,7 +130,7 @@ export default function CalendrierPublications({ evenements, jourInitial, onMail
                 {/* Ordinateur : étiquettes ; téléphone : pastilles */}
                 <span className="hidden flex-col gap-0.5 md:flex">{actions.slice(0, 3).map(etiquette)}{actions.length > 3 && <span className="text-[10px] font-bold text-slate-500">+{actions.length - 3}</span>}</span>
                 <span className="flex flex-wrap gap-0.5 md:hidden">
-                  {actions.map(a => <span key={`${a.cle}-${a.evenementId}`} className="h-2 w-2 rounded-full" style={{ background: etatAction(a, aujourdhui) === 'en_retard' ? '#e11d48' : INFOS[a.cle].couleur, opacity: a.faitLe ? 0.35 : 1 }} />)}
+                  {actions.map(a => <span key={`${a.cle}-${a.evenementId}`} className="h-2 w-2 rounded-full" style={{ background: { en_retard: '#e11d48', passe: '#cbd5e1' }[etatAction(a, aujourdhui)] || INFOS[a.cle].couleur, opacity: a.faitLe ? 0.35 : 1 }} />)}
                 </span>
               </button>
             )

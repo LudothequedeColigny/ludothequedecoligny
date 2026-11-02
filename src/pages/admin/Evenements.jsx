@@ -12,17 +12,17 @@ import IconButton from '../../components/admin/IconButton'
 import SearchField from '../../components/admin/SearchField'
 import ConfirmModal from '../../components/admin/ConfirmModal'
 import { DataCard } from '../../components/admin/DataCard'
-import { BTN_ORANGE, BTN_INK, BTN_TEAL } from '../../components/admin/buttons'
+import { BTN_ORANGE, BTN_INK, BTN_TEAL, BTN_OUTLINE } from '../../components/admin/buttons'
 
 // Styles des champs du formulaire d'événement, repris de la maquette
 const E_SECTION = 'mb-4 flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.18em]'
 const E_LABEL = 'mb-2 block text-[9px] font-extrabold uppercase italic tracking-[0.14em] text-slate-400'
 const E_INPUT = 'w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none placeholder:font-semibold placeholder:text-slate-300 focus:bg-white'
 
-// Les six onglets de l'écran Communication
+// Les cinq onglets de l'écran Communication (le calendrier des publications, page de suivi,
+// s'ouvre par le bouton à droite du titre)
 const COMM_TABS = [
   { id: 'events', label: 'Événements', shadow: '#1a5f7a' },
-  { id: 'calendrier', label: 'Calendrier', shadow: '#a855f7' },
   { id: 'affiche', label: "Générateur d'affiches", shadow: '#e38154' },
   { id: 'posts', label: 'Posts', shadow: '#10b981' },
   { id: 'jeux', label: 'Nouveaux jeux', shadow: '#f59e0b' },
@@ -1483,24 +1483,36 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
 
       <div data-tutorial="evt-header">
         <AdminPageHeader icon="ludo-communication.svg" title="Gestion de la" accent="Communication">
-          {activeTab === 'events' && (
+          <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row">
+            {/* Calendrier des publications : page de suivi, à part des modules de communication */}
             <button
-              data-tutorial="evt-add-btn"
-              onClick={editingId ? cancelEdit : () => setShowForm(!showForm)}
-              className={`${showForm ? BTN_INK : BTN_ORANGE} w-full md:w-auto`}
+              type="button"
+              onClick={() => setActiveTab(activeTab === 'calendrier' ? 'events' : 'calendrier')}
+              title="Calendrier des publications : quand communiquer sur chaque événement"
+              className={`${activeTab === 'calendrier' ? BTN_TEAL : BTN_OUTLINE} w-full md:w-auto`}
             >
-              {showForm ? <><X size={16} strokeWidth={3} /> Fermer</> : <><Plus size={16} strokeWidth={3} /> Nouvel événement</>}
+              <MaskIcon file="ludo-calendrier.svg" size={20} color="currentColor" />
+              {activeTab === 'calendrier' ? 'Fermer' : 'Calendrier'}
             </button>
-          )}
+            {activeTab === 'events' && (
+              <button
+                data-tutorial="evt-add-btn"
+                onClick={editingId ? cancelEdit : () => setShowForm(!showForm)}
+                className={`${showForm ? BTN_INK : BTN_ORANGE} w-full md:w-auto`}
+              >
+                {showForm ? <><X size={16} strokeWidth={3} /> Fermer</> : <><Plus size={16} strokeWidth={3} /> Nouvel événement</>}
+              </button>
+            )}
+          </div>
         </AdminPageHeader>
       </div>
 
       {/* Onglets */}
-      <div data-tutorial="evt-tabs" className="mb-6 grid grid-cols-3 gap-2.5 sm:gap-3.5 lg:grid-cols-6">
+      <div data-tutorial="evt-tabs" className="mb-6 grid grid-cols-3 gap-2.5 sm:grid-cols-5 sm:gap-3.5">
         {COMM_TABS.map(tab => {
           const active = activeTab === tab.id
           const count = { events: upcomingEventsCount, affiche: templatesCount, posts: postsCount, jeux: jeuxAAnnoncerCount, semaine: jeuSemaineCount }[tab.id]
-          const icone = { events: 'ludo-calendrier-evenement.svg', calendrier: 'ludo-calendrier.svg', affiche: 'ludo-affiche.svg', posts: 'ludo-post.svg', jeux: 'ludo-nouveau-jeu.svg', semaine: 'ludo-video.svg' }[tab.id]
+          const icone = { events: 'ludo-calendrier-evenement.svg', affiche: 'ludo-affiche.svg', posts: 'ludo-post.svg', jeux: 'ludo-nouveau-jeu.svg', semaine: 'ludo-video.svg' }[tab.id]
           return (
             <button
               key={tab.id}

@@ -62,10 +62,10 @@ export default function ReglagesPublications({ onClose }) {
         <div className="flex-1 space-y-3 overflow-y-auto p-6">
           {!valeurs ? <Loader2 className="mx-auto animate-spin text-[#1a5f7a]" /> : ACTIONS_PUBLICATION.map(a => (
             <div key={a.cle} className="rounded-[18px] border-2 border-[#0f172a] p-4">
-              <div className="mb-3 flex items-center gap-2.5">
-                <span className="h-3 w-3 rounded-full border-2 border-[#0f172a]" style={{ background: a.couleur }} />
+              <div className="mb-3 flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
+                <span className="h-3 w-3 shrink-0 rounded-full border-2 border-[#0f172a]" style={{ background: a.couleur }} />
                 <span className="font-display text-[16px] font-extrabold">{a.libelle}</span>
-                {!a.permanence && <span className="text-[11.5px] text-slate-500">(soirées et après-midis famille)</span>}
+                {!a.permanence && <span className="w-full pl-[22px] text-[11.5px] text-slate-500 sm:w-auto sm:pl-0">soirées et après-midis famille seulement</span>}
               </div>
               <div className="flex flex-wrap items-center gap-x-5 gap-y-3 text-[13.5px] font-semibold">
                 <label className="flex items-center gap-2">

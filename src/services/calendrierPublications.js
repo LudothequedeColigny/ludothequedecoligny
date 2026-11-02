@@ -47,16 +47,19 @@ export function actionsEvenement(ev, reglages) {
   const type = typeEvenement(ev.title)
   const liste = ACTIONS_PUBLICATION
     .filter(a => type !== 'permanence' || a.permanence)
-    .map(a => ({ cle: a.cle, evenementId: ev.id, jour: decalerJour(jourEv, -reglages[a.cle].jours), heure: reglages[a.cle].heure, faitLe: ev[a.faitLe] || null }))
+    .map(a => ({ cle: a.cle, evenementId: ev.id, jour: decalerJour(jourEv, -reglages[a.cle].jours), jourEvenement: jourEv, heure: reglages[a.cle].heure, faitLe: ev[a.faitLe] || null }))
   // Bilan : mêmes règles que les fenêtres Bilan (soirée / famille le lendemain, permanence le jour même)
-  if (type !== 'permanence') liste.push({ cle: 'bilan', evenementId: ev.id, jour: decalerJour(jourEv, 1), heure: null, faitLe: ev.bilan_publie_le || null })
-  else if (estPermanence(ev.title)) liste.push({ cle: 'bilan', evenementId: ev.id, jour: jourEv, heure: null, faitLe: ev.bilan_publie_le || null })
+  if (type !== 'permanence') liste.push({ cle: 'bilan', evenementId: ev.id, jour: decalerJour(jourEv, 1), jourEvenement: jourEv, heure: null, faitLe: ev.bilan_publie_le || null })
+  else if (estPermanence(ev.title)) liste.push({ cle: 'bilan', evenementId: ev.id, jour: jourEv, jourEvenement: jourEv, heure: null, faitLe: ev.bilan_publie_le || null })
   return liste
 }
 
+// « passe » : plus la peine (événement passé ; bilan : une semaine après son jour), affiché en gris
 export function etatAction(action, aujourdhui) {
   if (action.faitLe) return 'fait'
-  return action.jour < aujourdhui ? 'en_retard' : 'a_faire'
+  if (action.jour >= aujourdhui) return 'a_faire'
+  const limite = action.cle === 'bilan' ? decalerJour(action.jour, 7) : action.jourEvenement
+  return limite && aujourdhui > limite ? 'passe' : 'en_retard'
 }
 
 export function actionsParJour(evenements, reglages) {
