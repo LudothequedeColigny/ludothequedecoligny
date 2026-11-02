@@ -90,7 +90,7 @@ Nouvel onglet après « Événements » (`COMM_TABS`), brique `src/components/ad
   `notif_story_veille_sent_at` ;
 - la fenêtre de lecture des événements s'étend au plus grand délai réglé (+1 jour) ;
 - un rappel ouvre `/admin/evenements?calendrier=<jour>` (l'onglet Calendrier sur ce jour),
-  sauf annonce et bilan qui gardent leurs fenêtres (`?annonce=`, `?bilan=`) ;
+  sauf annonce et story du jour J (fenêtre Annonce, qui contient la story : `?annonce=`) et bilan (`?bilan=`) ;
 - bilans, début d'événement, jeu de la semaine : inchangés ;
 - le mode simulation (`{"simulation": true, "maintenant": …}`) couvre les nouveaux rappels.
 
