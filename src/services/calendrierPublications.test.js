@@ -14,6 +14,7 @@ test('réglages : valeurs par défaut', () => {
     mail_adherents: { jours: 7, heure: '18:00', rappel: true },
     story_veille: { jours: 1, heure: '17:00', rappel: true },
     story_jour: { jours: 0, heure: '09:00', rappel: true },
+    jeu_semaine: { jourSemaine: 4, heure: '17:00', rappel: true },
   })
 })
 
@@ -88,4 +89,45 @@ test('par jour : actions rangées par date, dans l’ordre des actions', () => {
 
 test('les clés des actions sont celles attendues par les Paramètres', () => {
   assert.deepEqual(ACTIONS_PUBLICATION.map(a => a.cle), ['mail_collectivites', 'annonce', 'mail_adherents', 'story_veille', 'story_jour'])
+})
+
+// ── Jeu de la semaine ──────────────────────────────────────────────────────
+import { reglagesPublication as reglages2, actionsJeuSemaine, lundiDe } from './calendrierPublications.js'
+
+test('jeu de la semaine : réglage par défaut jeudi 17h, jour et heure lus dans settings', () => {
+  assert.deepEqual(reglages2({}).jeu_semaine, { jourSemaine: 4, heure: '17:00', rappel: true })
+  assert.deepEqual(reglages2({ publication_jeu_semaine_jour: '2', publication_jeu_semaine_heure: '12:30', publication_jeu_semaine_rappel: 'false' }).jeu_semaine,
+    { jourSemaine: 2, heure: '12:30', rappel: false })
+  assert.equal(reglages2({ publication_jeu_semaine_jour: '8' }).jeu_semaine.jourSemaine, 4)
+  assert.equal(reglages2({ publication_jeu_semaine_jour: '0' }).jeu_semaine.jourSemaine, 4)
+})
+
+test('lundi de la semaine', () => {
+  assert.equal(lundiDe('2026-11-05'), '2026-11-02')
+  assert.equal(lundiDe('2026-11-02'), '2026-11-02')
+  assert.equal(lundiDe('2026-11-08'), '2026-11-02')
+  assert.equal(lundiDe('2027-01-01'), '2026-12-28')
+})
+
+test('jeu de la semaine : une action par semaine, au jour réglé, cochée si une vidéo est publiée dans la semaine', () => {
+  const actions = actionsJeuSemaine({
+    depuis: '2026-10-28', jusqua: '2026-11-15', reglages: reglages2({}),
+    publications: ['2026-10-29T17:30:00', '2026-11-09T10:00:00'],
+  })
+  assert.deepEqual(actions.map(a => [a.jour, a.semaine, a.faitLe]), [
+    ['2026-10-29', '2026-10-26', '2026-10-29T17:30:00'],
+    ['2026-11-05', '2026-11-02', null],
+    ['2026-11-12', '2026-11-09', '2026-11-09T10:00:00'],
+  ])
+  assert.equal(actions[0].cle, 'jeu_semaine')
+  assert.equal(actions[0].heure, '17:00')
+  assert.equal(actionsJeuSemaine({ depuis: '2026-11-02', jusqua: '2026-11-08', reglages: reglages2({ publication_jeu_semaine_jour: '1' }), publications: [] })[0].jour, '2026-11-02')
+})
+
+test('jeu de la semaine : en retard après le jour réglé, passé une fois la semaine finie', () => {
+  const a = { cle: 'jeu_semaine', jour: '2026-11-05', semaine: '2026-11-02', faitLe: null }
+  assert.equal(etatAction(a, '2026-11-05'), 'a_faire')
+  assert.equal(etatAction(a, '2026-11-06'), 'en_retard')
+  assert.equal(etatAction(a, '2026-11-08'), 'en_retard')
+  assert.equal(etatAction(a, '2026-11-09'), 'passe')
 })

@@ -91,7 +91,9 @@ test('calendrier des publications : les deux copies de la règle donnent les mê
   const siteCal = await import('../../../src/services/calendrierPublications.js')
   assert.deepEqual(serveur.ACTIONS_PUBLICATION, siteCal.ACTIONS_PUBLICATION)
   assert.deepEqual(serveur.BILAN, siteCal.BILAN)
-  const reglages = { publication_annonce_jours: '12', publication_story_veille_heure: '16:30', publication_mail_collectivites_rappel: 'false' }
+  assert.deepEqual(serveur.JEU_SEMAINE, siteCal.JEU_SEMAINE)
+  assert.equal(serveur.lundiDe('2027-01-01'), siteCal.lundiDe('2027-01-01'))
+  const reglages = { publication_annonce_jours: '12', publication_story_veille_heure: '16:30', publication_mail_collectivites_rappel: 'false', publication_jeu_semaine_jour: '5' }
   assert.deepEqual(serveur.reglagesPublication(reglages), siteCal.reglagesPublication(reglages))
   const regl = siteCal.reglagesPublication(reglages)
   for (const ev of [halloween, perm, { id: 9, title: 'Après-midi en famille', date: '2027-01-02 14:00:00' }, { id: 10, title: 'Fête du jeu', date: '2026-12-05 14:00:00' }]) {
@@ -176,6 +178,13 @@ test('jeu de la semaine : seulement le jeudi à partir de 17h', () => {
   assert.equal(semaineDuRappel('2026-11-06T17:05:00'), null)        // vendredi : pas de relance
   assert.equal(semaineDuRappel('2026-11-02T17:05:00'), null)        // lundi
   assert.equal(semaineDuRappel('2026-12-31T17:05:00'), '2026-12-28') // semaine à cheval sur l'année
+  // jour et heure réglés dans les Paramètres ; rappel coupé
+  const mardiMidi = serveur.reglagesPublication({ publication_jeu_semaine_jour: '2', publication_jeu_semaine_heure: '12:00' })
+  assert.equal(semaineDuRappel('2026-11-03T11:59:00', mardiMidi), null)
+  assert.equal(semaineDuRappel('2026-11-03T12:00:00', mardiMidi), '2026-11-02')
+  assert.equal(semaineDuRappel('2026-11-05T17:05:00', mardiMidi), null)
+  assert.equal(semaineDuRappel('2026-11-08T17:05:00', serveur.reglagesPublication({ publication_jeu_semaine_jour: '7' })), '2026-11-02')
+  assert.equal(semaineDuRappel('2026-11-05T17:05:00', serveur.reglagesPublication({ publication_jeu_semaine_rappel: 'false' })), null)
 })
 
 test('jeu de la semaine : texte du rappel, jeu en prêt sauté, réserve vide', () => {

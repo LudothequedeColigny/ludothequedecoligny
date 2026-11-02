@@ -30,11 +30,26 @@ export const ACTIONS_PUBLICATION = [
   { cle: 'story_jour', libelle: 'Story du jour J', court: 'Story J', couleur: '#e38154', jours: 0, heure: '09:00', permanence: true, faitLe: 'story_jour_faite_le' },
 ]
 export const BILAN = { cle: 'bilan', libelle: 'Bilan', court: 'Bilan', couleur: '#0f172a', faitLe: 'bilan_publie_le' }
+// Jeu de la semaine : une vidéo par semaine, sans lien avec un événement (jourSemaine : 1 = lundi … 7 = dimanche)
+export const JEU_SEMAINE = { cle: 'jeu_semaine', libelle: 'Jeu de la semaine', court: 'Jeu semaine', couleur: '#8b5cf6', jourSemaine: 4, heure: '17:00' }
 
 const HEURE = /^([01]\d|2[0-3]):[0-5]\d$/
 const vide = v => v === undefined || v === null || String(v).trim() === ''
 
 export function reglagesPublication(settings = {}) {
+  const jourBrut = settings.publication_jeu_semaine_jour
+  const jourSemaine = Number(jourBrut)
+  const heureJeu = String(settings.publication_jeu_semaine_heure ?? '').slice(0, 5)
+  const rappelJeu = settings.publication_jeu_semaine_rappel
+  const jeu_semaine = {
+    jourSemaine: !vide(jourBrut) && Number.isInteger(jourSemaine) && jourSemaine >= 1 && jourSemaine <= 7 ? jourSemaine : JEU_SEMAINE.jourSemaine,
+    heure: HEURE.test(heureJeu) ? heureJeu : JEU_SEMAINE.heure,
+    rappel: vide(rappelJeu) ? true : String(rappelJeu) !== 'false',
+  }
+  return { ...reglagesActions(settings), jeu_semaine }
+}
+
+function reglagesActions(settings) {
   return Object.fromEntries(ACTIONS_PUBLICATION.map(a => {
     const brut = settings[`publication_${a.cle}_jours`]
     const j = Number(brut)
@@ -67,10 +82,34 @@ export function actionsEvenement(ev, reglages) {
 }
 
 // « passe » : plus la peine (événement passé ; bilan : une semaine après son jour), affiché en gris
+/** Lundi de la semaine d'un jour « AAAA-MM-JJ ». */
+export function lundiDe(jour) {
+  const [a, m, j] = jour.split('-').map(Number)
+  const numero = new Date(Date.UTC(a, m - 1, j)).getUTCDay() // 0 = dimanche
+  return decalerJour(jour, -((numero + 6) % 7))
+}
+
+/**
+ * Jeu de la semaine : une action par semaine entre `depuis` et `jusqua`, au jour réglé ; faite si une
+ * vidéo a été publiée du lundi au dimanche (`publications` : dates à l'heure de Paris).
+ */
+export function actionsJeuSemaine({ depuis, jusqua, publications = [], reglages }) {
+  const r = reglages.jeu_semaine
+  const liste = []
+  for (let lundi = lundiDe(depuis); lundi <= jusqua; lundi = decalerJour(lundi, 7)) {
+    const dimanche = decalerJour(lundi, 6)
+    const faite = publications.map(p => String(p).replace(' ', 'T')).filter(p => p.slice(0, 10) >= lundi && p.slice(0, 10) <= dimanche).sort()[0]
+    liste.push({ cle: JEU_SEMAINE.cle, semaine: lundi, jour: decalerJour(lundi, r.jourSemaine - 1), heure: r.heure, faitLe: faite || null })
+  }
+  return liste
+}
+
 export function etatAction(action, aujourdhui) {
   if (action.faitLe) return 'fait'
   if (action.jour >= aujourdhui) return 'a_faire'
-  const limite = action.cle === 'bilan' ? decalerJour(action.jour, 7) : action.jourEvenement
+  const limite = action.cle === 'bilan' ? decalerJour(action.jour, 7)
+    : action.cle === 'jeu_semaine' ? decalerJour(action.semaine, 6)
+    : action.jourEvenement
   return limite && aujourdhui > limite ? 'passe' : 'en_retard'
 }
 
@@ -218,20 +257,25 @@ export function prochaineVideo(attente = []) {
   return { video: attente[i], sautee }
 }
 
-const JEUDI = 4
 const URL_JEU_SEMAINE = '/admin/evenements?onglet=jeu-semaine'
 
-/** Lundi de la semaine (« AAAA-MM-JJ ») si `maintenant` est un jeudi à partir de 17 h, sinon null. */
-export function semaineDuRappel(maintenant) {
+/**
+ * Lundi de la semaine (« AAAA-MM-JJ ») si `maintenant` est le jour réglé (jeudi par défaut) à partir de
+ * l'heure réglée (17 h par défaut), sinon null — ou toujours null si le rappel est coupé (Paramètres →
+ * Publications, ligne « Jeu de la semaine »).
+ */
+export function semaineDuRappel(maintenant, reglages = reglagesPublication({})) {
+  const r = reglages.jeu_semaine
+  if (!r.rappel) return null
   const n = lire(maintenant)
   const numero = numeroJour(n.jour)
-  const jourSemaine = new Date(numero * 86400000).getUTCDay()
-  if (jourSemaine !== JEUDI || n.minutes < 17 * 60) return null
-  return new Date((numero - 3) * 86400000).toISOString().slice(0, 10)
+  const jourSemaine = ((new Date(numero * 86400000).getUTCDay() + 6) % 7) + 1 // 1 = lundi … 7 = dimanche
+  if (jourSemaine !== r.jourSemaine || n.minutes < minutesDe(r.heure)) return null
+  return new Date((numero - (jourSemaine - 1)) * 86400000).toISOString().slice(0, 10)
 }
 
 /**
- * Rappel du jeudi pour la semaine `semaine` (son lundi), ou null si une vidéo a été
+ * Rappel du jeu de la semaine pour la semaine `semaine` (son lundi), ou null si une vidéo a été
  * publiée depuis ce lundi 0 h. `publications` : dates à l'heure de Paris.
  * L'appelant vérifie qu'il n'est pas déjà parti (table rappels_jeu_semaine).
  */

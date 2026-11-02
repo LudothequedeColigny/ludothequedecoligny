@@ -57,12 +57,12 @@ function accepte({ status, reponse }: { status: number; reponse: string }) {
   return !(resultat.total && !resultat.sent)
 }
 
-// Rappel du jeudi (jeu de la semaine) : lu seulement le jeudi à partir de 17 h, tant
+// Rappel du jeu de la semaine : lu seulement le jour et à partir de l'heure réglés (jeudi 17 h par défaut), tant
 // qu'il n'est pas parti cette semaine. Le dossier Drive n'est donc pas interrogé
 // toutes les 15 min. Une erreur (clé Google, dossier) n'envoie rien : surtout pas
 // « Plus de vidéo en réserve » à tort.
-async function rappelDuJeudi(maintenant: string) {
-  const semaine = semaineDuRappel(maintenant)
+async function rappelDuJeudi(maintenant: string, reglages: ReturnType<typeof reglagesPublication>) {
+  const semaine = semaineDuRappel(maintenant, reglages)
   if (!semaine) return null
   const { data: deja, error } = await supabase.from('rappels_jeu_semaine').select('semaine').eq('semaine', semaine).maybeSingle()
   if (error) { console.error('Rappel jeu de la semaine (déjà envoyé ?) :', error.message); return null }
@@ -157,7 +157,7 @@ serve(async (req) => {
     const { data: lignesReglages, error: regErr } = await supabase.from('settings').select('id, value').like('id', 'publication_%')
     if (regErr) console.error('Réglages du calendrier des publications non lus (valeurs par défaut) :', regErr.message)
     const reglages = reglagesPublication(Object.fromEntries((lignesReglages ?? []).map(l => [l.id, l.value])))
-    const horizon = Math.max(...Object.values(reglages).map(r => r.jours)) + 1
+    const horizon = Math.max(...Object.values(reglages).map(r => r.jours ?? 0)) + 1
     const aujourdhui = maintenant.slice(0, 10)
     const { data: evenements, error: evErr } = await supabase
       .from('events')
@@ -183,8 +183,8 @@ serve(async (req) => {
     }
 
     const rappels = rappelsAEnvoyer({ maintenant, evenements: evenements ?? [], pretsParJour, reglages })
-    // 3. Jeu de la semaine : rappel du jeudi 17 h
-    const jeuSemaine = await rappelDuJeudi(maintenant)
+    // 3. Jeu de la semaine : rappel du jour réglé (jeudi 17 h par défaut)
+    const jeuSemaine = await rappelDuJeudi(maintenant, reglages)
     if (simulation) return json({ simulation: true, maintenant, rappels, jeu_semaine: jeuSemaine })
 
     let envoyes = 0
