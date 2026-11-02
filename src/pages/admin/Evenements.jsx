@@ -1554,6 +1554,7 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
             onMail={(ev, publics) => openComposeModal(ev, publics)}
             onAnnonce={openFbModal}
             onBilan={openBilanModal}
+            onJeuSemaine={() => setActiveTab('semaine')}
             onMarquer={async (ev, colonne, valeur) => {
               const { error } = await supabase.from('events').update({ [colonne]: valeur }).eq('id', ev.id)
               if (error) addToast("Enregistrement impossible : " + error.message, 'error')

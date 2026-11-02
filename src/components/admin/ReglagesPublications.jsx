@@ -3,7 +3,9 @@ import { X, Loader2 } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
 import { useToast } from '../ToastContext'
 import MaskIcon from '../site/MaskIcon'
-import { ACTIONS_PUBLICATION, reglagesPublication } from '../../services/calendrierPublications'
+import { ACTIONS_PUBLICATION, JEU_SEMAINE, reglagesPublication } from '../../services/calendrierPublications'
+
+const JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
 
 /**
  * Paramètres → « Calendrier des publications » : délai avant l'événement, heure du rappel et
@@ -37,7 +39,11 @@ export default function ReglagesPublications({ onClose }) {
         { id: `publication_${a.cle}_heure`, value: r.heure },
         { id: `publication_${a.cle}_rappel`, value: r.rappel ? 'true' : 'false' },
       ]
-    })
+    }).concat([
+      { id: 'publication_jeu_semaine_jour', value: String(valeurs.jeu_semaine.jourSemaine) },
+      { id: 'publication_jeu_semaine_heure', value: valeurs.jeu_semaine.heure },
+      { id: 'publication_jeu_semaine_rappel', value: valeurs.jeu_semaine.rappel ? 'true' : 'false' },
+    ])
     const { error } = await supabase.from('settings').upsert(lignes, { onConflict: 'id' })
     setEnregistrement(false)
     if (error) { addToast('Enregistrement impossible : ' + error.message, 'error'); return }
@@ -86,6 +92,33 @@ export default function ReglagesPublications({ onClose }) {
               </div>
             </div>
           ))}
+          {valeurs && (
+            <div className="rounded-[18px] border-2 border-[#0f172a] p-4">
+              <div className="mb-3 flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
+                <span className="h-3 w-3 shrink-0 rounded-full border-2 border-[#0f172a]" style={{ background: JEU_SEMAINE.couleur }} />
+                <span className="font-display text-[16px] font-extrabold">{JEU_SEMAINE.libelle}</span>
+                <span className="w-full pl-[22px] text-[11.5px] text-slate-500 sm:w-auto sm:pl-0">une vidéo par semaine</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-3 text-[13.5px] font-semibold">
+                <label className="flex items-center gap-2">
+                  Chaque
+                  <select value={valeurs.jeu_semaine.jourSemaine} onChange={e => changer('jeu_semaine', 'jourSemaine', Number(e.target.value))}
+                    className="rounded-[12px] border-2 border-[#0f172a] bg-[#fdfaf6] px-2 py-1.5 font-bold">
+                    {JOURS.map((j, i) => <option key={j} value={i + 1}>{j}</option>)}
+                  </select>
+                </label>
+                <label className="flex items-center gap-2">
+                  Rappel à
+                  <input type="time" value={valeurs.jeu_semaine.heure} onChange={e => changer('jeu_semaine', 'heure', e.target.value || JEU_SEMAINE.heure)}
+                    className="rounded-[12px] border-2 border-[#0f172a] bg-[#fdfaf6] px-2 py-1.5 font-bold" />
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={valeurs.jeu_semaine.rappel} onChange={e => changer('jeu_semaine', 'rappel', e.target.checked)} className="h-5 w-5 accent-[#1a5f7a]" />
+                  Rappel sur téléphone
+                </label>
+              </div>
+            </div>
+          )}
           <p className="text-[12.5px] leading-relaxed text-slate-500">
             Les permanences n'ont que l'annonce et les deux stories. Les bilans gardent leurs règles
             (permanence : 1 h après la fin ; soirée et famille : le lendemain à 9 h).

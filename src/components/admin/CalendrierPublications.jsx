@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react'
 import { supabase } from '../../services/supabaseClient'
 import { grilleMois, NOMS_MOIS, JOURS_COURTS } from '../../services/calendrier'
-import { ACTIONS_PUBLICATION, BILAN, reglagesPublication, actionsParJour, etatAction } from '../../services/calendrierPublications'
+import { ACTIONS_PUBLICATION, BILAN, JEU_SEMAINE, reglagesPublication, actionsParJour, actionsJeuSemaine, etatAction, decalerJour } from '../../services/calendrierPublications'
 
 /**
  * Onglet « Calendrier » de Communication : les actions de publication de chaque événement
@@ -10,27 +10,43 @@ import { ACTIONS_PUBLICATION, BILAN, reglagesPublication, actionsParJour, etatAc
  * Délais réglés dans les Paramètres (carte « Calendrier des publications »).
  * Conception : docs/superpowers/specs/2026-11-02-calendrier-publications-design.md
  */
-const INFOS = Object.fromEntries([...ACTIONS_PUBLICATION, BILAN].map(a => [a.cle, a]))
+const INFOS = Object.fromEntries([...ACTIONS_PUBLICATION, BILAN, JEU_SEMAINE].map(a => [a.cle, a]))
+// Date d'une publication (heure universelle) ramenée à l'heure de Paris, comme les événements
+const aParis = iso => new Date(iso).toLocaleString('sv-SE', { timeZone: 'Europe/Paris' }).replace(' ', 'T')
 const auJour = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 const ETATS = { fait: 'Fait', a_faire: 'À faire', en_retard: 'En retard', passe: 'Passé' }
 const jourCourt = jour => new Date(`${jour}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
 const jourLisible = jour => new Date(`${jour}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 
-export default function CalendrierPublications({ evenements, jourInitial, onMail, onAnnonce, onBilan, onMarquer }) {
+export default function CalendrierPublications({ evenements, jourInitial, onMail, onAnnonce, onBilan, onMarquer, onJeuSemaine }) {
   const aujourdhui = auJour(new Date())
   const depart = jourInitial || aujourdhui
   const [mois, setMois] = useState({ annee: Number(depart.slice(0, 4)), mois: Number(depart.slice(5, 7)) - 1 })
   const [jourChoisi, setJourChoisi] = useState(jourInitial || null)
   const [reglages, setReglages] = useState(() => reglagesPublication({}))
+  const [publicationsJeu, setPublicationsJeu] = useState([]) // vidéos du jeu de la semaine publiées (heure de Paris)
 
   useEffect(() => {
     supabase.from('settings').select('id, value').like('id', 'publication_%').then(({ data }) => {
       setReglages(reglagesPublication(Object.fromEntries((data || []).map(l => [l.id, l.value]))))
     })
+    supabase.from('jeux_semaine').select('publie_le').not('publie_le', 'is', null).then(({ data }) => {
+      setPublicationsJeu((data || []).map(l => aParis(l.publie_le)))
+    })
   }, [])
 
-  const parJour = useMemo(() => actionsParJour(evenements, reglages), [evenements, reglages])
   const semaines = useMemo(() => grilleMois(mois.annee, mois.mois), [mois])
+  // Actions des événements + une action « Jeu de la semaine » par semaine, depuis la première vidéo publiée
+  const parJour = useMemo(() => {
+    const jours = actionsParJour(evenements, reglages)
+    const premiere = [...publicationsJeu].sort()[0]?.slice(0, 10) || aujourdhui
+    const finGrille = semaines[semaines.length - 1][6].cle
+    const jusqua = [finGrille, decalerJour(aujourdhui, 60)].sort()[1]
+    for (const a of actionsJeuSemaine({ depuis: premiere, jusqua, publications: publicationsJeu, reglages })) {
+      (jours[a.jour] ||= []).push({ ...a, evenementId: `semaine-${a.semaine}`, evenement: null })
+    }
+    return jours
+  }, [evenements, reglages, publicationsJeu, semaines, aujourdhui])
   const prefixe = `${mois.annee}-${String(mois.mois + 1).padStart(2, '0')}`
   const joursDuMois = Object.keys(parJour).filter(j => j.startsWith(prefixe)).sort()
   const joursEvenement = useMemo(() => new Set(evenements.filter(e => !e.archived_at && e.date).map(e => String(e.date).slice(0, 10))), [evenements])
@@ -46,6 +62,7 @@ export default function CalendrierPublications({ evenements, jourInitial, onMail
     if (a.cle === 'mail_adherents') return { texte: 'Envoyer', agir: () => onMail(ev, 'adherents') }
     if (a.cle === 'annonce' || a.cle === 'story_jour') return { texte: a.cle === 'annonce' ? 'Publier' : 'Story', agir: () => onAnnonce(ev) }
     if (a.cle === 'bilan') return { texte: 'Bilan', agir: () => onBilan(ev) }
+    if (a.cle === 'jeu_semaine') return { texte: 'Vidéo', agir: onJeuSemaine }
     return null
   }
 
@@ -67,7 +84,7 @@ export default function CalendrierPublications({ evenements, jourInitial, onMail
             </div>
             <div className="mt-0.5 text-[12.5px] font-medium text-slate-500">
               {!jourChoisi && <span className="font-bold text-slate-700">{jourCourt(a.jour)} · </span>}
-              {a.evenement.title} ({jourCourt(String(a.evenement.date).slice(0, 10))})
+              {a.evenement ? `${a.evenement.title} (${jourCourt(String(a.evenement.date).slice(0, 10))})` : `Vidéo de la semaine du ${jourCourt(a.semaine)}`}
             </div>
           </div>
         </div>
@@ -94,7 +111,7 @@ export default function CalendrierPublications({ evenements, jourInitial, onMail
     const info = INFOS[a.cle]
     const etat = etatAction(a, aujourdhui)
     return (
-      <span key={`${a.cle}-${a.evenementId}`} title={`${info.libelle} — ${a.evenement.title}`}
+      <span key={`${a.cle}-${a.evenementId}`} title={`${info.libelle} — ${a.evenement ? a.evenement.title : `semaine du ${jourCourt(a.semaine)}`}`}
         className={`flex items-center gap-1 truncate rounded-[6px] px-1.5 py-0.5 text-[10.5px] font-bold leading-tight text-white ${etat === 'fait' ? 'line-through opacity-50' : ''}`}
         style={{ background: etat === 'en_retard' ? '#e11d48' : etat === 'passe' ? '#cbd5e1' : info.couleur }}>
         {etat === 'fait' && <Check size={10} className="shrink-0" />}{info.court}
@@ -137,7 +154,7 @@ export default function CalendrierPublications({ evenements, jourInitial, onMail
           })}
         </div>
         <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-[11.5px] font-semibold text-slate-600">
-          {[...ACTIONS_PUBLICATION, BILAN].map(a => (
+          {[...ACTIONS_PUBLICATION, BILAN, JEU_SEMAINE].map(a => (
             <span key={a.cle} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: a.couleur }} />{a.court}</span>
           ))}
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-[#e11d48]" />En retard</span>
