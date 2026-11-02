@@ -340,7 +340,14 @@ export default function PublicationAnnonce({ event, texte, onTexteChange, onEven
     setErreur('')
     setEtat('story')
     try {
-      if ((await partagerFichiers(fichiers, 'Story du jour J')) === 'telecharge') setErreur(PARTAGE_INDISPONIBLE)
+      const resultat = await partagerFichiers(fichiers, 'Story du jour J')
+      if (resultat === 'telecharge') setErreur(PARTAGE_INDISPONIBLE)
+      // Partagée depuis le téléphone (Instagram, Facebook…) : le calendrier des publications la compte faite
+      if (resultat === 'partage' && !event.story_jour_faite_le) {
+        const faiteLe = new Date().toISOString()
+        const { error } = await supabase.from('events').update({ story_jour_faite_le: faiteLe }).eq('id', event.id)
+        if (!error) onEventChange?.({ story_jour_faite_le: faiteLe })
+      }
     } finally {
       setEtat(actuel => (actuel === 'story' ? '' : actuel))
     }
