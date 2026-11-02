@@ -19,6 +19,9 @@ const pause = ms => new Promise(r => setTimeout(r, ms))
 
 /** Fabrique, range et note l'autocollant d'un jeu. Renvoie true si c'est fait. */
 export async function preparerAutocollant(jeu) {
+  // L'écran Jeux peut être ouvert à deux endroits : un autocollant déjà fait ailleurs n'est pas refait
+  const { data: actuel } = await supabase.from('games').select('autocollant_url').eq('id', jeu.id).maybeSingle()
+  if (actuel?.autocollant_url) return true
   const blob = await fabriquerAutocollant(jeu.image_url, { ombre: 0, type: 'image/webp', qualite: 0.86 })
   oublierImage(jeu.image_url)
   if (!blob) return false

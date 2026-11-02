@@ -413,7 +413,7 @@ Les animations et effets sont définis dans `src/index.css`.
 - **Autocollants préparés à l'avance** (bandeau « Tout juste arrivés » de l'accueil) : jamais de détourage en
   direct sur l'accueil (on voyait les boîtes se transformer en défilant, et ça ralentissait les compteurs). L'écran
   Jeux fabrique en arrière-plan les autocollants manquants, sans ombre, en WebP (~15 Ko), dans `game-images/autocollants/`,
-  adresse dans `games.autocollant_url` (`services/autocollantsJeux.js`, pastille d'avancement en bas à gauche) ; un
+  adresse dans `games.autocollant_url` (`services/autocollantsJeux.js`, pastille d'avancement en bas au centre) ; un
   déclencheur vide cette adresse quand l'image du jeu change (`supabase/migrations/20261102_autocollants_jeux.sql`).
   L'accueil pose l'ombre orange/bleue par un filtre `drop-shadow` ; sans autocollant, simple cadre. Les deux chiffres
   du haut et les jeux sont demandés en premier, en parallèle (avant : 2 à 5 s, après : moins d'1 s).

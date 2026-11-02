@@ -491,7 +491,7 @@ export default function Jeux() {
   return (
     <div className="min-h-screen bg-[#fdfaf6] p-5 font-body text-[#0f172a] md:p-11">
       {autocollants.total > 0 && autocollants.faits < autocollants.total && (
-        <div className="fixed bottom-4 left-4 z-40 flex items-center gap-2.5 rounded-full border-2 border-[#0f172a] bg-white px-4 py-2.5 text-[12.5px] font-bold shadow-[3px_3px_0_#0f172a]">
+        <div className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2.5 whitespace-nowrap rounded-full border-2 border-[#0f172a] bg-white px-4 py-2.5 text-[12.5px] font-bold shadow-[3px_3px_0_#0f172a]">
           <Loader2 size={15} className="animate-spin text-[#1a5f7a]" />
           Autocollants de l'accueil : {autocollants.faits} / {autocollants.total}
         </div>
