@@ -13,6 +13,7 @@ import { ACTIONS_PUBLICATION, BILAN, reglagesPublication, actionsParJour, etatAc
 const INFOS = Object.fromEntries([...ACTIONS_PUBLICATION, BILAN].map(a => [a.cle, a]))
 const auJour = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 const ETATS = { fait: 'Fait', a_faire: 'À faire', en_retard: 'En retard' }
+const jourCourt = jour => new Date(`${jour}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
 const jourLisible = jour => new Date(`${jour}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 
 export default function CalendrierPublications({ evenements, jourInitial, onMail, onAnnonce, onBilan, onMarquer }) {
@@ -54,26 +55,37 @@ export default function CalendrierPublications({ evenements, jourInitial, onMail
     const b = bouton(a)
     const marquable = a.cle === 'story_veille' || a.cle === 'story_jour'
     return (
-      <li key={`${a.cle}-${a.evenementId}`} className="flex flex-wrap items-center gap-3 rounded-[18px] border-2 border-[#0f172a] bg-white p-3.5">
-        <span className="h-3 w-3 shrink-0 rounded-full border-2 border-[#0f172a]" style={{ background: info.couleur }} />
-        <div className="min-w-0 flex-1">
-          <div className="font-display text-[15px] font-extrabold leading-tight">{info.libelle}</div>
-          <div className="truncate text-[12.5px] font-medium text-slate-500">{a.evenement.title} · {new Date(String(a.evenement.date).replace(' ', 'T')).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</div>
+      <li key={`${a.cle}-${a.evenementId}`} className="flex flex-col gap-3 rounded-[18px] border-2 border-[#0f172a] bg-white p-3.5 sm:flex-row sm:items-center">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <span className="mt-1.5 h-3 w-3 shrink-0 rounded-full border-2 border-[#0f172a]" style={{ background: info.couleur }} />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+              <span className="font-display text-[15px] font-extrabold leading-tight">{info.libelle}</span>
+              <span className={`rounded-full px-2.5 py-0.5 text-[10.5px] font-extrabold uppercase tracking-[0.08em] ${etat === 'fait' ? 'bg-emerald-50 text-emerald-700' : etat === 'en_retard' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-600'}`}>
+                {ETATS[etat]}
+              </span>
+            </div>
+            <div className="mt-0.5 text-[12.5px] font-medium text-slate-500">
+              {!jourChoisi && <span className="font-bold text-slate-700">{jourCourt(a.jour)} · </span>}
+              {a.evenement.title} ({jourCourt(String(a.evenement.date).slice(0, 10))})
+            </div>
+          </div>
         </div>
-        <span className={`rounded-full px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.08em] ${etat === 'fait' ? 'bg-emerald-50 text-emerald-700' : etat === 'en_retard' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-600'}`}>
-          {ETATS[etat]}
-        </span>
-        {b && etat !== 'fait' && (
-          <button type="button" onClick={b.agir} className="rounded-[12px] border-2 border-[#0f172a] bg-[#e38154] px-3.5 py-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-white shadow-[3px_3px_0_#0f172a] transition-[transform,box-shadow] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[1px_1px_0_#0f172a]">
-            {b.texte}
-          </button>
-        )}
-        {marquable && (
-          <button type="button" onClick={() => onMarquer(a.evenement, info.faitLe, a.faitLe ? null : new Date().toISOString())}
-            className="rounded-[12px] border-2 border-[#0f172a] bg-white px-3.5 py-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#1a5f7a] shadow-[3px_3px_0_#1a5f7a]">
-            {a.faitLe ? 'Annuler' : "C'est fait"}
-          </button>
-        )}
+        {(b && etat !== 'fait') || marquable ? (
+          <div className="flex flex-wrap gap-2 pl-6 sm:shrink-0 sm:pl-0">
+            {b && etat !== 'fait' && (
+              <button type="button" onClick={b.agir} className="rounded-[12px] border-2 border-[#0f172a] bg-[#e38154] px-3.5 py-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-white shadow-[3px_3px_0_#0f172a] transition-[transform,box-shadow] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[1px_1px_0_#0f172a]">
+                {b.texte}
+              </button>
+            )}
+            {marquable && (
+              <button type="button" onClick={() => onMarquer(a.evenement, info.faitLe, a.faitLe ? null : new Date().toISOString())}
+                className="rounded-[12px] border-2 border-[#0f172a] bg-white px-3.5 py-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#1a5f7a] shadow-[3px_3px_0_#1a5f7a]">
+                {a.faitLe ? 'Annuler' : "C'est fait"}
+              </button>
+            )}
+          </div>
+        ) : null}
       </li>
     )
   }
@@ -90,7 +102,11 @@ export default function CalendrierPublications({ evenements, jourInitial, onMail
     )
   }
 
-  const liste = jourChoisi ? (parJour[jourChoisi] || []) : joursDuMois.flatMap(j => parJour[j])
+  // Mois en cours : les actions restées en retard des mois précédents passent en tête
+  const enRetardAvant = prefixe === aujourdhui.slice(0, 7)
+    ? Object.keys(parJour).filter(j => j < `${prefixe}-01`).sort().flatMap(j => parJour[j]).filter(a => etatAction(a, aujourdhui) === 'en_retard')
+    : []
+  const liste = jourChoisi ? (parJour[jourChoisi] || []) : [...enRetardAvant, ...joursDuMois.flatMap(j => parJour[j])]
 
   return (
     <div className="space-y-5">

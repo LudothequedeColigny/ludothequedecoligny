@@ -1496,11 +1496,11 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
       </div>
 
       {/* Onglets */}
-      <div data-tutorial="evt-tabs" className="mb-6 grid grid-cols-3 gap-2.5 sm:grid-cols-5 sm:gap-3.5">
+      <div data-tutorial="evt-tabs" className="mb-6 grid grid-cols-3 gap-2.5 sm:gap-3.5 lg:grid-cols-6">
         {COMM_TABS.map(tab => {
           const active = activeTab === tab.id
           const count = { events: upcomingEventsCount, affiche: templatesCount, posts: postsCount, jeux: jeuxAAnnoncerCount, semaine: jeuSemaineCount }[tab.id]
-          const icone = { events: 'ludo-calendrier-evenement.svg', affiche: 'ludo-affiche.svg', posts: 'ludo-post.svg', jeux: 'ludo-nouveau-jeu.svg', semaine: 'ludo-video.svg' }[tab.id]
+          const icone = { events: 'ludo-calendrier-evenement.svg', calendrier: 'ludo-calendrier.svg', affiche: 'ludo-affiche.svg', posts: 'ludo-post.svg', jeux: 'ludo-nouveau-jeu.svg', semaine: 'ludo-video.svg' }[tab.id]
           return (
             <button
               key={tab.id}
