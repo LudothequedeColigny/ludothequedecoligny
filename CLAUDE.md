@@ -201,7 +201,7 @@ Pour l'espace de gestion, dans `src/components/admin/` :
 | `FicheWikiludo` | fenêtre « Fiche pour Wikiludo » : chaque champ de la grille Wikiludo avec un bouton Copier (catalogue + MyLudo), ordinateur seulement |
 | `NouveauxJeux` | onglet « Nouveaux jeux » de Communication : jeux ajoutés depuis le 01/09/2026, carrousel 4:5 (couverture, une image par jeu — 8 au plus, boîte détourée en autocollant —, prochaine permanence) dessiné par `diapos/nouveaux-jeux-regles.js` / `nouveaux-jeux.js` ; cochés → « annonce », décochés → « ecarte » (table `annonces_jeux`, bénévoles seulement) |
 | `JeuSemaine` | onglet « Jeu de la semaine » de Communication : vidéos (Reels) du dossier Drive `1bdQWQauOTWyaGZwvuAcZh-dvF-G_evWs` (règles `services/jeuSemaine.js`, données `services/jeuSemaineFile.js`), la plus ancienne non publiée dont le jeu est disponible ; copie temporaire dans l'espace public `reels` (fonction `jeu-semaine`, clé `GOOGLE_DRIVE_CLE`), effacée 7 jours après ; publiée en Reel par la voie « Vidéo » de Make (`video_url`) |
-| `CalendrierPublications` | « Calendrier » de Communication (bouton à droite du titre, pas une bulle : c'est une page de suivi, choix de Victor) : grille du mois des actions de chaque événement (mail mairies J-21, annonce J-10, mail adhérents J-7, story veille J-1, story J, bilan), états fait / à faire / en retard / passé (gris), boutons vers les fenêtres existantes ; règle `services/calendrierPublications.js` (testée) ; conception `docs/superpowers/specs/2026-11-02-calendrier-publications-design.md` |
+| `CalendrierPublications` | « Calendrier » de Communication (bouton à droite du titre, pas une bulle : c'est une page de suivi, choix de Victor) : grille du mois des actions de chaque événement (mail mairies J-21, annonce J-10, mail adhérents J-7, story veille J-1, story J, bilan) et du jeu de la semaine (une par semaine depuis la première vidéo, cochée par `jeux_semaine.publie_le`), états fait / à faire / en retard / passé (gris), boutons vers les fenêtres existantes ; règle `services/calendrierPublications.js` (testée) ; conception `docs/superpowers/specs/2026-11-02-calendrier-publications-design.md` |
 | `ReglagesPublications` | carte « Publications » des Paramètres : délai, heure du rappel et interrupteur par action (clés `publication_<clé>_jours/_heure/_rappel` de `settings`) ; mêmes réglages pour le calendrier et les rappels |
 | `ModelesMessages` | fenêtre « Modèles de messages » : textes presse et école à copier, lus dans les Paramètres |
 | `SocialPostPreview` | aperçu d'une publication Facebook/Instagram |
@@ -400,7 +400,7 @@ Les animations et effets sont définis dans `src/index.css`.
   (réponse dans `net._http_response` ; prévoir `timeout_milliseconds := 30000`, 5 s ne suffisent pas).
   Un rappel ouvre `/admin/evenements?annonce={id}` ou `?bilan={id}` : l'écran Communication
   ouvre la fenêtre puis retire le paramètre ; déconnecté, la connexion y ramène.
-  Jeu de la semaine le jeudi dès 17h (une fois par semaine, table `rappels_jeu_semaine` ; rien si une vidéo
+  Jeu de la semaine le jour et à l'heure réglés dans Paramètres → Publications (jeudi 17h par défaut ; une fois par semaine, table `rappels_jeu_semaine` ; rien si une vidéo
   est déjà publiée depuis le lundi ; « Plus de vidéo en réserve » si la file est vide) ; les règles du jeu de
   la semaine sont aussi **recopiées** dans `rappels.js` (test d'égalité dans `rappels.test.js`).
 - **Vidéos du jeu de la semaine** : Instagram ne lit jamais une adresse Google Drive (même partagée) : toujours

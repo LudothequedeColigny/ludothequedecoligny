@@ -31,7 +31,7 @@ export const ACTIONS_PUBLICATION = [
 ]
 export const BILAN = { cle: 'bilan', libelle: 'Bilan', court: 'Bilan', couleur: '#0f172a', faitLe: 'bilan_publie_le' }
 // Jeu de la semaine : une vidéo par semaine, sans lien avec un événement (jourSemaine : 1 = lundi … 7 = dimanche)
-export const JEU_SEMAINE = { cle: 'jeu_semaine', libelle: 'Jeu de la semaine', court: 'Jeu semaine', couleur: '#8b5cf6', jourSemaine: 4, heure: '17:00' }
+export const JEU_SEMAINE = { cle: 'jeu_semaine', libelle: 'Jeu de la semaine', court: 'Jeu semaine', couleur: '#db2777', jourSemaine: 4, heure: '17:00' }
 
 const HEURE = /^([01]\d|2[0-3]):[0-5]\d$/
 const vide = v => v === undefined || v === null || String(v).trim() === ''
