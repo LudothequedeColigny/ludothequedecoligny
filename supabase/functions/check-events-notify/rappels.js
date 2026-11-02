@@ -19,6 +19,58 @@ export function typeEvenement(titre) {
 }
 export const estPermanence = titre => typeEvenement(titre) === 'permanence' && sansAccents(titre).includes('permanence')
 
+// ── Calendrier des publications ──────────────────────────────────────────────
+// Copie à l'identique de src/services/calendrierPublications.js (la fonction ne peut pas importer
+// le site) : les changer aux deux endroits. rappels.test.js compare les deux copies.
+export const ACTIONS_PUBLICATION = [
+  { cle: 'mail_collectivites', libelle: 'Mail mairies & presse', court: 'Mail mairies', couleur: '#1a5f7a', jours: 21, heure: '18:00', permanence: false, faitLe: 'mail_collectivites_envoye_le' },
+  { cle: 'annonce', libelle: 'Annonce réseaux', court: 'Annonce', couleur: '#3b82f6', jours: 10, heure: '18:00', permanence: true, faitLe: 'annonce_publiee_le' },
+  { cle: 'mail_adherents', libelle: 'Mail adhérents', court: 'Mail adhérents', couleur: '#10b981', jours: 7, heure: '18:00', permanence: false, faitLe: 'mail_adherents_envoye_le' },
+  { cle: 'story_veille', libelle: 'Story de la veille', court: 'Story veille', couleur: '#a855f7', jours: 1, heure: '17:00', permanence: true, faitLe: 'story_veille_faite_le' },
+  { cle: 'story_jour', libelle: 'Story du jour J', court: 'Story J', couleur: '#e38154', jours: 0, heure: '09:00', permanence: true, faitLe: 'story_jour_faite_le' },
+]
+export const BILAN = { cle: 'bilan', libelle: 'Bilan', court: 'Bilan', couleur: '#0f172a', faitLe: 'bilan_publie_le' }
+
+const HEURE = /^([01]\d|2[0-3]):[0-5]\d$/
+const vide = v => v === undefined || v === null || String(v).trim() === ''
+
+export function reglagesPublication(settings = {}) {
+  return Object.fromEntries(ACTIONS_PUBLICATION.map(a => {
+    const brut = settings[`publication_${a.cle}_jours`]
+    const j = Number(brut)
+    const h = String(settings[`publication_${a.cle}_heure`] ?? '').slice(0, 5)
+    const r = settings[`publication_${a.cle}_rappel`]
+    return [a.cle, {
+      jours: !vide(brut) && Number.isInteger(j) && j >= 0 && j <= 60 ? j : a.jours,
+      heure: HEURE.test(h) ? h : a.heure,
+      rappel: vide(r) ? true : String(r) !== 'false',
+    }]
+  }))
+}
+
+export function decalerJour(jour, n) {
+  const [a, m, j] = jour.split('-').map(Number)
+  return new Date(Date.UTC(a, m - 1, j + n)).toISOString().slice(0, 10)
+}
+
+export function actionsEvenement(ev, reglages) {
+  if (!ev?.date || ev.archived_at) return []
+  const jourEv = String(ev.date).slice(0, 10)
+  const type = typeEvenement(ev.title)
+  const liste = ACTIONS_PUBLICATION
+    .filter(a => type !== 'permanence' || a.permanence)
+    .map(a => ({ cle: a.cle, evenementId: ev.id, jour: decalerJour(jourEv, -reglages[a.cle].jours), heure: reglages[a.cle].heure, faitLe: ev[a.faitLe] || null }))
+  // Bilan : mêmes règles que les fenêtres Bilan (soirée / famille le lendemain, permanence le jour même)
+  if (type !== 'permanence') liste.push({ cle: 'bilan', evenementId: ev.id, jour: decalerJour(jourEv, 1), heure: null, faitLe: ev.bilan_publie_le || null })
+  else if (estPermanence(ev.title)) liste.push({ cle: 'bilan', evenementId: ev.id, jour: jourEv, heure: null, faitLe: ev.bilan_publie_le || null })
+  return liste
+}
+
+export function etatAction(action, aujourdhui) {
+  if (action.faitLe) return 'fait'
+  return action.jour < aujourdhui ? 'en_retard' : 'a_faire'
+}
+
 const MINUTES_JOUR = 24 * 60
 
 // « 12:00 » ou « 12:00:00 » → 720
@@ -50,12 +102,29 @@ export function jeuxEmpruntes(prets) {
 const dansCombien = n => (n >= 2 ? `dans ${n} jours` : n === 1 ? 'demain' : "aujourd'hui")
 const moment = minutesFin => (minutesFin < 13 * 60 ? 'ce matin' : minutesFin < 18 * 60 ? 'cet après-midi' : 'ce soir')
 
+// Rappel déjà parti, par action du calendrier des publications
+const NOTIF = {
+  mail_collectivites: 'notif_mail_collectivites_sent_at',
+  annonce: 'notif_annonce_sent_at',
+  mail_adherents: 'notif_mail_adherents_sent_at',
+  story_veille: 'notif_story_veille_sent_at',
+  story_jour: 'notif_jour_sent_at',
+}
+const TEXTES = {
+  mail_collectivites: (ev, n) => [`✉️ Mail aux mairies : ${ev.title}`, `Envoyez le mail aux mairies, à la presse et aux écoles (événement ${dansCombien(n)}).`],
+  annonce: (ev, n) => [`📣 ${ev.title} ${dansCombien(n)}`, "Publiez l'annonce sur Facebook et Instagram."],
+  mail_adherents: (ev, n) => [`✉️ Mail aux adhérents : ${ev.title}`, `Envoyez le mail aux adhérents et aux inscrits (événement ${dansCombien(n)}).`],
+  story_veille: ev => [`📸 Demain : ${ev.title}`, 'Postez une story pour rappeler le rendez-vous de demain.'],
+  story_jour: ev => [`📸 C'est aujourd'hui : ${ev.title}`, 'Enregistrez la story du jour J, puis publiez-la sur Instagram ou Facebook.'],
+}
+
 /**
  * Rappels à envoyer à l'instant `maintenant` : [{ id, colonne, title, body, url }].
  * `colonne` = date d'envoi à mémoriser sur l'événement (le rappel ne repart plus).
  * `pretsParJour` : { 'AAAA-MM-JJ': [{ game_id, loan_date, return_date? }] } (permanences).
+ * `reglages` : reglagesPublication(settings) — délais et heures du calendrier des publications.
  */
-export function rappelsAEnvoyer({ maintenant, evenements, pretsParJour = {} }) {
+export function rappelsAEnvoyer({ maintenant, evenements, pretsParJour = {}, reglages = reglagesPublication({}) }) {
   const n = lire(maintenant)
   const tMaintenant = instant(n)
   const rappels = []
@@ -66,17 +135,25 @@ export function rappelsAEnvoyer({ maintenant, evenements, pretsParJour = {} }) {
     const joursAvant = numeroJour(d.jour) - numeroJour(n.jour)
     const ajouter = (colonne, title, body, fenetre) => rappels.push({ id: ev.id, colonne, title, body, url: `/admin/evenements?${fenetre}=${ev.id}` })
 
-    // 1. Annonce : soirée ou famille à venir dans 10 jours au plus, à partir de 18h
-    if (type !== 'permanence' && !ev.annonce_publiee_le && !ev.notif_annonce_sent_at
-      && n.minutes >= 18 * 60 && instant(d) > tMaintenant && joursAvant <= 10) {
-      ajouter('notif_annonce_sent_at', `📣 ${ev.title} ${dansCombien(joursAvant)}`, "Publiez l'annonce sur Facebook et Instagram.", 'annonce')
-    }
-    // 2. Story : le jour J à partir de 9h, tout événement
-    if (joursAvant === 0 && n.minutes >= 9 * 60 && !ev.notif_jour_sent_at) {
-      ajouter('notif_jour_sent_at', `📸 C'est aujourd'hui : ${ev.title}`, 'Enregistrez la story du jour J, puis publiez-la sur Instagram ou Facebook.', 'annonce')
+    // 1. Actions du calendrier des publications (délais et heures réglés dans les Paramètres)
+    for (const a of actionsEvenement(ev, reglages)) {
+      if (a.cle === 'bilan') continue
+      const r = reglages[a.cle]
+      if (!r.rappel || a.faitLe || ev[NOTIF[a.cle]]) continue
+      const atteint = n.jour > a.jour || (n.jour === a.jour && n.minutes >= minutesDe(r.heure))
+      if (!atteint) continue
+      // Dernière chance : story de la veille avant le jour J, story du jour J le jour même,
+      // le reste tant que l'événement n'a pas commencé
+      const encoreUtile = a.cle === 'story_jour' ? n.jour === d.jour
+        : a.cle === 'story_veille' ? n.jour < d.jour
+        : instant(d) > tMaintenant
+      if (!encoreUtile) continue
+      const [title, body] = TEXTES[a.cle](ev, joursAvant)
+      const fenetre = a.cle === 'annonce' || a.cle === 'story_jour' ? `annonce=${ev.id}` : `calendrier=${a.jour}`
+      rappels.push({ id: ev.id, colonne: NOTIF[a.cle], title, body, url: `/admin/evenements?${fenetre}` })
     }
     if (ev.bilan_publie_le || ev.notif_bilan_sent_at) continue
-    // 3. Bilan de permanence : 1 h après la fin, pendant 24 h, s'il y a eu des emprunts
+    // 2. Bilan de permanence : 1 h après la fin, pendant 24 h, s'il y a eu des emprunts
     if (estPermanence(ev.title)) {
       const minutesFin = ev.end_time ? minutesDe(ev.end_time) : d.minutes + 120
       const fin = numeroJour(d.jour) * MINUTES_JOUR + minutesFin
@@ -85,7 +162,7 @@ export function rappelsAEnvoyer({ maintenant, evenements, pretsParJour = {} }) {
         ajouter('notif_bilan_sent_at', `📦 ${nb} ${nb === 1 ? 'jeu emprunté' : 'jeux empruntés'} ${moment(minutesFin)}`, 'Publiez le bilan de la permanence sur Facebook et Instagram.', 'bilan')
       }
     }
-    // 4. Bilan de soirée ou d'après-midi famille : le lendemain à partir de 9h
+    // 3. Bilan de soirée ou d'après-midi famille : le lendemain à partir de 9h
     if (type !== 'permanence' && joursAvant === -1 && n.minutes >= 9 * 60) {
       ajouter('notif_bilan_sent_at', `📋 Bilan de ${ev.title}`, 'Renseignez les participants, les photos et les jeux joués, puis publiez le bilan.', 'bilan')
     }

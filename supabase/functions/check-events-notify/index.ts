@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 // Règles des rappels : module JavaScript testé par `npm test`
-import { rappelsAEnvoyer, estPermanence, semaineDuRappel, rappelJeuSemaine, fileJeuSemaine } from './rappels.js'
+import { rappelsAEnvoyer, estPermanence, semaineDuRappel, rappelJeuSemaine, fileJeuSemaine, reglagesPublication } from './rappels.js'
 import { listerVideosDrive } from '../_shared/drive.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -152,14 +152,19 @@ serve(async (req) => {
       startingCount = startingEvents?.length ?? 0
     }
 
-    // 2. Rappels : annonce (J-10), story du jour J, bilans (permanence, soirée / famille)
+    // 2. Rappels : actions du calendrier des publications (délais réglés dans les Paramètres),
+    //    bilans (permanence, soirée / famille)
+    const { data: lignesReglages, error: regErr } = await supabase.from('settings').select('id, value').like('id', 'publication_%')
+    if (regErr) console.error('Réglages du calendrier des publications non lus (valeurs par défaut) :', regErr.message)
+    const reglages = reglagesPublication(Object.fromEntries((lignesReglages ?? []).map(l => [l.id, l.value])))
+    const horizon = Math.max(...Object.values(reglages).map(r => r.jours)) + 1
     const aujourdhui = maintenant.slice(0, 10)
     const { data: evenements, error: evErr } = await supabase
       .from('events')
-      .select('id, title, date, end_time, archived_at, annonce_publiee_le, bilan_publie_le, notif_annonce_sent_at, notif_jour_sent_at, notif_bilan_sent_at')
+      .select('id, title, date, end_time, archived_at, annonce_publiee_le, bilan_publie_le, notif_annonce_sent_at, notif_jour_sent_at, notif_bilan_sent_at, mail_collectivites_envoye_le, mail_adherents_envoye_le, story_veille_faite_le, story_jour_faite_le, notif_mail_collectivites_sent_at, notif_mail_adherents_sent_at, notif_story_veille_sent_at')
       .is('archived_at', null)
       .gte('date', `${jourDecale(aujourdhui, -1)}T00:00:00`)
-      .lte('date', `${jourDecale(aujourdhui, 11)}T23:59:59`)
+      .lte('date', `${jourDecale(aujourdhui, horizon)}T23:59:59`)
     if (evErr) throw evErr
 
     // Prêts des jours de permanence : le jeu et les dates seulement, jamais l'emprunteur
@@ -177,7 +182,7 @@ serve(async (req) => {
       }
     }
 
-    const rappels = rappelsAEnvoyer({ maintenant, evenements: evenements ?? [], pretsParJour })
+    const rappels = rappelsAEnvoyer({ maintenant, evenements: evenements ?? [], pretsParJour, reglages })
     // 3. Jeu de la semaine : rappel du jeudi 17 h
     const jeuSemaine = await rappelDuJeudi(maintenant)
     if (simulation) return json({ simulation: true, maintenant, rappels, jeu_semaine: jeuSemaine })
