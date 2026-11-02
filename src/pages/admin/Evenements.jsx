@@ -19,9 +19,10 @@ const E_SECTION = 'mb-4 flex items-center gap-2 text-[10px] font-extrabold upper
 const E_LABEL = 'mb-2 block text-[9px] font-extrabold uppercase italic tracking-[0.14em] text-slate-400'
 const E_INPUT = 'w-full rounded-[16px] border-2 border-[#0f172a] bg-[#fdfaf6] px-[18px] py-[15px] text-[13.5px] font-bold text-[#0f172a] outline-none placeholder:font-semibold placeholder:text-slate-300 focus:bg-white'
 
-// Les cinq onglets de l'écran Communication
+// Les six onglets de l'écran Communication
 const COMM_TABS = [
   { id: 'events', label: 'Événements', shadow: '#1a5f7a' },
+  { id: 'calendrier', label: 'Calendrier', shadow: '#a855f7' },
   { id: 'affiche', label: "Générateur d'affiches", shadow: '#e38154' },
   { id: 'posts', label: 'Posts', shadow: '#10b981' },
   { id: 'jeux', label: 'Nouveaux jeux', shadow: '#f59e0b' },
@@ -44,6 +45,7 @@ import PublicationBilan from '../../components/admin/bilan/PublicationBilan'
 import PublicationBilanPermanence from '../../components/admin/bilan/PublicationBilanPermanence'
 import { estPermanence } from '../../services/diapos/permanence-regles'
 import PublicationAnnonce from '../../components/admin/annonce/PublicationAnnonce'
+import CalendrierPublications from '../../components/admin/CalendrierPublications'
 import { blocDeFloutage, pixelateRegion, COTE_MAX_PHOTO } from '../../services/floutage'
 
 // Destinataires enregistrés : trois catégories, chacune avec son propre texte
@@ -154,7 +156,8 @@ export default function Evenements() {
   const [searchParams, setSearchParams] = useSearchParams()
   const adresseTraitee = useRef(null)
   const [events, setEvents] = useState([])
-  const [activeTab, setActiveTab] = useState('events') // 'events' | 'affiche' | 'posts' | 'jeux' | 'semaine'
+  const [activeTab, setActiveTab] = useState('events') // 'events' | 'calendrier' | 'affiche' | 'posts' | 'jeux' | 'semaine'
+  const [jourCalendrier, setJourCalendrier] = useState(null) // jour ouvert par un rappel (?calendrier=)
   const [loading, setLoading] = useState(true)
   // Compteurs des badges d'onglets
   const [templatesCount, setTemplatesCount] = useState(0)
@@ -973,6 +976,17 @@ www.ludothequedecoligny.fr`
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, searchParams])
 
+  // Rappel du calendrier des publications : ouvre l'onglet sur le jour, puis retire le paramètre
+  useEffect(() => {
+    const jour = searchParams.get('calendrier')
+    if (!jour) return
+    if (/^\d{4}-\d{2}-\d{2}$/.test(jour)) { setJourCalendrier(jour); setActiveTab('calendrier') }
+    const sans = new URLSearchParams(searchParams)
+    sans.delete('calendrier')
+    setSearchParams(sans, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
   // Rappel du jeudi (jeu de la semaine) : ouvre l'onglet, puis retire le paramètre
   useEffect(() => {
     if (searchParams.get('onglet') !== 'jeu-semaine') return
@@ -1520,6 +1534,21 @@ const EVENEMENTS_TUTORIAL_STEPS = (openForm, closeForm, openCompose, openCollect
         {activeTab === 'jeux' && <NouveauxJeux onCountChange={setJeuxAAnnoncerCount} />}
         {activeTab === 'semaine' && <JeuSemaine onCountChange={setJeuSemaineCount} />}
 
+        {activeTab === 'calendrier' && (
+          <CalendrierPublications
+            key={jourCalendrier || 'mois'}
+            evenements={events}
+            jourInitial={jourCalendrier}
+            onMail={(ev, publics) => openComposeModal(ev, publics)}
+            onAnnonce={openFbModal}
+            onBilan={openBilanModal}
+            onMarquer={async (ev, colonne, valeur) => {
+              const { error } = await supabase.from('events').update({ [colonne]: valeur }).eq('id', ev.id)
+              if (error) addToast("Enregistrement impossible : " + error.message, 'error')
+              else majEvenement(ev.id, { [colonne]: valeur })
+            }}
+          />
+        )}
         {activeTab === 'posts' && <PostSimple onPublie={() => setPostsCount(c => c + 1)} />}
 
         {activeTab === 'events' && (<>
